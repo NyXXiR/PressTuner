@@ -1,0 +1,884 @@
+{
+  "version": "agent-improvement-cycle/v1",
+  "cycleId": "press-rag-v1-controlled-replay-2026-08-03",
+  "cycleKind": "controlled_replay",
+  "generatedAt": "2026-08-03T00:00:06.000Z",
+  "source": {
+    "datasetPath": "evals/press-rag/v1/cases.json",
+    "corpusPath": "evals/press-rag/v1/corpus.json",
+    "resultPath": "evals/press-rag/v1/results-2026-07-23.json",
+    "datasetVersion": "press-rag-v1",
+    "corpusVersion": "press-rag-v1",
+    "historicalCollectedAt": "2026-07-23T09:21:12.369Z",
+    "evidenceClassification": "historical_controlled_evaluation"
+  },
+  "lifecycle": [
+    {
+      "stage": "observe",
+      "occurredAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "stage": "triage",
+      "occurredAt": "2026-08-03T00:00:01.000Z"
+    },
+    {
+      "stage": "promote",
+      "occurredAt": "2026-08-03T00:00:02.000Z"
+    },
+    {
+      "stage": "experiment",
+      "occurredAt": "2026-08-03T00:00:03.000Z"
+    },
+    {
+      "stage": "gate",
+      "occurredAt": "2026-08-03T00:00:04.000Z"
+    },
+    {
+      "stage": "human_review",
+      "occurredAt": "2026-08-03T00:00:05.000Z"
+    }
+  ],
+  "configurations": {
+    "baseline": {
+      "id": "press-rag-v1-historical-2026-07-23",
+      "model": "gpt-4.1-mini",
+      "judgeModel": "gpt-4.1-mini",
+      "promptVersion": null,
+      "retrievalVersion": null,
+      "toolsetVersion": null,
+      "configVersion": null,
+      "evidenceClassification": "historically_measured"
+    },
+    "candidate": {
+      "id": "press-rag-v1-controlled-filter-v1",
+      "basedOnConfigurationId": "press-rag-v1-historical-2026-07-23",
+      "transformation": "filter_unsupported_citations_and_ungrounded_claims",
+      "evidenceClassification": "replay_derived",
+      "retrievalRerun": false,
+      "generationRerun": false
+    }
+  },
+  "signals": [
+    {
+      "id": "signal:compare-01:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "compare-01",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 1
+      }
+    },
+    {
+      "id": "signal:compare-04:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "compare-04",
+      "failingItemIndexes": [
+        1
+      ],
+      "citationDocumentIds": [
+        "previous-results"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 2,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:conflict-01:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "conflict-01",
+      "failingItemIndexes": [
+        1,
+        2,
+        4
+      ],
+      "citationDocumentIds": [
+        "investment-memo",
+        "campaign-plan",
+        "event-guide"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 2,
+        "denominator": 5
+      }
+    },
+    {
+      "id": "signal:conflict-05:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "conflict-05",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 1
+      }
+    },
+    {
+      "id": "signal:fact-02:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "fact-02",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 1
+      }
+    },
+    {
+      "id": "signal:fact-04:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "fact-04",
+      "failingItemIndexes": [
+        1,
+        2
+      ],
+      "citationDocumentIds": [
+        "campaign-plan",
+        "product-brief"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:fact-04:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "fact-04",
+      "failingItemIndexes": [
+        0,
+        1
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 2
+      }
+    },
+    {
+      "id": "signal:fact-05:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "fact-05",
+      "failingItemIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "citationDocumentIds": [
+        "org-chart",
+        "hiring-plan",
+        "draft-release",
+        "partner-statement",
+        "campaign-plan"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 5
+      }
+    },
+    {
+      "id": "signal:fact-05:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "fact-05",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 1
+      }
+    },
+    {
+      "id": "signal:multi-01:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "multi-01",
+      "failingItemIndexes": [
+        1
+      ],
+      "citationDocumentIds": [
+        "investment-memo"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 2
+      }
+    },
+    {
+      "id": "signal:multi-01:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "multi-01",
+      "failingItemIndexes": [
+        1
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 2,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:multi-02:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "multi-02",
+      "failingItemIndexes": [
+        1
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 2
+      }
+    },
+    {
+      "id": "signal:multi-03:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "multi-03",
+      "failingItemIndexes": [
+        0,
+        1,
+        2
+      ],
+      "citationDocumentIds": [
+        "campaign-plan",
+        "investment-memo",
+        "product-brief"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:multi-03:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "multi-03",
+      "failingItemIndexes": [
+        0,
+        1,
+        2
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:multi-04:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "multi-04",
+      "failingItemIndexes": [
+        1,
+        2
+      ],
+      "citationDocumentIds": [
+        "campaign-plan",
+        "product-brief"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:multi-04:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "multi-04",
+      "failingItemIndexes": [
+        1,
+        2
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:multi-05:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "multi-05",
+      "failingItemIndexes": [
+        0,
+        2
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:number-02:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "number-02",
+      "failingItemIndexes": [
+        1
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 2
+      }
+    },
+    {
+      "id": "signal:number-03:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "number-03",
+      "failingItemIndexes": [
+        1,
+        2
+      ],
+      "citationDocumentIds": [
+        "quarterly-results",
+        "previous-results"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    },
+    {
+      "id": "signal:number-03:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "number-03",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 2
+      }
+    },
+    {
+      "id": "signal:number-04:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "number-04",
+      "failingItemIndexes": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "citationDocumentIds": [
+        "product-brief",
+        "campaign-plan",
+        "investment-memo",
+        "partner-statement"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 1,
+        "denominator": 5
+      }
+    },
+    {
+      "id": "signal:number-04:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "number-04",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 1
+      }
+    },
+    {
+      "id": "signal:number-05:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "number-05",
+      "failingItemIndexes": [
+        0,
+        1
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 2
+      }
+    },
+    {
+      "id": "signal:unknown-03:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "unknown-03",
+      "failingItemIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "citationDocumentIds": [
+        "market-research",
+        "previous-results",
+        "quarterly-results",
+        "investment-memo",
+        "product-brief"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 5
+      }
+    },
+    {
+      "id": "signal:unknown-04:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "unknown-04",
+      "failingItemIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "citationDocumentIds": [
+        "product-brief",
+        "partnership-contract",
+        "partner-statement",
+        "launch-faq",
+        "service-metrics",
+        "legacy-service",
+        "market-research",
+        "investment-memo",
+        "hiring-plan"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 9
+      }
+    },
+    {
+      "id": "signal:unknown-05:unsupported-citation",
+      "category": "unsupported_citation",
+      "caseId": "unknown-05",
+      "failingItemIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "citationDocumentIds": [
+        "investment-memo",
+        "event-guide",
+        "product-brief",
+        "quarterly-results",
+        "market-research",
+        "service-metrics",
+        "previous-results",
+        "draft-release",
+        "campaign-plan",
+        "hiring-plan"
+      ],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "citation_precision",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 10
+      }
+    },
+    {
+      "id": "signal:unknown-05:ungrounded-claim",
+      "category": "ungrounded_claim",
+      "caseId": "unknown-05",
+      "failingItemIndexes": [
+        0
+      ],
+      "citationDocumentIds": [],
+      "sourceArtifactPath": "evals/press-rag/v1/results-2026-07-23.json",
+      "metricName": "grounded_claim_rate",
+      "baseline": {
+        "numerator": 0,
+        "denominator": 1
+      }
+    }
+  ],
+  "regressionCandidates": [
+    {
+      "id": "regression:compare-01",
+      "caseId": "compare-01",
+      "sourceSignalIds": [
+        "signal:compare-01:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:compare-04",
+      "caseId": "compare-04",
+      "sourceSignalIds": [
+        "signal:compare-04:unsupported-citation"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported"
+      ]
+    },
+    {
+      "id": "regression:conflict-01",
+      "caseId": "conflict-01",
+      "sourceSignalIds": [
+        "signal:conflict-01:unsupported-citation"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported"
+      ]
+    },
+    {
+      "id": "regression:conflict-05",
+      "caseId": "conflict-05",
+      "sourceSignalIds": [
+        "signal:conflict-05:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:fact-02",
+      "caseId": "fact-02",
+      "sourceSignalIds": [
+        "signal:fact-02:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:fact-04",
+      "caseId": "fact-04",
+      "sourceSignalIds": [
+        "signal:fact-04:unsupported-citation",
+        "signal:fact-04:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:fact-05",
+      "caseId": "fact-05",
+      "sourceSignalIds": [
+        "signal:fact-05:unsupported-citation",
+        "signal:fact-05:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:multi-01",
+      "caseId": "multi-01",
+      "sourceSignalIds": [
+        "signal:multi-01:unsupported-citation",
+        "signal:multi-01:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:multi-02",
+      "caseId": "multi-02",
+      "sourceSignalIds": [
+        "signal:multi-02:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:multi-03",
+      "caseId": "multi-03",
+      "sourceSignalIds": [
+        "signal:multi-03:unsupported-citation",
+        "signal:multi-03:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:multi-04",
+      "caseId": "multi-04",
+      "sourceSignalIds": [
+        "signal:multi-04:unsupported-citation",
+        "signal:multi-04:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:multi-05",
+      "caseId": "multi-05",
+      "sourceSignalIds": [
+        "signal:multi-05:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:number-02",
+      "caseId": "number-02",
+      "sourceSignalIds": [
+        "signal:number-02:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:number-03",
+      "caseId": "number-03",
+      "sourceSignalIds": [
+        "signal:number-03:unsupported-citation",
+        "signal:number-03:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:number-04",
+      "caseId": "number-04",
+      "sourceSignalIds": [
+        "signal:number-04:unsupported-citation",
+        "signal:number-04:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:number-05",
+      "caseId": "number-05",
+      "sourceSignalIds": [
+        "signal:number-05:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_claims_grounded"
+      ]
+    },
+    {
+      "id": "regression:unknown-03",
+      "caseId": "unknown-03",
+      "sourceSignalIds": [
+        "signal:unknown-03:unsupported-citation"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported"
+      ]
+    },
+    {
+      "id": "regression:unknown-04",
+      "caseId": "unknown-04",
+      "sourceSignalIds": [
+        "signal:unknown-04:unsupported-citation"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported"
+      ]
+    },
+    {
+      "id": "regression:unknown-05",
+      "caseId": "unknown-05",
+      "sourceSignalIds": [
+        "signal:unknown-05:unsupported-citation",
+        "signal:unknown-05:ungrounded-claim"
+      ],
+      "expectedChecks": [
+        "all_emitted_citations_supported",
+        "all_emitted_claims_grounded"
+      ]
+    }
+  ],
+  "comparison": {
+    "citationPrecision": {
+      "baseline": {
+        "numerator": 31,
+        "denominator": 78,
+        "rate": 0.3974358974358974
+      },
+      "candidate": {
+        "numerator": 31,
+        "denominator": 31,
+        "rate": 1
+      },
+      "delta": 0.6025641025641026
+    },
+    "groundedClaimRate": {
+      "baseline": {
+        "numerator": 20,
+        "denominator": 41,
+        "rate": 0.4878048780487805
+      },
+      "candidate": {
+        "numerator": 20,
+        "denominator": 20,
+        "rate": 1
+      },
+      "delta": 0.5121951219512195
+    },
+    "citationRetention": {
+      "retained": 31,
+      "baseline": 78,
+      "rate": 0.3974358974358974
+    },
+    "claimRetention": {
+      "retained": 20,
+      "baseline": 41,
+      "rate": 0.4878048780487805
+    },
+    "tradeOffs": {
+      "removedCitations": 47,
+      "removedClaims": 21
+    },
+    "cost": {
+      "baselineMicros": 36079,
+      "candidateMicros": 36079,
+      "deltaMicros": 0,
+      "increaseRate": 0,
+      "candidateEvidence": "reused_baseline"
+    }
+  },
+  "gatePolicy": {
+    "version": "controlled-replay-demo-policy/v1",
+    "classification": "demo_policy",
+    "minimumCitationPrecisionDelta": 0,
+    "minimumGroundedClaimRateDelta": 0,
+    "minimumCitationRetention": 0.8,
+    "minimumClaimRetention": 0.8,
+    "maximumIndependentlyMeasuredCostIncrease": 0.1
+  },
+  "gate": {
+    "policyVersion": "controlled-replay-demo-policy/v1",
+    "checks": [
+      {
+        "check": "citation_quality",
+        "status": "PASS",
+        "observed": 0.6025641025641026,
+        "threshold": 0,
+        "reason": "Candidate citation-precision delta versus baseline."
+      },
+      {
+        "check": "grounding_quality",
+        "status": "PASS",
+        "observed": 0.5121951219512195,
+        "threshold": 0,
+        "reason": "Candidate grounded-claim-rate delta versus baseline."
+      },
+      {
+        "check": "citation_retention",
+        "status": "FAIL",
+        "observed": 0.3974358974358974,
+        "threshold": 0.8,
+        "reason": "Candidate must retain enough emitted citations."
+      },
+      {
+        "check": "claim_retention",
+        "status": "FAIL",
+        "observed": 0.4878048780487805,
+        "threshold": 0.8,
+        "reason": "Candidate must retain enough emitted claims."
+      },
+      {
+        "check": "cost_increase",
+        "status": "NOT_EVALUABLE",
+        "observed": null,
+        "threshold": 0.1,
+        "reason": "Replay reuses historical baseline cost; candidate cost was not independently measured."
+      }
+    ],
+    "automatedDisposition": "REVIEW_REQUIRED",
+    "deploymentAuthorized": false
+  },
+  "humanReview": {
+    "state": "PENDING",
+    "reviewer": null,
+    "decision": null,
+    "decidedAt": null,
+    "notes": null
+  },
+  "deploymentAuthorized": false
+}

@@ -1,0 +1,15 @@
+{
+  "id": "cfg_da8f5cd73eb9f76688184c96ed45e494dbed5ce86b61ce19f5e19ad2360ee591",
+  "contentHash": "da8f5cd73eb9f76688184c96ed45e494dbed5ce86b61ce19f5e19ad2360ee591",
+  "identity": {
+    "model": { "version": "gpt-4.1-mini" },
+    "prompt": { "version": "press-agent-prompt/v2" },
+    "embedding": { "version": "text-embedding-3-small" },
+    "chunking": { "version": "semantic-chunks/v1" },
+    "retrieval": { "version": "hybrid-team-scoped/v1" },
+    "reranking": { "version": "rrf-domain/v2" },
+    "toolset": { "version": "press-agent-tools/v2" },
+    "runtimePolicy": { "version": "press-runtime/v2" },
+    "evaluator": { "version": "deterministic-evaluator/v1" }
+  }
+}

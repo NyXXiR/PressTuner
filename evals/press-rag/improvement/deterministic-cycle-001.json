@@ -1,0 +1,13 @@
+{
+  "version": "agent-improvement-history/v2",
+  "cycleId": "deterministic-cycle-001",
+  "sequence": 1,
+  "createdAt": "2026-08-03T00:00:00.000Z",
+  "datasetId": "press-rag-v3",
+  "regressionDatasetFromCycleId": null,
+  "configurationDiff": { "transformation": { "from": "none", "to": "delete unsupported output" } },
+  "disposition": "REJECT",
+  "reasons": ["citation retention failed", "claim retention failed", "candidate cost is NOT_EVALUABLE"],
+  "humanReview": "REJECTED",
+  "deploymentAuthorized": false
+}

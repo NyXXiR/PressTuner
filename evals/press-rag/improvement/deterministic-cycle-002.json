@@ -1,0 +1,13 @@
+{
+  "version": "agent-improvement-history/v2",
+  "cycleId": "deterministic-cycle-002",
+  "sequence": 2,
+  "createdAt": "2026-08-03T01:00:00.000Z",
+  "datasetId": "press-rag-v3.1",
+  "regressionDatasetFromCycleId": "deterministic-cycle-001",
+  "configurationDiff": { "prompt": { "from": "v1", "to": "v2" }, "runtimePolicy": { "from": "v1", "to": "v2" } },
+  "disposition": "PROMOTE",
+  "reasons": ["mandatory synthetic quality, cost, latency, recovery, and verification gates passed", "explicit controlled human review approved the configuration record"],
+  "humanReview": "APPROVED",
+  "deploymentAuthorized": false
+}

@@ -1,0 +1,2507 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// [ENUMS]
+// ---------------------------------------------------------
+
+// ✅ [NEW] 플랜 카테고리 (트랙 구분용)
+enum PlanCategory {
+  PRESS // 보도자료/홍보 전용 (기존 유저 마이그레이션 대상)
+  CAREER // 취준/이직 전용 (신규 타겟)
+  STANDARD // 올인원 (둘 다 제공)
+}
+
+enum ProductLine {
+  PRESS
+  CAREER
+}
+
+enum PlanType {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum UsageAction {
+  GENERATE_ARTICLE // 기사 생성
+  REFINE_ARTICLE // 수정/다듬기
+  TRANSLATE // 번역
+  CHAT // 챗봇 대화
+  ETC // 기타
+
+  // ✅ [NEW] 자소서 스튜디오 액션
+  PARSE_RESUME // 이력서 파일 파싱
+  GENERATE_COVER_LETTER // 자소서 초안 생성
+  POLISH_COVER_LETTER // 자소서 첨삭/윤문
+}
+
+enum QuestionAiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum QuestionAiMessageKind {
+  PROMPT
+  STATUS
+  SUGGESTION
+  APPLY
+  DISCARD
+}
+
+enum ArticleStatus {
+  BRIEF
+  DRAFT
+  IN_PROGRESS
+  DECLINED
+  FINAL
+}
+
+enum ArticleType {
+  PRESS_RELEASE
+  BLOG_POST
+  ANNOUNCEMENT
+  OTHER
+}
+
+enum FeedbackVote {
+  LIKE
+  DISLIKE
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum SignalSource {
+  GENERATION
+  MANUAL_EDIT
+  STATUS_TRANSITION
+  FEEDBACK
+}
+
+enum NotificationType {
+  INVITATION
+  NOTICE
+  INFO
+  LINK
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum SubscriptionPayProvider {
+  INICIS
+  KAKAOPAY
+}
+
+enum TeamBillingHistoryType {
+  PAYMENT
+  CANCEL
+  REFUND
+}
+
+enum TeamBillingHistoryStatus {
+  SUCCESS
+  REQUESTED
+  FAILED
+}
+
+enum CheckoutIntentStatus {
+  OPEN
+  OPENED
+  BILLING_KEY_ISSUED
+  COMPLETED
+  EXPIRED
+  FAILED
+}
+
+enum SubscriptionChangePaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionChangeApplyStatus {
+  PENDING
+  APPLIED
+  FAILED
+  COMPENSATION_PENDING
+  COMPENSATED
+  MANUAL_REVIEW
+}
+
+enum ArticleUsageType {
+  BRIEF
+  GENERATE
+  POLISH
+}
+
+// ✅ [NEW] 브릭 데이터 출처
+enum BrickSource {
+  MANUAL // 직접 입력
+  FILE_PARSE // 파일 파싱
+  AI_EXTRACT // AI 추출
+}
+
+// ✅ [NEW] 지원서 진행 상태
+enum ApplicationStatus {
+  WRITING // 작성 중
+  DONE // 작성 완료
+  SUBMITTED // 제출 완료 (보관용)
+  ARCHIVED // 삭제 대기/보관
+}
+
+enum ResumeStrategyStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+// ✅ [NEW] 첨삭 제안 유형
+enum SuggestionType {
+  SPELLING // 맞춤법
+  LOGIC // 논리/구조
+  DATA_MISSING // 수치/근거 부족
+  KEYWORD // 키워드 강조
+  LENGTH // 분량 조절
+  TONE // 톤앤매너
+}
+
+enum CareerExperienceType {
+  WORK
+  PROJECT
+  EDUCATION
+  ACTIVITY
+  AWARD
+  OTHER
+}
+
+enum CareerExperienceStatus {
+  CONFIRMED
+  NEEDS_REVIEW
+  ARCHIVED
+}
+
+enum CareerSourceStatus {
+  UPLOADED
+  QUEUED
+  PARSING
+  INDEXING
+  EXTRACTING
+  READY
+  FAILED
+}
+
+enum CareerCandidateOrigin {
+  PDF
+  DIRECT_INPUT
+  FINAL_ANSWER
+}
+
+enum CareerCandidateMode {
+  CREATE
+  LINK
+  AUGMENT
+}
+
+enum CareerCandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CareerCaptureStatus {
+  PENDING
+  APPLIED
+  DISMISSED
+  SUPERSEDED
+}
+
+enum CareerCaptureTaskStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  SUPERSEDED
+}
+
+enum CareerFactKind {
+  ORGANIZATION
+  TITLE
+  TYPE
+  START_DATE
+  END_DATE
+  ACTION
+  OUTCOME
+  METRIC
+  TOOL
+  TAG
+  SUMMARY
+}
+
+enum CareerEvidenceOrigin {
+  SOURCE_EXCERPT
+  USER_ASSERTION
+}
+
+enum CareerFactTrustStatus {
+  TRUSTED
+  NEEDS_REVIEW
+}
+
+enum CareerGroundingOperation {
+  GENERATE
+  REVISE
+}
+
+enum CareerVerificationResult {
+  PASS
+  WARN
+  BLOCK
+}
+
+enum CareerFindingType {
+  SUPPORTED
+  CONTRADICTION
+  UNSUPPORTED
+}
+
+enum CareerRiskCategory {
+  NUMBER
+  DATE
+  ORGANIZATION
+  TITLE
+  OTHER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+  EXPIRED
+}
+
+enum NoticeScope {
+  TEAM
+  GLOBAL
+}
+
+enum BillingProvider {
+  TOSS
+  PORTONE
+}
+
+enum BillingWebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  RETRYABLE
+  IGNORED
+}
+
+enum BillingOrderStatus {
+  CREATED
+  PAYMENT_REQUESTED
+  CONFIRMED
+  CREDITED
+  FAILED
+  CANCELED
+}
+
+enum CouponStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum CouponBenefitType {
+  PERCENT
+  FIXED_AMOUNT
+  PLAN_GRANT
+}
+
+enum CouponDuration {
+  ONCE
+  REPEATING
+  FOREVER
+}
+
+enum CouponRedemptionStatus {
+  APPLIED
+  REDEEMED
+  CANCELED
+}
+
+enum ReviewAssignmentStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+  DISMISSED
+}
+
+enum AuthProvider {
+  GOOGLE
+  KAKAO
+  GITHUB
+}
+
+enum KnowledgeDocumentStatus {
+  UPLOADED
+  QUEUED
+  PARSING
+  INDEXING
+  READY
+  FAILED
+}
+
+enum KnowledgeUploadKind {
+  UPLOAD
+  REPLACEMENT
+}
+
+enum KnowledgeChunkRole {
+  FACT
+  STYLE_POLICY
+  STYLE_EXAMPLE
+  IGNORE
+}
+
+enum KnowledgeGenerationStatus {
+  QUEUED
+  PARSING
+  INDEXING
+  READY
+  FAILED
+}
+
+enum KnowledgeClassificationStatus {
+  PENDING
+  CLASSIFYING
+  READY
+  FAILED
+}
+
+enum ArticleEvidenceDecision {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ArticleFactOrigin {
+  RAG
+  USER
+}
+
+enum ArticleVerificationResult {
+  PASS
+  WARN
+  BLOCK
+}
+
+enum ArticleVerificationFindingType {
+  CONTRADICTION
+  UNSUPPORTED
+  OMISSION
+  STYLE_POLICY
+}
+
+enum ArticleVerificationRiskCategory {
+  NUMBER
+  PERIOD
+  DATE
+  PERSON
+  TITLE
+  DIRECT_QUOTE
+  OTHER
+}
+
+enum AgentFeedbackRating {
+  POSITIVE
+  NEGATIVE
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  WAITING_APPROVAL
+  CANCEL_REQUESTED
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+enum AgentStepStatus {
+  PENDING
+  RUNNING
+  WAITING_APPROVAL
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum AgentApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// ---------------------------------------------------------
+// [MODELS]
+// ---------------------------------------------------------
+
+model Team {
+  id   String @id @default(cuid()) @map("id")
+  slug String @unique @map("slug")
+  name String @map("name")
+
+  // --- [Billing & Plan Info] ---
+
+  // 1. 플랜 식별 정보
+  planId String?  @map("plan_id") // SKU (예: 'career_pro_v1', 'basic_monthly_v1')
+  plan   PlanType @default(FREE) @map("plan") // 등급 (BASIC, PRO...)
+
+  // ✅ [NEW] 플랜 카테고리 (트랙)
+  // 기존 유저는 모두 보도자료 유저이므로 default(PRESS)로 마이그레이션(어차피 FREE는 카테고리 크게 상관없음)
+  planCategory PlanCategory @default(PRESS) @map("plan_category")
+
+  // 2. 결제 정보 (스냅샷 & 스케줄링)
+  membershipStatus MembershipStatus         @default(ACTIVE) @map("membership_status")
+  payProvider      SubscriptionPayProvider? @map("pay_provider")
+
+  billingKey    String?   @map("billing_key")
+  nextBillingAt DateTime? @map("next_billing_at")
+
+  // ✅ [NEW] 다음 결제일에 실제로 청구할 금액 (원화 기준)
+  // - 할인, 가격 인상/유지(Grandfathering) 등을 반영한 최종 금액 스냅샷
+  nextPaymentAmount Int? @default(0) @map("next_payment_amount")
+
+  planExpiresAt DateTime? @map("plan_expires_at")
+
+  // 다운그레이드/변경 예약
+  pendingPlanId       String?   @map("pending_plan_id")
+  pendingPlan         PlanType? @map("pending_plan")
+  pendingPlanStartsAt DateTime? @map("pending_plan_starts_at")
+
+  cancelRequestedAt DateTime? @map("cancel_requested_at")
+  lastPaymentId     String?   @map("last_payment_id")
+  lastPaidAt        DateTime? @map("last_paid_at")
+
+  // ------------------------------------------------------------
+  // ✅ [NEW] 쿼터(Limit) 및 사용량(Usage) - 스냅샷 방식
+  // 결제/갱신 시점에 plans.ts의 스펙을 이곳에 '복사'해둡니다.
+  // ------------------------------------------------------------
+
+  // 1. 보도자료 (Article)
+  limitArticleMonthly Int @default(0) @map("limit_article_monthly")
+  usageArticleMonthly Int @default(0) @map("usage_article_monthly")
+
+  // 2. 자소서/이력서 (Resume)
+  limitResumeMonthly Int @default(0) @map("limit_resume_monthly")
+  usageResumeMonthly Int @default(0) @map("usage_resume_monthly")
+
+  // (구 충전식 크레딧 - 레거시 호환용)
+  credits Int @default(0) @map("credits")
+
+  // --- [Settings] ---
+  model                  String  @default("gpt-4.1-mini") @map("model")
+  feedbackEnabled        Boolean @default(true) @map("feedback_enabled")
+  knowledgeCorpusVersion Int     @default(0) @map("knowledge_corpus_version")
+
+  // ✅ 기능 토글 (플랜에 따라 아예 UI를 가릴 때 사용)
+  resumeEnabled Boolean @default(false) @map("resume_enabled")
+
+  // ✅ 팀 권한 정책
+  allowMemberEdit     Boolean @default(false) @map("allow_member_edit")
+  allowMemberFinalize Boolean @default(false) @map("allow_member_finalize")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  productSubscriptions TeamProductSubscription[]
+
+  // Relations
+  examples                  ExampleArticle[]
+  articles                  Article[]
+  feedbacks                 Feedback[]
+  usageLogs                 UsageLog[]
+  feedbackBlocks            FeedbackBlock[]
+  members                   TeamMember[]
+  styleGuides               StyleGuide[]
+  styleGuideDefaults        StyleGuideDefault[]
+  invitations               TeamInvitation[]
+  sessions                  Session[]                  @relation("SessionTeam")
+  notices                   Notice[]
+  notifications             Notification[]
+  billingOrders             BillingOrder[]
+  creditLedgers             CreditLedger[]
+  billingHistories          TeamBillingHistory[]
+  checkoutIntents           CheckoutIntent[]
+  subscriptionChanges       SubscriptionChange[]
+  articleUsageEvents        ArticleUsageEvent[]
+  reviewAssignments         ArticleReviewAssignment[]
+  couponRedemptions         CouponRedemption[]
+  knowledgeDocuments        KnowledgeDocument[]
+  knowledgeChunks           KnowledgeChunk[]
+  knowledgeUploadEvents     KnowledgeUploadEvent[]
+  agentRuns                 AgentRun[]
+  agentRunFeedbacks         AgentRunFeedback[]
+  articleEvidenceCandidates ArticleEvidenceCandidate[]
+  articleFacts              ArticleFact[]
+  articleVerifications      ArticleVerification[]
+  articleFinalCitations     ArticleFinalCitation[]
+
+  // ✅ 자소서 관련 역참조
+  experienceBricks ExperienceBrick[]
+  applications     Application[]
+
+  @@index([plan, membershipStatus])
+  @@index([planExpiresAt])
+  @@index([nextBillingAt])
+  @@map("team")
+}
+
+model TeamProductSubscription {
+  id                  String                   @id @default(cuid()) @map("id")
+  teamId              String                   @map("team_id")
+  product             ProductLine              @map("product")
+  planId              String?                  @map("plan_id")
+  plan                PlanType                 @default(FREE) @map("plan")
+  membershipStatus    MembershipStatus         @default(ACTIVE) @map("membership_status")
+  payProvider         SubscriptionPayProvider? @map("pay_provider")
+  billingKey          String?                  @map("billing_key")
+  nextPaymentAmount   Int                      @default(0) @map("next_payment_amount")
+  nextBillingAt       DateTime?                @map("next_billing_at")
+  planExpiresAt       DateTime?                @map("plan_expires_at")
+  pendingPlanId       String?                  @map("pending_plan_id")
+  pendingPlan         PlanType?                @map("pending_plan")
+  pendingPlanStartsAt DateTime?                @map("pending_plan_starts_at")
+  cancelRequestedAt   DateTime?                @map("cancel_requested_at")
+  lastPaymentId       String?                  @map("last_payment_id")
+  lastPaidAt          DateTime?                @map("last_paid_at")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, product])
+  @@index([product, membershipStatus])
+  @@index([nextBillingAt])
+  @@index([planExpiresAt])
+  @@map("team_product_subscription")
+}
+
+model UsageLog {
+  id String @id @default(cuid()) @map("id")
+
+  teamId String  @map("team_id")
+  userId String? @map("user_id")
+
+  action UsageAction @map("action")
+  model  String      @map("model")
+
+  inputTokens  Int @default(0) @map("input_tokens")
+  outputTokens Int @default(0) @map("output_tokens")
+  totalTokens  Int @default(0) @map("total_tokens")
+
+  cost Int @map("cost")
+
+  targetId String? @map("target_id")
+  meta     Json?   @map("meta")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([teamId, createdAt])
+  @@map("usage_log")
+}
+
+model AiQuotaOverride {
+  id              String   @id @default(cuid()) @map("id")
+  key             String   @unique @map("key")
+  kind            String   @map("kind")
+  planId          String?  @map("plan_id")
+  surface         String?  @map("surface")
+  action          String?  @map("action")
+  windowKey       String?  @map("window_key")
+  limitUnits      Int?     @map("limit_units")
+  actionUnits     Int?     @map("action_units")
+  enabled         Boolean  @default(true) @map("enabled")
+  note            String?  @map("note")
+  updatedByUserId String?  @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([kind, planId, surface])
+  @@index([kind, action])
+  @@map("ai_quota_override")
+}
+
+model User {
+  id String @id @default(cuid()) @map("id")
+
+  loginId  String  @unique @map("login_id")
+  label    String  @map("label")
+  email    String? @unique @map("email")
+  password String? @map("password")
+
+  avatarUrl         String?   @map("avatar_url")
+  isActive          Boolean   @default(true) @map("is_active")
+  lastLoginAt       DateTime? @map("last_login_at")
+  deleteScheduledAt DateTime? @map("delete_scheduled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  careerMemoryVersion Int @default(0) @map("career_memory_version")
+
+  // Relations
+  articles                   Article[]
+  feedbacks                  Feedback[]
+  usageLogs                  UsageLog[]
+  feedbackBlocks             FeedbackBlock[]
+  memberships                TeamMember[]
+  invitationsSent            TeamInvitation[]          @relation("Inviter")
+  invitationsReceived        TeamInvitation[]          @relation("Invitee")
+  oauthAccounts              OAuthAccount[]
+  sessions                   Session[]
+  createdNotices             Notice[]                  @relation("NoticeCreatedBy")
+  notificationsReceived      Notification[]            @relation("NotificationToUser")
+  readNotifications          NotificationRead[]
+  billingOrders              BillingOrder[]
+  billingHistories           TeamBillingHistory[]
+  checkoutIntents            CheckoutIntent[]
+  articleUsageEvents         ArticleUsageEvent[]
+  reviewAssignmentsReceived  ArticleReviewAssignment[] @relation("ReviewAssignee")
+  reviewAssignmentsGiven     ArticleReviewAssignment[] @relation("ReviewAssignedBy")
+  activities                 UserArticleActivity[]
+  couponRedemptions          CouponRedemption[]
+  uploadedKnowledgeDocuments KnowledgeDocument[]       @relation("KnowledgeDocumentUploader")
+  knowledgeUploadEvents      KnowledgeUploadEvent[]
+  startedAgentRuns           AgentRun[]                @relation("AgentRunStartedBy")
+  agentRunFeedbacks          AgentRunFeedback[]
+  requestedAgentApprovals    AgentApproval[]           @relation("AgentApprovalRequestedBy")
+  decidedAgentApprovals      AgentApproval[]           @relation("AgentApprovalDecidedBy")
+
+  // ✅ 자소서 관련 역참조
+  experienceBricks              ExperienceBrick[]
+  applications                  Application[]
+  careerSources                 CareerSource[]
+  careerCandidates              CareerExperienceCandidate[]    @relation("CareerCandidateOwner")
+  reviewedCareerCandidates      CareerExperienceCandidate[]    @relation("CareerCandidateReviewer")
+  careerCaptureProposals        CareerCaptureProposal[]
+  careerFinalAnswerCaptureTasks CareerFinalAnswerCaptureTask[]
+  careerFacts                   CareerFact[]
+  careerGroundings              CareerAnswerGrounding[]
+  careerVerifications           CareerAnswerVerification[]
+  careerVerificationOverrides   CareerVerificationOverride[]
+
+  @@index([label])
+  @@map("user")
+}
+
+model Article {
+  id     String  @id @default(cuid()) @map("id")
+  teamId String? @map("team_id")
+  userId String? @map("user_id")
+
+  status ArticleStatus @default(BRIEF) @map("status")
+  type   ArticleType   @default(PRESS_RELEASE) @map("type")
+
+  title            String  @map("title")
+  bodyJson         Json?   @map("body_json")
+  lastPolishResult Json?   @map("last_polish_result")
+  rawInput         String? @map("raw_input")
+  refinementQna    Json?   @map("refinement_qna")
+
+  styleScore   Int?    @map("style_score")
+  styleSummary String? @map("style_summary")
+
+  styleGuideId String? @map("style_guide_id")
+
+  isShared   Boolean @default(false) @map("is_shared") // 공유 활성화 여부
+  shareToken String? @unique @map("share_token") // 공유용 고유 토큰 (UUID or NanoID)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  styleGuide         StyleGuide?                @relation(fields: [styleGuideId], references: [id], onDelete: SetNull)
+  team               Team?                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user               User?                      @relation(fields: [userId], references: [id])
+  feedbacks          Feedback[]
+  blogExtra          BlogExtra?                 @relation("Article_BlogExtra")
+  resumeExtra        ResumeExtra?               @relation("Article_ResumeExtra")
+  pressExtra         PressExtra?                @relation("Article_PressExtra")
+  styleSignals       StyleSignal[]
+  usageStat          ArticleUsageStat?
+  usageEvents        ArticleUsageEvent[]
+  reviewAssignments  ArticleReviewAssignment[]
+  activities         UserArticleActivity[]
+  agentRuns          AgentRun[]
+  groundingState     ArticleGroundingState?
+  evidenceCandidates ArticleEvidenceCandidate[]
+  facts              ArticleFact[]
+  draftEvidence      ArticleDraftEvidence[]
+  verifications      ArticleVerification[]
+  finalCitations     ArticleFinalCitation[]
+
+  @@index([teamId, status, createdAt])
+  @@index([styleGuideId])
+  @@map("article")
+}
+
+model ExampleArticle {
+  id        String   @id @default(cuid()) @map("id")
+  teamId    String   @map("team_id")
+  title     String   @map("title")
+  body      String   @map("body")
+  source    String   @default("generated") @map("source")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@map("example_article")
+}
+
+model Feedback {
+  id        String       @id @default(cuid()) @map("id")
+  teamId    String       @map("team_id")
+  articleId String       @map("article_id")
+  userId    String?      @map("user_id")
+  vote      FeedbackVote @map("vote")
+  comment   String?      @map("comment")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([articleId, createdAt])
+  @@map("feedback")
+}
+
+model FeedbackBlock {
+  id        String   @id @default(cuid()) @map("id")
+  teamId    String   @map("team_id")
+  userId    String   @map("user_id")
+  reason    String?  @map("reason")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+  @@map("feedback_block")
+}
+
+model TeamMember {
+  teamId    String   @map("team_id")
+  userId    String   @map("user_id")
+  role      TeamRole @default(MEMBER) @map("role")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([teamId, userId])
+  @@map("team_member")
+}
+
+// --- Subtype Extras ---
+
+model BlogExtra {
+  articleId String   @id @map("article_id")
+  summary   String?  @map("summary")
+  tags      String[] @map("tags")
+  coverUrl  String?  @map("cover_url")
+  article   Article  @relation("Article_BlogExtra", fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("blog_extra")
+}
+
+model ResumeExtra {
+  articleId String  @id @map("article_id")
+  headline  String? @map("headline")
+  sections  Json?   @map("sections")
+  qaDrafts  Json?   @map("qa_drafts")
+  meta      Json?   @map("meta")
+  article   Article @relation("Article_ResumeExtra", fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("resume_extra")
+}
+
+model PressExtra {
+  articleId String  @id @map("article_id")
+  lead      String? @map("lead")
+  fact      String? @map("fact")
+  article   Article @relation("Article_PressExtra", fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("press_extra")
+}
+
+// --- Style system ---
+
+model StyleGuide {
+  id                 String  @id @default(cuid())
+  teamId             String  @map("team_id")
+  name               String  @map("name")
+  description        String? @map("description")
+  isArchived         Boolean @default(false) @map("is_archived")
+  isDefault          Boolean @default(false) @map("is_default")
+  basePrompt         String? @map("base_prompt") @db.Text
+  config             Json?   @map("config")
+  pendingSignalCount Int     @default(0) @map("pending_signal_count")
+  isCompiling        Boolean @default(false) @map("is_compiling")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  team     Team                @relation(fields: [teamId], references: [id])
+  compiled GuideCompiled?
+  signals  StyleSignal[]
+  articles Article[]
+  defaults StyleGuideDefault[]
+
+  @@index([teamId, isDefault])
+  @@map("style_guide")
+}
+
+model StyleGuideDefault {
+  id      String      @id @default(cuid())
+  teamId  String      @map("team_id")
+  type    ArticleType @map("type")
+  guideId String      @map("guide_id")
+
+  team  Team       @relation(fields: [teamId], references: [id])
+  guide StyleGuide @relation(fields: [guideId], references: [id])
+
+  @@unique([teamId, type])
+  @@map("style_guide_default")
+}
+
+model StyleSignal {
+  id        String       @id @default(cuid())
+  guideId   String       @map("guide_id")
+  articleId String?      @map("article_id")
+  source    SignalSource @map("source")
+  weight    Float        @default(1.0) @map("weight")
+  payload   Json         @map("payload")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  guide   StyleGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  article Article?   @relation(fields: [articleId], references: [id], onDelete: SetNull)
+
+  @@index([guideId, createdAt])
+  @@index([articleId])
+  @@map("style_signal")
+}
+
+model GuideCompiled {
+  id                 String    @id @default(cuid())
+  guideId            String    @unique @map("guide_id")
+  rulesJson          Json      @map("rules_json")
+  version            Int       @default(1) @map("version")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  lastSlowCompiledAt DateTime? @map("last_slow_compiled_at")
+
+  guide StyleGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@map("guide_compiled")
+}
+
+// --- OAuth & Session ---
+
+model OAuthAccount {
+  id                String       @id @default(cuid())
+  provider          AuthProvider
+  providerAccountId String
+  userId            String
+  email             String?
+  profileJson       Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@unique([provider, userId])
+  @@index([userId])
+  @@map("oauth_account")
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  userId        String
+  currentTeamId String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team? @relation("SessionTeam", fields: [currentTeamId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([currentTeamId])
+  @@map("session")
+}
+
+// --- Team Invitation & Notice ---
+
+model TeamInvitation {
+  id            String           @id @default(cuid())
+  teamId        String
+  inviterId     String
+  inviteeUserId String?
+  inviteeLabel  String?
+  status        InvitationStatus @default(PENDING)
+  message       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter      User          @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee      User?         @relation("Invitee", fields: [inviteeUserId], references: [id], onDelete: SetNull)
+  notification Notification?
+
+  @@index([teamId, status, createdAt])
+  @@index([inviteeUserId, status])
+  @@map("team_invitation")
+}
+
+model Notice {
+  id                 String      @id @default(cuid()) @map("id")
+  teamId             String?     @map("team_id")
+  scope              NoticeScope @default(TEAM) @map("scope")
+  title              String      @map("title")
+  content            String      @map("content") @db.Text
+  sendAsNotification Boolean     @default(false) @map("send_as_notification")
+  isDraft            Boolean     @default(false) @map("is_draft")
+  createdById        String?     @map("created_by_id")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  team         Team?         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("NoticeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  notification Notification?
+
+  @@index([scope, createdAt])
+  @@index([teamId, createdAt])
+  @@map("notice")
+}
+
+model Notification {
+  id           String           @id @default(cuid()) @map("id")
+  type         NotificationType @map("type")
+  teamId       String?          @map("team_id")
+  userId       String?          @map("user_id")
+  title        String           @map("title")
+  body         String?          @map("body") @db.Text
+  href         String?          @map("href")
+  bannerText   String?          @map("banner_text")
+  isActive     Boolean          @default(true) @map("is_active")
+  noticeId     String?          @unique @map("notice_id")
+  invitationId String?          @unique @map("invitation_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  team       Team?              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user       User?              @relation("NotificationToUser", fields: [userId], references: [id], onDelete: Cascade)
+  notice     Notice?            @relation(fields: [noticeId], references: [id], onDelete: SetNull)
+  invitation TeamInvitation?    @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+  reads      NotificationRead[]
+
+  @@index([userId, isActive, createdAt])
+  @@index([teamId, isActive, createdAt])
+  @@index([type, createdAt])
+  @@map("notification")
+}
+
+model NotificationRead {
+  id             String   @id @default(cuid()) @map("id")
+  notificationId String   @map("notification_id")
+  userId         String   @map("user_id")
+  readAt         DateTime @default(now()) @map("read_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+  @@map("notification_read")
+}
+
+// --- Billing ---
+
+model BillingOrder {
+  id         String             @id @default(cuid()) @map("id")
+  provider   BillingProvider    @default(TOSS) @map("provider")
+  orderId    String             @unique @map("order_id")
+  teamId     String             @map("team_id")
+  userId     String?            @map("user_id")
+  amount     Int                @map("amount")
+  credits    Int                @map("credits")
+  status     BillingOrderStatus @default(CREATED) @map("status")
+  paymentKey String?            @map("payment_key")
+  meta       Json?              @map("meta")
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  team              Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user              User?              @relation(fields: [userId], references: [id])
+  creditLedger      CreditLedger?
+  couponRedemptions CouponRedemption[]
+
+  @@index([teamId, createdAt])
+  @@map("billing_order")
+}
+
+model Coupon {
+  id          String  @id @default(cuid()) @map("id")
+  code        String  @unique @map("code")
+  name        String  @map("name")
+  description String? @map("description")
+
+  status      CouponStatus      @default(ACTIVE) @map("status")
+  benefitType CouponBenefitType @map("benefit_type")
+
+  // Discount benefit
+  discountPercent        Int?            @map("discount_percent")
+  discountAmount         Int?            @map("discount_amount")
+  discountDuration       CouponDuration? @map("discount_duration")
+  discountDurationMonths Int?            @map("discount_duration_months")
+
+  // Plan grant benefit (e.g., 1 month PRO)
+  grantPlanId       String?       @map("grant_plan_id")
+  grantPlanType     PlanType?     @map("grant_plan_type")
+  grantPlanCategory PlanCategory? @map("grant_plan_category")
+  grantMonths       Int?          @map("grant_months")
+
+  // Eligibility / constraints
+  applicablePlanIds        String[]       @default([]) @map("applicable_plan_ids")
+  applicablePlanTypes      PlanType[]     @default([]) @map("applicable_plan_types")
+  applicablePlanCategories PlanCategory[] @default([]) @map("applicable_plan_categories")
+  minAmount                Int?           @map("min_amount")
+  maxRedemptions           Int?           @map("max_redemptions")
+  maxRedemptionsPerUser    Int?           @map("max_redemptions_per_user")
+  validFrom                DateTime?      @map("valid_from")
+  validTo                  DateTime?      @map("valid_to")
+
+  meta      Json?    @map("meta")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  redemptions CouponRedemption[]
+
+  @@index([status, validFrom, validTo])
+  @@map("coupon")
+}
+
+model CouponRedemption {
+  id             String  @id @default(cuid()) @map("id")
+  couponId       String  @map("coupon_id")
+  userId         String? @map("user_id")
+  teamId         String? @map("team_id")
+  billingOrderId String? @map("billing_order_id")
+
+  status         CouponRedemptionStatus @default(APPLIED) @map("status")
+  product        ProductLine?           @map("product")
+  subscriptionId String?                @map("subscription_id")
+  beforePlanId   String?                @map("before_plan_id")
+  afterPlanId    String?                @map("after_plan_id")
+  beforeStatus   MembershipStatus?      @map("before_status")
+  afterStatus    MembershipStatus?      @map("after_status")
+  discountAmount Int?                   @map("discount_amount")
+  appliedAt      DateTime               @default(now()) @map("applied_at")
+  redeemedAt     DateTime?              @map("redeemed_at")
+  canceledAt     DateTime?              @map("canceled_at")
+  meta           Json?                  @map("meta")
+
+  coupon       Coupon        @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  team         Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  billingOrder BillingOrder? @relation(fields: [billingOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([couponId, userId])
+  @@index([couponId, appliedAt])
+  @@index([userId, appliedAt])
+  @@index([teamId, appliedAt])
+  @@index([teamId, product, appliedAt])
+  @@index([subscriptionId, appliedAt])
+  @@index([billingOrderId])
+  @@map("coupon_redemption")
+}
+
+model CreditLedger {
+  id             String   @id @default(cuid()) @map("id")
+  teamId         String   @map("team_id")
+  billingOrderId String   @unique @map("billing_order_id")
+  delta          Int      @map("delta")
+  reason         String   @map("reason")
+  meta           Json?    @map("meta")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  team  Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  order BillingOrder @relation(fields: [billingOrderId], references: [id])
+
+  @@index([teamId, createdAt])
+  @@map("credit_ledger")
+}
+
+model BillingWebhookEvent {
+  id              String                         @id @default(cuid()) @map("id")
+  provider        BillingProvider                @default(TOSS) @map("provider")
+  transmissionId  String                         @unique @map("transmission_id")
+  eventType       String                         @map("event_type")
+  payload         Json                           @map("payload")
+  status          BillingWebhookProcessingStatus @default(RECEIVED) @map("status")
+  attempts        Int                            @default(0) @map("attempts")
+  lastError       String?                        @map("last_error")
+  nextRetryAt     DateTime?                      @map("next_retry_at")
+  lockedAt        DateTime?                      @map("locked_at")
+  processedAt     DateTime?                      @map("processed_at")
+  eventOccurredAt DateTime?                      @map("event_occurred_at")
+  paymentId       String?                        @map("payment_id")
+  teamId          String?                        @map("team_id")
+  product         ProductLine?                   @map("product")
+  subscriptionId  String?                        @map("subscription_id")
+  receivedAt      DateTime                       @default(now()) @map("received_at")
+  updatedAt       DateTime                       @updatedAt @map("updated_at")
+
+  @@index([eventType, receivedAt])
+  @@index([status, nextRetryAt])
+  @@index([paymentId, eventOccurredAt])
+  @@map("billing_webhook_event")
+}
+
+model TeamBillingHistory {
+  id             String                   @id @default(cuid()) @map("id")
+  teamId         String                   @map("team_id")
+  userId         String?                  @map("user_id")
+  type           TeamBillingHistoryType   @map("type")
+  status         TeamBillingHistoryStatus @default(SUCCESS) @map("status")
+  provider       SubscriptionPayProvider? @map("provider")
+  plan           PlanType?                @map("plan")
+  planId         String?                  @map("plan_id")
+  product        ProductLine?             @map("product")
+  subscriptionId String?                  @map("subscription_id")
+  beforePlanId   String?                  @map("before_plan_id")
+  afterPlanId    String?                  @map("after_plan_id")
+  beforeStatus   MembershipStatus?        @map("before_status")
+  afterStatus    MembershipStatus?        @map("after_status")
+  amount         Int?                     @map("amount")
+  currency       String                   @default("KRW") @map("currency")
+  externalId     String?                  @unique @map("external_id")
+  receiptUrl     String?                  @map("receipt_url")
+  meta           Json?                    @map("meta")
+  occurredAt     DateTime                 @default(now()) @map("occurred_at")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, occurredAt])
+  @@index([teamId, product, occurredAt])
+  @@index([subscriptionId, occurredAt])
+  @@index([externalId])
+  @@map("team_billing_history")
+}
+
+model CheckoutIntent {
+  id                 String                  @id @default(cuid()) @map("id")
+  tokenHash          String                  @unique @map("token_hash")
+  teamId             String                  @map("team_id")
+  userId             String                  @map("user_id")
+  planId             String                  @map("plan_id")
+  payProvider        SubscriptionPayProvider @map("pay_provider")
+  couponCode         String?                 @map("coupon_code")
+  attemptId          String                  @map("attempt_id")
+  status             CheckoutIntentStatus    @default(OPEN) @map("status")
+  lastError          String?                 @map("last_error")
+  openedAt           DateTime?               @map("opened_at")
+  billingKeyIssuedAt DateTime?               @map("billing_key_issued_at")
+  completedAt        DateTime?               @map("completed_at")
+  expiresAt          DateTime                @map("expires_at")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+  @@map("checkout_intent")
+}
+
+model SubscriptionChange {
+  id                 String                          @id @default(cuid()) @map("id")
+  teamId             String                          @map("team_id")
+  product            ProductLine                     @map("product")
+  subscriptionId     String?                         @map("subscription_id")
+  changeType         String                          @map("change_type")
+  targetPlanId       String                          @map("target_plan_id")
+  idempotencyKey     String                          @unique @map("idempotency_key")
+  externalPaymentId  String?                         @unique @map("external_payment_id")
+  requesterUserId    String?                         @map("requester_user_id")
+  payProvider        SubscriptionPayProvider?        @map("pay_provider")
+  paymentMethodRef   String?                         @map("payment_method_ref")
+  paymentConfirmedAt DateTime?                       @map("payment_confirmed_at")
+  paymentStatus      SubscriptionChangePaymentStatus @map("payment_status")
+  applyStatus        SubscriptionChangeApplyStatus   @default(PENDING) @map("apply_status")
+  priceSnapshot      Json                            @map("price_snapshot")
+  lastError          String?                         @map("last_error")
+  retryCount         Int                             @default(0) @map("retry_count")
+  nextRetryAt        DateTime?                       @map("next_retry_at")
+  createdAt          DateTime                        @default(now()) @map("created_at")
+  updatedAt          DateTime                        @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, product, createdAt])
+  @@index([paymentStatus, applyStatus, nextRetryAt])
+  @@map("subscription_change")
+}
+
+// --- Article Stats & Review ---
+
+model ArticleUsageStat {
+  articleId       String    @id @map("article_id")
+  teamId          String?   @map("team_id")
+  briefUsed       Int       @default(0) @map("brief_used")
+  generateUsed    Int       @default(0) @map("generate_used")
+  polishUsed      Int       @default(0) @map("polish_used")
+  polishSessionId String?   @map("polish_session_id")
+  rePolishCount   Int       @default(0) @map("re_polish_count")
+  lastBriefAt     DateTime? @map("last_brief_at")
+  lastPolishAt    DateTime? @map("last_polish_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, articleId])
+  @@map("article_usage_stat")
+}
+
+model ArticleUsageEvent {
+  id        String           @id @default(cuid()) @map("id")
+  articleId String           @map("article_id")
+  teamId    String?          @map("team_id")
+  userId    String?          @map("user_id")
+  type      ArticleUsageType @map("type")
+  meta      Json?            @map("meta")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  team    Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([articleId, createdAt])
+  @@index([type, createdAt])
+  @@map("article_usage_event")
+}
+
+model ArticleReviewAssignment {
+  id           String                 @id @default(cuid()) @map("id")
+  articleId    String                 @map("article_id")
+  teamId       String                 @map("team_id")
+  reviewerId   String                 @map("reviewer_id")
+  assignedById String?                @map("assigned_by_id")
+  status       ReviewAssignmentStatus @default(PENDING) @map("status")
+  note         String?                @map("note") @db.Text
+  decidedAt    DateTime?              @map("decided_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  article    Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  team       Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  reviewer   User    @relation("ReviewAssignee", fields: [reviewerId], references: [id], onDelete: Cascade)
+  assignedBy User?   @relation("ReviewAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([articleId, reviewerId])
+  @@index([reviewerId, status, createdAt])
+  @@index([teamId, status, createdAt])
+  @@index([articleId, status])
+  @@map("article_review_assignment")
+}
+
+model UserArticleActivity {
+  id        String   @id @default(cuid()) @map("id")
+  userId    String   @map("user_id")
+  articleId String   @map("article_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId, updatedAt])
+  @@map("user_article_activity")
+}
+
+// ---------------------------------------------------------
+// ✅ [NEW] Resume & Cover Letter Studio Models
+// ---------------------------------------------------------
+
+// 1. 경험 브릭 (Experience Brick)
+model ExperienceBrick {
+  id     String  @id @default(cuid()) @map("id")
+  userId String  @map("user_id")
+  teamId String? @map("team_id") // 팀 공용 브릭일 경우 사용
+
+  title                String                       @map("title")
+  content              String                       @map("content") @db.Text
+  originalText         String?                      @map("original_text") @db.Text
+  period               String?                      @map("period")
+  startDate            DateTime?                    @map("start_date")
+  tags                 String[]                     @map("tags")
+  source               BrickSource                  @default(MANUAL) @map("source")
+  organization         String?                      @map("organization")
+  roleTitle            String?                      @map("role_title")
+  experienceType       CareerExperienceType         @default(OTHER) @map("experience_type")
+  endDate              DateTime?                    @map("end_date")
+  isCurrent            Boolean                      @default(false) @map("is_current")
+  actions              String[]                     @default([]) @map("actions")
+  outcomes             String[]                     @default([]) @map("outcomes")
+  metrics              String[]                     @default([]) @map("metrics")
+  tools                String[]                     @default([]) @map("tools")
+  memoryStatus         CareerExperienceStatus       @default(CONFIRMED) @map("memory_status")
+  confirmedAt          DateTime?                    @map("confirmed_at")
+  confirmedByUserId    String?                      @map("confirmed_by_user_id")
+  embedding            Unsupported("vector(1536)")?
+  embeddingContentHash String?                      @map("embedding_content_hash")
+  embeddingModel       String?                      @map("embedding_model")
+  embeddedAt           DateTime?                    @map("embedded_at")
+  embeddingRevision    Int                          @default(0) @map("embedding_revision")
+  embeddedRevision     Int?                         @map("embedded_revision")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  usedInQuestions  QuestionOnBrick[]
+  candidateTargets CareerExperienceCandidate[]       @relation("CareerCandidateTarget")
+  careerFacts      CareerFact[]
+  answerGroundings CareerAnswerGroundingExperience[]
+
+  @@index([userId, startDate])
+  @@index([teamId])
+  @@map("experience_brick")
+}
+
+// 2. 지원 프로젝트 (Application)
+model Application {
+  id     String  @id @default(cuid()) @map("id")
+  userId String  @map("user_id")
+  teamId String? @map("team_id")
+
+  companyName           String               @map("company_name")
+  jobTitle              String               @map("job_title")
+  jdText                String?              @map("jd_text") @db.Text
+  clientRequestId       String?              @map("client_request_id")
+  brief                 Json?                @map("brief")
+  commonWritingGuidance String[]             @default([]) @map("common_writing_guidance")
+  strategyStatus        ResumeStrategyStatus @default(PENDING) @map("strategy_status")
+  strategyError         Json?                @map("strategy_error")
+  strategyUpdatedAt     DateTime?            @map("strategy_updated_at")
+
+  status   ApplicationStatus @default(WRITING) @map("status")
+  deadline DateTime?         @map("deadline")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user                          User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team                          Team?                          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  questions                     Question[]
+  careerFinalAnswerCaptureTasks CareerFinalAnswerCaptureTask[]
+
+  @@unique([userId, clientRequestId])
+  @@index([userId, status])
+  @@index([teamId])
+  @@index([deadline])
+  @@map("application")
+}
+
+// 3. 개별 문항 (Question)
+model Question {
+  id            String @id @default(cuid()) @map("id")
+  applicationId String @map("application_id")
+
+  questionText String  @map("question_text") @db.Text
+  charLimit    Int?    @map("char_limit")
+  answer       String? @map("answer") @db.Text
+  aiAdvice     String? @map("ai_advice") @db.Text
+  order        Int     @default(0) @map("order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  application                   Application                    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  relatedBricks                 QuestionOnBrick[]
+  suggestions                   SuggestionTicket[]
+  aiMessages                    QuestionAiMessage[]
+  careerCandidates              CareerExperienceCandidate[]
+  careerCaptureProposals        CareerCaptureProposal[]
+  careerFinalAnswerCaptureTasks CareerFinalAnswerCaptureTask[]
+  careerGroundings              CareerAnswerGrounding[]
+  careerVerifications           CareerAnswerVerification[]
+  isCompleted                   Boolean                        @default(false)
+  answerRevision                Int                            @default(0) @map("answer_revision")
+
+  @@index([applicationId, order])
+  @@map("question")
+}
+
+model QuestionAiMessage {
+  id         String                @id @default(cuid()) @map("id")
+  questionId String                @map("question_id")
+  role       QuestionAiMessageRole @map("role")
+  kind       QuestionAiMessageKind @map("kind")
+  content    String                @map("content") @db.Text
+  meta       Json?                 @map("meta")
+  createdAt  DateTime              @default(now()) @map("created_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, createdAt])
+  @@map("question_ai_message")
+}
+
+// 3.5. 문항-브릭 연결 (Join Table)
+model QuestionOnBrick {
+  questionId String   @map("question_id")
+  brickId    String   @map("brick_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  isAiSuggested Boolean @default(false) @map("is_ai_suggested") // AI가 처음에 추천했는지?
+  isSelected    Boolean @default(true) @map("is_selected") // 현재 유저가 선택해서 사용 중인지?
+
+  question Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  brick    ExperienceBrick @relation(fields: [brickId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, brickId])
+  @@index([brickId])
+  @@map("question_on_brick")
+}
+
+model CareerSource {
+  id                     String             @id @default(cuid()) @map("id")
+  userId                 String             @map("user_id")
+  teamId                 String?            @map("team_id")
+  originalName           String             @map("original_name")
+  mimeType               String             @map("mime_type")
+  checksum               String             @map("checksum")
+  byteSize               Int                @map("byte_size")
+  sourceData             Bytes?             @map("source_data")
+  status                 CareerSourceStatus @default(UPLOADED) @map("status")
+  processingVersion      Int                @default(0) @map("processing_version")
+  processingAttemptToken String?            @map("processing_attempt_token")
+  pageCount              Int?               @map("page_count")
+  chunkCount             Int                @default(0) @map("chunk_count")
+  candidateCount         Int                @default(0) @map("candidate_count")
+  parserVersion          String?            @map("parser_version")
+  embeddingModel         String?            @map("embedding_model")
+  errorCode              String?            @map("error_code")
+  errorMessage           String?            @map("error_message") @db.Text
+  queuedAt               DateTime?          @map("queued_at")
+  processingStartedAt    DateTime?          @map("processing_started_at")
+  readyAt                DateTime?          @map("ready_at")
+  failedAt               DateTime?          @map("failed_at")
+  deletedAt              DateTime?          @map("deleted_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  user       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks     CareerSourceChunk[]
+  candidates CareerExperienceCandidate[]
+
+  @@index([userId, deletedAt, createdAt])
+  @@index([userId, status, updatedAt])
+  @@index([userId, checksum, deletedAt])
+  @@map("career_source")
+}
+
+model CareerSourceChunk {
+  id             String                       @id @default(cuid()) @map("id")
+  sourceId       String                       @map("source_id")
+  userId         String                       @map("user_id")
+  ordinal        Int                          @map("ordinal")
+  content        String                       @map("content") @db.Text
+  contentHash    String                       @map("content_hash")
+  pageStart      Int                          @map("page_start")
+  pageEnd        Int                          @map("page_end")
+  tokenCount     Int?                         @map("token_count")
+  parserVersion  String?                      @map("parser_version")
+  parserMetadata Json?                        @map("parser_metadata")
+  embedding      Unsupported("vector(1536)")?
+  embeddingModel String?                      @map("embedding_model")
+  embeddedAt     DateTime?                    @map("embedded_at")
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  updatedAt      DateTime                     @updatedAt @map("updated_at")
+
+  source            CareerSource              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  candidateEvidence CareerCandidateEvidence[]
+  factEvidence      CareerFactEvidence[]
+
+  @@unique([sourceId, ordinal])
+  @@index([userId, sourceId, pageStart])
+  @@map("career_source_chunk")
+}
+
+model CareerCaptureProposal {
+  id             String              @id @default(cuid()) @map("id")
+  userId         String              @map("user_id")
+  questionId     String              @map("question_id")
+  answerHash     String              @map("answer_hash")
+  answerRevision Int                 @map("answer_revision")
+  status         CareerCaptureStatus @default(PENDING) @map("status")
+  summary        String?             @map("summary") @db.Text
+  resolvedAt     DateTime?           @map("resolved_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  user        User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question    Question                      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  candidates  CareerExperienceCandidate[]
+  captureTask CareerFinalAnswerCaptureTask?
+
+  @@unique([userId, questionId, answerHash, answerRevision])
+  @@index([userId, status, createdAt])
+  @@map("career_capture_proposal")
+}
+
+model CareerFinalAnswerCaptureTask {
+  id                String                  @id @default(cuid()) @map("id")
+  userId            String                  @map("user_id")
+  applicationId     String                  @map("application_id")
+  questionId        String                  @map("question_id")
+  answerHash        String                  @map("answer_hash")
+  answerRevision    Int                     @map("answer_revision")
+  status            CareerCaptureTaskStatus @default(PENDING) @map("status")
+  attemptCount      Int                     @default(0) @map("attempt_count")
+  nextAttemptAt     DateTime?               @map("next_attempt_at")
+  processingToken   String?                 @map("processing_token")
+  leaseExpiresAt    DateTime?               @map("lease_expires_at")
+  lastErrorCode     String?                 @map("last_error_code")
+  lastErrorMessage  String?                 @map("last_error_message") @db.Text
+  captureProposalId String?                 @unique @map("capture_proposal_id")
+  completedAt       DateTime?               @map("completed_at")
+  skippedAt         DateTime?               @map("skipped_at")
+  skipReason        String?                 @map("skip_reason") @db.Text
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application     Application            @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  question        Question               @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  captureProposal CareerCaptureProposal? @relation(fields: [captureProposalId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, questionId, answerHash, answerRevision])
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([applicationId, status])
+  @@index([userId, status, updatedAt])
+  @@map("career_final_answer_capture_task")
+}
+
+model CareerExperienceCandidate {
+  id                   String                @id @default(cuid()) @map("id")
+  userId               String                @map("user_id")
+  sourceId             String?               @map("source_id")
+  questionId           String?               @map("question_id")
+  captureProposalId    String?               @map("capture_proposal_id")
+  finalAnswerDedupeKey String?               @map("final_answer_dedupe_key")
+  targetExperienceId   String?               @map("target_experience_id")
+  origin               CareerCandidateOrigin @map("origin")
+  mode                 CareerCandidateMode   @default(CREATE) @map("mode")
+  replacementSnapshot  Boolean               @default(false) @map("replacement_snapshot")
+  status               CareerCandidateStatus @default(PENDING) @map("status")
+  title                String                @map("title")
+  content              String                @map("content") @db.Text
+  originalText         String?               @map("original_text") @db.Text
+  organization         String?               @map("organization")
+  roleTitle            String?               @map("role_title")
+  experienceType       CareerExperienceType  @default(OTHER) @map("experience_type")
+  period               String?               @map("period")
+  startDate            DateTime?             @map("start_date")
+  endDate              DateTime?             @map("end_date")
+  isCurrent            Boolean               @default(false) @map("is_current")
+  actions              String[]              @default([]) @map("actions")
+  outcomes             String[]              @default([]) @map("outcomes")
+  metrics              String[]              @default([]) @map("metrics")
+  tools                String[]              @default([]) @map("tools")
+  tags                 String[]              @default([]) @map("tags")
+  reviewedByUserId     String?               @map("reviewed_by_user_id")
+  decidedAt            DateTime?             @map("decided_at")
+  rejectionReason      String?               @map("rejection_reason") @db.Text
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  user             User                      @relation("CareerCandidateOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer         User?                     @relation("CareerCandidateReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  source           CareerSource?             @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  question         Question?                 @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  captureProposal  CareerCaptureProposal?    @relation(fields: [captureProposalId], references: [id], onDelete: Cascade)
+  targetExperience ExperienceBrick?          @relation("CareerCandidateTarget", fields: [targetExperienceId], references: [id], onDelete: Cascade)
+  evidence         CareerCandidateEvidence[]
+  factEvidence     CareerFactEvidence[]
+
+  @@unique([captureProposalId, finalAnswerDedupeKey])
+  @@index([userId, status, createdAt])
+  @@index([sourceId, status])
+  @@index([questionId, status])
+  @@map("career_experience_candidate")
+}
+
+model CareerCandidateEvidence {
+  id            String                @id @default(cuid()) @map("id")
+  candidateId   String                @map("candidate_id")
+  sourceChunkId String?               @map("source_chunk_id")
+  fieldPath     String                @map("field_path")
+  origin        CareerEvidenceOrigin? @map("origin")
+  valueHash     String?               @map("value_hash")
+  excerpt       String                @map("excerpt") @db.Text
+  pageStart     Int?                  @map("page_start")
+  pageEnd       Int?                  @map("page_end")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  candidate   CareerExperienceCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  sourceChunk CareerSourceChunk?        @relation(fields: [sourceChunkId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId, fieldPath])
+  @@index([candidateId, fieldPath, valueHash])
+  @@index([sourceChunkId])
+  @@map("career_candidate_evidence")
+}
+
+model CareerFact {
+  id                   String                       @id @default(cuid()) @map("id")
+  userId               String                       @map("user_id")
+  experienceId         String                       @map("experience_id")
+  kind                 CareerFactKind               @map("kind")
+  fieldPath            String                       @map("field_path")
+  value                String                       @map("value") @db.Text
+  normalizedValue      String                       @map("normalized_value") @db.Text
+  active               Boolean                      @default(true) @map("active")
+  trustStatus          CareerFactTrustStatus        @default(NEEDS_REVIEW) @map("trust_status")
+  embedding            Unsupported("vector(1536)")?
+  embeddingContentHash String?                      @map("embedding_content_hash")
+  embeddingModel       String?                      @map("embedding_model")
+  embeddedAt           DateTime?                    @map("embedded_at")
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
+
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experience       ExperienceBrick             @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  evidence         CareerFactEvidence[]
+  answerGroundings CareerAnswerGroundingFact[]
+
+  @@index([userId, active, kind])
+  @@index([userId, active, trustStatus, kind])
+  @@index([experienceId, active])
+  @@index([experienceId, active, trustStatus])
+  @@map("career_fact")
+}
+
+model CareerFactEvidence {
+  id            String                @id @default(cuid()) @map("id")
+  factId        String                @map("fact_id")
+  candidateId   String?               @map("candidate_id")
+  sourceChunkId String?               @map("source_chunk_id")
+  fieldPath     String                @map("field_path")
+  origin        CareerEvidenceOrigin? @map("origin")
+  valueHash     String?               @map("value_hash")
+  excerpt       String                @map("excerpt") @db.Text
+  pageStart     Int?                  @map("page_start")
+  pageEnd       Int?                  @map("page_end")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  fact        CareerFact                 @relation(fields: [factId], references: [id], onDelete: Cascade)
+  candidate   CareerExperienceCandidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  sourceChunk CareerSourceChunk?         @relation(fields: [sourceChunkId], references: [id], onDelete: SetNull)
+
+  @@index([factId])
+  @@index([factId, fieldPath, valueHash])
+  @@index([candidateId])
+  @@index([sourceChunkId])
+  @@map("career_fact_evidence")
+}
+
+model CareerAnswerGrounding {
+  id                     String                   @id @default(cuid()) @map("id")
+  questionId             String                   @map("question_id")
+  userId                 String                   @map("user_id")
+  operation              CareerGroundingOperation @map("operation")
+  answerHash             String                   @map("answer_hash")
+  answerRevision         Int                      @default(0) @map("answer_revision")
+  queryHash              String                   @map("query_hash")
+  modelVersion           String                   @map("model_version")
+  retrievalVersion       String                   @map("retrieval_version")
+  memoryVersion          Int                      @default(0) @map("memory_version")
+  preferredExperienceIds String[]                 @default([]) @map("preferred_experience_ids")
+  retrievedExperienceIds String[]                 @default([]) @map("retrieved_experience_ids")
+  retrievedFactIds       String[]                 @default([]) @map("retrieved_fact_ids")
+  fallbackUsed           Boolean                  @default(false) @map("fallback_used")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+
+  question    Question                          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user        User                              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences CareerAnswerGroundingExperience[]
+  facts       CareerAnswerGroundingFact[]
+
+  @@index([questionId, answerHash, answerRevision, createdAt])
+  @@index([userId, createdAt])
+  @@map("career_answer_grounding")
+}
+
+model CareerAnswerGroundingExperience {
+  groundingId  String @map("grounding_id")
+  experienceId String @map("experience_id")
+
+  grounding  CareerAnswerGrounding @relation(fields: [groundingId], references: [id], onDelete: Cascade)
+  experience ExperienceBrick       @relation(fields: [experienceId], references: [id], onDelete: Restrict)
+
+  @@id([groundingId, experienceId])
+  @@index([experienceId])
+  @@map("career_answer_grounding_experience")
+}
+
+model CareerAnswerGroundingFact {
+  groundingId String @map("grounding_id")
+  factId      String @map("fact_id")
+
+  grounding CareerAnswerGrounding @relation(fields: [groundingId], references: [id], onDelete: Cascade)
+  fact      CareerFact            @relation(fields: [factId], references: [id], onDelete: Restrict)
+
+  @@id([groundingId, factId])
+  @@index([factId])
+  @@map("career_answer_grounding_fact")
+}
+
+model CareerAnswerVerification {
+  id                  String                   @id @default(cuid()) @map("id")
+  questionId          String                   @map("question_id")
+  userId              String                   @map("user_id")
+  answerHash          String                   @map("answer_hash")
+  answerRevision      Int                      @map("answer_revision")
+  careerMemoryVersion Int                      @map("career_memory_version")
+  verifierVersion     String                   @map("verifier_version")
+  modelVersion        String                   @map("model_version")
+  result              CareerVerificationResult @map("result")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+
+  question Question                          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User                              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  findings CareerAnswerVerificationFinding[]
+  override CareerVerificationOverride?
+
+  @@index([questionId, answerHash, answerRevision, createdAt])
+  @@index([userId, createdAt])
+  @@map("career_answer_verification")
+}
+
+model CareerAnswerVerificationFinding {
+  id                String             @id @default(cuid()) @map("id")
+  verificationId    String             @map("verification_id")
+  type              CareerFindingType  @map("type")
+  riskCategory      CareerRiskCategory @map("risk_category")
+  claim             String             @map("claim") @db.Text
+  explanation       String             @map("explanation") @db.Text
+  supportingFactIds String[]           @default([]) @map("supporting_fact_ids")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  verification CareerAnswerVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@index([verificationId, type])
+  @@map("career_answer_verification_finding")
+}
+
+model CareerVerificationOverride {
+  id             String   @id @default(cuid()) @map("id")
+  verificationId String   @unique @map("verification_id")
+  userId         String   @map("user_id")
+  reason         String   @map("reason") @db.Text
+  answerHash     String   @map("answer_hash")
+  answerRevision Int      @map("answer_revision")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  verification CareerAnswerVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("career_verification_override")
+}
+
+// 4. 첨삭 티켓 (Suggestion Ticket)
+model SuggestionTicket {
+  id         String @id @default(cuid()) @map("id")
+  questionId String @map("question_id")
+
+  type         SuggestionType @map("type")
+  content      String         @map("content") @db.Text
+  originalText String?        @map("original_text") @db.Text
+  resultText   String?        @map("result_text") @db.Text
+  isResolved   Boolean        @default(false) @map("is_resolved")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, isResolved])
+  @@map("suggestion_ticket")
+}
+
+model KnowledgeDocument {
+  id                     String                  @id @default(cuid()) @map("id")
+  teamId                 String                  @map("team_id")
+  uploadedById           String?                 @map("uploaded_by_id")
+  originalName           String                  @map("original_name")
+  mimeType               String                  @map("mime_type")
+  byteSize               Int                     @map("byte_size")
+  storageKey             String                  @unique @map("storage_key")
+  checksum               String                  @map("checksum")
+  status                 KnowledgeDocumentStatus @default(UPLOADED) @map("status")
+  sourceVersion          Int                     @default(1) @map("source_version")
+  pageCount              Int?                    @map("page_count")
+  chunkCount             Int                     @default(0) @map("chunk_count")
+  embeddingModel         String?                 @map("embedding_model")
+  embeddingDimensions    Int?                    @map("embedding_dimensions")
+  indexingFingerprint    String?                 @map("indexing_fingerprint")
+  parserVersion          String?                 @map("parser_version")
+  errorCode              String?                 @map("error_code")
+  errorMessage           String?                 @map("error_message") @db.Text
+  sourceData             Bytes?                  @map("source_data")
+  queuedAt               DateTime?               @map("queued_at")
+  processingStartedAt    DateTime?               @map("processing_started_at")
+  indexedAt              DateTime?               @map("indexed_at")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  deletedAt              DateTime?               @map("deleted_at")
+  replacesDocumentId     String?                 @unique @map("replaces_document_id")
+  activeGenerationId     String?                 @unique @map("active_generation_id")
+  classificationOverride KnowledgeChunkRole?     @map("classification_override")
+
+  team                Team                       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  uploadedBy          User?                      @relation("KnowledgeDocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  replacesDocument    KnowledgeDocument?         @relation("KnowledgeDocumentReplacement", fields: [replacesDocumentId], references: [id], onDelete: SetNull)
+  replacementDocument KnowledgeDocument?         @relation("KnowledgeDocumentReplacement")
+  activeGeneration    KnowledgeIndexGeneration?  @relation("ActiveKnowledgeGeneration", fields: [activeGenerationId], references: [id], onDelete: SetNull)
+  generations         KnowledgeIndexGeneration[] @relation("KnowledgeDocumentGenerations")
+  uploadEvent         KnowledgeUploadEvent?
+  chunks              KnowledgeChunk[]
+  retrievedSources    AgentRetrievedSource[]
+  citations           AgentCitation[]
+  evidenceCandidates  ArticleEvidenceCandidate[]
+  facts               ArticleFact[]
+  finalCitations      ArticleFinalCitation[]
+
+  @@unique([teamId, checksum, sourceVersion])
+  @@index([teamId, status, createdAt])
+  @@map("knowledge_document")
+}
+
+model KnowledgeIndexGeneration {
+  id                      String                        @id @default(cuid()) @map("id")
+  documentId              String                        @map("document_id")
+  generation              Int                           @map("generation")
+  fingerprint             String                        @map("fingerprint")
+  parserVersion           String                        @map("parser_version")
+  chunkerVersion          String                        @map("chunker_version")
+  embeddingModel          String                        @map("embedding_model")
+  embeddingDimensions     Int                           @map("embedding_dimensions")
+  classifierVersion       String?                       @map("classifier_version")
+  indexStatus             KnowledgeGenerationStatus     @default(QUEUED) @map("index_status")
+  classificationStatus    KnowledgeClassificationStatus @default(PENDING) @map("classification_status")
+  errorCode               String?                       @map("error_code")
+  errorMessage            String?                       @map("error_message") @db.Text
+  indexingStartedAt       DateTime?                     @map("indexing_started_at")
+  indexedAt               DateTime?                     @map("indexed_at")
+  classificationStartedAt DateTime?                     @map("classification_started_at")
+  classifiedAt            DateTime?                     @map("classified_at")
+  createdAt               DateTime                      @default(now()) @map("created_at")
+  updatedAt               DateTime                      @updatedAt @map("updated_at")
+
+  document          KnowledgeDocument  @relation("KnowledgeDocumentGenerations", fields: [documentId], references: [id], onDelete: Cascade)
+  activeForDocument KnowledgeDocument? @relation("ActiveKnowledgeGeneration")
+  chunks            KnowledgeChunk[]
+
+  @@unique([documentId, generation])
+  @@unique([documentId, fingerprint])
+  @@index([documentId, indexStatus, classificationStatus])
+  @@map("knowledge_index_generation")
+}
+
+model KnowledgeUploadEvent {
+  id         String              @id @default(cuid()) @map("id")
+  teamId     String              @map("team_id")
+  userId     String?             @map("user_id")
+  documentId String?             @unique @map("document_id")
+  kind       KnowledgeUploadKind @map("kind")
+  byteSize   Int                 @map("byte_size")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  team     Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  document KnowledgeDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, createdAt])
+  @@map("knowledge_upload_event")
+}
+
+model KnowledgeChunk {
+  id                String                       @id @default(cuid()) @map("id")
+  teamId            String                       @map("team_id")
+  documentId        String                       @map("document_id")
+  generationId      String                       @map("generation_id")
+  ordinal           Int                          @map("ordinal")
+  content           String                       @map("content") @db.Text
+  tokenCount        Int?                         @map("token_count")
+  pageStart         Int                          @map("page_start")
+  pageEnd           Int                          @map("page_end")
+  sectionTitle      String?                      @map("section_title")
+  contentHash       String                       @map("content_hash")
+  parserVersion     String                       @map("parser_version")
+  metadata          Json?                        @map("metadata")
+  autoRole          KnowledgeChunkRole?          @map("auto_role")
+  roleConfidence    Float?                       @map("role_confidence")
+  roleRationale     String?                      @map("role_rationale") @db.Text
+  classifierVersion String?                      @map("classifier_version")
+  classifiedAt      DateTime?                    @map("classified_at")
+  embedding         Unsupported("vector(1536)")?
+  createdAt         DateTime                     @default(now()) @map("created_at")
+
+  team               Team                       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  document           KnowledgeDocument          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  generation         KnowledgeIndexGeneration   @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  retrievedSources   AgentRetrievedSource[]
+  citations          AgentCitation[]
+  evidenceCandidates ArticleEvidenceCandidate[]
+  facts              ArticleFact[]
+  finalCitations     ArticleFinalCitation[]
+
+  @@unique([generationId, ordinal])
+  @@index([teamId, documentId, generationId])
+  @@index([teamId, autoRole])
+  @@map("knowledge_chunk")
+}
+
+model AgentRun {
+  id                    String         @id @default(cuid()) @map("id")
+  teamId                String         @map("team_id")
+  articleId             String?        @map("article_id")
+  startedById           String         @map("started_by_id")
+  status                AgentRunStatus @default(PENDING) @map("status")
+  agentVersion          String         @map("agent_version")
+  model                 String         @map("model")
+  input                 Json           @map("input")
+  output                Json?          @map("output")
+  sdkState              String?        @map("sdk_state") @db.Text
+  checkpointVersion     Int            @default(1) @map("checkpoint_version")
+  traceId               String?        @map("trace_id")
+  errorCode             String?        @map("error_code")
+  errorMessage          String?        @map("error_message") @db.Text
+  inputTokens           Int            @default(0) @map("input_tokens")
+  outputTokens          Int            @default(0) @map("output_tokens")
+  cachedInputTokens     Int            @default(0) @map("cached_input_tokens")
+  estimatedCostMicros   Int            @default(0) @map("estimated_cost_micros")
+  latencyMs             Int?           @map("latency_ms")
+  retryCount            Int            @default(0) @map("retry_count")
+  runtimePolicySnapshot Json?          @map("runtime_policy_snapshot")
+  deadlineAt            DateTime?      @map("deadline_at")
+  cancelRequestedAt     DateTime?      @map("cancel_requested_at")
+  canceledAt            DateTime?      @map("canceled_at")
+  terminalReason        String?        @map("terminal_reason")
+  failureCategory       String?        @map("failure_category")
+  completionVerifiedAt  DateTime?      @map("completion_verified_at")
+  startedAt             DateTime?      @map("started_at")
+  completedAt           DateTime?      @map("completed_at")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  team             Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  article          Article?               @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  startedBy        User                   @relation("AgentRunStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  steps            AgentStep[]
+  approvals        AgentApproval[]
+  retrievedSources AgentRetrievedSource[]
+  citations        AgentCitation[]
+  feedbacks        AgentRunFeedback[]
+
+  @@index([teamId, status, createdAt])
+  @@index([articleId, createdAt])
+  @@map("agent_run")
+}
+
+model AgentConfigurationVersion {
+  id          String   @id @default(cuid()) @map("id")
+  teamId      String?  @map("team_id")
+  contentHash String   @unique @map("content_hash")
+  identity    Json     @map("identity")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([teamId, createdAt])
+  @@map("agent_configuration_version")
+}
+
+model AgentDatasetVersion {
+  id                     String   @id @default(cuid()) @map("id")
+  teamId                 String   @map("team_id")
+  name                   String   @map("name")
+  contentHash            String   @map("content_hash")
+  parentDatasetVersionId String?  @map("parent_dataset_version_id")
+  createdById            String   @map("created_by_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  @@unique([teamId, contentHash])
+  @@index([teamId, createdAt])
+  @@map("agent_dataset_version")
+}
+
+model AgentDatasetCase {
+  id               String   @id @default(cuid()) @map("id")
+  datasetVersionId String   @map("dataset_version_id")
+  caseKey          String   @map("case_key")
+  payload          Json     @map("payload")
+  contentHash      String   @map("content_hash")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([datasetVersionId, caseKey])
+  @@index([contentHash])
+  @@map("agent_dataset_case")
+}
+
+model AgentExperimentCycle {
+  id                       String    @id @default(cuid()) @map("id")
+  teamId                   String    @map("team_id")
+  sequence                 Int       @map("sequence")
+  datasetVersionId         String    @map("dataset_version_id")
+  baselineConfigurationId  String    @map("baseline_configuration_id")
+  candidateConfigurationId String    @map("candidate_configuration_id")
+  environmentManifest      Json      @map("environment_manifest")
+  artifactHash             String    @map("artifact_hash")
+  artifact                 Json      @map("artifact")
+  gateChecks               Json      @map("gate_checks")
+  humanReview              String    @default("PENDING") @map("human_review")
+  evidenceClass            String    @map("evidence_class")
+  disposition              String    @map("disposition")
+  reviewerId               String?   @map("reviewer_id")
+  reviewedAt               DateTime? @map("reviewed_at")
+  reviewNote               String?   @map("review_note") @db.Text
+  deploymentAuthorized     Boolean   @default(false) @map("deployment_authorized")
+  createdAt                DateTime  @default(now()) @map("created_at")
+
+  @@unique([teamId, sequence])
+  @@unique([teamId, artifactHash])
+  @@index([teamId, createdAt])
+  @@map("agent_experiment_cycle")
+}
+
+model AgentExperimentExecution {
+  id                  String    @id @default(cuid()) @map("id")
+  cycleId             String    @map("cycle_id")
+  role                String    @map("role")
+  externalExecutionId String    @map("external_execution_id")
+  configurationId     String    @map("configuration_id")
+  executorId          String    @map("executor_id")
+  deterministicSeed   Int?      @map("deterministic_seed")
+  evidenceClass       String    @map("evidence_class")
+  startedAt           DateTime  @map("started_at")
+  completedAt         DateTime? @map("completed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@unique([cycleId, role])
+  @@index([configurationId])
+  @@map("agent_experiment_execution")
+}
+
+model AgentExperimentCaseOutcome {
+  id               String   @id @default(cuid()) @map("id")
+  executionId      String   @map("execution_id")
+  caseKey          String   @map("case_key")
+  expectedBehavior Json     @map("expected_behavior")
+  observations     Json     @map("observations")
+  artifactHash     String   @map("artifact_hash")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([executionId, caseKey])
+  @@index([artifactHash])
+  @@map("agent_experiment_case_outcome")
+}
+
+model AgentRegressionCandidate {
+  id                 String    @id @default(cuid()) @map("id")
+  teamId             String    @map("team_id")
+  dedupeHash         String    @unique @map("dedupe_hash")
+  failureCategory    String    @map("failure_category")
+  payload            Json      @map("payload")
+  consentEligible    Boolean   @map("consent_eligible")
+  evaluationEligible Boolean   @map("evaluation_eligible")
+  redactionResult    Json      @map("redaction_result")
+  reviewState        String    @default("PENDING") @map("review_state")
+  reviewedById       String?   @map("reviewed_by_id")
+  reviewedAt         DateTime? @map("reviewed_at")
+  rejectionReason    String?   @map("rejection_reason") @db.Text
+  promotedCaseId     String?   @map("promoted_case_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([teamId, reviewState, createdAt])
+  @@map("agent_regression_candidate")
+}
+
+model AgentRegressionCandidateSource {
+  id          String   @id @default(cuid()) @map("id")
+  candidateId String   @map("candidate_id")
+  sourceKind  String   @map("source_kind")
+  sourceId    String   @map("source_id")
+  sourceHash  String   @map("source_hash")
+  provenance  Json     @map("provenance")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([candidateId, sourceKind, sourceId])
+  @@index([sourceHash])
+  @@map("agent_regression_candidate_source")
+}
+
+model AgentRuntimeAuditEvent {
+  id              String   @id @default(cuid()) @map("id")
+  teamId          String   @map("team_id")
+  runId           String?  @map("run_id")
+  eventType       String   @map("event_type")
+  failureCategory String?  @map("failure_category")
+  details         Json     @map("details")
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+
+  @@index([teamId, runId, occurredAt])
+  @@map("agent_runtime_audit_event")
+}
+
+model AgentRunFeedback {
+  id               String               @id @default(cuid()) @map("id")
+  runId            String               @map("run_id")
+  teamId           String               @map("team_id")
+  userId           String               @map("user_id")
+  usefulness       AgentFeedbackRating? @map("usefulness")
+  citationAccuracy AgentFeedbackRating? @map("citation_accuracy")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  run  AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  team Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, userId])
+  @@index([teamId, createdAt])
+  @@map("agent_run_feedback")
+}
+
+model AgentStep {
+  id                  String          @id @default(cuid()) @map("id")
+  runId               String          @map("run_id")
+  sequence            Int             @map("sequence")
+  kind                String          @map("kind")
+  toolName            String?         @map("tool_name")
+  status              AgentStepStatus @default(PENDING) @map("status")
+  idempotencyKey      String          @unique @map("idempotency_key")
+  inputSummary        Json?           @map("input_summary")
+  outputSummary       Json?           @map("output_summary")
+  model               String?         @map("model")
+  inputTokens         Int             @default(0) @map("input_tokens")
+  outputTokens        Int             @default(0) @map("output_tokens")
+  cachedInputTokens   Int             @default(0) @map("cached_input_tokens")
+  estimatedCostMicros Int             @default(0) @map("estimated_cost_micros")
+  latencyMs           Int?            @map("latency_ms")
+  retryCount          Int             @default(0) @map("retry_count")
+  errorCode           String?         @map("error_code")
+  errorMessage        String?         @map("error_message") @db.Text
+  startedAt           DateTime?       @map("started_at")
+  completedAt         DateTime?       @map("completed_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  run              AgentRun               @relation(fields: [runId], references: [id], onDelete: Cascade)
+  approvals        AgentApproval[]
+  retrievedSources AgentRetrievedSource[]
+  citations        AgentCitation[]
+
+  @@unique([runId, sequence])
+  @@index([runId, status])
+  @@map("agent_step")
+}
+
+model AgentApproval {
+  id            String              @id @default(cuid()) @map("id")
+  runId         String              @map("run_id")
+  stepId        String?             @map("step_id")
+  requestedById String              @map("requested_by_id")
+  decidedById   String?             @map("decided_by_id")
+  toolName      String              @map("tool_name")
+  status        AgentApprovalStatus @default(PENDING) @map("status")
+  toolInput     Json                @map("tool_input")
+  decisionNote  String?             @map("decision_note") @db.Text
+  requestedAt   DateTime            @default(now()) @map("requested_at")
+  decidedAt     DateTime?           @map("decided_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  run         AgentRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step        AgentStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  requestedBy User       @relation("AgentApprovalRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  decidedBy   User?      @relation("AgentApprovalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([runId, status])
+  @@map("agent_approval")
+}
+
+model AgentRetrievedSource {
+  id           String   @id @default(cuid()) @map("id")
+  runId        String   @map("run_id")
+  stepId       String?  @map("step_id")
+  documentId   String   @map("document_id")
+  chunkId      String   @map("chunk_id")
+  sourceId     String   @map("source_id")
+  documentName String   @map("document_name")
+  pageStart    Int      @map("page_start")
+  pageEnd      Int      @map("page_end")
+  excerpt      String   @map("excerpt") @db.Text
+  score        Float?   @map("score")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  run      AgentRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step     AgentStep?        @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  chunk    KnowledgeChunk    @relation(fields: [chunkId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, sourceId])
+  @@index([documentId, pageStart])
+  @@map("agent_retrieved_source")
+}
+
+model AgentCitation {
+  id           String   @id @default(cuid()) @map("id")
+  runId        String   @map("run_id")
+  stepId       String?  @map("step_id")
+  documentId   String   @map("document_id")
+  chunkId      String   @map("chunk_id")
+  sourceId     String   @map("source_id")
+  documentName String   @map("document_name")
+  pageStart    Int      @map("page_start")
+  pageEnd      Int      @map("page_end")
+  excerpt      String   @map("excerpt") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  run      AgentRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step     AgentStep?        @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  chunk    KnowledgeChunk    @relation(fields: [chunkId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, sourceId])
+  @@index([documentId, pageStart])
+  @@map("agent_citation")
+}
+
+model ArticleGroundingState {
+  id                           String   @id @default(cuid()) @map("id")
+  articleId                    String   @unique @map("article_id")
+  groundingRevision            Int      @default(0) @map("grounding_revision")
+  latestDiscoveryContentHash   String?  @map("latest_discovery_content_hash")
+  latestDiscoveryCorpusVersion Int?     @map("latest_discovery_corpus_version")
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("article_grounding_state")
+}
+
+model ArticleEvidenceCandidate {
+  id                      String                  @id @default(cuid()) @map("id")
+  articleId               String                  @map("article_id")
+  teamId                  String                  @map("team_id")
+  documentId              String                  @map("document_id")
+  chunkId                 String                  @map("chunk_id")
+  content                 String                  @map("content") @db.Text
+  pageStart               Int                     @map("page_start")
+  pageEnd                 Int                     @map("page_end")
+  excerpt                 String                  @map("excerpt") @db.Text
+  score                   Float                   @map("score")
+  decision                ArticleEvidenceDecision @default(PENDING) @map("decision")
+  discoveredCorpusVersion Int                     @map("discovered_corpus_version")
+  decidedAt               DateTime?               @map("decided_at")
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
+
+  article  Article           @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  team     Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  chunk    KnowledgeChunk    @relation(fields: [chunkId], references: [id], onDelete: Restrict)
+  fact     ArticleFact?
+
+  @@unique([articleId, chunkId])
+  @@index([teamId, articleId, decision])
+  @@map("article_evidence_candidate")
+}
+
+model ArticleFact {
+  id          String            @id @default(cuid()) @map("id")
+  articleId   String            @map("article_id")
+  teamId      String            @map("team_id")
+  candidateId String?           @unique @map("candidate_id")
+  origin      ArticleFactOrigin @map("origin")
+  sourceKey   String?           @map("source_key")
+  content     String            @map("content") @db.Text
+  active      Boolean           @default(true) @map("active")
+  documentId  String?           @map("document_id")
+  chunkId     String?           @map("chunk_id")
+  pageStart   Int?              @map("page_start")
+  pageEnd     Int?              @map("page_end")
+  excerpt     String?           @map("excerpt") @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  article        Article                   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  team           Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  candidate      ArticleEvidenceCandidate? @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  document       KnowledgeDocument?        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  chunk          KnowledgeChunk?           @relation(fields: [chunkId], references: [id], onDelete: Restrict)
+  draftEvidence  ArticleDraftEvidence[]
+  finalCitations ArticleFinalCitation[]
+
+  @@unique([articleId, sourceKey])
+  @@index([teamId, articleId, active])
+  @@map("article_fact")
+}
+
+model ArticleDraftEvidence {
+  id        String   @id @default(cuid()) @map("id")
+  articleId String   @map("article_id")
+  factId    String   @map("fact_id")
+  draftHash String   @map("draft_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  article Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  fact    ArticleFact @relation(fields: [factId], references: [id], onDelete: Restrict)
+
+  @@unique([articleId, draftHash, factId])
+  @@index([articleId, draftHash])
+  @@map("article_draft_evidence")
+}
+
+model ArticleVerification {
+  id                String                    @id @default(cuid()) @map("id")
+  articleId         String                    @map("article_id")
+  teamId            String?                   @map("team_id")
+  draftHash         String                    @map("draft_hash")
+  groundingRevision Int                       @map("grounding_revision")
+  corpusVersion     Int                       @map("corpus_version")
+  verifierVersion   String                    @map("verifier_version")
+  modelVersion      String                    @map("model_version")
+  result            ArticleVerificationResult @map("result")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+
+  article        Article                      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  team           Team?                        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  findings       ArticleVerificationFinding[]
+  finalCitations ArticleFinalCitation[]
+
+  @@index([articleId, createdAt])
+  @@index([teamId, createdAt])
+  @@map("article_verification")
+}
+
+model ArticleVerificationFinding {
+  id              String                          @id @default(cuid()) @map("id")
+  verificationId  String                          @map("verification_id")
+  type            ArticleVerificationFindingType  @map("type")
+  riskCategory    ArticleVerificationRiskCategory @map("risk_category")
+  result          ArticleVerificationResult       @map("result")
+  claim           String                          @map("claim") @db.Text
+  explanation     String                          @map("explanation") @db.Text
+  evidenceFactIds String[]                        @map("evidence_fact_ids")
+  createdAt       DateTime                        @default(now()) @map("created_at")
+
+  verification ArticleVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@index([verificationId, result])
+  @@map("article_verification_finding")
+}
+
+model ArticleFinalCitation {
+  id             String   @id @default(cuid()) @map("id")
+  articleId      String   @map("article_id")
+  teamId         String?  @map("team_id")
+  verificationId String   @map("verification_id")
+  factId         String   @map("fact_id")
+  documentId     String   @map("document_id")
+  chunkId        String   @map("chunk_id")
+  pageStart      Int      @map("page_start")
+  pageEnd        Int      @map("page_end")
+  excerpt        String   @map("excerpt") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  article      Article             @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  team         Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  verification ArticleVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  fact         ArticleFact         @relation(fields: [factId], references: [id], onDelete: Restrict)
+  document     KnowledgeDocument   @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  chunk        KnowledgeChunk      @relation(fields: [chunkId], references: [id], onDelete: Restrict)
+
+  @@unique([verificationId, factId])
+  @@index([articleId, createdAt])
+  @@index([documentId, pageStart])
+  @@map("article_final_citation")
+}
+
+// Brief normalize cache (public demo)
+model BriefNormalizeCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  payload   Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@map("brief_normalize_cache")
+}
+
+// Daily IP usage for brief normalize
+model BriefNormalizeIpUsage {
+  id        String   @id @default(cuid())
+  ip        String
+  dayKey    String
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ip, dayKey])
+  @@index([dayKey])
+  @@map("brief_normalize_ip_usage")
+}

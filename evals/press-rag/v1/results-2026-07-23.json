@@ -1,0 +1,1059 @@
+{
+  "datasetVersion": "press-rag-v1",
+  "corpusVersion": "press-rag-v1",
+  "model": "gpt-4.1-mini",
+  "judgeModel": "gpt-4.1-mini",
+  "collectedAt": "2026-07-23T09:21:12.369Z",
+  "results": [
+    {
+      "caseId": "fact-01",
+      "retrievedDocumentIds": [
+        "product-brief",
+        "investment-memo",
+        "market-research",
+        "launch-faq",
+        "legacy-service",
+        "campaign-plan",
+        "event-guide",
+        "partnership-contract"
+      ],
+      "citations": [
+        {
+          "documentId": "product-brief",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 4757,
+      "costMicros": 899
+    },
+    {
+      "caseId": "fact-02",
+      "retrievedDocumentIds": [
+        "product-brief",
+        "market-research",
+        "launch-faq",
+        "investment-memo",
+        "legacy-service",
+        "hiring-plan",
+        "campaign-plan",
+        "quarterly-results"
+      ],
+      "citations": [],
+      "claims": [
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": true,
+      "detectedConflict": true,
+      "latencyMs": 2877,
+      "costMicros": 916
+    },
+    {
+      "caseId": "fact-03",
+      "retrievedDocumentIds": [
+        "event-guide",
+        "campaign-plan",
+        "previous-results",
+        "investment-memo",
+        "product-brief",
+        "org-chart",
+        "launch-faq",
+        "quarterly-results"
+      ],
+      "citations": [
+        {
+          "documentId": "campaign-plan",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 3476,
+      "costMicros": 973
+    },
+    {
+      "caseId": "fact-04",
+      "retrievedDocumentIds": [
+        "campaign-plan",
+        "event-guide",
+        "investment-memo",
+        "launch-faq",
+        "product-brief",
+        "partnership-contract",
+        "partner-statement",
+        "hiring-plan"
+      ],
+      "citations": [
+        {
+          "documentId": "event-guide",
+          "supported": true
+        },
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        },
+        {
+          "documentId": "product-brief",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": true,
+      "latencyMs": 7536,
+      "costMicros": 1362
+    },
+    {
+      "caseId": "fact-05",
+      "retrievedDocumentIds": [
+        "org-chart",
+        "draft-release",
+        "hiring-plan",
+        "campaign-plan",
+        "partner-statement",
+        "previous-results",
+        "investment-memo",
+        "product-brief"
+      ],
+      "citations": [
+        {
+          "documentId": "org-chart",
+          "supported": false
+        },
+        {
+          "documentId": "hiring-plan",
+          "supported": false
+        },
+        {
+          "documentId": "draft-release",
+          "supported": false
+        },
+        {
+          "documentId": "partner-statement",
+          "supported": false
+        },
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 3836,
+      "costMicros": 954
+    },
+    {
+      "caseId": "number-01",
+      "retrievedDocumentIds": [
+        "quarterly-results",
+        "previous-results",
+        "service-metrics",
+        "investment-memo",
+        "draft-release",
+        "hiring-plan",
+        "market-research",
+        "product-brief"
+      ],
+      "citations": [
+        {
+          "documentId": "quarterly-results",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 3834,
+      "costMicros": 934
+    },
+    {
+      "caseId": "number-02",
+      "retrievedDocumentIds": [
+        "investment-memo",
+        "quarterly-results",
+        "campaign-plan",
+        "product-brief",
+        "event-guide",
+        "draft-release",
+        "hiring-plan",
+        "partnership-contract"
+      ],
+      "citations": [
+        {
+          "documentId": "investment-memo",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 3027,
+      "costMicros": 939
+    },
+    {
+      "caseId": "number-03",
+      "retrievedDocumentIds": [
+        "service-metrics",
+        "investment-memo",
+        "quarterly-results",
+        "event-guide",
+        "previous-results",
+        "campaign-plan",
+        "hiring-plan",
+        "launch-faq"
+      ],
+      "citations": [
+        {
+          "documentId": "service-metrics",
+          "supported": true
+        },
+        {
+          "documentId": "quarterly-results",
+          "supported": false
+        },
+        {
+          "documentId": "previous-results",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        },
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": true,
+      "latencyMs": 5681,
+      "costMicros": 1374
+    },
+    {
+      "caseId": "number-04",
+      "retrievedDocumentIds": [
+        "partnership-contract",
+        "campaign-plan",
+        "hiring-plan",
+        "product-brief",
+        "investment-memo",
+        "partner-statement",
+        "event-guide",
+        "quarterly-results"
+      ],
+      "citations": [
+        {
+          "documentId": "partnership-contract",
+          "supported": true
+        },
+        {
+          "documentId": "product-brief",
+          "supported": false
+        },
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        },
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        },
+        {
+          "documentId": "partner-statement",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 3675,
+      "costMicros": 997
+    },
+    {
+      "caseId": "number-05",
+      "retrievedDocumentIds": [
+        "hiring-plan",
+        "quarterly-results",
+        "draft-release",
+        "previous-results",
+        "service-metrics",
+        "investment-memo",
+        "campaign-plan",
+        "event-guide"
+      ],
+      "citations": [
+        {
+          "documentId": "hiring-plan",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 3199,
+      "costMicros": 930
+    },
+    {
+      "caseId": "compare-01",
+      "retrievedDocumentIds": [
+        "launch-faq",
+        "product-brief",
+        "legacy-service",
+        "hiring-plan",
+        "campaign-plan",
+        "market-research",
+        "partnership-contract",
+        "investment-memo"
+      ],
+      "citations": [
+        {
+          "documentId": "product-brief",
+          "supported": true
+        },
+        {
+          "documentId": "launch-faq",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 6095,
+      "costMicros": 1553
+    },
+    {
+      "caseId": "compare-02",
+      "retrievedDocumentIds": [
+        "service-metrics",
+        "quarterly-results",
+        "previous-results",
+        "market-research",
+        "draft-release",
+        "investment-memo",
+        "partnership-contract"
+      ],
+      "citations": [
+        {
+          "documentId": "quarterly-results",
+          "supported": true
+        },
+        {
+          "documentId": "previous-results",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 5522,
+      "costMicros": 1330
+    },
+    {
+      "caseId": "compare-03",
+      "retrievedDocumentIds": [
+        "legacy-service",
+        "service-metrics",
+        "product-brief",
+        "launch-faq",
+        "market-research",
+        "investment-memo",
+        "previous-results",
+        "quarterly-results"
+      ],
+      "citations": [
+        {
+          "documentId": "legacy-service",
+          "supported": true
+        },
+        {
+          "documentId": "product-brief",
+          "supported": true
+        }
+      ],
+      "claims": [],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 6147,
+      "costMicros": 1257
+    },
+    {
+      "caseId": "compare-04",
+      "retrievedDocumentIds": [
+        "service-metrics",
+        "quarterly-results",
+        "investment-memo",
+        "previous-results",
+        "draft-release",
+        "market-research",
+        "partner-statement"
+      ],
+      "citations": [
+        {
+          "documentId": "quarterly-results",
+          "supported": true
+        },
+        {
+          "documentId": "previous-results",
+          "supported": false
+        },
+        {
+          "documentId": "draft-release",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 6244,
+      "costMicros": 1908
+    },
+    {
+      "caseId": "compare-05",
+      "retrievedDocumentIds": [
+        "campaign-plan",
+        "event-guide",
+        "launch-faq",
+        "investment-memo",
+        "org-chart",
+        "hiring-plan",
+        "partnership-contract",
+        "product-brief"
+      ],
+      "citations": [
+        {
+          "documentId": "campaign-plan",
+          "supported": true
+        },
+        {
+          "documentId": "event-guide",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 5917,
+      "costMicros": 1236
+    },
+    {
+      "caseId": "conflict-01",
+      "retrievedDocumentIds": [
+        "product-brief",
+        "launch-faq",
+        "investment-memo",
+        "campaign-plan",
+        "draft-release",
+        "event-guide",
+        "market-research",
+        "quarterly-results"
+      ],
+      "citations": [
+        {
+          "documentId": "product-brief",
+          "supported": true
+        },
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        },
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        },
+        {
+          "documentId": "launch-faq",
+          "supported": true
+        },
+        {
+          "documentId": "event-guide",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": true,
+      "latencyMs": 6193,
+      "costMicros": 1754
+    },
+    {
+      "caseId": "conflict-02",
+      "retrievedDocumentIds": [
+        "investment-memo",
+        "partnership-contract",
+        "partner-statement",
+        "campaign-plan",
+        "product-brief",
+        "event-guide",
+        "quarterly-results",
+        "launch-faq"
+      ],
+      "citations": [
+        {
+          "documentId": "partnership-contract",
+          "supported": true
+        },
+        {
+          "documentId": "partner-statement",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 6126,
+      "costMicros": 1272
+    },
+    {
+      "caseId": "conflict-03",
+      "retrievedDocumentIds": [
+        "event-guide",
+        "partner-statement",
+        "partnership-contract",
+        "campaign-plan",
+        "investment-memo",
+        "launch-faq",
+        "hiring-plan"
+      ],
+      "citations": [
+        {
+          "documentId": "campaign-plan",
+          "supported": true
+        },
+        {
+          "documentId": "event-guide",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 6002,
+      "costMicros": 1236
+    },
+    {
+      "caseId": "conflict-04",
+      "retrievedDocumentIds": [
+        "previous-results",
+        "draft-release",
+        "quarterly-results",
+        "investment-memo",
+        "service-metrics",
+        "org-chart",
+        "partner-statement",
+        "launch-faq"
+      ],
+      "citations": [],
+      "claims": [],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 3997,
+      "costMicros": 993
+    },
+    {
+      "caseId": "conflict-05",
+      "retrievedDocumentIds": [
+        "launch-faq",
+        "service-metrics",
+        "investment-memo",
+        "legacy-service",
+        "campaign-plan",
+        "quarterly-results",
+        "previous-results",
+        "hiring-plan"
+      ],
+      "citations": [
+        {
+          "documentId": "service-metrics",
+          "supported": true
+        },
+        {
+          "documentId": "launch-faq",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": true,
+      "detectedConflict": true,
+      "latencyMs": 5719,
+      "costMicros": 1326
+    },
+    {
+      "caseId": "multi-01",
+      "retrievedDocumentIds": [
+        "product-brief",
+        "legacy-service",
+        "market-research",
+        "investment-memo",
+        "launch-faq",
+        "hiring-plan",
+        "draft-release",
+        "org-chart"
+      ],
+      "citations": [
+        {
+          "documentId": "product-brief",
+          "supported": true
+        },
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": false
+        },
+        {
+          "grounded": true
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 4677,
+      "costMicros": 1089
+    },
+    {
+      "caseId": "multi-02",
+      "retrievedDocumentIds": [
+        "investment-memo",
+        "quarterly-results",
+        "hiring-plan",
+        "partnership-contract",
+        "campaign-plan",
+        "product-brief",
+        "previous-results",
+        "draft-release"
+      ],
+      "citations": [
+        {
+          "documentId": "investment-memo",
+          "supported": true
+        },
+        {
+          "documentId": "quarterly-results",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": true,
+      "latencyMs": 7838,
+      "costMicros": 1357
+    },
+    {
+      "caseId": "multi-03",
+      "retrievedDocumentIds": [
+        "market-research",
+        "campaign-plan",
+        "product-brief",
+        "partnership-contract",
+        "partner-statement",
+        "legacy-service",
+        "investment-memo",
+        "hiring-plan"
+      ],
+      "citations": [
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        },
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        },
+        {
+          "documentId": "product-brief",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        },
+        {
+          "grounded": false
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 7112,
+      "costMicros": 1446
+    },
+    {
+      "caseId": "multi-04",
+      "retrievedDocumentIds": [
+        "event-guide",
+        "campaign-plan",
+        "investment-memo",
+        "hiring-plan",
+        "market-research",
+        "org-chart",
+        "launch-faq"
+      ],
+      "citations": [
+        {
+          "documentId": "event-guide",
+          "supported": true
+        },
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        },
+        {
+          "documentId": "product-brief",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": true
+        },
+        {
+          "grounded": false
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": true,
+      "latencyMs": 8056,
+      "costMicros": 1409
+    },
+    {
+      "caseId": "multi-05",
+      "retrievedDocumentIds": [
+        "hiring-plan",
+        "investment-memo",
+        "product-brief",
+        "campaign-plan",
+        "quarterly-results",
+        "service-metrics",
+        "draft-release",
+        "launch-faq"
+      ],
+      "citations": [
+        {
+          "documentId": "hiring-plan",
+          "supported": true
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        },
+        {
+          "grounded": true
+        },
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": false,
+      "detectedConflict": false,
+      "latencyMs": 3960,
+      "costMicros": 1025
+    },
+    {
+      "caseId": "unknown-01",
+      "retrievedDocumentIds": [
+        "campaign-plan",
+        "event-guide",
+        "org-chart",
+        "hiring-plan",
+        "previous-results",
+        "market-research",
+        "investment-memo",
+        "service-metrics"
+      ],
+      "citations": [],
+      "claims": [],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 3526,
+      "costMicros": 910
+    },
+    {
+      "caseId": "unknown-02",
+      "retrievedDocumentIds": [
+        "quarterly-results",
+        "investment-memo",
+        "previous-results",
+        "campaign-plan",
+        "service-metrics",
+        "draft-release",
+        "product-brief",
+        "hiring-plan"
+      ],
+      "citations": [],
+      "claims": [],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 3972,
+      "costMicros": 1195
+    },
+    {
+      "caseId": "unknown-03",
+      "retrievedDocumentIds": [
+        "market-research",
+        "quarterly-results",
+        "previous-results",
+        "investment-memo",
+        "service-metrics",
+        "product-brief",
+        "draft-release",
+        "hiring-plan"
+      ],
+      "citations": [
+        {
+          "documentId": "market-research",
+          "supported": false
+        },
+        {
+          "documentId": "previous-results",
+          "supported": false
+        },
+        {
+          "documentId": "quarterly-results",
+          "supported": false
+        },
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        },
+        {
+          "documentId": "product-brief",
+          "supported": false
+        }
+      ],
+      "claims": [],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 3365,
+      "costMicros": 965
+    },
+    {
+      "caseId": "unknown-04",
+      "retrievedDocumentIds": [
+        "launch-faq",
+        "product-brief",
+        "service-metrics",
+        "investment-memo",
+        "legacy-service",
+        "partner-statement",
+        "market-research"
+      ],
+      "citations": [
+        {
+          "documentId": "product-brief",
+          "supported": false
+        },
+        {
+          "documentId": "partnership-contract",
+          "supported": false
+        },
+        {
+          "documentId": "partner-statement",
+          "supported": false
+        },
+        {
+          "documentId": "launch-faq",
+          "supported": false
+        },
+        {
+          "documentId": "service-metrics",
+          "supported": false
+        },
+        {
+          "documentId": "legacy-service",
+          "supported": false
+        },
+        {
+          "documentId": "market-research",
+          "supported": false
+        },
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        },
+        {
+          "documentId": "hiring-plan",
+          "supported": false
+        }
+      ],
+      "claims": [],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 4250,
+      "costMicros": 1178
+    },
+    {
+      "caseId": "unknown-05",
+      "retrievedDocumentIds": [
+        "investment-memo",
+        "product-brief",
+        "market-research",
+        "quarterly-results",
+        "previous-results",
+        "service-metrics",
+        "launch-faq",
+        "draft-release"
+      ],
+      "citations": [
+        {
+          "documentId": "investment-memo",
+          "supported": false
+        },
+        {
+          "documentId": "event-guide",
+          "supported": false
+        },
+        {
+          "documentId": "product-brief",
+          "supported": false
+        },
+        {
+          "documentId": "quarterly-results",
+          "supported": false
+        },
+        {
+          "documentId": "market-research",
+          "supported": false
+        },
+        {
+          "documentId": "service-metrics",
+          "supported": false
+        },
+        {
+          "documentId": "previous-results",
+          "supported": false
+        },
+        {
+          "documentId": "draft-release",
+          "supported": false
+        },
+        {
+          "documentId": "campaign-plan",
+          "supported": false
+        },
+        {
+          "documentId": "hiring-plan",
+          "supported": false
+        }
+      ],
+      "claims": [
+        {
+          "grounded": false
+        }
+      ],
+      "predictedUnanswerable": true,
+      "detectedConflict": false,
+      "latencyMs": 4286,
+      "costMicros": 1362
+    }
+  ]
+}

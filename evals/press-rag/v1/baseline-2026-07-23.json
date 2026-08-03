@@ -1,0 +1,15 @@
+{
+  "datasetVersion": "press-rag-v1",
+  "measuredAt": "2026-07-23T09:26:17.968Z",
+  "metrics": {
+    "caseCount": 30,
+    "retrievalRecallAt5": 0.92,
+    "citationPrecision": 0.3974358974358974,
+    "groundedClaimRate": 0.4878048780487805,
+    "unanswerableAccuracy": 0.7666666666666667,
+    "conflictDetectionAccuracy": 0.7333333333333333,
+    "p50LatencyMs": 4717,
+    "p95LatencyMs": 7702.099999999999,
+    "totalCostMicros": 36079
+  }
+}

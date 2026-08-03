@@ -1,0 +1,603 @@
+{
+  "info": {
+    "_postman_id": "a9514809-a8e7-4fd6-aeb7-press-new-flow",
+    "name": "PressTuner /press/new API QA",
+    "description": "로컬 QA 전용: 로그인부터 보도자료 FINAL 완료까지 순서대로 실행합니다. qaSecret은 환경의 Current value에만 입력하고 내보내지 마세요.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "loginUrl",
+      "value": ""
+    },
+    {
+      "key": "articleId",
+      "value": ""
+    },
+    {
+      "key": "generationBody",
+      "value": ""
+    },
+    {
+      "key": "generatedTitle",
+      "value": ""
+    },
+    {
+      "key": "generatedPlain",
+      "value": ""
+    },
+    {
+      "key": "selectedNoteIds",
+      "value": "[]"
+    },
+    {
+      "key": "revisedTitle",
+      "value": ""
+    },
+    {
+      "key": "revisedPlain",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "인증",
+      "item": [
+        {
+          "name": "1. QA 로그인 티켓 발급",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201: 일회용 QA 로그인 URL 발급', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('loginUrl과 만료 시각 반환', () => { pm.expect(json.loginUrl).to.be.a('string').and.not.empty; pm.expect(json.expiresAt).to.be.a('string').and.not.empty; });",
+                  "pm.collectionVariables.set('loginUrl', json.loginUrl);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{qaSecret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"next\": \"/press/new\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/qa/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "qa",
+                "issue"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. QA 로그인 세션 생성",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('티켓 교환 후 /press/new 도달', () => pm.response.to.have.status(200));",
+                  "pm.test('세션 쿠키가 Postman cookie jar에 저장됨', () => { const cookies = pm.cookies.toObject(); pm.expect(Object.keys(cookies).length).to.be.above(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{loginUrl}}",
+              "host": [
+                "{{loginUrl}}"
+              ]
+            },
+            "description": "Send를 한 번만 누르세요. 티켓은 일회용입니다. Postman의 자동 redirect와 cookie jar를 사용합니다."
+          }
+        }
+      ]
+    },
+    {
+      "name": "보도자료 전체 흐름",
+      "item": [
+        {
+          "name": "3. 보도자료 문서 초기화",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 문서 초기화 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('articleId 반환', () => pm.expect(json.articleId || json.id).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('articleId', json.articleId || json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PRESS_RELEASE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/init",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "init"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. 브리프 정규화",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 브리프 정규화 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('정규화 응답 기본 계약', () => { pm.expect(json.ok).to.eql(true); pm.expect(json.announceType).to.be.a('string').and.not.empty; pm.expect(json.points).to.be.an('array').and.not.empty; });",
+                  "pm.test('[품질] 서비스·요약·인용 필드 추출', () => { pm.expect(json.serviceName, 'serviceName').to.be.a('string').and.not.empty; pm.expect(json.oneLiner, 'oneLiner').to.be.a('string').and.not.empty; pm.expect(json.quoteWho, 'quoteWho').to.be.a('string').and.not.empty; pm.expect(json.quoteMessage, 'quoteMessage').to.be.a('string').and.not.empty; });",
+                  "const joinedPoints = (json.points || []).join(' ');",
+                  "pm.test('[품질] 측정 조건과 제한사항 보존', () => { pm.expect(joinedPoints).to.include('단순 평균'); pm.expect(joinedPoints).to.match(/외부.*검증|검증.*않/); pm.expect(joinedPoints).to.include('대조군'); });",
+                  "pm.collectionVariables.set('generationBody', JSON.stringify({ serviceName: json.serviceName || '', announceType: json.announceType, oneLiner: json.oneLiner || '', points: json.points || [], quoteWho: json.quoteWho || '', quoteMessage: json.quoteMessage || '', eventAt: json.eventAt || undefined, publishAt: json.publishAt || undefined, tone: 'formal', rawText: pm.variables.get('pressMemo'), quotaMode: 'simplified' }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rawText\": \"{{pressMemo}}\",\n  \"tone\": \"formal\",\n  \"quotaMode\": \"simplified\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/brief/normalize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "brief",
+                "normalize"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. 초안 생성",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 초안 생성 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const plain = [json.lead, json.fact, ...(json.paragraphs || []).map(item => item.text), json.closing].filter(Boolean).join('\\n\\n');",
+                  "pm.test('제목과 본문 반환', () => { pm.expect(json.title).to.be.a('string').and.not.empty; pm.expect(plain).to.be.a('string').and.not.empty; });",
+                  "pm.test('[품질] 핵심 수치·제한사항 보존', () => { for (const phrase of ['20곳', '150분', '50분', '단순 평균', '대조군']) pm.expect(plain).to.include(phrase); pm.expect(plain).to.match(/외부.*검증|검증.*않/); });",
+                  "pm.test('[품질] 서울 기반을 서울 본사로 강화하지 않음', () => { pm.expect(plain).to.include('서울'); pm.expect(plain).not.to.include('서울 본사'); });",
+                  "pm.collectionVariables.set('generatedTitle', JSON.stringify(json.title));",
+                  "pm.collectionVariables.set('generatedPlain', JSON.stringify(plain));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{generationBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/generate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "generate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. AI 첨삭",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 첨삭 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('실행 가능한 첨삭 제안 반환', () => pm.expect(json.notes).to.be.an('array').and.not.empty);",
+                  "const plain = JSON.parse(pm.collectionVariables.get('generatedPlain') || '\"\"');",
+                  "const keys = new Set();",
+                  "for (const note of json.notes || []) { const quote = note.quote || note.original || ''; const replacement = note.replacement || note.suggestion || ''; pm.test(`[품질] 본문에 존재하는 고유·유효 제안: ${note.id}`, () => { pm.expect(note.id).to.be.a('string').and.not.empty; if (quote) pm.expect(plain).to.include(quote); if (replacement) pm.expect(replacement).not.to.eql(quote); const key = `${quote}::${note.note || note.reason || ''}::${replacement}`; pm.expect(keys.has(key)).to.eql(false); keys.add(key); }); }",
+                  "pm.collectionVariables.set('selectedNoteIds', JSON.stringify((json.notes || []).slice(0, 2).map(note => note.id)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": {{generatedTitle}},\n  \"plain\": {{generatedPlain}},\n  \"userInstruction\": \"수치의 측정 기준과 제한사항 누락, 근거보다 강해진 표현, 기사체를 점검해줘.\",\n  \"quotaMode\": \"simplified\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/polish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "polish"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7. 선택 첨삭 재작성",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 선택 제안 재작성 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const title = json.revisedTitle || json.title;",
+                  "const plain = json.revisedPlain || json.plain;",
+                  "pm.test('재작성 제목과 본문 반환', () => { pm.expect(title).to.be.a('string').and.not.empty; pm.expect(plain).to.be.a('string').and.not.empty; });",
+                  "pm.test('[품질] 재작성 후 사실과 제한사항 유지', () => { for (const phrase of ['20곳', '150분', '50분', '단순 평균', '대조군']) pm.expect(plain).to.include(phrase); pm.expect(plain).not.to.include('서울 본사'); });",
+                  "pm.collectionVariables.set('revisedTitle', JSON.stringify(title));",
+                  "pm.collectionVariables.set('revisedPlain', JSON.stringify(plain));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"selectedNoteIds\": {{selectedNoteIds}},\n  \"userInstruction\": \"확정 사실과 모든 조건을 유지하며 선택한 제안만 반영해줘.\",\n  \"quotaMode\": \"simplified\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/re-polish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "re-polish"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8. 재작성 원고 저장",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 최신 원고 저장 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('저장된 문서 반환', () => { pm.expect(json.ok).to.eql(true); pm.expect(json.article).to.be.an('object'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": {{revisedTitle}},\n  \"plain\": {{revisedPlain}},\n  \"harnessAction\": {\n    \"type\": \"apply_pending_rewrite\",\n    \"appliedAt\": \"{{$isoTimestamp}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/save",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "save"
+              ]
+            }
+          }
+        },
+        {
+          "name": "9. 최신 원고 검증",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 최신 원고 검증 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('PASS/WARN/BLOCK 검증 결과', () => pm.expect(['PASS', 'WARN', 'BLOCK']).to.include(json.verification && json.verification.result));",
+                  "pm.test('[품질] finding 설명은 한국어', () => { for (const finding of (json.verification && json.verification.findings) || []) { const text = `${finding.message || ''} ${finding.explanation || ''}`.trim(); pm.expect(text).to.match(/[가-힣]/); } });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "verification"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. 최종 완료",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PASS/WARN 원고 FINAL 완료', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('FINAL 상태 반환', () => { pm.expect(json.ok).to.eql(true); pm.expect(json.status).to.eql('FINAL'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"FINAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11. 완성 원고 조회",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 완성 원고 조회 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('FINAL 원고와 사용량 반환', () => { pm.expect(json.article.status).to.eql('FINAL'); pm.expect(json.usage).to.be.an('object'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "12. FREE 사용량 조회",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200: 팀 사용량 조회 성공', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('무제한 상태 또는 사용량 계약 반환', () => { pm.expect(json.ok).to.eql(true); pm.expect(json).to.be.an('object'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "usage"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('pressMemo')) {",
+          "  pm.collectionVariables.set('pressMemo', [",
+          "    '프레스튜너는 기업 홍보팀을 위한 AI 보도자료 편집 서비스 ‘브리핑플로우 프레스 3.0’을 2026년 10월 6일 출시한다.',",
+          "    '2026년 8월 국내 스타트업 홍보팀 20곳을 대상으로 비공개 테스트를 진행했다.',",
+          "    '보도자료 한 건의 평균 초안 작성 시간은 150분에서 50분으로 줄었다.',",
+          "    '이 수치는 참여 팀이 직접 기록한 작업 시간의 단순 평균이며 외부 기관의 검증을 거치지 않았고 대조군을 두지 않았다.',",
+          "    '프레스튜너는 서울에 기반을 둔 B2B 소프트웨어 기업이다.',",
+          "    '김민서 대표는 “문장 작성 시간을 줄이고 사실 판단에 집중하도록 설계했다”고 말했다.'",
+          "  ].join('\\n'));",
+          "}"
+        ]
+      }
+    }
+  ]
+}

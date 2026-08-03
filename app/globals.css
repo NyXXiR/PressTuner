@@ -1,0 +1,571 @@
+@import "tailwindcss";
+
+.logo-dark {
+  display: none;
+}
+
+/* 다크 모드 상태: 라이트용 숨기고, 다크용 보여줌 */
+.dark .logo-light {
+  display: none;
+}
+.dark .logo-dark {
+  display: block;
+}
+
+/* 1) 라이트 / 다크 테마 색 변수 정의 (HSL 토큰) */
+:root {
+  /* light theme */
+  --background: 210 40% 98%;
+  --foreground: 222.2 47.4% 11.2%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 47.4% 11.2%;
+
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16.3% 46.9%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+
+  --primary: 224.3 76.3% 48%;
+  --primary-foreground: 210 40% 98%;
+  --ring: 224.3 76.3% 48%;
+
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --radius: 1rem;
+
+  /* ✅ [수정] 라이트 모드용 AI 색상 (진하고 깊은 오렌지) */
+  /* 명도(L)를 50%로 낮춰 흰 배경에서 텍스트 가독성과 무게감을 확보 */
+  --ai: 30 100% 50%;
+  --ai-foreground: 60 9.1% 97.8%;
+  /* 배경은 은은한 살구색 */
+  --ai-soft: 35 100% 92%;
+
+  /* 상태 색상 (Status) */
+  --destructive: 0 84.2% 60.2%;
+  /* 라이트모드: 투명도 배경 위 진한 텍스트용 */
+  --destructive-foreground: 0 84.2% 60.2%;
+  --success: 142 76% 36%;
+  /* 라이트모드: 투명도 배경 위 진한 텍스트용 */
+  --success-foreground: 142 76% 36%;
+}
+
+.dark {
+  /* dark theme (네이비/잉크 톤) */
+  --background: 224 55% 6%;
+  --foreground: 210 40% 98%;
+
+  --card: 225 44% 10%;
+  --card-foreground: 210 40% 98%;
+
+  --muted: 224 32% 14%;
+  --muted-foreground: 215 20.2% 72%;
+
+  --border: 224 22% 20%;
+  --input: 224 22% 20%;
+
+  --primary: 224.3 76.3% 55%;
+  --primary-foreground: 210 40% 98%;
+  --ring: 224.3 76.3% 55%;
+
+  --secondary: 224 32% 14%;
+  --secondary-foreground: 210 40% 98%;
+
+  /* ✅ [수정] 다크 모드용 AI 색상 (밝고 쨍한 오렌지) */
+  /* 명도(L)를 60%로 높여 검은 배경에서 형광등처럼 빛나게 함 */
+  --ai: 32 100% 60%;
+  --ai-foreground: 60 9.1% 97.8%;
+  /* 배경은 깊은 오렌지 브라운 */
+  --ai-soft: 32 60% 12%;
+
+  /* 상태 색상 (Status) */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 210 40% 98%;
+  --success: 160 84% 39%;
+  --success-foreground: 210 40% 98%;
+}
+
+/* 2) Tailwind 토큰 매핑 */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  /* ✅ [유지] AI 색상 매핑 */
+  --color-ai: hsl(var(--ai));
+  --color-ai-foreground: hsl(var(--ai-foreground));
+  --color-ai-soft: hsl(var(--ai-soft));
+
+  /* 상태 색상 매핑 */
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* 3) 기본 스타일 */
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, hsl(var(--muted-foreground)) 32%, transparent)
+    transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, hsl(var(--muted-foreground)) 22%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, hsl(var(--muted-foreground)) 38%, transparent);
+  background-clip: padding-box;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, hsl(var(--muted-foreground)) 36%, transparent)
+    transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, hsl(var(--muted-foreground)) 28%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, hsl(var(--muted-foreground)) 44%, transparent);
+  background-clip: padding-box;
+}
+
+::selection {
+  background: color-mix(in oklab, hsl(var(--primary)) 22%, transparent);
+}
+
+/* 4) 디자인 시스템 유틸리티 (pt-surface, pt-input) */
+.pt-surface {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+}
+
+.pt-surface-hover {
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+.pt-surface-hover:hover {
+  background: color-mix(in oklab, hsl(var(--card)) 94%, hsl(var(--primary)) 6%);
+}
+
+.pt-input {
+  width: 100%;
+  border-radius: calc(var(--radius) - 0.25rem);
+  border: 1px solid hsl(var(--input));
+  background: color-mix(in oklab, hsl(var(--card)) 92%, hsl(var(--background)));
+  color: hsl(var(--foreground));
+  outline: none;
+  transition:
+    box-shadow 120ms ease,
+    border-color 120ms ease;
+}
+.pt-input:focus {
+  border-color: color-mix(
+    in oklab,
+    hsl(var(--primary)) 55%,
+    hsl(var(--border))
+  );
+  box-shadow: 0 0 0 4px
+    color-mix(in oklab, hsl(var(--primary)) 20%, transparent);
+}
+
+/* 5) 하이라이트 토큰 */
+.pt-hl {
+  padding: 0 0.15rem;
+  border-radius: 0.25rem;
+  box-decoration-break: clone;
+  color: inherit;
+  font-weight: 600;
+}
+.pt-hl-hint {
+  background: color-mix(in oklab, hsl(var(--primary)) 22%, transparent);
+}
+.pt-hl-term {
+  background: color-mix(in oklab, #38bdf8 22%, transparent);
+}
+.pt-hl-tone {
+  background: color-mix(in oklab, #f59e0b 24%, transparent);
+}
+.pt-hl-risk {
+  background: color-mix(in oklab, #ef4444 22%, transparent);
+}
+
+/* 6) TipTap 리셋 */
+.tiptap-editor p {
+  margin: 0;
+  line-height: 1.7;
+}
+.tiptap-editor p + p {
+  margin-top: 0.25rem;
+}
+
+/* 7) 다크 모드 전역 글로우 효과 (bg-card 기준) */
+.dark .bg-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.dark .bg-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: -1;
+  background-image:
+    linear-gradient(135deg, hsl(var(--primary) / 0.14) 0%, transparent 55%),
+    radial-gradient(
+      280px 280px at 92% 8%,
+      hsl(var(--primary) / 0.18) 0%,
+      transparent 70%
+    ),
+    linear-gradient(
+      90deg,
+      hsl(var(--primary) / 0.4),
+      hsl(var(--border)),
+      transparent
+    );
+  background-repeat: no-repeat;
+  background-size:
+    auto,
+    auto,
+    100% 1px;
+  background-position:
+    0 0,
+    0 0,
+    0 100%;
+}
+
+/* 재첨삭 플로팅 패널 레이아웃 보정 (이미지 겹침 해결) */
+.polish-action-panel {
+  @apply fixed z-50 rounded-xl border-2 border-primary bg-card/95 p-4 shadow-2xl backdrop-blur-md;
+  bottom: 2rem;
+  right: 2rem;
+  width: 22rem;
+  max-width: calc(100vw - 4rem);
+}
+
+/* 예외 유틸리티 */
+.pt-overflow-visible {
+  overflow: visible !important;
+}
+.pt-no-glow {
+  overflow: visible !important;
+}
+.dark .pt-no-glow::before {
+  content: none !important;
+}
+
+/* 라이트 모드는 그대로 유지 (흰색 배경) */
+.theme-resume {
+  --background: 0 0% 100%;
+  --foreground: 224 71.4% 4.1%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 71.4% 4.1%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --primary: 262.1 83.3% 57.8%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 14.3% 95.9%;
+  --secondary-foreground: 220.9 39.3% 11%;
+  --muted: 220 14.3% 95.9%;
+  --muted-foreground: 220 8.9% 46.1%;
+  --ring: 262.1 83.3% 57.8%;
+  --radius: 1rem;
+
+  /* 라이트 모드에서는 조명 색상을 '투명'으로 설정 */
+  --glow-top: transparent;
+  --glow-bottom: transparent;
+  --glow-center: transparent;
+}
+
+/* 다크 모드: 1번 스타일 (Deep Dark & Soft Border) */
+.dark .theme-resume {
+  /* 배경: 네이비 기운을 빼고 깊은 블랙/차콜로 변경 (#0f0f16 느낌) */
+  --background: 240 10% 4%;
+  --foreground: 210 20% 98%;
+
+  /* 카드: 배경과 거의 비슷하지만 아주 살짝 밝음 (테두리 대신 면으로 구분) */
+  --card: 240 10% 6%;
+  --card-foreground: 210 20% 98%;
+
+  /* 보더: 존재감이 거의 없도록 매우 어둡게 설정 */
+  --border: 240 5% 15%;
+  --input: 240 5% 15%;
+
+  /* Primary: 1번의 형광 느낌을 살리기 위해 채도를 높임 */
+  --primary: 263 70% 60%;
+  --primary-foreground: 210 40% 98%;
+
+  /* Secondary: 차분한 다크 그레이 */
+  --secondary: 240 5% 15%;
+  --secondary-foreground: 210 20% 98%;
+
+  --muted: 240 5% 15%;
+  --muted-foreground: 215 15% 65%;
+
+  --ring: 263 70% 60%;
+
+  /* 다크 모드에서만 실제 색상 할당 */
+  --glow-top: rgba(76, 29, 149, 0.2); /* violet-900/20 */
+  --glow-bottom: rgba(49, 46, 129, 0.15); /* indigo-900/15 */
+  --glow-center: rgba(124, 58, 237, 0.05); /* violet-600/5 */
+}
+
+/* ---------------------------------------------
+ * Status Badge (theme-token aligned)
+ * --------------------------------------------- */
+@layer components {
+  /* 공통 색/질감 (레이아웃은 TSX에서 유지) */
+  .pt-badge {
+    border: 1px solid hsl(var(--border));
+    background: color-mix(in oklab, hsl(var(--muted)) 72%, transparent);
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Neutral */
+  .pt-badge--neutral {
+    border-color: color-mix(in oklab, hsl(var(--border)) 86%, transparent);
+    background: color-mix(in oklab, hsl(var(--muted)) 78%, transparent);
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Primary (blue/indigo 통일) */
+  .pt-badge--primary {
+    border-color: color-mix(
+      in oklab,
+      hsl(var(--primary)) 26%,
+      hsl(var(--border))
+    );
+    background: color-mix(in oklab, hsl(var(--primary)) 14%, transparent);
+    color: color-mix(in oklab, hsl(var(--primary)) 70%, hsl(var(--foreground)));
+  }
+
+  /* AI */
+  .pt-badge--ai {
+    border-color: color-mix(in oklab, hsl(var(--ai)) 30%, hsl(var(--border)));
+    background: hsl(var(--ai-soft));
+    color: hsl(var(--ai));
+  }
+
+  /* Success */
+  .pt-badge--success {
+    border-color: color-mix(in oklab, #10b981 26%, hsl(var(--border)));
+    background: color-mix(in oklab, #10b981 12%, transparent);
+    color: color-mix(in oklab, #10b981 72%, hsl(var(--foreground)));
+  }
+
+  /* Warning */
+  .pt-badge--warning {
+    border-color: color-mix(in oklab, #f59e0b 28%, hsl(var(--border)));
+    background: color-mix(in oklab, #f59e0b 14%, transparent);
+    color: color-mix(in oklab, #f59e0b 74%, hsl(var(--foreground)));
+  }
+
+  /* Danger */
+  .pt-badge--danger {
+    border-color: color-mix(in oklab, #ef4444 28%, hsl(var(--border)));
+    background: color-mix(in oklab, #ef4444 12%, transparent);
+    color: color-mix(in oklab, #ef4444 74%, hsl(var(--foreground)));
+  }
+}
+
+/* ---------------------------------------------
+ * Resume write flow micro-interactions
+ * --------------------------------------------- */
+@keyframes flow-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes flow-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@layer components {
+  .animate-flow-rise {
+    animation: flow-rise 240ms ease-out both;
+  }
+
+  .animate-flow-pop {
+    animation: flow-pop 300ms ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-flow-rise,
+    .animate-flow-pop {
+      animation: none;
+    }
+  }
+}
+
+/* ---------------------------------------------
+ * Wongoji (원고지) theme — scoped to resume write flow
+ * 칸 = 진행량, 연필 = AI 제안, 주홍 인장 = 완료 전용
+ * --------------------------------------------- */
+.wongoji {
+  --background: 60 33% 97%;      /* 종이 */
+  --foreground: 98 11% 14%;      /* 먹 */
+  --card: 0 0% 100%;             /* 시트 */
+  --card-foreground: 98 11% 14%;
+  --muted: 60 19% 94%;
+  --muted-foreground: 85 5% 46%;
+  --border: 73 17% 84%;          /* 괘선 연회색 */
+  --input: 73 17% 84%;
+  --primary: 154 40% 31%;        /* 괘선녹 */
+  --primary-foreground: 140 30% 98%;
+  --ring: 154 40% 31%;
+  --ai: 84 4% 48%;               /* 연필 */
+  --ai-foreground: 0 0% 100%;
+  --ai-soft: 60 19% 94%;
+  --success: 154 40% 31%;        /* 완료 상태도 괘선녹으로 통일 */
+  --success-foreground: 154 40% 31%;
+  --wg-seal: 7 63% 48%;          /* 주홍 인장 */
+}
+.dark .wongoji {
+  --background: 96 12% 8%;
+  --foreground: 73 16% 89%;
+  --card: 100 11% 11%;
+  --card-foreground: 73 16% 89%;
+  --muted: 94 11% 13%;
+  --muted-foreground: 81 6% 58%;
+  --border: 97 9% 18%;
+  --input: 97 9% 18%;
+  --primary: 147 27% 60%;
+  --primary-foreground: 96 12% 8%;
+  --ring: 147 27% 60%;
+  --ai: 81 6% 55%;
+  --ai-foreground: 96 12% 8%;
+  --ai-soft: 94 11% 13%;
+  --success: 147 27% 60%;
+  --success-foreground: 147 27% 60%;
+  --wg-seal: 10 63% 59%;
+}
+
+/* 원고지 세계는 직각 — .wongoji-sharp 스코프 안의 라운딩 제거
+   (헤더 아바타 등 원형이 필요한 셸 요소는 스코프 밖에 둔다) */
+.wongoji-sharp :where(*, *::before, *::after) {
+  border-radius: 0;
+}
+
+/* 괘선이 그어진 원고 본문 — 배경이 내용과 함께 스크롤되도록 local */
+.wongoji .wg-ruled {
+  line-height: 2.1;
+  background-image: repeating-linear-gradient(
+    transparent 0 calc(2.1em - 1px),
+    hsl(var(--primary) / 0.16) calc(2.1em - 1px) 2.1em
+  );
+  background-attachment: local;
+}
+
+/* 원고지 격자 — 원문 붙여넣기 영역 */
+.wongoji .wg-grid {
+  background-image:
+    repeating-linear-gradient(to right, transparent 0 27px, hsl(var(--primary) / 0.07) 27px 28px),
+    repeating-linear-gradient(to bottom, transparent 0 27px, hsl(var(--primary) / 0.07) 27px 28px);
+  background-attachment: local;
+}
+
+/* 주홍 인장 */
+.wongoji .wg-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 3px solid hsl(var(--wg-seal));
+  box-shadow:
+    inset 0 0 0 2px hsl(var(--card)),
+    inset 0 0 0 3.5px hsl(var(--wg-seal));
+  color: hsl(var(--wg-seal));
+  background: hsl(var(--wg-seal) / 0.04);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  transform: rotate(-8deg);
+}
+
+@keyframes wg-stamp-in {
+  from { transform: rotate(-8deg) scale(1.6); opacity: 0; }
+  to   { transform: rotate(-8deg) scale(1); opacity: 1; }
+}
+.wongoji .animate-wg-stamp {
+  animation: wg-stamp-in 240ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wongoji .animate-wg-stamp { animation: none; }
+}
+
+/* 원고지 다크 모드는 평평한 종이 — 전역 카드 글로우(.dark .bg-card::before)를 스코프 내에서 제거 */
+.dark .wongoji .bg-card::before {
+  content: none;
+}

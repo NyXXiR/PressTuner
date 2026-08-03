@@ -1,0 +1,1188 @@
+﻿// components/press/PressGenerator.tsx
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import clsx from "clsx";
+import { toDatetimeLocal, fromDatetimeLocal } from "@/lib/utils/datetime";
+import { useMeStore } from "@/stores/useMeStore";
+import { TeamStyleGuidePanel } from "@/components/press/TeamStyleGuidePanel";
+
+type ToneOption = "formal" | "neutral" | "friendly";
+
+type Paragraph = {
+  text: string;
+  importance: number;
+};
+
+type ArticleResult = {
+  articleId?: string;
+  title: string;
+  lead: string;
+  fact: string;
+  paragraphs: Paragraph[];
+  closing: string;
+};
+
+type BriefState = {
+  serviceName: string;
+  announceType: string;
+  oneLiner: string;
+  points: string[];
+  quoteMessage: string;
+  eventAt: string;
+  publishAt: string;
+};
+
+type DraftSummary = {
+  articleId: string;
+  title: string;
+  createdAt: string;
+};
+
+const UNWANTED_SENTENCES = [
+  "자세한 사항은 공식 웹사이트에서 확인할 수 있다.",
+];
+
+function stripUnwanted(text: string) {
+  if (!text) return "";
+  let out = text;
+  UNWANTED_SENTENCES.forEach((s) => {
+    const re = new RegExp(s.replace(/[-/\\^$*+?.()|[\\]{}]/g, "\\$&"), "gi");
+    out = out.replace(re, " ");
+  });
+  return out.replace(/\s+/g, " ").trim();
+}
+
+function sanitizeArticleResult(result: ArticleResult): ArticleResult {
+  const cleanLead = stripUnwanted(result.lead);
+  const cleanFact = stripUnwanted(result.fact);
+  const cleanClosing = stripUnwanted(result.closing);
+
+  const cleanParagraphs: Paragraph[] = [];
+  for (const p of result.paragraphs || []) {
+    const cleaned = stripUnwanted(p.text);
+    if (cleaned) cleanParagraphs.push({ ...p, text: cleaned });
+  }
+
+  return {
+    ...result,
+    lead: cleanLead,
+    fact: cleanFact,
+    closing: cleanClosing,
+    paragraphs: cleanParagraphs.length > 0 ? cleanParagraphs : [],
+  };
+}
+
+// 🔹 스타일 가이드 적용 요약(토스트)용 타입
+type StyleHighlight = {
+  type: "vocabulary" | "tone" | "pattern" | "ban" | "keyword";
+  label: string; // 단어 선택 / 톤·문체 / 문장 패턴 / 금지어 / 스타일 키워드
+  summary: string; // 한 줄 설명
+};
+
+type StyleNoticeState = {
+  styleGuideName?: string;
+  highlights: StyleHighlight[];
+};
+
+const initialBrief: BriefState = {
+  serviceName: "",
+  announceType: "신제품 출시",
+  oneLiner: "",
+  points: [],
+  quoteMessage: "",
+  eventAt: "",
+  publishAt: "",
+};
+
+export function PressGenerator() {
+  const router = useRouter();
+
+  const [rawText, setRawText] = useState("");
+  const [tone, setTone] = useState<ToneOption>("formal");
+
+  const [brief, setBrief] = useState<BriefState>(initialBrief);
+  const [briefReviewed, setBriefReviewed] = useState(false);
+  const [flowAlert, setFlowAlert] = useState<string | null>(null);
+
+  const [normalizeLoading, setNormalizeLoading] = useState(false);
+  const [normalizeError, setNormalizeError] = useState<string | null>(null);
+
+  const [result, setResult] = useState<ArticleResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(
+    null
+  );
+
+  const [styleNotice, setStyleNotice] = useState<StyleNoticeState | null>(null);
+
+  /**
+   * ✅ 반응형 핵심:
+   * - view: 모바일에서 "전체 화면" 탭(입력/브리프/미리보기)
+   * - editorTab: 데스크탑 왼쪽 패널 탭(입력/브리프) — 데스크탑 2컬럼을 절대 숨기지 않음
+   */
+  type View = "input" | "brief" | "preview";
+  const [view, setView] = useState<View>("input");
+
+  type EditorTab = "input" | "brief";
+  const [editorTab, setEditorTab] = useState<EditorTab>("input");
+
+  // 미리보기 간략/확장
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+
+  const goToBrief = () => {
+    setView("brief");
+    setEditorTab("brief");
+    setBriefReviewed(true);
+    setFlowAlert(null);
+  };
+
+  const fetchMe = useMeStore((state) => state.fetchMe);
+
+  // 브리프 정리하기
+  const handleNormalizeBrief = async () => {
+    setNormalizeLoading(true);
+    setNormalizeError(null);
+
+    try {
+      const res = await fetch("/api/brief/normalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText, tone }),
+      });
+
+      if (!res.ok) {
+        let message = "브리프 정리에 실패했습니다.";
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const data = (await res.json()) as {
+        serviceName?: string;
+        announceType?: string;
+        oneLiner?: string;
+        points?: string[];
+        quoteMessage?: string;
+        eventAt?: string;
+        publishAt?: string;
+      };
+
+      setBrief({
+        serviceName: data.serviceName ?? "",
+        announceType: data.announceType ?? "기타",
+        oneLiner: data.oneLiner ?? "",
+        points: Array.isArray(data.points) ? data.points : [],
+        quoteMessage: data.quoteMessage ?? "",
+        eventAt: toDatetimeLocal(data.eventAt),
+        publishAt: toDatetimeLocal(data.publishAt),
+      });
+
+      setBriefReviewed(true);
+      setFlowAlert(null);
+
+      // ✅ 모바일은 브리프 탭으로 / 데스크탑은 왼쪽 탭을 브리프로
+      goToBrief();
+    } catch (e: unknown) {
+      console.error(e);
+      const msg =
+        e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.";
+      setNormalizeError(msg);
+    } finally {
+      setNormalizeLoading(false);
+    }
+  };
+
+  // 브리프 포인트 추가/수정/삭제
+  const handleAddPoint = () => {
+    setBrief((prev) => ({ ...prev, points: [...prev.points, ""] }));
+  };
+
+  const handleChangePoint = (index: number, value: string) => {
+    setBrief((prev) => {
+      const next = [...prev.points];
+      next[index] = value;
+      return { ...prev, points: next };
+    });
+  };
+
+  const handleRemovePoint = (index: number) => {
+    setBrief((prev) => {
+      const next = [...prev.points];
+      next.splice(index, 1);
+      return { ...prev, points: next };
+    });
+  };
+
+  // 세션 내 초안 목록에서 특정 article을 선택해 미리보기로 불러오기
+  const handleSelectDraft = async (articleId: string) => {
+    if (articleId === result?.articleId) {
+      setSelectedArticleId(articleId);
+      return;
+    }
+
+    try {
+      setPreviewLoading(true);
+      setError(null);
+
+      const res = await fetch(`/api/articles/${articleId}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "초안을 불러오는 데 실패했습니다.");
+      }
+
+      const data = await res.json();
+      const article = data.article as {
+        id: string;
+        title: string;
+        bodyJson: any | null;
+        pressExtra?: { lead: string | null; fact: string | null } | null;
+      };
+
+      const bodyJson = article.bodyJson ?? {};
+      const paragraphsRaw = Array.isArray(bodyJson.paragraphs)
+        ? bodyJson.paragraphs
+        : [];
+
+      const safeParagraphs: Paragraph[] = paragraphsRaw.filter(
+        (p: any): p is Paragraph =>
+          p && typeof p.text === "string" && typeof p.importance === "number"
+      );
+
+      const sanitized = sanitizeArticleResult({
+        articleId: article.id,
+        title: article.title ?? "",
+        lead: article.pressExtra?.lead ?? "",
+        fact: article.pressExtra?.fact ?? bodyJson.fact ?? "",
+        paragraphs: safeParagraphs,
+        closing: bodyJson.closing ?? "",
+      });
+
+      setResult(sanitized);
+
+      setSelectedArticleId(articleId);
+
+      // ✅ 입력창 유지, 미리보기는 수동 전환 (textarea 사라지지 않도록)
+      setView("preview");
+      setPreviewExpanded(false);
+    } catch (e: unknown) {
+      console.error(e);
+      const msg =
+        e instanceof Error ? e.message : "초안을 불러오는 데 실패했습니다.";
+      setError(msg);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // 보도자료 생성
+  const handleSubmit = async () => {
+    if (!briefReviewed) {
+      setFlowAlert("브리프를 확인한 뒤 생성할 수 있어요.");
+      goToBrief();
+      return;
+    }
+
+    setFlowAlert(null);
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setStyleNotice(null); // 새로 생성할 때 이전 토스트는 초기화
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceName: brief.serviceName,
+          announceType: brief.announceType,
+          oneLiner: brief.oneLiner,
+          points: brief.points,
+          quoteMessage: brief.quoteMessage,
+          tone,
+          rawText,
+          eventAt: fromDatetimeLocal(brief.eventAt),
+          publishAt: fromDatetimeLocal(brief.publishAt),
+        }),
+      });
+
+      if (!res.ok) {
+        let message = "생성에 실패했습니다.";
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const data = (await res.json()) as ArticleResult & { articleId?: string };
+
+      const safeParagraphs: Paragraph[] = Array.isArray(data.paragraphs)
+        ? data.paragraphs.filter(
+            (p): p is Paragraph =>
+              p &&
+              typeof p.text === "string" &&
+              typeof p.importance === "number"
+          )
+        : [];
+
+      const nextResult: ArticleResult = {
+        articleId: data.articleId,
+        title: data.title ?? "",
+        lead: data.lead ?? "",
+        fact: data.fact ?? "",
+        paragraphs: safeParagraphs,
+        closing: data.closing ?? "",
+      };
+
+      setResult(sanitizeArticleResult(nextResult));
+
+      // 세션 내 초안 목록에 쌓기
+      if (data.articleId) {
+        const summary: DraftSummary = {
+          articleId: data.articleId,
+          title: data.title || "제목 없음 초안",
+          createdAt: new Date().toISOString(),
+        };
+
+        setDrafts((prev) => [
+          summary,
+          ...prev.filter((d) => d.articleId !== summary.articleId),
+        ]);
+        setSelectedArticleId(data.articleId);
+      }
+
+      // ✨ 스타일 가이드 규칙 토스트 하이라이트 계산
+      const applied = (data as any).appliedStyleRules;
+      if (applied) {
+        const highlights: StyleHighlight[] = [];
+
+        // 1) 단어 선택 (vocabulary)
+        if (
+          Array.isArray(applied.vocabulary) &&
+          applied.vocabulary.length > 0
+        ) {
+          const v = applied.vocabulary[0];
+          const from = v?.from ? String(v.from) : "";
+          const to = v?.to ? String(v.to) : "";
+          const expl = v?.explanation ? String(v.explanation) : "";
+
+          let summary = expl;
+          if (!summary) {
+            if (from && to) {
+              summary = `"${from}" 대신 "${to}" 같은 표현을 쓰도록 유도했어요.`;
+            } else if (to) {
+              summary = `"${to}" 같은 표현으로 더 명확하게 쓰도록 도와줬어요.`;
+            } else {
+              summary =
+                "애매한 표현을 줄이고, 더 명확한 문장으로 바꾸도록 했어요.";
+            }
+          }
+
+          highlights.push({ type: "vocabulary", label: "단어 선택", summary });
+        }
+
+        // 2) 톤/문체 (toneHints)
+        if (Array.isArray(applied.toneHints) && applied.toneHints.length > 0) {
+          const t = applied.toneHints[0];
+          const pattern = t?.pattern ? String(t.pattern) : "";
+          const rec = t?.recommendation ? String(t.recommendation) : "";
+
+          let summary = rec;
+          if (!summary) {
+            summary = pattern
+              ? `"${pattern}" 상황에서 팀이 선호하는 어투로 맞춰서 작성했어요.`
+              : "문장의 톤과 문체를 팀 가이드에 맞게 조정했어요.";
+          }
+
+          highlights.push({ type: "tone", label: "톤/문체", summary });
+        }
+
+        // 3) 문장 패턴 (boilerplates)
+        if (
+          Array.isArray(applied.boilerplates) &&
+          applied.boilerplates.length > 0
+        ) {
+          const sorted = [...applied.boilerplates].sort((a: any, b: any) => {
+            const order = { lead: 0, closing: 1, body: 2 } as Record<
+              string,
+              number
+            >;
+            return (order[a?.slot] ?? 99) - (order[b?.slot] ?? 99);
+          });
+
+          const b = sorted[0];
+          const slot = b?.slot as "lead" | "closing" | "body" | undefined;
+          const usageHint = b?.usageHint ? String(b.usageHint) : "";
+          const text = b?.text ? String(b.text) : "";
+
+          const slotLabel =
+            slot === "lead"
+              ? "리드 문단"
+              : slot === "closing"
+              ? "마무리 문장"
+              : "본문 문단";
+
+          let summary = usageHint;
+          if (!summary) {
+            summary = text
+              ? `${slotLabel}에 팀이 자주 쓰는 문장 패턴을 적용했어요.`
+              : "리드/마무리 문장의 패턴을 팀 가이드에 맞게 맞췄어요.";
+          }
+
+          highlights.push({ type: "pattern", label: "문장 패턴", summary });
+        }
+
+        // 4) 금지어 (banList)
+        if (Array.isArray(applied.banList) && applied.banList.length > 0) {
+          const ban = String(applied.banList[0]);
+          const summary = `"${ban}" 같은 표현은 피하고, 더 자연스러운 표현으로 바꾸도록 했어요.`;
+          highlights.push({ type: "ban", label: "금지어", summary });
+        }
+
+        // 5) 스타일 키워드 (keywords)
+        if (Array.isArray(applied.keywords) && applied.keywords.length > 0) {
+          const top = applied.keywords
+            .slice()
+            .sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0))
+            .slice(0, 2);
+
+          const keys = top
+            .map((k: any) => (k?.key ? String(k.key) : ""))
+            .filter(Boolean);
+
+          if (keys.length > 0) {
+            const summary = `이번 초안은 ${keys
+              .map((k: string) => `"${k}"`)
+              .join(", ")} 스타일 키워드를 중심으로 작성했어요.`;
+            highlights.push({
+              type: "keyword",
+              label: "스타일 키워드",
+              summary,
+            });
+          }
+        }
+
+        if (highlights.length > 0) {
+          setStyleNotice({
+            styleGuideName: undefined,
+            highlights: highlights.slice(0, 3),
+          });
+        }
+      }
+
+      // ✅ 입력창 유지, 미리보기는 수동 전환 (textarea 사라지지 않도록)
+      setPreviewExpanded(false);
+
+      await fetchMe();
+    } catch (e: unknown) {
+      console.error(e);
+      const msg =
+        e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 첨삭 페이지로 이동 + 상태를 IN_PROGRESS로 변경 (실패해도 이동은 함)
+  const handleGoToEdit = async () => {
+    const targetId = selectedArticleId ?? result?.articleId;
+    if (!targetId) return;
+
+    try {
+      await fetch(`/api/articles/${targetId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "IN_PROGRESS" }),
+      });
+    } catch (e) {
+      console.error("status 업데이트 실패 (무시 가능)", e);
+    }
+
+    router.push(`/press/${targetId}/edit`);
+  };
+
+  // ✅ "현재 화면" (모바일에서는 view, 데스크탑에서는 editorTab을 씀)
+  const activeEditorTab: EditorTab =
+    typeof window === "undefined" ? editorTab : editorTab;
+
+  return (
+    <div className="flex flex-col gap-4 lg:gap-6 pt-2 lg:pt-4 pb-6">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        <span
+          className={clsx(
+            "inline-flex items-center gap-1 px-2 py-1 rounded-full border",
+            view === "input"
+              ? "border-primary/50 bg-primary/10 text-primary"
+              : "border-border"
+          )}
+        >
+          1. 입력
+        </span>
+        <span className="text-muted-foreground/70">→</span>
+        <span
+          className={clsx(
+            "inline-flex items-center gap-1 px-2 py-1 rounded-full border",
+            view === "brief"
+              ? "border-primary/50 bg-primary/10 text-primary"
+              : "border-border"
+          )}
+        >
+          2. 브리프
+        </span>
+        <span className="text-muted-foreground/70">→</span>
+        <span
+          className={clsx(
+            "inline-flex items-center gap-1 px-2 py-1 rounded-full border",
+            view === "preview"
+              ? "border-primary/50 bg-primary/10 text-primary"
+              : "border-border"
+          )}
+        >
+          3. 미리보기
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+      {/* ✅ 모바일 전용: 3-탭 네비게이션 */}
+      <div className="lg:hidden sticky top-0 z-20 bg-background/80 backdrop-blur">
+        <div className="rounded-md border border-border p-1 flex gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setView("input");
+              setEditorTab("input");
+            }}
+            className={clsx(
+              "flex-1 rounded-md px-3 py-2 text-sm",
+              view === "input"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            입력
+          </button>
+
+          <button
+            type="button"
+            onClick={goToBrief}
+            className={clsx(
+              "flex-1 rounded-md px-3 py-2 text-sm",
+              view === "brief"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            브리프
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setView("preview")}
+            className={clsx(
+              "flex-1 rounded-md px-3 py-2 text-sm",
+              view === "preview"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            미리보기
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ LEFT: 데스크탑에서는 항상 존재(입력/브리프), 모바일에서는 view에 따라 보임 */}
+      <section
+        className={clsx(
+          "flex flex-col lg:min-h-0",
+          // 모바일: preview면 왼쪽을 숨김
+          view === "preview" ? "hidden lg:flex" : "flex"
+        )}
+      >
+        {/* ✅ 데스크탑 전용: 왼쪽 내부 탭(입력/브리프) */}
+        <div className="hidden lg:block mb-2">
+          <div className="rounded-md border border-border p-1 flex gap-1">
+            <button
+              type="button"
+              onClick={() => setEditorTab("input")}
+              className={clsx(
+                "flex-1 rounded-md px-3 py-2 text-sm",
+                activeEditorTab === "input"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              입력
+            </button>
+            <button
+              type="button"
+              onClick={goToBrief}
+              className={clsx(
+                "flex-1 rounded-md px-3 py-2 text-sm",
+                activeEditorTab === "brief"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              브리프
+            </button>
+          </div>
+        </div>
+
+        {/* ✅ 모바일: view에 따라 input/brief 렌더, 데스크탑: editorTab에 따라 렌더 */}
+        <div className="space-y-4 overflow-visible lg:flex-1 lg:min-h-0 lg:overflow-auto lg:pr-1">
+          {/* -------------------- INPUT VIEW -------------------- */}
+          {((view === "input" && true) || (view !== "preview" && false)) &&
+            (activeEditorTab === "input" ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    대충이라도 좋으니, 보도자료에 넣고 싶은 내용을 자유롭게
+                    적어주세요
+                  </label>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    형식 신경 쓰지 말고, 서비스/제품 소개, 발표 배경, 강조하고
+                    싶은 포인트 등을 편하게 적어주세요.
+                  </p>
+
+                  <textarea
+                    value={rawText}
+                    onChange={(e) => {
+                      setRawText(e.target.value);
+                      setBriefReviewed(false);
+                      setFlowAlert(null);
+                    }}
+                    className="w-full rounded-md bg-card border border-input px-3 py-3 text-sm text-foreground min-h-[260px] max-h-[520px] leading-relaxed overflow-auto focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                    placeholder={`예)
+3월 1일 정식 오픈, 우선은 20~30대 직장인 타깃.
+초반 3개월 동안은 전환 금액의 2%를 추가 캐시백(예: 10만 원 전환 시 2천 원).
+
+A은행은 MZ 고객 유입, 우리는 서비스 락인 효과.
+
+인용문 후보:
+"포인트를 쓰는 순간 사라지는 소비재가 아니라, 쌓을수록 든든해지는 자산으로 바꾸고 싶다."
+"젊은 사용자들이 작은 금액부터라도 저축 습관을 들일 수 있게 만드는 게 목표."`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    톤 선택
+                  </label>
+                  <div className="flex gap-3 text-sm flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTone("formal");
+                        setBriefReviewed(false);
+                        setFlowAlert(null);
+                      }}
+                      className={clsx(
+                        "px-3 py-1 rounded-full border text-xs",
+                        tone === "formal"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-input text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      정중 · 통신사 기사체
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTone("neutral");
+                        setBriefReviewed(false);
+                        setFlowAlert(null);
+                      }}
+                      className={clsx(
+                        "px-3 py-1 rounded-full border text-xs",
+                        tone === "neutral"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-input text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      중립 · 담백
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTone("friendly");
+                        setBriefReviewed(false);
+                        setFlowAlert(null);
+                      }}
+                      className={clsx(
+                        "px-3 py-1 rounded-full border text-xs",
+                        tone === "friendly"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-input text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      친근 · 스타트업 톤
+                    </button>
+                  </div>
+                </div>
+
+                {/* ✅ 모바일 하단 sticky 액션(데스크탑에서는 일반) */}
+                <div className="sticky bottom-0 z-10 bg-background/80 backdrop-blur py-2 lg:static lg:bg-transparent lg:backdrop-blur-0 lg:py-0">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                      type="button"
+                      onClick={handleNormalizeBrief}
+                      disabled={normalizeLoading || !rawText.trim()}
+                      className="px-4 py-2 rounded-md bg-muted text-sm text-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {normalizeLoading
+                        ? "브리프 정리 중..."
+                        : "브리프 정리하기"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={goToBrief}
+                      className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                    >
+                      브리프로 이동
+                    </button>
+
+                    {/* 모바일에선 브리프 탭으로 유도 */}
+                    <button
+                      type="button"
+                      onClick={goToBrief}
+                      className="px-3 py-2 rounded-md border border-border text-sm text-muted-foreground hover:bg-muted lg:hidden"
+                    >
+                      브리프 보기 →
+                    </button>
+
+                    {/* 데스크탑에선 왼쪽 탭 전환 */}
+                    <button
+                      type="button"
+                      onClick={goToBrief}
+                      className="px-3 py-2 rounded-md border border-border text-sm text-muted-foreground hover:bg-muted hidden lg:inline-flex"
+                    >
+                      브리프로 →
+                    </button>
+                  </div>
+
+                  {normalizeError && (
+                    <p className="text-[11px] text-red-500 mt-1">
+                      브리프 에러: {normalizeError}
+                    </p>
+                  )}
+                  {flowAlert && (
+                    <p className="text-[11px] text-amber-500 mt-1">
+                      {flowAlert}
+                    </p>
+                  )}
+                </div>
+
+                {/* 모바일에서는 입력 흐름 안에 스타일 가이드 */}
+                <div className="lg:hidden">
+                  <TeamStyleGuidePanel />
+                </div>
+              </>
+            ) : null)}
+
+          {/* -------------------- BRIEF VIEW -------------------- */}
+          {activeEditorTab === "brief" && (view !== "preview" || true) ? (
+            <>
+              <div className="rounded-md border border-border bg-muted p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-medium">정리된 브리프</h2>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      입력 내용을 기반으로 정리된 브리프예요. 여기서 한 번만
+                      점검하고 생성하면 훨씬 안정적으로 나와요.
+                    </p>
+                  </div>
+
+                  {/* 모바일에서는 입력 탭으로 / 데스크탑은 탭 전환 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView("input");
+                      setEditorTab("input");
+                    }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground lg:hidden"
+                  >
+                    ← 입력으로
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditorTab("input")}
+                    className="text-[11px] text-muted-foreground hover:text-foreground hidden lg:inline-flex"
+                  >
+                    ← 입력
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">
+                      서비스 / 제품 이름
+                    </label>
+                    <input
+                      value={brief.serviceName}
+                      onChange={(e) =>
+                        setBrief((prev) => ({
+                          ...prev,
+                          serviceName: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">
+                      발표 유형
+                    </label>
+                    <select
+                      value={brief.announceType}
+                      onChange={(e) =>
+                        setBrief((prev) => ({
+                          ...prev,
+                          announceType: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option>신제품 출시</option>
+                      <option>서비스 업데이트</option>
+                      <option>제휴/파트너십</option>
+                      <option>행사/이벤트 개최</option>
+                      <option>기타</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1">
+                        주요 사건 시점
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={brief.eventAt}
+                        onChange={(e) =>
+                          setBrief((prev) => ({
+                            ...prev,
+                            eventAt: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1">
+                        게재 시점
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={brief.publishAt}
+                        onChange={(e) =>
+                          setBrief((prev) => ({
+                            ...prev,
+                            publishAt: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">
+                      한 줄 설명 (리드 핵심)
+                    </label>
+                    <textarea
+                      value={brief.oneLiner}
+                      onChange={(e) =>
+                        setBrief((prev) => ({
+                          ...prev,
+                          oneLiner: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground min-h-[70px] focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">
+                      핵심 포인트
+                    </label>
+                    <div className="space-y-2">
+                      {brief.points.map((p, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            value={p}
+                            onChange={(e) =>
+                              handleChangePoint(idx, e.target.value)
+                            }
+                            className="flex-1 rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder={`포인트 ${idx + 1}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePoint(idx)}
+                            className="text-[11px] text-muted-foreground hover:text-red-500"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={handleAddPoint}
+                        className="text-[11px] text-primary hover:text-primary/80"
+                      >
+                        + 포인트 추가
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1">
+                      인용문 메시지 (선택)
+                    </label>
+                    <textarea
+                      value={brief.quoteMessage}
+                      onChange={(e) =>
+                        setBrief((prev) => ({
+                          ...prev,
+                          quoteMessage: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-md bg-card border border-input px-3 py-2 text-xs text-foreground min-h-[70px] focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ✅ 브리프에서 생성 */}
+              <div className="sticky bottom-0 z-10 bg-background/80 backdrop-blur py-2 lg:static lg:bg-transparent lg:backdrop-blur-0 lg:py-0">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="px-4 py-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "보도자료 생성 중..." : "초안 생성하기"}
+                  </button>
+
+                  {/* 모바일에선 미리보기 탭으로, 데스크탑에선 오른쪽으로 주의만 주면 됨 */}
+                  <button
+                    type="button"
+                    onClick={() => setView("preview")}
+                    className="px-3 py-2 rounded-md border border-border text-sm text-muted-foreground hover:bg-muted lg:hidden"
+                  >
+                    미리보기 →
+                  </button>
+                </div>
+              </div>
+
+              <div className="lg:hidden">
+                <TeamStyleGuidePanel />
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        {/* 데스크톱에서만 아래쪽에 스타일 가이드 */}
+        <div className="hidden lg:block mt-3">
+          <TeamStyleGuidePanel />
+        </div>
+      </section>
+
+      {/* ✅ RIGHT: 미리보기 (데스크탑 항상 노출 / 모바일은 view==='preview'일 때만) */}
+      <section
+        className={clsx(
+          "flex flex-col lg:min-h-0",
+          view === "preview" ? "flex" : "hidden lg:flex"
+        )}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-sm font-medium">미리보기</h2>
+            {result?.articleId && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                팀 보도자료 목록에{" "}
+                <span className="font-medium text-primary">임시 저장</span>됨
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {result?.articleId && (
+              <button
+                type="button"
+                onClick={handleGoToEdit}
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-[12px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+              >
+                <span>✏️</span>
+                <span>첨삭하기</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {styleNotice && styleNotice.highlights.length > 0 && (
+          <details className="mb-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-foreground">
+                스타일 가이드가 적용됐어요
+              </span>
+              <span className="text-[11px] text-muted-foreground">펼치기</span>
+            </summary>
+
+            <div className="mt-2 text-[11px] text-muted-foreground leading-snug">
+              <ul className="space-y-1 list-disc list-inside">
+                {styleNotice.highlights.map((h, idx) => (
+                  <li key={idx}>
+                    <span className="font-medium text-foreground">
+                      {h.label}
+                    </span>
+                    : {h.summary}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = "/style-guides";
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                  className="rounded-md border border-border px-2 py-1 text-[11px] text-foreground hover:bg-muted"
+                >
+                  자세히 보기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStyleNotice(null)}
+                  className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </details>
+        )}
+
+        {drafts.length > 0 && (
+          <details className="mb-2 rounded-md border border-border bg-card px-3 py-2">
+            <summary className="cursor-pointer list-none flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                이 세션에서 생성된 초안 ({drafts.length})
+              </span>
+              <span className="text-[10px] text-muted-foreground">펼치기</span>
+            </summary>
+
+            <ul className="mt-2 max-h-28 overflow-y-auto space-y-1">
+              {drafts.map((draft) => (
+                <li key={draft.articleId}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectDraft(draft.articleId)}
+                    className={clsx(
+                      "w-full text-left px-2 py-1 rounded-md text-[11px] truncate",
+                      draft.articleId === selectedArticleId
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {draft.title || "제목 없음 초안"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
+        <div className="rounded-md border border-border bg-card p-4 text-sm overflow-visible lg:flex-1 lg:min-h-0 lg:overflow-auto">
+          {previewLoading ? (
+            <span className="text-muted-foreground text-[12px]">
+              선택한 초안을 불러오는 중입니다…
+            </span>
+          ) : result ? (
+            <article className="space-y-3">
+              {result.title && (
+                <h3 className="text-[18px] leading-snug font-semibold text-foreground">
+                  {result.title}
+                </h3>
+              )}
+
+              {result.lead && (
+                <p className="text-[13px] leading-relaxed text-foreground">
+                  {result.lead}
+                </p>
+              )}
+
+              {result.fact && (
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  {result.fact}
+                </p>
+              )}
+
+              <div className="pt-2 border-t border-border space-y-3">
+                {(previewExpanded
+                  ? result.paragraphs
+                  : result.paragraphs.slice(0, 2)
+                ).map((p, idx) => (
+                  <p
+                    key={idx}
+                    className="text-[13px] leading-relaxed text-foreground"
+                  >
+                    {p.text}
+                  </p>
+                ))}
+
+                {result.paragraphs.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewExpanded((v) => !v)}
+                    className="text-[12px] text-primary hover:text-primary/80"
+                  >
+                    {previewExpanded ? "간략히 보기" : "더 보기"}
+                  </button>
+                )}
+              </div>
+
+              {result.closing && (
+                <p className="text-[12px] leading-relaxed text-muted-foreground border-t border-border pt-3">
+                  {result.closing}
+                </p>
+              )}
+            </article>
+          ) : (
+            <div className="text-muted-foreground text-[12px] leading-relaxed">
+              <p>아직 생성된 초안이 없어요.</p>
+              <p className="mt-1">
+                <span className="font-medium text-foreground">입력</span> 또는{" "}
+                <span className="font-medium text-foreground">브리프</span>에서
+                생성해보세요.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <p className="mt-2 text-[11px] text-red-500">오류: {error}</p>
+        )}
+      </section>
+    </div>
+    </div>
+  );
+}

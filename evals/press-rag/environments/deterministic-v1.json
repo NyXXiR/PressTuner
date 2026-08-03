@@ -1,0 +1,7 @@
+{
+  "id": "deterministic-v1",
+  "contentHash": "a16cea08b63a411c1581cf06704ec9cb67c76d200c0c32a5b83189f139b22347",
+  "executorId": "press-rag-deterministic/v1",
+  "seed": 20260803,
+  "frozenAt": "2026-08-03T00:00:00.000Z"
+}
