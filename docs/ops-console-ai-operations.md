@@ -14,6 +14,10 @@ OPS_CONSOLE_AI_OPERATIONS_URL=https://ops-console.example.com
 OPS_CONSOLE_AI_OPERATIONS_WRITE_KEY=<project-write-key>
 OPS_CONSOLE_AI_OPERATIONS_ENVIRONMENT=production
 OPS_CONSOLE_AI_OPERATIONS_TIMEOUT_MS=3000
+LANGSMITH_API_KEY=<workspace-service-key>
+LANGSMITH_PROJECT=Ops console
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_TIMEOUT_MS=3000
 ```
 
 `OPS_CONSOLE_AI_OPERATIONS_URL` is the Ops Console origin, not the producer API
@@ -21,6 +25,12 @@ path. The timeout is optional and is bounded to at most 10 seconds. A missing or
 invalid URL, write key, or environment disables registration without changing
 the Press Agent result. Never use a `NEXT_PUBLIC_` variable for the URL or write
 key.
+
+The LangSmith bridge uses the official SDK independently of the OpenAI Agents
+SDK trace. It writes one root run to the configured project for each initial or
+continued execution. Missing or invalid LangSmith configuration disables only
+that trace. The workspace ID is optional for a key scoped to a single
+workspace; set `LANGSMITH_WORKSPACE_ID` only when the key requires it.
 
 The browser event names have safe defaults and may be overridden at build time:
 
@@ -49,8 +59,9 @@ The producer payload contains only:
 
 Prompts, article content, raw team/user IDs, credentials, provider response
 bodies, and arbitrary metadata are excluded. LangSmith root metadata contains
-the operation UUID, workflow ID/version, environment, and internal run ID, but
-no team or user ID.
+only the operation UUID, workflow ID/version, environment, and lifecycle phase.
+Its inputs and outputs contain only the phase and terminal status; no prompt,
+draft, team ID, user ID, or provider response is sent.
 
 Verified `COMPLETED` and terminal `FAILED` runs are completed best-effort in Ops
 Console. Waiting-for-approval runs remain open. Cancellation also closes the

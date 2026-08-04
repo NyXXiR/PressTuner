@@ -99,6 +99,9 @@ test("serialized v1 checkpoints retain their original version identity", () => {
 test("Agent v2 propagates a private operation UUID across durable and trace boundaries", () => {
   const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
   assert.match(source, /beginOpsConsoleOperation/);
+  assert.match(source, /traceLangSmithOperation/);
+  assert.match(source, /phase: "initial"/);
+  assert.match(source, /phase: "continuation"/);
   assert.match(source, /operationId: operation\.operationId/);
   assert.match(source, /operation_id: operation\.operationId/);
   assert.match(source, /workflow_id: PRESS_AGENT_WORKFLOW_ID/);

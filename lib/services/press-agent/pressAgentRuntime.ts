@@ -65,6 +65,7 @@ import {
   readOpsConsoleOperationEnvironment,
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
+import { traceLangSmithOperation } from "@/lib/services/operations/langSmithOperationTracer";
 import {
   PRESS_AGENT_V1_VERSION,
   restorePressAgentV1Checkpoint,
@@ -1102,45 +1103,56 @@ export async function startPressAgentRun(args: {
     deadlineAt: runRecord.deadlineAt!,
   });
   try {
-    const result = await withTrace(
-      "PressTuner Grounded Press Agent",
-      async (trace) => {
-        await prisma.agentRun.update({
-          where: { id: runRecord.id },
-          data: { traceId: trace.traceId },
-        });
-        return pressAgentRunner.run(pressAgent, args.prompt, {
-          context: {
-            runId: runRecord.id,
-            teamId: args.teamId,
-            userId: args.userId,
-            articleId: args.articleId ?? null,
-            articleUpdatedAt,
-            retrievalConfigurationId:
-              args.retrievalConfigurationId ?? "baseline-v1",
+    const result = await traceLangSmithOperation({
+      operationId,
+      workflowId: PRESS_AGENT_WORKFLOW_ID,
+      workflowVersion: PRESS_AGENT_VERSION,
+      environment:
+        operation.environment ??
+        readOpsConsoleOperationEnvironment() ??
+        "unconfigured",
+      phase: "initial",
+      execute: () =>
+        withTrace(
+          "PressTuner Grounded Press Agent",
+          async (trace) => {
+            await prisma.agentRun.update({
+              where: { id: runRecord.id },
+              data: { traceId: trace.traceId },
+            });
+            return pressAgentRunner.run(pressAgent, args.prompt, {
+              context: {
+                runId: runRecord.id,
+                teamId: args.teamId,
+                userId: args.userId,
+                articleId: args.articleId ?? null,
+                articleUpdatedAt,
+                retrievalConfigurationId:
+                  args.retrievalConfigurationId ?? "baseline-v1",
+              },
+              maxTurns: DEFAULT_PRESS_AGENT_RUNTIME_POLICY.maxTurns,
+              signal: composedAbort.signal,
+            });
           },
-          maxTurns: DEFAULT_PRESS_AGENT_RUNTIME_POLICY.maxTurns,
-          signal: composedAbort.signal,
-        });
-      },
-      {
-        groupId: runRecord.id,
-        metadata: {
-          runId: runRecord.id,
-          ...(operationId
-            ? {
-                operation_id: operation.operationId,
-                workflow_id: PRESS_AGENT_WORKFLOW_ID,
-                workflow_version: PRESS_AGENT_VERSION,
-                environment:
-                  operation.environment ??
-                  readOpsConsoleOperationEnvironment() ??
-                  "unconfigured",
-              }
-            : {}),
-        },
-      },
-    );
+          {
+            groupId: runRecord.id,
+            metadata: {
+              runId: runRecord.id,
+              ...(operationId
+                ? {
+                    operation_id: operation.operationId,
+                    workflow_id: PRESS_AGENT_WORKFLOW_ID,
+                    workflow_version: PRESS_AGENT_VERSION,
+                    environment:
+                      operation.environment ??
+                      readOpsConsoleOperationEnvironment() ??
+                      "unconfigured",
+                  }
+                : {}),
+            },
+          },
+        ),
+    });
     await persistRunResult(runRecord, result, startedAtMs, operationId);
     return getPressAgentRun({
       runId: runRecord.id,
@@ -1279,46 +1291,54 @@ async function continuePressAgentRun(
       throw new Error("PRESS_AGENT_ARTICLE_VERSION_CONFLICT");
     }
     const operationId = readPressAgentOperationId(runRecord.input);
-    const result = await withTrace(
-      "PressTuner Grounded Press Agent",
-      async (trace) => {
-        await prisma.agentRun.update({
-          where: { id: runRecord.id },
-          data: { traceId: trace.traceId },
-        });
-        return pressAgentRunner.run(pressAgent, state, {
-          context: {
-            runId: runRecord.id,
-            teamId: runRecord.teamId,
-            userId: actorUserId,
-            articleId: runRecord.articleId,
-            articleUpdatedAt,
-            retrievalConfigurationId:
-              runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input) &&
-              typeof (runRecord.input as Record<string, unknown>).retrievalConfigurationId === "string"
-                ? ((runRecord.input as Record<string, unknown>).retrievalConfigurationId as PressKnowledgeRetrievalConfiguration["id"])
-                : "baseline-v1",
+    const result = await traceLangSmithOperation({
+      operationId,
+      workflowId: PRESS_AGENT_WORKFLOW_ID,
+      workflowVersion: PRESS_AGENT_VERSION,
+      environment: readOpsConsoleOperationEnvironment() ?? "unconfigured",
+      phase: "continuation",
+      execute: () =>
+        withTrace(
+          "PressTuner Grounded Press Agent",
+          async (trace) => {
+            await prisma.agentRun.update({
+              where: { id: runRecord.id },
+              data: { traceId: trace.traceId },
+            });
+            return pressAgentRunner.run(pressAgent, state, {
+              context: {
+                runId: runRecord.id,
+                teamId: runRecord.teamId,
+                userId: actorUserId,
+                articleId: runRecord.articleId,
+                articleUpdatedAt,
+                retrievalConfigurationId:
+                  runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input) &&
+                  typeof (runRecord.input as Record<string, unknown>).retrievalConfigurationId === "string"
+                    ? ((runRecord.input as Record<string, unknown>).retrievalConfigurationId as PressKnowledgeRetrievalConfiguration["id"])
+                    : "baseline-v1",
+              },
+              maxTurns: runtimePolicy.maxTurns,
+              signal: composedAbort.signal,
+            });
           },
-          maxTurns: runtimePolicy.maxTurns,
-          signal: composedAbort.signal,
-        });
-      },
-      {
-        groupId: runRecord.id,
-        metadata: {
-          runId: runRecord.id,
-          ...(operationId
-            ? {
-                operation_id: operationId,
-                workflow_id: PRESS_AGENT_WORKFLOW_ID,
-                workflow_version: PRESS_AGENT_VERSION,
-                environment:
-                  readOpsConsoleOperationEnvironment() ?? "unconfigured",
-              }
-            : {}),
-        },
-      },
-    );
+          {
+            groupId: runRecord.id,
+            metadata: {
+              runId: runRecord.id,
+              ...(operationId
+                ? {
+                    operation_id: operationId,
+                    workflow_id: PRESS_AGENT_WORKFLOW_ID,
+                    workflow_version: PRESS_AGENT_VERSION,
+                    environment:
+                      readOpsConsoleOperationEnvironment() ?? "unconfigured",
+                  }
+                : {}),
+            },
+          },
+        ),
+    });
     await persistRunResult(
       runRecord,
       result,
