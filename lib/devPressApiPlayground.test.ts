@@ -108,6 +108,5 @@ test("development route exposes the complete stateful flow and server guard", as
     assert.match(client, new RegExp(endpoint.replace("/", "\\/")));
   }
   assert.match(proxy, /ENABLE_DEV_API_PLAYGROUND/);
-  assert.match(proxy, /\/dev\/api\/press-new/);
+  assert.match(proxy, /"\/dev\/:path\*"/);
 });
-

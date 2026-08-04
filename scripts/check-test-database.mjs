@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
+import { findMissingRequiredColumns } from "./test-database-schema.mjs";
+
 const prisma = new PrismaClient();
 
 try {
@@ -10,16 +12,6 @@ try {
     throw new Error(`Refusing to use non-test database: ${database}`);
   }
 
-  const requiredColumns = [
-    ["team_product_subscription", "product"],
-    ["team_billing_history", "product"],
-    ["team_billing_history", "subscription_id"],
-    ["coupon_redemption", "product"],
-    ["coupon_redemption", "subscription_id"],
-    ["billing_webhook_event", "transmission_id"],
-    ["subscription_change", "payment_status"],
-    ["subscription_change", "apply_status"],
-  ];
   const rows = await prisma.$queryRawUnsafe(
     `SELECT table_name, column_name
        FROM information_schema.columns
@@ -28,9 +20,7 @@ try {
   const present = new Set(
     rows.map((row) => `${row.table_name}.${row.column_name}`),
   );
-  const missing = requiredColumns
-    .map(([table, column]) => `${table}.${column}`)
-    .filter((column) => !present.has(column));
+  const missing = findMissingRequiredColumns(present);
 
   if (missing.length > 0) {
     throw new Error(

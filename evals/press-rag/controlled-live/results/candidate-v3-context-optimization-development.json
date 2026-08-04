@@ -1,0 +1,289 @@
+{
+  "version": "press-rag-controlled-live-comparison/v1",
+  "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+  "provenance": {
+    "executorId": "press-agent-controlled-live/v1",
+    "baseline": {
+      "executionId": "controlled_live_execution_ef0d3443c1f910f7b30a97eec844041ea68cf4a0c5b15ed81a60a003fbf9528f",
+      "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+      "configurationHash": "b77c9250cc437af91ea8a29e7bb26e95748d3cca6a964ffeeb7f1c3cf9b58559",
+      "caseRunIds": [
+        "CL-001-3e878654-b4a8-4a3f-9d85-f7c466d8abb0",
+        "CL-002-7bf923fe-c003-4fc8-9765-dc50b00f1cc5",
+        "CL-003-ee0c31c4-6045-4019-97d0-c04d98be1651",
+        "CL-004-0624f252-374a-4d85-ae2f-7ab4c44e22e3",
+        "CL-005-1b505003-e653-4a1e-ace9-0a180de6f899",
+        "CL-006-2a2cb7d5-38c4-402a-8981-747d8c0e3d5c",
+        "CL-007-07b09ba1-463c-44ff-8e4a-6e4fa36bbf6b",
+        "CL-008-ab876759-a7a3-493b-94e3-e8d66e1497b4",
+        "CL-033-415e2d99-6a67-4ce3-98e6-3ab7e9c1a66d",
+        "CL-033-3dade2dd-ad96-465a-b45b-82ad55d19c8f",
+        "CL-033-e86141e9-05cd-489f-9bb6-3f0d9600c4be",
+        "CL-034-e1954ad1-146d-41cc-9c2a-505fd27898a3",
+        "CL-034-56c01304-4c55-46b2-b9c5-307ff123cda6",
+        "CL-034-6eed1bf2-9a84-4c5c-a558-caa3c9eb9480"
+      ],
+      "startedAt": "2026-08-04T02:39:06.817Z",
+      "completedAt": "2026-08-04T02:41:43.140Z"
+    },
+    "candidate": {
+      "executionId": "controlled_live_execution_f1d824a6e86b454dd0a849447aead1182ad0f1206dbb1de94875ccc2b79a8785",
+      "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+      "configurationHash": "97f531c2f0fb4c7c6e2b195dfeeae4851430bd8492fae56d896ec0ca08b4db35",
+      "caseRunIds": [
+        "CL-001-83ffd522-11a5-4e2e-baba-0f501a4c465c",
+        "CL-002-bc4147f4-803e-4e22-a9b5-1c82da7b5911",
+        "CL-003-62845f11-5522-4e33-8529-9599d4451486",
+        "CL-004-960f65e7-f5c6-4839-80e0-7bcbe3177689",
+        "CL-005-3ea0bba2-958c-4649-8020-07576a288f96",
+        "CL-006-8cd0af28-82f7-4aa3-8f63-c8476e16b710",
+        "CL-007-3ab37565-f9fb-4e77-84ec-dcfe53435307",
+        "CL-008-e65c1372-d4cd-4813-b14b-c773ec5d7b90",
+        "CL-033-def55903-0289-4cad-9cf0-b66b0e6b2937",
+        "CL-033-72be38d5-c771-40ae-9570-63daae3164f9",
+        "CL-033-95ade8ea-43dc-4cd0-8676-1286b42d29e7",
+        "CL-034-ce117b1e-24af-4462-9226-9d78a847fb68",
+        "CL-034-d23f3448-0e22-4c1d-8767-8ec433347cd0",
+        "CL-034-96b6624b-9a87-4e69-9482-1ad0cab077a4"
+      ],
+      "startedAt": "2026-08-04T02:53:36.971Z",
+      "completedAt": "2026-08-04T02:56:07.586Z"
+    }
+  },
+  "baseline": {
+    "executionId": "controlled_live_execution_ef0d3443c1f910f7b30a97eec844041ea68cf4a0c5b15ed81a60a003fbf9528f",
+    "configurationHash": "b77c9250cc437af91ea8a29e7bb26e95748d3cca6a964ffeeb7f1c3cf9b58559",
+    "retrievalRecallAt5": 1,
+    "citationDocumentPrecision": 1,
+    "answerabilityAccuracy": 1,
+    "agentCompletionRate": 1,
+    "claimGroundedness": {
+      "status": "EVALUABLE",
+      "value": 1
+    },
+    "conflictDetection": {
+      "status": "EVALUABLE",
+      "value": 0.5
+    },
+    "p50LatencyMs": 616.5,
+    "p95LatencyMs": 28638.59999999999,
+    "totalCostMicros": 32313,
+    "caseRunCount": 14,
+    "stageLatency": {
+      "queryTransformationMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.029074490070343018,
+        "p95Ms": 0.14364924132823936
+      },
+      "queryEmbeddingMs": {
+        "sampleCount": 8,
+        "p50Ms": 306.00127652287483,
+        "p95Ms": 580.6529381752013
+      },
+      "combinedHybridSqlRetrievalMs": {
+        "sampleCount": 8,
+        "p50Ms": 11.899250000715256,
+        "p95Ms": 28.106347039341927
+      },
+      "dedupeMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.6380414962768555,
+        "p95Ms": 0.6928572118282318
+      },
+      "rerankingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.005845993757247925,
+        "p95Ms": 0.028276106715202316
+      },
+      "contextPackingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.006888002157211304,
+        "p95Ms": 0.02315238118171692
+      },
+      "indexing.chunkMs": {
+        "sampleCount": 14,
+        "p50Ms": 13.315517246723175,
+        "p95Ms": 13.315517246723175
+      },
+      "indexing.parseMs": {
+        "sampleCount": 14,
+        "p50Ms": 930.0710769295692,
+        "p95Ms": 930.0710769295692
+      },
+      "indexing.totalMs": {
+        "sampleCount": 14,
+        "p50Ms": 14673.049516916275,
+        "p95Ms": 14673.049516916275
+      },
+      "indexing.pageCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.chunkCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.embeddingMs": {
+        "sampleCount": 14,
+        "p50Ms": 12892.677613854408,
+        "p95Ms": 12892.677613854408
+      },
+      "indexing.persistenceMs": {
+        "sampleCount": 14,
+        "p50Ms": 428.0123690366745,
+        "p95Ms": 428.0123690366745
+      },
+      "indexing.classificationMs": {
+        "sampleCount": 14,
+        "p50Ms": 68.85461181402206,
+        "p95Ms": 68.85461181402206
+      },
+      "indexing.embeddingInputTokens": {
+        "sampleCount": 14,
+        "p50Ms": 7384,
+        "p95Ms": 7384
+      },
+      "endToEndMs": {
+        "sampleCount": 14,
+        "p50Ms": 616.5,
+        "p95Ms": 28638.59999999999
+      },
+      "agentModelToolVerifierMs": {
+        "sampleCount": 6,
+        "p50Ms": 21096.5,
+        "p95Ms": 36447.25
+      }
+    },
+    "stageBoundary": "combined-hybrid-sql-retrieval-v1",
+    "componentCostMicros": {
+      "queryEmbedding": 8,
+      "queryRewrite": 0,
+      "reranking": 0,
+      "agent": 32305
+    }
+  },
+  "candidate": {
+    "executionId": "controlled_live_execution_f1d824a6e86b454dd0a849447aead1182ad0f1206dbb1de94875ccc2b79a8785",
+    "configurationHash": "97f531c2f0fb4c7c6e2b195dfeeae4851430bd8492fae56d896ec0ca08b4db35",
+    "retrievalRecallAt5": 1,
+    "citationDocumentPrecision": 1,
+    "answerabilityAccuracy": 1,
+    "agentCompletionRate": 1,
+    "claimGroundedness": {
+      "status": "EVALUABLE",
+      "value": 1
+    },
+    "conflictDetection": {
+      "status": "EVALUABLE",
+      "value": 0.5
+    },
+    "p50LatencyMs": 478.5,
+    "p95LatencyMs": 27101.9,
+    "totalCostMicros": 27608,
+    "caseRunCount": 14,
+    "stageLatency": {
+      "queryTransformationMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.02764102816581726,
+        "p95Ms": 0.18282111287116998
+      },
+      "queryEmbeddingMs": {
+        "sampleCount": 8,
+        "p50Ms": 288.3096549808979,
+        "p95Ms": 417.57004756629465
+      },
+      "combinedHybridSqlRetrievalMs": {
+        "sampleCount": 8,
+        "p50Ms": 10.213143020868301,
+        "p95Ms": 26.794502907991408
+      },
+      "dedupeMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.6283270120620728,
+        "p95Ms": 0.7102251440286637
+      },
+      "rerankingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.005510002374649048,
+        "p95Ms": 0.02642489671707152
+      },
+      "contextPackingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.0062310099601745605,
+        "p95Ms": 0.022540414333343504
+      },
+      "indexing.chunkMs": {
+        "sampleCount": 14,
+        "p50Ms": 12.219199240207672,
+        "p95Ms": 12.219199240207672
+      },
+      "indexing.parseMs": {
+        "sampleCount": 14,
+        "p50Ms": 959.3302491307259,
+        "p95Ms": 959.3302491307259
+      },
+      "indexing.totalMs": {
+        "sampleCount": 14,
+        "p50Ms": 14330.099070966244,
+        "p95Ms": 14330.099070966244
+      },
+      "indexing.pageCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.chunkCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.embeddingMs": {
+        "sampleCount": 14,
+        "p50Ms": 12503.10324895382,
+        "p95Ms": 12503.10324895382
+      },
+      "indexing.persistenceMs": {
+        "sampleCount": 14,
+        "p50Ms": 442.60597491264343,
+        "p95Ms": 442.60597491264343
+      },
+      "indexing.classificationMs": {
+        "sampleCount": 14,
+        "p50Ms": 65.84013593196869,
+        "p95Ms": 65.84013593196869
+      },
+      "indexing.embeddingInputTokens": {
+        "sampleCount": 14,
+        "p50Ms": 7384,
+        "p95Ms": 7384
+      },
+      "endToEndMs": {
+        "sampleCount": 14,
+        "p50Ms": 478.5,
+        "p95Ms": 27101.9
+      },
+      "agentModelToolVerifierMs": {
+        "sampleCount": 6,
+        "p50Ms": 22619,
+        "p95Ms": 28124.25
+      }
+    },
+    "stageBoundary": "combined-hybrid-sql-retrieval-v1",
+    "componentCostMicros": {
+      "queryEmbedding": 8,
+      "queryRewrite": 0,
+      "reranking": 0,
+      "agent": 27600
+    }
+  },
+  "delta": {
+    "retrievalRecallAt5": 0,
+    "citationDocumentPrecision": 0,
+    "answerabilityAccuracy": 0,
+    "agentCompletionRate": 0,
+    "p95LatencyMs": -1536.6999999999898,
+    "totalCostMicros": -4705
+  }
+}

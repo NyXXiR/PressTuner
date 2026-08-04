@@ -1,0 +1,21 @@
+{
+  "version": "press-rag-controlled-live-configuration/v1",
+  "configurationId": "baseline-v1",
+  "id": "cfg_f1e4e59b0ce091477ec03b64dc1f2905cac53c4f1a3eecf2adbdbbd9644d27c2",
+  "contentHash": "f1e4e59b0ce091477ec03b64dc1f2905cac53c4f1a3eecf2adbdbbd9644d27c2",
+  "identity": {
+    "parser": { "version": "unpdf+parsed-block-ir-v1" },
+    "model": { "version": "gpt-4.1-mini" },
+    "prompt": { "version": "press-agent-prompt/sha256:368fa9ce178a679136f99ee58acf299f230d3eb7c21facebe4e8000a10cf959d" },
+    "embedding": { "version": "text-embedding-3-small;dimensions=1536" },
+    "chunking": { "version": "page-char-v1;targetChars=1400;overlapChars=200" },
+    "queryTransformation": { "version": "deterministic-normalization-v1" },
+    "retrieval": { "version": "hybrid-rrf-v1;vector=cosine;lexical=simple;rrfK=60;topK=8" },
+    "reranking": { "version": "none/v1" },
+    "contextPacking": { "version": "token-role-document-diversity-v1;tokenBudget=6000;maxPerDocument=2;topK=8" },
+    "toolset": { "version": "press-agent-tools/sha256:bc95a3a3a67d4f43ecb6053c1701eb654f58ecbf617a2eb727afda67d8591b36" },
+    "runtimePolicy": { "version": "press-runtime/v2" },
+    "verifier": { "version": "claim-span-verifier-v5-extractive-recovery" },
+    "evaluator": { "version": "not-measured/current-product-runtime-v1" }
+  }
+}

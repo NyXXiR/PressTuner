@@ -4,6 +4,49 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { restorePressAgentV1Checkpoint } from "./pressAgentV1Runtime";
+import {
+  normalizeAgentDocumentIds,
+  resolveAgentSearchTopK,
+} from "./pressAgentRuntime";
+
+test("Agent document filters accept only opaque persisted IDs, not user-facing labels", () => {
+  assert.deepEqual(
+    normalizeAgentDocumentIds([
+      "PT-CAREER-001",
+      "cmse1ptii003qny5uamal4sbq",
+      " CE-PDFKIT-002 ",
+    ]),
+    ["cmse1ptii003qny5uamal4sbq"],
+  );
+  assert.equal(normalizeAgentDocumentIds(["PT-CAREER-001"]), undefined);
+});
+
+test("identifier-aware Agent search limits context to the explicit identifier count", () => {
+  assert.equal(
+    resolveAgentSearchTopK({
+      query: "PT-CAREER-001와 PT-CAREER-002 비교",
+      requestedTopK: 8,
+      configurationId: "candidate-v3",
+    }),
+    2,
+  );
+  assert.equal(
+    resolveAgentSearchTopK({
+      query: "올해 매출",
+      requestedTopK: 8,
+      configurationId: "candidate-v3",
+    }),
+    8,
+  );
+  assert.equal(
+    resolveAgentSearchTopK({
+      query: "PT-CAREER-001",
+      requestedTopK: 8,
+      configurationId: "baseline-v1",
+    }),
+    8,
+  );
+});
 
 test("Agent v2 runtime separates retrieval sources, final citations, and verified hashes", () => {
   const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
@@ -11,6 +54,23 @@ test("Agent v2 runtime separates retrieval sources, final citations, and verifie
   assert.match(source, /agentRetrievedSource\.findMany/);
   assert.match(source, /persistFinalAgentCitations/);
   assert.match(source, /assertAppliedDraftMatchesVerified/);
+  assert.match(source, /verifyDraftClaimSpans/);
+  assert.match(source, /verifyAgentAnswerClaimSpans/);
+  assert.match(source, /result\.status === "PASS"/);
+  assert.doesNotMatch(source, /grounded: claim\.sourceIds\.every/);
+  assert.match(source, /quote: z\.string\(\)\.min\(1\)/);
+  assert.match(source, /\.\.\.previousOutput/);
+  assert.match(source, /claimVerification: finalClaimVerification/);
+  assert.match(source, /PRESS_AGENT_FINAL_CLAIM_VERIFICATION_FAILED/);
+  assert.match(source, /verificationFallback/);
+  assert.match(source, /CLAIM_VERIFICATION_FALLBACK/);
+  assert.match(source, /buildExtractiveVerificationFallback/);
+  assert.match(source, /mode: extractive \? "EXTRACTIVE" : "ABSTENTION"/);
+  assert.match(source, /cannotAnswer: true/);
+  assert.match(source, /abstentionNormalization/);
+  assert.match(source, /abstentionRecovery/);
+  assert.match(source, /REQUESTED_DOCUMENT_EVIDENCE_PRESENT/);
+  assert.match(source, /claims: \[\], sourceIds: \[\]/);
 });
 
 test("serialized v1 checkpoints retain their original version identity", () => {

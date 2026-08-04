@@ -1,0 +1,692 @@
+{
+  "version": "press-rag-semantic-judge-calibration/v1",
+  "model": "gpt-4.1-mini",
+  "temperature": 0,
+  "promptHash": "0c65a3a000804740f6ef867162a841eb1bd17a6f262ee0c4acba49c742bff0df",
+  "schemaHash": "cfa361b32b3bb583e7d206d8fa7fdf21bcab07bcf42125625f224cf1bcece119",
+  "reviewerIds": [
+    "nyxxir"
+  ],
+  "records": [
+    {
+      "claimId": "cal-supported-01",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier 'PT-CAREER-001' in the quote, directly supporting the claim that the document identifier is PT-CAREER-001.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly mentions the document identifier 'PT-CAREER-001' in the quote, directly supporting the claim that the document identifier is PT-CAREER-001."
+        }
+      },
+      "rationale": "The evidence explicitly mentions the document identifier 'PT-CAREER-001' in the quote, directly supporting the claim that the document identifier is PT-CAREER-001.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 240
+    },
+    {
+      "claimId": "cal-unsupported-01",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-002, which directly contradicts the claim that the document identifier is PT-CAREER-001.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-002, which directly contradicts the claim that the document identifier is PT-CAREER-001."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-002, which directly contradicts the claim that the document identifier is PT-CAREER-001.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 376
+    },
+    {
+      "claimId": "cal-supported-02",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the identifier 'PT-CAREER-002' multiple times in the context of the document, confirming that the document identifier is indeed PT-CAREER-002.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly mentions the identifier 'PT-CAREER-002' multiple times in the context of the document, confirming that the document identifier is indeed PT-CAREER-002."
+        }
+      },
+      "rationale": "The evidence explicitly mentions the identifier 'PT-CAREER-002' multiple times in the context of the document, confirming that the document identifier is indeed PT-CAREER-002.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 376
+    },
+    {
+      "claimId": "cal-unsupported-02",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence shows the document identifier as PT-CAREER-003, which contradicts the claim that the document identifier is PT-CAREER-002.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence shows the document identifier as PT-CAREER-003, which contradicts the claim that the document identifier is PT-CAREER-002."
+        }
+      },
+      "rationale": "The evidence shows the document identifier as PT-CAREER-003, which contradicts the claim that the document identifier is PT-CAREER-002.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 220
+    },
+    {
+      "claimId": "cal-supported-03",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states the document identifier as PT-CAREER-003, directly supporting the claim.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly states the document identifier as PT-CAREER-003, directly supporting the claim."
+        }
+      },
+      "rationale": "The evidence explicitly states the document identifier as PT-CAREER-003, directly supporting the claim.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 196
+    },
+    {
+      "claimId": "cal-unsupported-03",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-004, not PT-CAREER-003 as claimed. Therefore, the claim that the document identifier is PT-CAREER-003 is contradicted by the evidence.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-004, not PT-CAREER-003 as claimed. Therefore, the claim that the document identifier is PT-CAREER-003 is contradicted by the evidence."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-004, not PT-CAREER-003 as claimed. Therefore, the claim that the document identifier is PT-CAREER-003 is contradicted by the evidence.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 380
+    },
+    {
+      "claimId": "cal-supported-04",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence repeatedly references the identifier PT-CAREER-004 in the context of the document, confirming that the document identifier is indeed PT-CAREER-004.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence repeatedly references the identifier PT-CAREER-004 in the context of the document, confirming that the document identifier is indeed PT-CAREER-004."
+        }
+      },
+      "rationale": "The evidence repeatedly references the identifier PT-CAREER-004 in the context of the document, confirming that the document identifier is indeed PT-CAREER-004.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 352
+    },
+    {
+      "claimId": "cal-unsupported-04",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence shows a document identifier PT-CAREER-005, which contradicts the claim that the document identifier is PT-CAREER-004.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence shows a document identifier PT-CAREER-005, which contradicts the claim that the document identifier is PT-CAREER-004."
+        }
+      },
+      "rationale": "The evidence shows a document identifier PT-CAREER-005, which contradicts the claim that the document identifier is PT-CAREER-004.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 246
+    },
+    {
+      "claimId": "cal-supported-05",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states the document identifier as PT-CAREER-005, which directly supports the claim that the document identifier is PT-CAREER-005.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly states the document identifier as PT-CAREER-005, which directly supports the claim that the document identifier is PT-CAREER-005."
+        }
+      },
+      "rationale": "The evidence explicitly states the document identifier as PT-CAREER-005, which directly supports the claim that the document identifier is PT-CAREER-005.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 243
+    },
+    {
+      "claimId": "cal-unsupported-05",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly states that the document identifier is PT-CAREER-006, which contradicts the claim that the document identifier is PT-CAREER-005.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-006, which contradicts the claim that the document identifier is PT-CAREER-005."
+        }
+      },
+      "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-006, which contradicts the claim that the document identifier is PT-CAREER-005.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 322
+    },
+    {
+      "claimId": "cal-supported-06",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier as PT-CAREER-006 multiple times, directly supporting the claim that the document identifier is PT-CAREER-006.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-006 multiple times, directly supporting the claim that the document identifier is PT-CAREER-006."
+        }
+      },
+      "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-006 multiple times, directly supporting the claim that the document identifier is PT-CAREER-006.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 315
+    },
+    {
+      "claimId": "cal-unsupported-06",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-007, not PT-CAREER-006 as claimed. Therefore, the claim that the document identifier is PT-CAREER-006 is contradicted by the evidence.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-007, not PT-CAREER-006 as claimed. Therefore, the claim that the document identifier is PT-CAREER-006 is contradicted by the evidence."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-007, not PT-CAREER-006 as claimed. Therefore, the claim that the document identifier is PT-CAREER-006 is contradicted by the evidence.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 420
+    },
+    {
+      "claimId": "cal-supported-07",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier as PT-CAREER-007 multiple times, directly supporting the claim that the document identifier is PT-CAREER-007.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-007 multiple times, directly supporting the claim that the document identifier is PT-CAREER-007."
+        }
+      },
+      "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-007 multiple times, directly supporting the claim that the document identifier is PT-CAREER-007.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 392
+    },
+    {
+      "claimId": "cal-unsupported-07",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly states that the document identifier is PT-CAREER-008, which contradicts the claim that the document identifier is PT-CAREER-007.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-008, which contradicts the claim that the document identifier is PT-CAREER-007."
+        }
+      },
+      "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-008, which contradicts the claim that the document identifier is PT-CAREER-007.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 237
+    },
+    {
+      "claimId": "cal-supported-08",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states 'PT-CAREER-008' as the document identifier, which directly supports the claim that the document identifier is PT-CAREER-008.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly states 'PT-CAREER-008' as the document identifier, which directly supports the claim that the document identifier is PT-CAREER-008."
+        }
+      },
+      "rationale": "The evidence explicitly states 'PT-CAREER-008' as the document identifier, which directly supports the claim that the document identifier is PT-CAREER-008.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 232
+    },
+    {
+      "claimId": "cal-unsupported-08",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-009, not PT-CAREER-008 as claimed. Therefore, the claim that the document identifier is PT-CAREER-008 is contradicted by the evidence.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-009, not PT-CAREER-008 as claimed. Therefore, the claim that the document identifier is PT-CAREER-008 is contradicted by the evidence."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-009, not PT-CAREER-008 as claimed. Therefore, the claim that the document identifier is PT-CAREER-008 is contradicted by the evidence.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 407
+    },
+    {
+      "claimId": "cal-supported-09",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence repeatedly identifies the document with the identifier PT-CAREER-009, confirming that the document identifier is indeed PT-CAREER-009 as claimed.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-009, confirming that the document identifier is indeed PT-CAREER-009 as claimed."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-009, confirming that the document identifier is indeed PT-CAREER-009 as claimed.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 377
+    },
+    {
+      "claimId": "cal-unsupported-09",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-010, not PT-CAREER-009 as claimed. Therefore, the claim that the document identifier is PT-CAREER-009 is contradicted by the evidence.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-010, not PT-CAREER-009 as claimed. Therefore, the claim that the document identifier is PT-CAREER-009 is contradicted by the evidence."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-010, not PT-CAREER-009 as claimed. Therefore, the claim that the document identifier is PT-CAREER-009 is contradicted by the evidence.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 406
+    },
+    {
+      "claimId": "cal-supported-10",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence repeatedly identifies the document with the identifier PT-CAREER-010, confirming that the document identifier is indeed PT-CAREER-010 as claimed.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-010, confirming that the document identifier is indeed PT-CAREER-010 as claimed."
+        }
+      },
+      "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-010, confirming that the document identifier is indeed PT-CAREER-010 as claimed.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 376
+    },
+    {
+      "claimId": "cal-unsupported-10",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly states that the document identifier is PT-CAREER-011, which contradicts the claim that the document identifier is PT-CAREER-010.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-011, which contradicts the claim that the document identifier is PT-CAREER-010."
+        }
+      },
+      "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-011, which contradicts the claim that the document identifier is PT-CAREER-010.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 250
+    },
+    {
+      "claimId": "cal-supported-11",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier as PT-CAREER-011, which directly supports the claim that the document identifier is PT-CAREER-011.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-011, which directly supports the claim that the document identifier is PT-CAREER-011."
+        }
+      },
+      "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-011, which directly supports the claim that the document identifier is PT-CAREER-011.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 242
+    },
+    {
+      "claimId": "cal-unsupported-11",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence states that the document identifier is PT-CAREER-012, which directly contradicts the claim that the document identifier is PT-CAREER-011.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence states that the document identifier is PT-CAREER-012, which directly contradicts the claim that the document identifier is PT-CAREER-011."
+        }
+      },
+      "rationale": "The evidence states that the document identifier is PT-CAREER-012, which directly contradicts the claim that the document identifier is PT-CAREER-011.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 235
+    },
+    {
+      "claimId": "cal-supported-12",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly includes the document identifier 'PT-CAREER-012' in the quoted text, directly supporting the claim that the document identifier is PT-CAREER-012.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly includes the document identifier 'PT-CAREER-012' in the quoted text, directly supporting the claim that the document identifier is PT-CAREER-012."
+        }
+      },
+      "rationale": "The evidence explicitly includes the document identifier 'PT-CAREER-012' in the quoted text, directly supporting the claim that the document identifier is PT-CAREER-012.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 234
+    },
+    {
+      "claimId": "cal-unsupported-12",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "UNSUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"UNSUPPORTED\",\"rationale\":\"The evidence provided contains information about a document with the identifier PT-PRESS-001, but there is no mention or support for the claim that the document identifier is PT-CAREER-012.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "UNSUPPORTED",
+          "rationale": "The evidence provided contains information about a document with the identifier PT-PRESS-001, but there is no mention or support for the claim that the document identifier is PT-CAREER-012."
+        }
+      },
+      "rationale": "The evidence provided contains information about a document with the identifier PT-PRESS-001, but there is no mention or support for the claim that the document identifier is PT-CAREER-012.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 216
+    },
+    {
+      "claimId": "cal-supported-13",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states the document identifier as PT-PRESS-001, which directly supports the claim that the document identifier is PT-PRESS-001.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly states the document identifier as PT-PRESS-001, which directly supports the claim that the document identifier is PT-PRESS-001."
+        }
+      },
+      "rationale": "The evidence explicitly states the document identifier as PT-PRESS-001, which directly supports the claim that the document identifier is PT-PRESS-001.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 200
+    },
+    {
+      "claimId": "cal-unsupported-13",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence indicates that the document identifier is PT-PRESS-004, which contradicts the claim that the document identifier is PT-PRESS-001.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence indicates that the document identifier is PT-PRESS-004, which contradicts the claim that the document identifier is PT-PRESS-001."
+        }
+      },
+      "rationale": "The evidence indicates that the document identifier is PT-PRESS-004, which contradicts the claim that the document identifier is PT-PRESS-001.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 217
+    },
+    {
+      "claimId": "cal-supported-14",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly includes the text 'Parser marker: PT-PRESS-004', which directly supports the claim that the document identifier is PT-PRESS-004.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly includes the text 'Parser marker: PT-PRESS-004', which directly supports the claim that the document identifier is PT-PRESS-004."
+        }
+      },
+      "rationale": "The evidence explicitly includes the text 'Parser marker: PT-PRESS-004', which directly supports the claim that the document identifier is PT-PRESS-004.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 214
+    },
+    {
+      "claimId": "cal-unsupported-14",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly identifies the document identifier as PT-PRESS-005, which contradicts the claim that the document identifier is PT-PRESS-004.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence explicitly identifies the document identifier as PT-PRESS-005, which contradicts the claim that the document identifier is PT-PRESS-004."
+        }
+      },
+      "rationale": "The evidence explicitly identifies the document identifier as PT-PRESS-005, which contradicts the claim that the document identifier is PT-PRESS-004.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 306
+    },
+    {
+      "claimId": "cal-supported-15",
+      "blinded": true,
+      "humanLabel": "SUPPORTED",
+      "judgeLabel": "SUPPORTED",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier PT-PRESS-005 multiple times, confirming that the document identifier is indeed PT-PRESS-005 as claimed.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "SUPPORTED",
+          "rationale": "The evidence explicitly mentions the document identifier PT-PRESS-005 multiple times, confirming that the document identifier is indeed PT-PRESS-005 as claimed."
+        }
+      },
+      "rationale": "The evidence explicitly mentions the document identifier PT-PRESS-005 multiple times, confirming that the document identifier is indeed PT-PRESS-005 as claimed.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 300
+    },
+    {
+      "claimId": "cal-unsupported-15",
+      "blinded": true,
+      "humanLabel": "UNSUPPORTED",
+      "judgeLabel": "CONTRADICTORY",
+      "rawJudgment": {
+        "role": "assistant",
+        "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence shows the document identifier as PT-CAREER-001, which contradicts the claim that the document identifier is PT-PRESS-005.\"}",
+        "refusal": null,
+        "annotations": [],
+        "parsed": {
+          "label": "CONTRADICTORY",
+          "rationale": "The evidence shows the document identifier as PT-CAREER-001, which contradicts the claim that the document identifier is PT-PRESS-005."
+        }
+      },
+      "rationale": "The evidence shows the document identifier as PT-CAREER-001, which contradicts the claim that the document identifier is PT-PRESS-005.",
+      "reviewer": {
+        "type": "HUMAN",
+        "id": "nyxxir"
+      },
+      "costMicros": 238
+    }
+  ],
+  "supportedCount": 15,
+  "unsupportedOrContradictoryCount": 15,
+  "confusionMatrix": {
+    "truePositive": 15,
+    "trueNegative": 15,
+    "falsePositive": 0,
+    "falseNegative": 0
+  },
+  "agreement": 1,
+  "falseSupportedRate": 0,
+  "totalCostMicros": 8765,
+  "gate": {
+    "minimumLabels": 30,
+    "minimumSupported": 10,
+    "minimumUnsupportedOrContradictory": 10,
+    "minimumAgreement": 0.8,
+    "maximumFalseSupportedRate": 0.1
+  },
+  "status": "PASS",
+  "insufficiencyReasons": []
+}

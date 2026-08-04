@@ -6,14 +6,18 @@ const versionRef = z.object({ version: z.string().min(1) }).strict();
 
 export const agentConfigurationIdentitySchema = z
   .object({
+    parser: versionRef,
     model: versionRef,
     prompt: versionRef,
     embedding: versionRef,
     chunking: versionRef,
+    queryTransformation: versionRef,
     retrieval: versionRef,
     reranking: versionRef,
+    contextPacking: versionRef,
     toolset: versionRef,
     runtimePolicy: versionRef,
+    verifier: versionRef,
     evaluator: versionRef,
   })
   .strict();

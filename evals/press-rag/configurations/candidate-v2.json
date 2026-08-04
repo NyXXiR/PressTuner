@@ -1,15 +1,19 @@
 {
-  "id": "cfg_da8f5cd73eb9f76688184c96ed45e494dbed5ce86b61ce19f5e19ad2360ee591",
-  "contentHash": "da8f5cd73eb9f76688184c96ed45e494dbed5ce86b61ce19f5e19ad2360ee591",
+  "id": "cfg_c0be0a1cb972bde831117e86d693ffbf00568b89a5cc7a6a75be9cafcfc7d168",
+  "contentHash": "c0be0a1cb972bde831117e86d693ffbf00568b89a5cc7a6a75be9cafcfc7d168",
   "identity": {
-    "model": { "version": "gpt-4.1-mini" },
-    "prompt": { "version": "press-agent-prompt/v2" },
-    "embedding": { "version": "text-embedding-3-small" },
-    "chunking": { "version": "semantic-chunks/v1" },
-    "retrieval": { "version": "hybrid-team-scoped/v1" },
-    "reranking": { "version": "rrf-domain/v2" },
-    "toolset": { "version": "press-agent-tools/v2" },
-    "runtimePolicy": { "version": "press-runtime/v2" },
-    "evaluator": { "version": "deterministic-evaluator/v1" }
+    "parser": { "version": "not-executed/deterministic-replay-v1" },
+    "model": { "version": "not-executed/deterministic-replay-v1" },
+    "prompt": { "version": "not-executed/deterministic-replay-v1" },
+    "embedding": { "version": "not-executed/deterministic-replay-v1" },
+    "chunking": { "version": "not-executed/deterministic-replay-v1" },
+    "queryTransformation": { "version": "not-executed/deterministic-replay-v1" },
+    "retrieval": { "version": "not-executed/deterministic-replay-v1" },
+    "reranking": { "version": "not-executed/deterministic-replay-v1" },
+    "contextPacking": { "version": "not-executed/deterministic-replay-v1" },
+    "toolset": { "version": "not-executed/deterministic-replay-v1" },
+    "runtimePolicy": { "version": "not-executed/deterministic-replay-v1" },
+    "verifier": { "version": "not-executed/deterministic-replay-v1" },
+    "evaluator": { "version": "press-rag-deterministic/candidate-v1" }
   }
 }

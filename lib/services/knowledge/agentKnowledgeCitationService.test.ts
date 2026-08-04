@@ -70,7 +70,7 @@ test("replacement cleanup waits for in-flight retrieval to persist its citation"
         documentId: predecessor.id,
         generationId: generation.id,
         ordinal: 0,
-        content: "durable launch evidence",
+        content: "durable launch evidence for a verified press release answer",
         pageStart: 1,
         pageEnd: 1,
         contentHash: `chunk-${suffix}`,
@@ -134,6 +134,11 @@ test("replacement cleanup waits for in-flight retrieval to persist its citation"
     ]);
     assert.equal(citationResult.citations.length, 1);
     assert.equal(citationResult.citations[0]?.chunkId, chunk.id);
+    assert.equal(citationResult.evidenceDecision.action, "ANSWER");
+    assert.equal(citationResult.evidenceDecision.code, "EVIDENCE_SUFFICIENT");
+    assert.deepEqual(citationResult.evidenceDecision.eligibleSourceIds, ["source-1"]);
+    assert.equal(citationResult.queryPlan.originalQuery, "durable");
+    assert.equal(citationResult.candidateTrace[0]?.selected, true);
     assert.deepEqual(listed.documents.map(({ id }) => id), [successor.id]);
 
     const archived = await prisma.knowledgeDocument.findUniqueOrThrow({
@@ -155,4 +160,12 @@ test("replacement cleanup waits for in-flight retrieval to persist its citation"
     await prisma.team.deleteMany({ where: { id: team.id } });
     await prisma.user.deleteMany({ where: { id: user.id } });
   }
+});
+
+test("model reranking has an explicit transaction deadline above Prisma's five-second default", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("./agentKnowledgeCitationService.ts", import.meta.url), "utf8"),
+  );
+  assert.match(source, /AGENT_KNOWLEDGE_TRANSACTION_TIMEOUT_MS = 30_000/);
+  assert.match(source, /timeout: AGENT_KNOWLEDGE_TRANSACTION_TIMEOUT_MS/);
 });

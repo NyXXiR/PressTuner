@@ -1,0 +1,21 @@
+{
+  "version": "press-rag-controlled-live-configuration/v1",
+  "configurationId": "candidate-v3",
+  "id": "cfg_97f531c2f0fb4c7c6e2b195dfeeae4851430bd8492fae56d896ec0ca08b4db35",
+  "contentHash": "97f531c2f0fb4c7c6e2b195dfeeae4851430bd8492fae56d896ec0ca08b4db35",
+  "identity": {
+    "parser": { "version": "unpdf+parsed-block-ir-v1" },
+    "model": { "version": "gpt-4.1-mini" },
+    "prompt": { "version": "press-agent-prompt/sha256:368fa9ce178a679136f99ee58acf299f230d3eb7c21facebe4e8000a10cf959d" },
+    "embedding": { "version": "text-embedding-3-small;dimensions=1536" },
+    "chunking": { "version": "role-aware-candidate-v1;FACT=press-fact-semantic-v1;CAREER=career-semantic-v1;STYLE_POLICY=style-policy-semantic-v1;STYLE_EXAMPLE=style-example-semantic-v1" },
+    "queryTransformation": { "version": "identifier-aware-normalization-v1" },
+    "retrieval": { "version": "hybrid-rrf-v1;vector=cosine;lexical=simple;rrfK=60;topK=8" },
+    "reranking": { "version": "none/v1" },
+    "contextPacking": { "version": "token-role-document-diversity-v1;tokenBudget=6000;maxPerDocument=2;topK=8" },
+    "toolset": { "version": "press-agent-tools/sha256:bc95a3a3a67d4f43ecb6053c1701eb654f58ecbf617a2eb727afda67d8591b36" },
+    "runtimePolicy": { "version": "press-runtime/v2;agentDocumentFilter=opaque-id-v1;exactIdTopK=v1" },
+    "verifier": { "version": "claim-span-verifier-v5-extractive-recovery" },
+    "evaluator": { "version": "not-measured/current-product-runtime-v1" }
+  }
+}

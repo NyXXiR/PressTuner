@@ -44,7 +44,7 @@ test("the playground is independently env-gated and team-admin gated", () => {
   assert.match(gate, /NODE_ENV !== "production"/);
   assert.match(proxy, /DEV_API_PLAYGROUND_ENABLED/);
   assert.match(proxy, /pathname === "\/dev\/api-playground"/);
-  assert.match(proxy, /pathname === "\/api\/dev\/api-playground"/);
+  assert.match(proxy, /isDisabledDevToolApiPath/);
   assert.match(proxy, /DEV_BILLING_SANDBOX_ENABLED/);
   assert.match(page, /assertDevApiPlaygroundEnabled/);
   assert.match(page, /isDevApiPlaygroundAutoSessionEligible/);

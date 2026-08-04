@@ -79,6 +79,11 @@ test("the single Press Agent exposes explicit tools and gates consequential effe
       ({ effect }) => effect === "READ",
     ),
   );
+  assert.equal(
+    PRESS_AGENT_TOOLS.find(({ name }) => name === "search_knowledge")
+      ?.schemaVersion,
+    "v2-role-scoped",
+  );
 });
 
 test("approval interrupts and resumes a run without completing the effect early", () => {

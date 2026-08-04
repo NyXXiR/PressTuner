@@ -1,0 +1,458 @@
+{
+  "version": "press-rag-judge-calibration-review/v1",
+  "status": "PENDING_HUMAN_REVIEW",
+  "contentHash": "3f0b289c64fe3faec1268ec29aa16fdaea9ac8f8aed12adce19b333b97fc4a5d",
+  "reviewer": null,
+  "candidates": [
+    {
+      "claimId": "cal-supported-01",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-001이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-01-single-1p",
+          "quote": "최윤슬 이력서 파싱 스트레스 샘플 · PT-CAREER-001 · single · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 최윤슬은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 파도소프트 · Growth PM 2022-07 ‒ 2025.05 70,000명 대상 실험에서 전환율을 14.2% → 20.5%로 개선했다. 개발·디자인·데이터 직군 10명의 실행 순서를 조율했다. 사용자 인터뷰 24건을 직접 설계하고 분석했다. 성과 및 실행 기록 고객 문의 255건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 408건을 검토해 우선순위를 조정했다. 대시보드 지표 902건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 935건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 88건을 검토해 우선순위를 조정했다. 운영 규칙 245건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-001"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-01",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-001이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-02-timeline-3p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-002 · timeline · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Product Manager이다. 경력 오로라웍스 · Product Manager 2019년 1월 – 2021.08 70,000명 대상 실험에서 전환율을 11.1% → 15.4%로 개선했다. 개발·디자인·데이터 직군 8명의 실행 순서를 조율했다. 사용자 인터뷰 19건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 709건을 검토해 우선순위를 조정했다. 실험 세그먼트 812건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 750건을 검토해 협업 문서로 표준화했다. 대시보드 지표 653건을 검토해 우선순위를 조정했다. 이벤트 정의 454건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-002 파싱 스트레스 샘플 · PT-CAREER-002 · timeline · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 파도소프트 기간 Nov 2017 역할 서비스 기획자 식별자 PT-CAREER-002 성과 및 실행 기록 고객 문의 615건을 검토해 우선순위를 조정했다. 고객 문의 966건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 132건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 103건을 검토해 우선순위를 조정했다. 이벤트 정의 18건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-002 파싱 스트레스 샘플 · PT-CAREER-002 · timeline · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 파도소프트 기간 Nov 2016 역할 서비스 기획자 식별자 PT-CAREER-002 성과 및 실행 기록 이벤트 정의 648건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 173건을 검토해 협업 문서로 표준화했다. 실험 세그먼트 530건을 검토해 우선순위를 조정했다. 실험 세그먼트 674건을 검토해 협업 문서로 표준화했다. 고객 문의 692건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-002"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-02",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-002이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-02-timeline-3p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-002 · timeline · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Product Manager이다. 경력 오로라웍스 · Product Manager 2019년 1월 – 2021.08 70,000명 대상 실험에서 전환율을 11.1% → 15.4%로 개선했다. 개발·디자인·데이터 직군 8명의 실행 순서를 조율했다. 사용자 인터뷰 19건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 709건을 검토해 우선순위를 조정했다. 실험 세그먼트 812건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 750건을 검토해 협업 문서로 표준화했다. 대시보드 지표 653건을 검토해 우선순위를 조정했다. 이벤트 정의 454건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-002 파싱 스트레스 샘플 · PT-CAREER-002 · timeline · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 파도소프트 기간 Nov 2017 역할 서비스 기획자 식별자 PT-CAREER-002 성과 및 실행 기록 고객 문의 615건을 검토해 우선순위를 조정했다. 고객 문의 966건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 132건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 103건을 검토해 우선순위를 조정했다. 이벤트 정의 18건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-002 파싱 스트레스 샘플 · PT-CAREER-002 · timeline · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 파도소프트 기간 Nov 2016 역할 서비스 기획자 식별자 PT-CAREER-002 성과 및 실행 기록 이벤트 정의 648건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 173건을 검토해 협업 문서로 표준화했다. 실험 세그먼트 530건을 검토해 우선순위를 조정했다. 실험 세그먼트 674건을 검토해 협업 문서로 표준화했다. 고객 문의 692건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-002"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-02",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-002이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-03-table-1p",
+          "quote": "박서연 이력서 파싱 스트레스 샘플 · PT-CAREER-003 · table · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 박서연은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 프로덕트 오너이다. 경력 솔브릿지 · 프로덕트 오너 Sep 2020 – Jul 2023 50,000명 대상 실험에서 전환율을 12.0% → 23.3%로 개선했다. 개발·디자인·데이터 직군 7명의 실행 순서를 조율했다. 사용자 인터뷰 18건을 직접 설계하고 분석했다. 성과 및 실행 기록 대시보드 지표 442건을 검토해 우선순위를 조정했다. 운영 규칙 563건을 검토해 우선순위를 조정했다. 운영 규칙 39건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-003"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-03",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-003이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-03-table-1p",
+          "quote": "박서연 이력서 파싱 스트레스 샘플 · PT-CAREER-003 · table · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 박서연은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 프로덕트 오너이다. 경력 솔브릿지 · 프로덕트 오너 Sep 2020 – Jul 2023 50,000명 대상 실험에서 전환율을 12.0% → 23.3%로 개선했다. 개발·디자인·데이터 직군 7명의 실행 순서를 조율했다. 사용자 인터뷰 18건을 직접 설계하고 분석했다. 성과 및 실행 기록 대시보드 지표 442건을 검토해 우선순위를 조정했다. 운영 규칙 563건을 검토해 우선순위를 조정했다. 운영 규칙 39건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-003"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-03",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-003이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-04-dense-3p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-004 · dense · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 다온메트릭스 · Growth PM 2019.01 ‒ 2021-05 50,000명 대상 실험에서 전환율을 12.0% → 16.3%로 개선했다. 개발·디자인·데이터 직군 7명의 실행 순서를 조율했다. 사용자 인터뷰 20건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 249건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 269건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 870건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-004 파싱 스트레스 샘플 · PT-CAREER-004 · dense · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 솔브릿지 기간 2017.04 역할 프로덕트 오너 식별자 PT-CAREER-004 성과 및 실행 기록 운영 규칙 28건을 검토해 우선순위를 조정했다. 운영 규칙 396건을 검토해 우선순위를 조정했다. 이벤트 정의 582건을 검토해 우선순위를 조정했다. 고객 문의 737건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-004 파싱 스트레스 샘플 · PT-CAREER-004 · dense · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 솔브릿지 기간 2016.12 역할 서비스 기획자 식별자 PT-CAREER-004 성과 및 실행 기록 고객 문의 404건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 834건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 353건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 44건을 검토해 우선순위를 조정했다. 대시보드 지표 18건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 467건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-004"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-04",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-004이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-04-dense-3p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-004 · dense · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 다온메트릭스 · Growth PM 2019.01 ‒ 2021-05 50,000명 대상 실험에서 전환율을 12.0% → 16.3%로 개선했다. 개발·디자인·데이터 직군 7명의 실행 순서를 조율했다. 사용자 인터뷰 20건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 249건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 269건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 870건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-004 파싱 스트레스 샘플 · PT-CAREER-004 · dense · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 솔브릿지 기간 2017.04 역할 프로덕트 오너 식별자 PT-CAREER-004 성과 및 실행 기록 운영 규칙 28건을 검토해 우선순위를 조정했다. 운영 규칙 396건을 검토해 우선순위를 조정했다. 이벤트 정의 582건을 검토해 우선순위를 조정했다. 고객 문의 737건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-004 파싱 스트레스 샘플 · PT-CAREER-004 · dense · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 솔브릿지 기간 2016.12 역할 서비스 기획자 식별자 PT-CAREER-004 성과 및 실행 기록 고객 문의 404건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 834건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 353건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 44건을 검토해 우선순위를 조정했다. 대시보드 지표 18건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 467건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-004"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-04",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-004이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-05-single-1p",
+          "quote": "김도윤 이력서 파싱 스트레스 샘플 · PT-CAREER-005 · single · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 김도윤은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 다온메트릭스 · Growth PM Mar 2022 – 2024년 2월 260,000명 대상 실험에서 전환율을 12.8% → 18.1%로 개선했다. 개발·디자인·데이터 직군 11명의 실행 순서를 조율했다. 사용자 인터뷰 31건을 직접 설계하고 분석했다. 성과 및 실행 기록 운영 규칙 451건을 검토해 협업 문서로 표준화했다. 이벤트 정의 94건을 검토해 협업 문서로 표준화했다. 고객 문의 750건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 168건을 검토해 우선순위를 조정했다. 운영 규칙 484건을 검토해 우선순위를 조정했다. 고객 문의 371건을 검토해 우선순위를 조정했다. 고객 문의 884건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-005"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-05",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-005이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-05-single-1p",
+          "quote": "김도윤 이력서 파싱 스트레스 샘플 · PT-CAREER-005 · single · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 김도윤은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 다온메트릭스 · Growth PM Mar 2022 – 2024년 2월 260,000명 대상 실험에서 전환율을 12.8% → 18.1%로 개선했다. 개발·디자인·데이터 직군 11명의 실행 순서를 조율했다. 사용자 인터뷰 31건을 직접 설계하고 분석했다. 성과 및 실행 기록 운영 규칙 451건을 검토해 협업 문서로 표준화했다. 이벤트 정의 94건을 검토해 협업 문서로 표준화했다. 고객 문의 750건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 168건을 검토해 우선순위를 조정했다. 운영 규칙 484건을 검토해 우선순위를 조정했다. 고객 문의 371건을 검토해 우선순위를 조정했다. 고객 문의 884건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-005"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-05",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-005이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-06-two-column-2p",
+          "quote": "한지호 이력서 파싱 스트레스 샘플 · PT-CAREER-006 · two-column · 1/2페이지 · 가상 정보 경력 요약 / Career Summary 한지호은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 오로라웍스 · Growth PM 2022년 6월 – 2026.03 190,000명 대상 실험에서 전환율을 15.4% → 23.7%로 개선했다. 개발·디자인·데이터 직군 12명의 실행 순서를 조율했다. 사용자 인터뷰 13건을 직접 설계하고 분석했다. 성과 및 실행 기록 실험 세그먼트 193건을 검토해 우선순위를 조정했다. 고객 문의 972건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 837건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 725건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 573건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 970건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 294건을 검토해 협업 문서로 표준화했다. 대시보드 지표 117건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-006 파싱 스트레스 샘플 · PT-CAREER-006 · two-column · 2/2페이지 · 가상 정보 프로젝트 상세 1 조직 솔브릿지 기간 Oct 2020 역할 Product Manager 식별자 PT-CAREER-006 성과 및 실행 기록 고객 문의 610건을 검토해 우선순위를 조정했다. 이벤트 정의 97건을 검토해 협업 문서로 표준화했다. 운영 규칙 696건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-006"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-06",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-006이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-06-two-column-2p",
+          "quote": "한지호 이력서 파싱 스트레스 샘플 · PT-CAREER-006 · two-column · 1/2페이지 · 가상 정보 경력 요약 / Career Summary 한지호은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 오로라웍스 · Growth PM 2022년 6월 – 2026.03 190,000명 대상 실험에서 전환율을 15.4% → 23.7%로 개선했다. 개발·디자인·데이터 직군 12명의 실행 순서를 조율했다. 사용자 인터뷰 13건을 직접 설계하고 분석했다. 성과 및 실행 기록 실험 세그먼트 193건을 검토해 우선순위를 조정했다. 고객 문의 972건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 837건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 725건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 573건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 970건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 294건을 검토해 협업 문서로 표준화했다. 대시보드 지표 117건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-006 파싱 스트레스 샘플 · PT-CAREER-006 · two-column · 2/2페이지 · 가상 정보 프로젝트 상세 1 조직 솔브릿지 기간 Oct 2020 역할 Product Manager 식별자 PT-CAREER-006 성과 및 실행 기록 고객 문의 610건을 검토해 우선순위를 조정했다. 이벤트 정의 97건을 검토해 협업 문서로 표준화했다. 운영 규칙 696건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-006"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-06",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-006이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-07-dense-3p",
+          "quote": "박서연 이력서 파싱 스트레스 샘플 · PT-CAREER-007 · dense · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 박서연은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Product Manager이다. 경력 솔브릿지 · Product Manager May 2020 – 2024.07 40,000명 대상 실험에서 전환율을 8.3% → 13.6%로 개선했다. 개발·디자인·데이터 직군 9명의 실행 순서를 조율했다. 사용자 인터뷰 34건을 직접 설계하고 분석했다. 성과 및 실행 기록 실험 세그먼트 667건을 검토해 우선순위를 조정했다. 대시보드 지표 630건을 검토해 우선순위를 조정했다. 대시보드 지표 603건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 371건을 검토해 우선순위를 조정했다. 이벤트 정의 318건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 661건을 검토해 협업 문서로 표준화했다. 이벤트 정의 398건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-007 파싱 스트레스 샘플 · PT-CAREER-007 · dense · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 모래시계랩 기간 2018년 2월 역할 Product Manager 식별자 PT-CAREER-007 성과 및 실행 기록 대시보드 지표 229건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 417건을 검토해 우선순위를 조정했다. 고객 문의 303건을 검토해 우선순위를 조정했다. 운영 규칙 362건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-007 파싱 스트레스 샘플 · PT-CAREER-007 · dense · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 모래시계랩 기간 2017년 4월 역할 Product Manager 식별자 PT-CAREER-007 성과 및 실행 기록 운영 규칙 874건을 검토해 협업 문서로 표준화했다. 운영 규칙 550건을 검토해 우선순위를 조정했다. 고객 문의 861건을 검토해 우선순위를 조정했다. 실험 세그먼트 933건을 검토해 우선순위를 조정했다. 대시보드 지표 802건을 검토해 협업 문서로 표준화했다. 운영 규칙 837건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-007"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-07",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-007이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-07-dense-3p",
+          "quote": "박서연 이력서 파싱 스트레스 샘플 · PT-CAREER-007 · dense · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 박서연은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Product Manager이다. 경력 솔브릿지 · Product Manager May 2020 – 2024.07 40,000명 대상 실험에서 전환율을 8.3% → 13.6%로 개선했다. 개발·디자인·데이터 직군 9명의 실행 순서를 조율했다. 사용자 인터뷰 34건을 직접 설계하고 분석했다. 성과 및 실행 기록 실험 세그먼트 667건을 검토해 우선순위를 조정했다. 대시보드 지표 630건을 검토해 우선순위를 조정했다. 대시보드 지표 603건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 371건을 검토해 우선순위를 조정했다. 이벤트 정의 318건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 661건을 검토해 협업 문서로 표준화했다. 이벤트 정의 398건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-007 파싱 스트레스 샘플 · PT-CAREER-007 · dense · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 모래시계랩 기간 2018년 2월 역할 Product Manager 식별자 PT-CAREER-007 성과 및 실행 기록 대시보드 지표 229건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 417건을 검토해 우선순위를 조정했다. 고객 문의 303건을 검토해 우선순위를 조정했다. 운영 규칙 362건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-007 파싱 스트레스 샘플 · PT-CAREER-007 · dense · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 모래시계랩 기간 2017년 4월 역할 Product Manager 식별자 PT-CAREER-007 성과 및 실행 기록 운영 규칙 874건을 검토해 협업 문서로 표준화했다. 운영 규칙 550건을 검토해 우선순위를 조정했다. 고객 문의 861건을 검토해 우선순위를 조정했다. 실험 세그먼트 933건을 검토해 우선순위를 조정했다. 대시보드 지표 802건을 검토해 협업 문서로 표준화했다. 운영 규칙 837건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-007"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-07",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-007이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-08-two-column-1p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-008 · two-column · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 서비스 기획자이다. 경력 솔브릿지 · 서비스 기획자 Jan 2019 – 2021년 1월 40,000명 대상 실험에서 전환율을 21.4% → 29.7%로 개선했다. 개발·디자인·데이터 직군 9명의 실행 순서를 조율했다. 사용자 인터뷰 17건을 직접 설계하고 분석했다. 성과 및 실행 기록 운영 규칙 346건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 796건을 검토해 우선순위를 조정했다. 운영 규칙 226건을 검토해 협업 문서로 표준화했다. 운영 규칙 730건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 440건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-008"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-08",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-008이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-08-two-column-1p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-008 · two-column · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 서비스 기획자이다. 경력 솔브릿지 · 서비스 기획자 Jan 2019 – 2021년 1월 40,000명 대상 실험에서 전환율을 21.4% → 29.7%로 개선했다. 개발·디자인·데이터 직군 9명의 실행 순서를 조율했다. 사용자 인터뷰 17건을 직접 설계하고 분석했다. 성과 및 실행 기록 운영 규칙 346건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 796건을 검토해 우선순위를 조정했다. 운영 규칙 226건을 검토해 협업 문서로 표준화했다. 운영 규칙 730건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 440건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-008"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-08",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-008이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-09-table-3p",
+          "quote": "배유나 이력서 파싱 스트레스 샘플 · PT-CAREER-009 · table · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 배유나은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Product Manager이다. 경력 해솔데이터 · Product Manager 2020년 3월 – 2023.11 280,000명 대상 실험에서 전환율을 15.4% → 26.7%로 개선했다. 개발·디자인·데이터 직군 13명의 실행 순서를 조율했다. 사용자 인터뷰 17건을 직접 설계하고 분석했다. 성과 및 실행 기록 운영 규칙 544건을 검토해 협업 문서로 표준화했다. 대시보드 지표 19건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 967건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 713건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 348건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 646건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-009 파싱 스트레스 샘플 · PT-CAREER-009 · table · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 솔브릿지 기간 2018년 12월 역할 서비스 기획자 식별자 PT-CAREER-009 성과 및 실행 기록 대시보드 지표 522건을 검토해 우선순위를 조정했다. 이벤트 정의 185건을 검토해 협업 문서로 표준화했다. 고객 문의 546건을 검토해 협업 문서로 표준화했다. 운영 규칙 705건을 검토해 우선순위를 조정했다. 이벤트 정의 67건을 검토해 우선순위를 조정했다. 운영 규칙 593건을 검토해 우선순위를 조정했다. 고객 문의 21건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-009 파싱 스트레스 샘플 · PT-CAREER-009 · table · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 솔브릿지 기간 2017-01 역할 데이터 분석가 식별자 PT-CAREER-009 성과 및 실행 기록 이벤트 정의 748건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 695건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 216건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-009"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-09",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-009이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-09-table-3p",
+          "quote": "배유나 이력서 파싱 스트레스 샘플 · PT-CAREER-009 · table · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 배유나은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Product Manager이다. 경력 해솔데이터 · Product Manager 2020년 3월 – 2023.11 280,000명 대상 실험에서 전환율을 15.4% → 26.7%로 개선했다. 개발·디자인·데이터 직군 13명의 실행 순서를 조율했다. 사용자 인터뷰 17건을 직접 설계하고 분석했다. 성과 및 실행 기록 운영 규칙 544건을 검토해 협업 문서로 표준화했다. 대시보드 지표 19건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 967건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 713건을 검토해 재현 가능한 기준을 만들었다. 실험 세그먼트 348건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 646건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-009 파싱 스트레스 샘플 · PT-CAREER-009 · table · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 솔브릿지 기간 2018년 12월 역할 서비스 기획자 식별자 PT-CAREER-009 성과 및 실행 기록 대시보드 지표 522건을 검토해 우선순위를 조정했다. 이벤트 정의 185건을 검토해 협업 문서로 표준화했다. 고객 문의 546건을 검토해 협업 문서로 표준화했다. 운영 규칙 705건을 검토해 우선순위를 조정했다. 이벤트 정의 67건을 검토해 우선순위를 조정했다. 운영 규칙 593건을 검토해 우선순위를 조정했다. 고객 문의 21건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-009 파싱 스트레스 샘플 · PT-CAREER-009 · table · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 솔브릿지 기간 2017-01 역할 데이터 분석가 식별자 PT-CAREER-009 성과 및 실행 기록 이벤트 정의 748건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 695건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 216건을 검토해 재현 가능한 기준을 만들었다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-009"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-09",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-009이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-10-two-column-3p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-010 · two-column · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 프로덕트 오너이다. 경력 노을로직 · 프로덕트 오너 Aug 2019 – 2023-05 40,000명 대상 실험에서 전환율을 14.7% → 24.0%로 개선했다. 개발·디자인·데이터 직군 12명의 실행 순서를 조율했다. 사용자 인터뷰 15건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 868건을 검토해 협업 문서로 표준화했다. 이벤트 정의 574건을 검토해 협업 문서로 표준화했다. 고객 문의 337건을 검토해 협업 문서로 표준화했다. 고객 문의 403건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 36건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-010 파싱 스트레스 샘플 · PT-CAREER-010 · two-column · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 파도소프트 기간 2017-10 역할 Growth PM 식별자 PT-CAREER-010 성과 및 실행 기록 실험 세그먼트 528건을 검토해 우선순위를 조정했다. 이벤트 정의 849건을 검토해 재현 가능한 기준을 만들었 다. 운영 규칙 863건을 검토해 우선순위를 조정했다. 이벤트 정의 876건을 검토해 협업 문서로 표준화했다. 운영 규칙 407건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 418건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 888건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-010 파싱 스트레스 샘플 · PT-CAREER-010 · two-column · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 파도소프트 기간 2016.11 역할 데이터 분석가 식별자 PT-CAREER-010 성과 및 실행 기록 운영 규칙 462건을 검토해 우선순위를 조정했다. 실험 세그먼트 59건을 검토해 우선순위를 조정했다. 운영 규칙 455건을 검토해 협업 문서로 표준화했다. 고객 문의 149건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-010"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-10",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-010이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-10-two-column-3p",
+          "quote": "이하람 이력서 파싱 스트레스 샘플 · PT-CAREER-010 · two-column · 1/3페이지 · 가상 정보 경력 요약 / Career Summary 이하람은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 프로덕트 오너이다. 경력 노을로직 · 프로덕트 오너 Aug 2019 – 2023-05 40,000명 대상 실험에서 전환율을 14.7% → 24.0%로 개선했다. 개발·디자인·데이터 직군 12명의 실행 순서를 조율했다. 사용자 인터뷰 15건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 868건을 검토해 협업 문서로 표준화했다. 이벤트 정의 574건을 검토해 협업 문서로 표준화했다. 고객 문의 337건을 검토해 협업 문서로 표준화했다. 고객 문의 403건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 36건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-010 파싱 스트레스 샘플 · PT-CAREER-010 · two-column · 2/3페이지 · 가상 정보 프로젝트 상세 1 조직 파도소프트 기간 2017-10 역할 Growth PM 식별자 PT-CAREER-010 성과 및 실행 기록 실험 세그먼트 528건을 검토해 우선순위를 조정했다. 이벤트 정의 849건을 검토해 재현 가능한 기준을 만들었 다. 운영 규칙 863건을 검토해 우선순위를 조정했다. 이벤트 정의 876건을 검토해 협업 문서로 표준화했다. 운영 규칙 407건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 418건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 888건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-010 파싱 스트레스 샘플 · PT-CAREER-010 · two-column · 3/3페이지 · 가상 정보 프로젝트 상세 2 조직 파도소프트 기간 2016.11 역할 데이터 분석가 식별자 PT-CAREER-010 성과 및 실행 기록 운영 규칙 462건을 검토해 우선순위를 조정했다. 실험 세그먼트 59건을 검토해 우선순위를 조정했다. 운영 규칙 455건을 검토해 협업 문서로 표준화했다. 고객 문의 149건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-010"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-10",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-010이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-11-two-column-1p",
+          "quote": "오가은 이력서 파싱 스트레스 샘플 · PT-CAREER-011 · two-column · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 오가은은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 서비스 기획자이다. 경력 솔브릿지 · 서비스 기획자 2019.10 ‒ 2022.12 130,000명 대상 실험에서 전환율을 24.8% → 34.1%로 개선했다. 개발·디자인·데이터 직군 11명의 실행 순서를 조율했다. 사용자 인터뷰 26건을 직접 설계하고 분석했다. 성과 및 실행 기록 실험 세그먼트 371건을 검토해 협업 문서로 표준화했다. 이벤트 정의 688건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 224건을 검토해 우선순위를 조정했다. 대시보드 지표 523건을 검토해 재현 가능한 기준을 만들었 다. 실험 세그먼트 757건을 검토해 재현 가능한 기준을 만들었 다. 대시보드 지표 215건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-011"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-11",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-011이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-11-two-column-1p",
+          "quote": "오가은 이력서 파싱 스트레스 샘플 · PT-CAREER-011 · two-column · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 오가은은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 서비스 기획자이다. 경력 솔브릿지 · 서비스 기획자 2019.10 ‒ 2022.12 130,000명 대상 실험에서 전환율을 24.8% → 34.1%로 개선했다. 개발·디자인·데이터 직군 11명의 실행 순서를 조율했다. 사용자 인터뷰 26건을 직접 설계하고 분석했다. 성과 및 실행 기록 실험 세그먼트 371건을 검토해 협업 문서로 표준화했다. 이벤트 정의 688건을 검토해 재현 가능한 기준을 만들었다. 운영 규칙 224건을 검토해 우선순위를 조정했다. 대시보드 지표 523건을 검토해 재현 가능한 기준을 만들었 다. 실험 세그먼트 757건을 검토해 재현 가능한 기준을 만들었 다. 대시보드 지표 215건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-011"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-11",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-011이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-12-two-column-1p",
+          "quote": "최윤슬 이력서 파싱 스트레스 샘플 · PT-CAREER-012 · two-column · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 최윤슬은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 서비스 기획자이다. 경력 한결클라우드 · 서비스 기획자 2021-05 – 2023년 9월 280,000명 대상 실험에서 전환율을 13.4% → 17.7%로 개선했다. 개발·디자인·데이터 직군 5명의 실행 순서를 조율했다. 사용자 인터뷰 21건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 194건을 검토해 협업 문서로 표준화했다. 운영 규칙 237건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 674건을 검토해 협업 문서로 표준화했다. 대시보드 지표 144건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-012"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-12",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-012이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-12-two-column-1p",
+          "quote": "최윤슬 이력서 파싱 스트레스 샘플 · PT-CAREER-012 · two-column · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 최윤슬은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 서비스 기획자이다. 경력 한결클라우드 · 서비스 기획자 2021-05 – 2023년 9월 280,000명 대상 실험에서 전환율을 13.4% → 17.7%로 개선했다. 개발·디자인·데이터 직군 5명의 실행 순서를 조율했다. 사용자 인터뷰 21건을 직접 설계하고 분석했다. 성과 및 실행 기록 이벤트 정의 194건을 검토해 협업 문서로 표준화했다. 운영 규칙 237건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 674건을 검토해 협업 문서로 표준화했다. 대시보드 지표 144건을 검토해 협업 문서로 표준화했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-012"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-12",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-CAREER-012이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-press-01-product-fact-timeline-1p",
+          "quote": "노을로직 PRODUCT_FACT 자료 문서 역할: PRODUCT_FACT · PT-PRESS-001 · timeline · 1/1페이지 · 가상 자료 승인된 사실 1 회사 노을로직 제품 PrismOps 출시 2026년 9월 18일 오전 10시 KST 요금 월 99,000원, VAT 별도 38개 조직의 2026년 2~7월 파일럿에서 승인 처리 시간이 평균 41% 단축됐다. 파일럿 범위를 전체 고객 성과로 일반화하지 않는다. 승인 인용: “PrismOps는 팀이 같은 근거를 보고 결정하도록 돕습니다.” — 노을로직 대표 파싱용 부가 메모 줄바꿈으로 분리된 문장을 이어서 읽는다. 표 안의 숫자와 본문 숫자를 구분한다. 한글과 English tokens가 함께 있을 수 있다. Parser marker: PT-PRESS-001"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-13",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-PRESS-001이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-press-01-product-fact-timeline-1p",
+          "quote": "노을로직 PRODUCT_FACT 자료 문서 역할: PRODUCT_FACT · PT-PRESS-001 · timeline · 1/1페이지 · 가상 자료 승인된 사실 1 회사 노을로직 제품 PrismOps 출시 2026년 9월 18일 오전 10시 KST 요금 월 99,000원, VAT 별도 38개 조직의 2026년 2~7월 파일럿에서 승인 처리 시간이 평균 41% 단축됐다. 파일럿 범위를 전체 고객 성과로 일반화하지 않는다. 승인 인용: “PrismOps는 팀이 같은 근거를 보고 결정하도록 돕습니다.” — 노을로직 대표 파싱용 부가 메모 줄바꿈으로 분리된 문장을 이어서 읽는다. 표 안의 숫자와 본문 숫자를 구분한다. 한글과 English tokens가 함께 있을 수 있다. Parser marker: PT-PRESS-001"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-13",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-PRESS-001이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-press-04-mixed-dense-1p",
+          "quote": "파도소프트 MIXED 자료 문서 역할: MIXED · PT-PRESS-004 · dense · 1/1페이지 · 가상 자료 MIXED_REFERENCE 1 사실 섹션: 파도소프트의 내부 행사일은 2026년 10월 18일이며 참가 신청은 11명으로 마감됐다. 표현 지침 섹션: 행사 소개 제목은 35자 이내로 쓰고 “역대 최고”라는 표현을 사용하지 않는다. 예시 문장: [회사명]은 [날짜] [행사명]을 개최한다고 밝혔다. 파싱용 부가 메모 한글과 English tokens가 함께 있을 수 있다. 한글과 English tokens가 함께 있을 수 있다. 표 안의 숫자와 본문 숫자를 구분한다. 한글과 English tokens가 함께 있을 수 있다. 한글과 English tokens가 함께 있을 수 있다. 한글과 English tokens가 함께 있을 수 있다. 머리말과 각주를 사실 본문과 혼동하지 않는다. Parser marker: PT-PRESS-004"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-14",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-PRESS-004이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-press-04-mixed-dense-1p",
+          "quote": "파도소프트 MIXED 자료 문서 역할: MIXED · PT-PRESS-004 · dense · 1/1페이지 · 가상 자료 MIXED_REFERENCE 1 사실 섹션: 파도소프트의 내부 행사일은 2026년 10월 18일이며 참가 신청은 11명으로 마감됐다. 표현 지침 섹션: 행사 소개 제목은 35자 이내로 쓰고 “역대 최고”라는 표현을 사용하지 않는다. 예시 문장: [회사명]은 [날짜] [행사명]을 개최한다고 밝혔다. 파싱용 부가 메모 한글과 English tokens가 함께 있을 수 있다. 한글과 English tokens가 함께 있을 수 있다. 표 안의 숫자와 본문 숫자를 구분한다. 한글과 English tokens가 함께 있을 수 있다. 한글과 English tokens가 함께 있을 수 있다. 한글과 English tokens가 함께 있을 수 있다. 머리말과 각주를 사실 본문과 혼동하지 않는다. Parser marker: PT-PRESS-004"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-14",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-PRESS-004이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-press-05-product-fact-single-2p",
+          "quote": "파도소프트 PRODUCT_FACT 자료 문서 역할: PRODUCT_FACT · PT-PRESS-005 · single · 1/2페이지 · 가상 자료 승인된 사실 1 회사 파도소프트 제품 OrbitDesk 출시 2026년 9월 28일 오전 10시 KST 요금 월 49,000원, VAT 별도 18개 조직의 2026년 2~7월 파일럿에서 승인 처리 시간이 평균 31% 단축됐다. 파일럿 범위를 전체 고객 성과로 일반화하지 않는다. 승인 인용: “OrbitDesk는 팀이 같은 근거를 보고 결정하도록 돕습니다.” — 파도소프트 대표 파싱용 부가 메모 표 안의 숫자와 본문 숫자를 구분한다. 한글과 English tokens가 함께 있을 수 있다. 표 안의 숫자와 본문 숫자를 구분한다. Parser marker: PT-PRESS-005 문서 역할: PRODUCT_FACT · PT-PRESS-005 · single · 2/2페이지 · 가상 자료 승인된 사실 2 회사 파도소프트 제품 OrbitDesk 출시 2026년 9월 28일 오전 10시 KST 요금 월 49,000원, VAT 별도 18개 조직의 2026년 2~7월 파일럿에서 승인 처리 시간이 평균 31% 단축됐다. 파일럿 범위를 전체 고객 성과로 일반화하지 않는다. 승인 인용: “OrbitDesk는 팀이 같은 근거를 보고 결정하도록 돕습니다.” — 파도소프트 대표 파싱용 부가 메모 표 안의 숫자와 본문 숫자를 구분한다. 줄바꿈으로 분리된 문장을 이어서 읽는다. 머리말과 각주를 사실 본문과 혼동하지 않는다. 줄바꿈으로 분리된 문장을 이어서 읽는다. 줄바꿈으로 분리된 문장을 이어서 읽는다. 표 안의 숫자와 본문 숫자를 구분한다. 표 안의 숫자와 본문 숫자를 구분한다. Parser marker: PT-PRESS-005"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-supported-15",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-PRESS-005이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-press-05-product-fact-single-2p",
+          "quote": "파도소프트 PRODUCT_FACT 자료 문서 역할: PRODUCT_FACT · PT-PRESS-005 · single · 1/2페이지 · 가상 자료 승인된 사실 1 회사 파도소프트 제품 OrbitDesk 출시 2026년 9월 28일 오전 10시 KST 요금 월 49,000원, VAT 별도 18개 조직의 2026년 2~7월 파일럿에서 승인 처리 시간이 평균 31% 단축됐다. 파일럿 범위를 전체 고객 성과로 일반화하지 않는다. 승인 인용: “OrbitDesk는 팀이 같은 근거를 보고 결정하도록 돕습니다.” — 파도소프트 대표 파싱용 부가 메모 표 안의 숫자와 본문 숫자를 구분한다. 한글과 English tokens가 함께 있을 수 있다. 표 안의 숫자와 본문 숫자를 구분한다. Parser marker: PT-PRESS-005 문서 역할: PRODUCT_FACT · PT-PRESS-005 · single · 2/2페이지 · 가상 자료 승인된 사실 2 회사 파도소프트 제품 OrbitDesk 출시 2026년 9월 28일 오전 10시 KST 요금 월 49,000원, VAT 별도 18개 조직의 2026년 2~7월 파일럿에서 승인 처리 시간이 평균 31% 단축됐다. 파일럿 범위를 전체 고객 성과로 일반화하지 않는다. 승인 인용: “OrbitDesk는 팀이 같은 근거를 보고 결정하도록 돕습니다.” — 파도소프트 대표 파싱용 부가 메모 표 안의 숫자와 본문 숫자를 구분한다. 줄바꿈으로 분리된 문장을 이어서 읽는다. 머리말과 각주를 사실 본문과 혼동하지 않는다. 줄바꿈으로 분리된 문장을 이어서 읽는다. 줄바꿈으로 분리된 문장을 이어서 읽는다. 표 안의 숫자와 본문 숫자를 구분한다. 표 안의 숫자와 본문 숫자를 구분한다. Parser marker: PT-PRESS-005"
+        }
+      ],
+      "suggestedLabel": "SUPPORTED",
+      "suggestionBasis": "FACT_VALUE_PRESENT_IN_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    },
+    {
+      "claimId": "cal-unsupported-15",
+      "blinded": true,
+      "claim": "문서 식별자는 PT-PRESS-005이다.",
+      "evidence": [
+        {
+          "sourceId": "stress-career-01-single-1p",
+          "quote": "최윤슬 이력서 파싱 스트레스 샘플 · PT-CAREER-001 · single · 1/1페이지 · 가상 정보 경력 요약 / Career Summary 최윤슬은(는) 데이터와 사용자 인터뷰를 결합해 제품 지표를 개선한 Growth PM이다. 경력 파도소프트 · Growth PM 2022-07 ‒ 2025.05 70,000명 대상 실험에서 전환율을 14.2% → 20.5%로 개선했다. 개발·디자인·데이터 직군 10명의 실행 순서를 조율했다. 사용자 인터뷰 24건을 직접 설계하고 분석했다. 성과 및 실행 기록 고객 문의 255건을 검토해 재현 가능한 기준을 만들었다. 대시보드 지표 408건을 검토해 우선순위를 조정했다. 대시보드 지표 902건을 검토해 재현 가능한 기준을 만들었다. 고객 문의 935건을 검토해 재현 가능한 기준을 만들었다. 이벤트 정의 88건을 검토해 우선순위를 조정했다. 운영 규칙 245건을 검토해 우선순위를 조정했다. 개인정보·기업·성과는 모두 테스트용 가상 데이터입니다. PT-CAREER-001"
+        }
+      ],
+      "suggestedLabel": "UNSUPPORTED",
+      "suggestionBasis": "FACT_VALUE_ABSENT_FROM_DIFFERENT_HUMAN_APPROVED_DOCUMENT",
+      "humanLabel": null,
+      "reviewerRationale": null
+    }
+  ]
+}

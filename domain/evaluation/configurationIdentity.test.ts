@@ -7,14 +7,18 @@ import {
 } from "./configurationIdentity";
 
 const identity = {
+  parser: { version: "parser/v1" },
   model: { version: "model/v1" },
   prompt: { version: "prompt/v1" },
   embedding: { version: "embedding/v1" },
   chunking: { version: "chunking/v1" },
+  queryTransformation: { version: "query-transformation/v1" },
   retrieval: { version: "retrieval/v1" },
   reranking: { version: "reranking/v1" },
+  contextPacking: { version: "context-packing/v1" },
   toolset: { version: "toolset/v1" },
   runtimePolicy: { version: "runtime/v1" },
+  verifier: { version: "verifier/v1" },
   evaluator: { version: "evaluator/v1" },
 };
 

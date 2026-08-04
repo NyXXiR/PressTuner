@@ -383,6 +383,7 @@ enum KnowledgeUploadKind {
 
 enum KnowledgeChunkRole {
   FACT
+  CAREER
   STYLE_POLICY
   STYLE_EXAMPLE
   IGNORE
@@ -1937,6 +1938,7 @@ model KnowledgeIndexGeneration {
   embeddingModel          String                        @map("embedding_model")
   embeddingDimensions     Int                           @map("embedding_dimensions")
   classifierVersion       String?                       @map("classifier_version")
+  stageMetrics            Json?                         @map("stage_metrics")
   indexStatus             KnowledgeGenerationStatus     @default(QUEUED) @map("index_status")
   classificationStatus    KnowledgeClassificationStatus @default(PENDING) @map("classification_status")
   errorCode               String?                       @map("error_code")

@@ -62,6 +62,55 @@ async function withQueuedScheduler<T>(fn: () => Promise<T>) {
   }
 }
 
+test("controlled uploads persist a source role before indexing is queued", async () => {
+  const { user, team } = await fixture();
+  try {
+    await withQueuedScheduler(async () => {
+      const created = await createKnowledgeDocument({
+        teamId: team.id,
+        userId: user.id,
+        file: pdf("career.pdf", "career evidence"),
+        sourceRole: "CAREER",
+      });
+      const stored = await prisma.knowledgeDocument.findUniqueOrThrow({
+        where: { id: created.document.id },
+        select: { classificationOverride: true },
+      });
+      assert.equal(stored.classificationOverride, "CAREER");
+    });
+  } finally {
+    await cleanup({ teamId: team.id, userId: user.id });
+  }
+});
+
+test("controlled-live uploads can defer queue dispatch for one-shot indexing", async () => {
+  const { user, team } = await fixture();
+  try {
+    const created = await createKnowledgeDocument({
+      teamId: team.id,
+      userId: user.id,
+      file: pdf("controlled.pdf", "controlled evidence"),
+      sourceRole: "FACT",
+      chunkProfileMode: "ROLE_AWARE_CANDIDATE",
+      indexingDispatch: "CONTROLLED_DEFERRED",
+    });
+    assert.deepEqual(created.queue, {
+      queued: false,
+      mode: "CONTROLLED_DEFERRED",
+    });
+    const stored = await prisma.knowledgeDocument.findUniqueOrThrow({
+      where: { id: created.document.id },
+      select: { status: true, classificationOverride: true },
+    });
+    assert.deepEqual(stored, {
+      status: "UPLOADED",
+      classificationOverride: "FACT",
+    });
+  } finally {
+    await cleanup({ teamId: team.id, userId: user.id });
+  }
+});
+
 test("replacement preserves the READY predecessor until successor READY", async () => {
   const { user, team } = await fixture();
   try {

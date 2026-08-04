@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
-import { Prisma, type KnowledgeUploadKind } from "@prisma/client";
+import {
+  Prisma,
+  type KnowledgeChunkRole,
+  type KnowledgeUploadKind,
+} from "@prisma/client";
 
 import { knowledgeLimits } from "@/config/knowledge/limits";
 import { validateKnowledgeUpload } from "@/domain/knowledge/documentLifecycle";
@@ -28,7 +32,10 @@ function withoutSourceData<T extends { sourceData: unknown }>(document: T) {
   return safeDocument;
 }
 
-async function requestIndexing(documentId: string) {
+async function requestIndexing(
+  documentId: string,
+  chunkProfileMode?: "PAGE_CHAR_BASELINE" | "ROLE_AWARE_CANDIDATE",
+) {
   if (!SCHEDULER_URL || !SCHEDULER_API_KEY) {
     throw new Error("SCHEDULER_NOT_CONFIGURED");
   }
@@ -38,7 +45,7 @@ async function requestIndexing(documentId: string) {
       authorization: `Bearer ${SCHEDULER_API_KEY}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ documentId }),
+    body: JSON.stringify({ documentId, chunkProfileMode }),
     signal: AbortSignal.timeout(5_000),
   });
   if (!response.ok) {
@@ -224,6 +231,7 @@ async function persistUpload(args: {
   file: File;
   kind: KnowledgeUploadKind;
   replacesDocumentId?: string;
+  sourceRole?: KnowledgeChunkRole;
 }) {
   const prepared = await prepareUpload(args.file);
   return prisma.$transaction(async (tx) => {
@@ -334,6 +342,7 @@ async function persistUpload(args: {
         sourceVersion: (latestVersion?.sourceVersion ?? 0) + 1,
         sourceData: prepared.bytes,
         replacesDocumentId: args.replacesDocumentId,
+        classificationOverride: args.sourceRole,
         uploadEvent: {
           create: {
             teamId: args.teamId,
@@ -355,9 +364,13 @@ async function persistUpload(args: {
 async function enqueueSavedDocument(
   saved: Awaited<ReturnType<typeof persistUpload>>,
   oldDocumentPreserved: boolean,
+  chunkProfileMode?: "PAGE_CHAR_BASELINE" | "ROLE_AWARE_CANDIDATE",
 ) {
   try {
-    return { ...saved, queue: await requestIndexing(saved.document.id) };
+    return {
+      ...saved,
+      queue: await requestIndexing(saved.document.id, chunkProfileMode),
+    };
   } catch {
     throw new KnowledgeServiceError(
       "KNOWLEDGE_INDEX_QUEUE_FAILED",
@@ -372,9 +385,21 @@ export async function createKnowledgeDocument(args: {
   teamId: string;
   userId: string;
   file: File;
+  sourceRole?: KnowledgeChunkRole;
+  chunkProfileMode?: "PAGE_CHAR_BASELINE" | "ROLE_AWARE_CANDIDATE";
+  indexingDispatch?: "QUEUE" | "CONTROLLED_DEFERRED";
 }) {
   const saved = await persistUpload({ ...args, kind: "UPLOAD" });
-  return enqueueSavedDocument(saved, false);
+  if (args.indexingDispatch === "CONTROLLED_DEFERRED") {
+    return {
+      ...saved,
+      queue: {
+        queued: false as const,
+        mode: "CONTROLLED_DEFERRED" as const,
+      },
+    };
+  }
+  return enqueueSavedDocument(saved, false, args.chunkProfileMode);
 }
 
 export async function replaceKnowledgeDocument(args: {
@@ -419,6 +444,7 @@ export async function listKnowledgeDocuments(teamId: string) {
         select: {
           classificationStatus: true,
           errorMessage: true,
+          stageMetrics: true,
           chunks: { select: { autoRole: true } },
         },
       },
@@ -439,6 +465,7 @@ export async function listKnowledgeDocuments(teamId: string) {
       ({ _count, replacementDocument, activeGeneration, ...document }) => {
         const classificationCounts = {
           FACT: 0,
+          CAREER: 0,
           STYLE_POLICY: 0,
           STYLE_EXAMPLE: 0,
           IGNORE: 0,

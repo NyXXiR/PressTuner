@@ -1,5 +1,6 @@
 export const KNOWLEDGE_CHUNK_ROLES = [
   "FACT",
+  "CAREER",
   "STYLE_POLICY",
   "STYLE_EXAMPLE",
   "IGNORE",

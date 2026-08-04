@@ -7,9 +7,9 @@ import { evaluateAgentExperiment } from "./experimentEvaluation";
 import { runAgentExperiment } from "./experimentRunner";
 
 const identity = {
-  model: { version: "m" }, prompt: { version: "p" }, embedding: { version: "e" },
-  chunking: { version: "c" }, retrieval: { version: "r" }, reranking: { version: "rr" },
-  toolset: { version: "t" }, runtimePolicy: { version: "rp" }, evaluator: { version: "ev" },
+  parser: { version: "pa" }, model: { version: "m" }, prompt: { version: "p" }, embedding: { version: "e" },
+  chunking: { version: "c" }, queryTransformation: { version: "qt" }, retrieval: { version: "r" }, reranking: { version: "rr" },
+  contextPacking: { version: "cp" }, toolset: { version: "t" }, runtimePolicy: { version: "rp" }, verifier: { version: "v" }, evaluator: { version: "ev" },
 };
 const cases = Array.from({ length: 30 }, (_, index) => ({
   id: `case-${index}`,

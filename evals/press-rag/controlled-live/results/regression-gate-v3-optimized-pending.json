@@ -1,0 +1,64 @@
+{
+  "version": "press-rag-controlled-live-regression-gate/v1",
+  "disposition": "REJECT",
+  "humanReview": "PENDING",
+  "checks": [
+    {
+      "metricId": "retrievalRecallAt5",
+      "status": "PASS",
+      "baseline": 0.52,
+      "candidate": 1,
+      "reason": "candidate must reach 0.80 without regression"
+    },
+    {
+      "metricId": "citationDocumentPrecision",
+      "status": "FAIL",
+      "baseline": 0.9090909090909091,
+      "candidate": 0.8571428571428571,
+      "reason": "candidate must reach 0.90"
+    },
+    {
+      "metricId": "answerabilityAccuracy",
+      "status": "PASS",
+      "baseline": 0.9111111111111111,
+      "candidate": 0.9111111111111111,
+      "reason": "candidate must reach 0.90 within 0.02 non-regression tolerance"
+    },
+    {
+      "metricId": "agentCompletionRate",
+      "status": "PASS",
+      "baseline": 1,
+      "candidate": 1,
+      "reason": "candidate verified completion must reach 0.85"
+    },
+    {
+      "metricId": "claimGroundedness",
+      "status": "PASS",
+      "baseline": 1,
+      "candidate": 1,
+      "reason": "calibrated candidate groundedness must reach 0.90"
+    },
+    {
+      "metricId": "conflictDetection",
+      "status": "PASS",
+      "baseline": 0.9333333333333333,
+      "candidate": 0.9333333333333333,
+      "reason": "candidate conflict detection must reach 0.90 without material regression"
+    },
+    {
+      "metricId": "p95LatencyMs",
+      "status": "FAIL",
+      "baseline": 18464.499999999996,
+      "candidate": 21574.449999999997,
+      "reason": "candidate p95 must be <=20s and within 5% of baseline"
+    },
+    {
+      "metricId": "totalCostMicros",
+      "status": "PASS",
+      "baseline": 120157,
+      "candidate": 148637,
+      "reason": "candidate controlled-run cost must stay within the explicit budget envelope"
+    }
+  ],
+  "deploymentAuthorized": false
+}

@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 
 export const PRESS_AGENT_TOOLS = [
-  { name: "search_knowledge", effect: "READ", requiresApproval: false },
-  { name: "compare_sources", effect: "READ", requiresApproval: false },
-  { name: "draft_press_release", effect: "READ", requiresApproval: false },
-  { name: "verify_claims", effect: "READ", requiresApproval: false },
-  { name: "apply_press_release", effect: "WRITE", requiresApproval: true },
+  { name: "search_knowledge", schemaVersion: "v2-role-scoped", effect: "READ", requiresApproval: false },
+  { name: "compare_sources", schemaVersion: "v1", effect: "READ", requiresApproval: false },
+  { name: "draft_press_release", schemaVersion: "v1", effect: "READ", requiresApproval: false },
+  { name: "verify_claims", schemaVersion: "v2-exact-quote", effect: "READ", requiresApproval: false },
+  { name: "apply_press_release", schemaVersion: "v1", effect: "WRITE", requiresApproval: true },
 ] as const;
 
 export type PressAgentToolName = (typeof PRESS_AGENT_TOOLS)[number]["name"];

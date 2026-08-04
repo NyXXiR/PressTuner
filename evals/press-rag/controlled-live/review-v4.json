@@ -1,0 +1,375 @@
+{
+  "version": "controlled-live-dataset-review/v1",
+  "status": "COMPLETE",
+  "datasetContentHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+  "reviewer": {
+    "type": "HUMAN",
+    "id": "nyxxir"
+  },
+  "approvedAt": "2026-08-04T01:01:00.000Z",
+  "holdoutUntouched": true,
+  "decisions": [
+    {
+      "caseId": "CL-001",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-002",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-003",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-004",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-005",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-006",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-007",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-008",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-009",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-010",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-011",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-012",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-013",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-014",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-015",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-016",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-017",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-018",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-019",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-020",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-021",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-022",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-023",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-024",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-025",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-026",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-027",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-028",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-029",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-030",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-031",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-032",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-033",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-034",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-035",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-036",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-037",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-038",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-039",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    },
+    {
+      "caseId": "CL-040",
+      "decision": "APPROVE",
+      "reviewedAt": "2026-08-04T01:01:00.000Z"
+    }
+  ],
+  "documents": [
+    {
+      "documentId": "stress-career-01-single-1p",
+      "fileSha256": "633918875b84585ffd14705a9cc5218f81ae08886eb42a77def1eed39c534a45",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-02-timeline-3p",
+      "fileSha256": "19bb44d1e95ad532af152cd8103b1e03b2cba8d4eea1f67b628f1b41d269b44d",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-03-table-1p",
+      "fileSha256": "7e7110a0586ec72300c23b1a99494293d7cbb5c333bf2f7ca321a2861760e712",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-04-dense-3p",
+      "fileSha256": "ed1e3b12fb765c2195a7843c41212f219b05f64c47492ee5897d8e1d535b7046",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-05-single-1p",
+      "fileSha256": "998654974dc500ad3f33f7e431d9c98ffe2069fa78bb282980ab9c338917689d",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-06-two-column-2p",
+      "fileSha256": "3eb8885a6f02047837d71e7624d979e0f79873e0efaac52980ab5fbdb0d673f8",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-07-dense-3p",
+      "fileSha256": "8104e3f46bd9ebb1be47d9d36917bef6300fd1bdb2c7817a7adef1d13afbfc60",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-08-two-column-1p",
+      "fileSha256": "55a0da1f005743220ed70cf77b054f9b899ab376935d96ff990fb202f3037a4b",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-09-table-3p",
+      "fileSha256": "8df9985f88e998db935972aa688eddc4faa6d31f1411adc599e4f37d810c7a8d",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-10-two-column-3p",
+      "fileSha256": "5086ec918d288a74ab589f59081e899dfc8b0fc200a5c3c4ae30946a29860bd3",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-11-two-column-1p",
+      "fileSha256": "5686c3cc4cf18640568d1864900141a4b740784caf0882882d84cf0289bc1702",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-career-12-two-column-1p",
+      "fileSha256": "2978ca2bb88387e4bbb2814d0f07203fa8110048e2ea6656b21a481fbb95b9fa",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-01-product-fact-timeline-1p",
+      "fileSha256": "8114ed641b0d98c9f510a14086c3a5c1c0fbdbfab7af76128285b40b72d0cd1b",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-02-style-policy-timeline-3p",
+      "fileSha256": "aea5c7fefaa436f7b5a32f33e50fcab4858049330c3e5c5c48e985da1b760dfb",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-03-style-example-single-1p",
+      "fileSha256": "3e09a3836bcdd5b2ebed2e595d284ef4984140c1f8be516d435efd82e3aa81dd",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-04-mixed-dense-1p",
+      "fileSha256": "b8327ff05a9c4bb34eded56f96f17587905694cf624c95d0e5971bda6a420439",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-05-product-fact-single-2p",
+      "fileSha256": "3a21728363b33543f9bc43b0fb6467c1490b9bd5ecf3dd4a80f9ade6afffb309",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-06-product-fact-table-1p",
+      "fileSha256": "ff306dd6e3e6e3bfe973b34b40b77013b424e99f04944cc3f80bc51cb5eb8c8a",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-07-style-policy-table-3p",
+      "fileSha256": "58986d6f4946cbe2313cc9d81f08c466c978623ef87c97987fb4861e0b872385",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-08-style-example-timeline-2p",
+      "fileSha256": "d95c922c84a920b03bb63db65b8971b001eccdade7f21b8a685352e55efa36be",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-09-mixed-timeline-3p",
+      "fileSha256": "b85fb8cb0f347c79fcd2cbedc5737a6c76277b985b33d41962ece7968d752500",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-10-product-fact-two-column-3p",
+      "fileSha256": "a9007df3bcd6ee4229645a0cd3c959b81cf93e92ee718958814272810e638fcb",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-11-product-fact-timeline-2p",
+      "fileSha256": "eca44443d2113c01cd6781cbabd0c3041ac3eb95e4d0eda7f505986495aeb365",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "stress-press-12-style-policy-two-column-2p",
+      "fileSha256": "97cf8edd32de98d6bfebf78e9dfffee8c5a2dd78aec23c7a09280cf6c129de79",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdfkit-001",
+      "fileSha256": "71960cf13885100d3d99352f77b412cf1a187cd3e6f268116b768034c80cbe3d",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdfkit-002",
+      "fileSha256": "4f0e522c86317633e4c73a0bb9d67bd4ec83b4ff89f24a301af985ea3994ae23",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdfkit-003",
+      "fileSha256": "93a7fe48a868c82b84aecf559b35137def3e69ff229caa848575e5b90821bf51",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdfkit-004",
+      "fileSha256": "b268c2370bd2750fb1ad7e499cbae0acc6aef433d45a0ecb4be5014b9ccb22e7",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdflib-001",
+      "fileSha256": "0b9d0a5a52147b832ad5e89ad0021d1ec75e6bfb58eb0f706a635ab7ccc361cc",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdflib-002",
+      "fileSha256": "f241de5e874eb7cf1974523f410fdb2fb894582d4067148577187bb1c26b4bd1",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdflib-003",
+      "fileSha256": "b8c4526021a0dde7f24a968a531afcd6bed00996d490427e8dbdbf0120a19de9",
+      "decision": "APPROVE"
+    },
+    {
+      "documentId": "independent-ce-pdflib-004",
+      "fileSha256": "8935815cacccdab6e6f97fbec7c39ed23d9833d2ebd500d62af7b96f98245e4e",
+      "decision": "APPROVE"
+    }
+  ]
+}

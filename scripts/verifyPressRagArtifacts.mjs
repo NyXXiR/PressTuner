@@ -1,12 +1,11 @@
-import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { verifyPressRagArtifacts } from "./press-rag-artifact-verification.mjs";
 
-const directory = path.join(process.cwd(), "evals/press-rag/improvement");
-const manifest = JSON.parse(await readFile(path.join(directory, "manifest.json"), "utf8"));
-for (const [name, expected] of Object.entries(manifest.files)) {
-  if (!/^[a-z0-9-]+\.json$/.test(name) || name === "manifest.json") throw new Error(`INVALID_ARTIFACT_NAME:${name}`);
-  const actual = createHash("sha256").update(await readFile(path.join(directory, name))).digest("hex");
-  if (actual !== expected) throw new Error(`PRESS_RAG_ARTIFACT_HASH_MISMATCH:${name}`);
+try {
+  const result = await verifyPressRagArtifacts({ root: process.cwd() });
+  process.stdout.write(
+    `verified ${result.verifiedArtifactCount} Press RAG artifacts and ${result.verifiedConfigurationCount} configurations\n`,
+  );
+} catch (error) {
+  process.stderr.write(`${error instanceof Error ? error.message : error}\n`);
+  process.exitCode = 1;
 }
-process.stdout.write(`verified ${Object.keys(manifest.files).length} Press RAG artifacts\n`);

@@ -12,6 +12,14 @@ import { z } from "zod";
 
 import { buildPressAgentInstructions } from "@/domain/press-agent/instructions";
 import {
+  verifyAgentAnswerClaimSpans,
+  verifyDraftClaimSpans,
+} from "@/domain/press-agent/claimSpanVerification";
+import { sanitizePostgresJson } from "@/domain/press-agent/postgresJson";
+import { buildExtractiveVerificationFallback } from "@/domain/press-agent/extractiveFallback";
+import type { PressKnowledgeRetrievalConfiguration } from "@/domain/knowledge/retrievalRuntime";
+import { extractExplicitKnowledgeIdentifiers } from "@/domain/knowledge/retrievalPipeline";
+import {
   decryptPressAgentCheckpoint,
   encryptPressAgentCheckpoint,
 } from "@/domain/press-agent/checkpointCrypto";
@@ -76,6 +84,7 @@ type PressAgentContext = {
   userId: string;
   articleId: string | null;
   articleUpdatedAt: string | null;
+  retrievalConfigurationId: PressKnowledgeRetrievalConfiguration["id"];
 };
 
 function requirePressAgentContext(runContext: unknown): PressAgentContext {
@@ -98,6 +107,8 @@ function requirePressAgentContext(runContext: unknown): PressAgentContext {
       typeof context.articleUpdatedAt === "string"
         ? context.articleUpdatedAt
         : null,
+    retrievalConfigurationId:
+      context.retrievalConfigurationId ?? "baseline-v1",
   };
 }
 
@@ -106,10 +117,19 @@ const AgentOutputSchema = z.object({
   answer: z.string(),
   sourceIds: z.array(z.string()),
   cannotAnswer: z.boolean(),
+  claims: z.array(
+    z.object({
+      id: z.string().min(1),
+      text: z.string().min(1),
+      evidence: z.array(
+        z.object({ sourceId: z.string().min(1), quote: z.string().min(1) }),
+      ).min(1),
+    }),
+  ),
 });
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+  return sanitizePostgresJson(value) as Prisma.InputJsonValue;
 }
 
 function summarize(value: unknown) {
@@ -250,6 +270,29 @@ async function executeToolStep<T>(args: {
   }
 }
 
+export function normalizeAgentDocumentIds(
+  documentIds: readonly string[] | undefined,
+): string[] | undefined {
+  const persistedIds = documentIds
+    ?.map((id) => id.trim())
+    .filter((id) => /^c[a-z0-9]{20,}$/i.test(id));
+  return persistedIds && persistedIds.length > 0
+    ? [...new Set(persistedIds)]
+    : undefined;
+}
+
+export function resolveAgentSearchTopK(args: Readonly<{
+  query: string;
+  requestedTopK: number;
+  configurationId: PressKnowledgeRetrievalConfiguration["id"];
+}>): number {
+  if (args.configurationId !== "candidate-v3") return args.requestedTopK;
+  const identifiers = extractExplicitKnowledgeIdentifiers(args.query);
+  return identifiers.length > 0
+    ? Math.min(args.requestedTopK, identifiers.length)
+    : args.requestedTopK;
+}
+
 const searchKnowledgeTool = tool({
   name: "search_knowledge",
   description:
@@ -258,6 +301,7 @@ const searchKnowledgeTool = tool({
     query: z.string().min(1),
     topK: z.number().int().min(1).max(12).default(8),
     documentIds: z.array(z.string()).max(50).optional(),
+    roles: z.array(z.enum(["FACT", "CAREER", "STYLE_POLICY", "STYLE_EXAMPLE"])).min(1).max(4).optional(),
   }),
   timeoutMs: PRESS_AGENT_TOOL_POLICIES.search_knowledge.timeoutMs,
   timeoutBehavior: "error_as_result",
@@ -274,8 +318,14 @@ const searchKnowledgeTool = tool({
           teamId: context.teamId,
           runId: context.runId,
           query: input.query,
-          topK: input.topK,
-          documentIds: input.documentIds,
+          topK: resolveAgentSearchTopK({
+            query: input.query,
+            requestedTopK: input.topK,
+            configurationId: context.retrievalConfigurationId,
+          }),
+          documentIds: normalizeAgentDocumentIds(input.documentIds),
+          roles: input.roles,
+          configurationId: context.retrievalConfigurationId,
         });
       },
     });
@@ -385,13 +435,21 @@ const draftPressReleaseTool = tool({
 const verifyClaimsTool = tool({
   name: "verify_claims",
   description:
-    "Verify that each proposed claim points to known source IDs. Report unsupported claims instead of guessing.",
+    "Verify every atomic draft sentence against exact character spans in retrieved sources. Report unsupported claims instead of guessing.",
   parameters: z.object({
     claims: z
       .array(
         z.object({
+          id: z.string().min(1),
           text: z.string().min(1),
-          sourceIds: z.array(z.string()).min(1),
+          evidence: z
+            .array(
+              z.object({
+                sourceId: z.string().min(1),
+                quote: z.string().min(1),
+              }),
+            )
+            .min(1),
         }),
       )
       .min(1)
@@ -406,44 +464,63 @@ const verifyClaimsTool = tool({
       toolName: "verify_claims",
       input,
       execute: async () => {
-        const known = new Set(
-          (
-            await prisma.agentRetrievedSource.findMany({
-              where: { runId: context.runId },
-              select: { sourceId: true },
-            })
-          ).map(({ sourceId }) => sourceId),
-        );
-        const claims = input.claims.map((claim) => ({
-          ...claim,
-          grounded: claim.sourceIds.every((sourceId) => known.has(sourceId)),
-          missingSourceIds: claim.sourceIds.filter(
-            (sourceId) => !known.has(sourceId),
+        const run = await prisma.agentRun.findUniqueOrThrow({
+          where: { id: context.runId },
+          select: { output: true },
+        });
+        const output = (run.output ?? {}) as any;
+        const parsedDraft = z
+          .object({
+            title: z.string().min(1),
+            body: z.string().min(1),
+            sourceIds: z.array(z.string()).min(1),
+          })
+          .safeParse(output.draft);
+        if (!parsedDraft.success) throw new Error("PRESS_AGENT_DRAFT_MISSING");
+
+        const sourceIds = [
+          ...new Set(
+            input.claims.flatMap((claim) =>
+              claim.evidence.map((evidence) => evidence.sourceId),
+            ),
           ),
-        }));
-        const result = {
-          claims,
-          allGrounded: claims.every((claim) => claim.grounded),
+        ];
+        const retrievedSources = await prisma.agentRetrievedSource.findMany({
+          where: {
+            runId: context.runId,
+            sourceId: { in: sourceIds },
+          },
+          include: { chunk: { select: { content: true } } },
+          orderBy: { sourceId: "asc" },
+        });
+        const result = verifyDraftClaimSpans({
+          draft: parsedDraft.data,
+          claims: input.claims,
+          sources: retrievedSources.map((source) => ({
+            sourceId: source.sourceId,
+            documentId: source.documentId,
+            content: source.chunk.content,
+            pageStart: source.pageStart,
+            pageEnd: source.pageEnd,
+          })),
+        });
+        await prisma.agentRun.update({
+          where: { id: context.runId },
+          data: {
+            output: jsonValue({
+              ...output,
+              claimVerification: result,
+              verifiedDraftHash:
+                result.status === "PASS"
+                  ? hashVerifiedAgentDraft(parsedDraft.data)
+                  : null,
+            }),
+          },
+        });
+        return {
+          ...result,
+          allGrounded: result.status === "PASS",
         };
-        if (result.allGrounded) {
-          const run = await prisma.agentRun.findUniqueOrThrow({
-            where: { id: context.runId },
-            select: { output: true },
-          });
-          const output = (run.output ?? {}) as any;
-          if (output.draft) {
-            await prisma.agentRun.update({
-              where: { id: context.runId },
-              data: {
-                output: jsonValue({
-                  ...output,
-                  verifiedDraftHash: hashVerifiedAgentDraft(output.draft),
-                }),
-              },
-            });
-          }
-        }
-        return result;
       },
     });
   },
@@ -657,11 +734,107 @@ async function persistRunResult(
     { status: "RUNNING", retryCount: 0 },
     { type: result.interruptions.length ? "APPROVAL_REQUIRED" : "COMPLETE" },
   ).status;
-  if (result.finalOutput) {
+  let finalClaimVerification: ReturnType<typeof verifyAgentAnswerClaimSpans> | undefined;
+  let finalOutput = result.finalOutput;
+  let previousOutput: Record<string, unknown> = {};
+  if (finalOutput) {
+    const [retrievedSources, existingRun] = await Promise.all([
+      prisma.agentRetrievedSource.findMany({
+        where: { runId: runRecord.id },
+        include: { chunk: { select: { content: true } } },
+        orderBy: { sourceId: "asc" },
+      }),
+      prisma.agentRun.findUniqueOrThrow({
+        where: { id: runRecord.id },
+        select: { output: true, input: true },
+      }),
+    ]);
+    const verifiableSources = retrievedSources.map((source) => ({
+      sourceId: source.sourceId,
+      documentId: source.documentId,
+      content: source.chunk.content,
+      pageStart: source.pageStart,
+      pageEnd: source.pageEnd,
+    }));
+    const runInput = existingRun.input && typeof existingRun.input === "object" && !Array.isArray(existingRun.input)
+      ? (existingRun.input as Record<string, unknown>)
+      : {};
+    const extractive = typeof runInput.prompt === "string"
+      ? buildExtractiveVerificationFallback({ prompt: runInput.prompt, sources: verifiableSources })
+      : null;
+    previousOutput =
+      existingRun.output && typeof existingRun.output === "object" && !Array.isArray(existingRun.output)
+        ? (existingRun.output as Record<string, unknown>)
+        : {};
+    if (finalOutput.cannotAnswer && extractive) {
+      previousOutput = {
+        ...previousOutput,
+        abstentionRecovery: {
+          reason: "REQUESTED_DOCUMENT_EVIDENCE_PRESENT",
+          unverifiedFinalOutput: finalOutput,
+        },
+      };
+      finalOutput = extractive;
+    } else if (finalOutput.cannotAnswer && (finalOutput.claims.length > 0 || finalOutput.sourceIds.length > 0)) {
+      previousOutput = {
+        ...previousOutput,
+        abstentionNormalization: {
+          removedClaimCount: finalOutput.claims.length,
+          removedSourceIds: finalOutput.sourceIds,
+        },
+      };
+      finalOutput = { ...finalOutput, claims: [], sourceIds: [] };
+    }
+    finalClaimVerification = verifyAgentAnswerClaimSpans({
+      answer: finalOutput.answer,
+      cannotAnswer: finalOutput.cannotAnswer,
+      claims: finalOutput.claims,
+      sources: verifiableSources,
+    });
+    if (finalClaimVerification.status !== "PASS") {
+      const failedOutput = finalOutput;
+      const failedVerification = finalClaimVerification;
+      const fallbackOutput = extractive ?? {
+        summary: "생성 결과가 근거 검증을 통과하지 못해 답변을 유보했습니다.",
+        answer: "검색된 근거만으로 검증 가능한 답변을 만들 수 없습니다.",
+        sourceIds: [],
+        cannotAnswer: true,
+        claims: [],
+      };
+      finalOutput = fallbackOutput;
+      finalClaimVerification = verifyAgentAnswerClaimSpans({
+        answer: fallbackOutput.answer,
+        cannotAnswer: fallbackOutput.cannotAnswer,
+        claims: fallbackOutput.claims,
+        sources: verifiableSources,
+      });
+      if (finalClaimVerification.status !== "PASS") {
+        throw new Error("PRESS_AGENT_EXTRACTIVE_FALLBACK_VERIFICATION_FAILED");
+      }
+      previousOutput = {
+        ...previousOutput,
+        verificationFallback: {
+          reason: "PRESS_AGENT_FINAL_CLAIM_VERIFICATION_FAILED",
+          mode: extractive ? "EXTRACTIVE" : "ABSTENTION",
+          unverifiedFinalOutput: failedOutput,
+          failedClaimVerification: failedVerification,
+        },
+      };
+      await prisma.agentRuntimeAuditEvent.create({
+        data: {
+          teamId: runRecord.teamId,
+          runId: runRecord.id,
+          eventType: "CLAIM_VERIFICATION_FALLBACK",
+          failureCategory: "UNGROUNDED_CLAIM",
+          details: { reason: "PRESS_AGENT_FINAL_CLAIM_VERIFICATION_FAILED" },
+        },
+      });
+    }
+    if (!finalOutput) throw new Error("PRESS_AGENT_FINAL_OUTPUT_MISSING");
     await persistFinalAgentCitations({
       teamId: runRecord.teamId,
       runId: runRecord.id,
-      sourceIds: result.finalOutput.sourceIds,
+      sourceIds: finalOutput.sourceIds,
     });
   }
   const usage = usageSnapshot(result.state);
@@ -743,8 +916,12 @@ async function persistRunResult(
     data: {
       status: nextStatus,
       sdkState: interruptions.length ? sdkState : null,
-      output: result.finalOutput
-        ? jsonValue(result.finalOutput)
+      output: finalOutput
+        ? jsonValue({
+            ...previousOutput,
+            ...finalOutput,
+            claimVerification: finalClaimVerification,
+          })
         : undefined,
       ...usage,
       latencyMs: Date.now() - startedAtMs,
@@ -772,6 +949,7 @@ export async function startPressAgentRun(args: {
   userId: string;
   articleId?: string | null;
   prompt: string;
+  retrievalConfigurationId?: PressKnowledgeRetrievalConfiguration["id"];
 }) {
   assertAdversarialInput(args.prompt);
   let articleUpdatedAt: string | null = null;
@@ -794,7 +972,11 @@ export async function startPressAgentRun(args: {
       ).status,
       agentVersion: PRESS_AGENT_VERSION,
       model: PRESS_AGENT_MODEL,
-      input: { prompt: args.prompt, articleUpdatedAt },
+      input: {
+        prompt: args.prompt,
+        articleUpdatedAt,
+        retrievalConfigurationId: args.retrievalConfigurationId ?? "baseline-v1",
+      },
       startedAt: new Date(),
       runtimePolicySnapshot: jsonValue(DEFAULT_PRESS_AGENT_RUNTIME_POLICY),
       deadlineAt: new Date(
@@ -832,6 +1014,8 @@ export async function startPressAgentRun(args: {
             userId: args.userId,
             articleId: args.articleId ?? null,
             articleUpdatedAt,
+            retrievalConfigurationId:
+              args.retrievalConfigurationId ?? "baseline-v1",
           },
           maxTurns: DEFAULT_PRESS_AGENT_RUNTIME_POLICY.maxTurns,
           signal: composedAbort.signal,
@@ -981,6 +1165,11 @@ async function continuePressAgentRun(
         userId: actorUserId,
         articleId: runRecord.articleId,
         articleUpdatedAt,
+        retrievalConfigurationId:
+          runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input) &&
+          typeof (runRecord.input as Record<string, unknown>).retrievalConfigurationId === "string"
+            ? ((runRecord.input as Record<string, unknown>).retrievalConfigurationId as PressKnowledgeRetrievalConfiguration["id"])
+            : "baseline-v1",
       },
       maxTurns: runtimePolicy.maxTurns,
       signal: composedAbort.signal,

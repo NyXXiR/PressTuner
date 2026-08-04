@@ -1,0 +1,289 @@
+{
+  "version": "press-rag-controlled-live-comparison/v1",
+  "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+  "provenance": {
+    "executorId": "press-agent-controlled-live/v1",
+    "baseline": {
+      "executionId": "controlled_live_execution_d3ef82e8c21aa19cced1543e4d17d2b59d433d9bcc6be6296b49f05d2b548ef9",
+      "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+      "configurationHash": "6917e2ec62eb2861b04311f3fe7c284b6cc3900ae1b2381380d98a1d1615a54f",
+      "caseRunIds": [
+        "CL-001-59a99baf-a806-4e0b-9286-9121e3a1f504",
+        "CL-002-d5053a13-bafe-49db-b9e1-6f79f14ef99f",
+        "CL-003-b8ae184e-c421-4567-aca7-84eaba1ae4fe",
+        "CL-004-0e2b636e-03d7-4b32-9c15-cb3dacb8249a",
+        "CL-005-7b3d61fd-e2c9-4e6e-bf0e-2f8e3e26d192",
+        "CL-006-98542f12-69c4-4b02-bd51-e33861826b4b",
+        "CL-007-6b266d20-021f-42e6-95e0-e6e2277bc48e",
+        "CL-008-e730fbf4-2d88-48b4-ab33-be9fe0066701",
+        "CL-033-a651df26-5099-49d1-9c8e-3d4eeb01ccb9",
+        "CL-033-5f8f513b-9ec9-4269-bd54-2a3cd71ed272",
+        "CL-033-036a324f-d3aa-407c-a03c-dfe3dc3fcc6e",
+        "CL-034-80025495-5ff5-4e2c-9cfe-01957f3ec1d9",
+        "CL-034-1a6be913-d264-48b6-98f4-8206c4a9316e",
+        "CL-034-6719390d-9be4-4f8c-ab7e-7b46fe6d90af"
+      ],
+      "startedAt": "2026-08-04T02:19:19.504Z",
+      "completedAt": "2026-08-04T02:21:34.315Z"
+    },
+    "candidate": {
+      "executionId": "controlled_live_execution_7a61d704f8d0c3e565ac2102554f59233d26b7fd307e3785597505eb9151174c",
+      "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+      "configurationHash": "4933d341d97339eaac9d7b018734ca411a5f0e75a5189fbef1bd1157e779c2b4",
+      "caseRunIds": [
+        "CL-001-1a6a0ceb-70ca-4b69-b07d-0bcdb5347d47",
+        "CL-002-d93f27f2-ba97-41bb-89b2-b0c9d2256bc5",
+        "CL-003-fd64d653-4697-436a-8b26-63614feabcbc",
+        "CL-004-4f8e525d-313b-4ba3-b14d-9935655be4f7",
+        "CL-005-d567d596-0a9e-412f-8aeb-885fe58d839b",
+        "CL-006-d058dfcc-260d-459c-907e-fcf7b891b83e",
+        "CL-007-793a56ce-77e5-46b7-82e5-7c4d991a3857",
+        "CL-008-4e789d46-b847-483d-a9bd-9bc8a7f4cdd3",
+        "CL-033-d7802681-6a73-44b5-9a86-1e86ca1099f3",
+        "CL-033-6ef49cd7-c20f-4161-8c26-faddde07ed2e",
+        "CL-033-2daa26ff-0404-4bde-b1ef-42baffe6d4d9",
+        "CL-034-acbae9b2-c4ae-4875-a00d-dac6e3281979",
+        "CL-034-c9ba0abc-63ef-4990-858c-9c2ed0765663",
+        "CL-034-96b5571e-6590-432a-9f79-b1f520cdb7f4"
+      ],
+      "startedAt": "2026-08-04T02:35:04.420Z",
+      "completedAt": "2026-08-04T02:37:18.495Z"
+    }
+  },
+  "baseline": {
+    "executionId": "controlled_live_execution_d3ef82e8c21aa19cced1543e4d17d2b59d433d9bcc6be6296b49f05d2b548ef9",
+    "configurationHash": "6917e2ec62eb2861b04311f3fe7c284b6cc3900ae1b2381380d98a1d1615a54f",
+    "retrievalRecallAt5": 0.375,
+    "citationDocumentPrecision": 1,
+    "answerabilityAccuracy": 1,
+    "agentCompletionRate": 1,
+    "claimGroundedness": {
+      "status": "EVALUABLE",
+      "value": 1
+    },
+    "conflictDetection": {
+      "status": "EVALUABLE",
+      "value": 0.5
+    },
+    "p50LatencyMs": 447,
+    "p95LatencyMs": 22056.25,
+    "totalCostMicros": 33797,
+    "caseRunCount": 14,
+    "stageLatency": {
+      "queryTransformationMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.019450455904006958,
+        "p95Ms": 0.11780258119106285
+      },
+      "queryEmbeddingMs": {
+        "sampleCount": 8,
+        "p50Ms": 262.33973851799965,
+        "p95Ms": 381.3252331137657
+      },
+      "combinedHybridSqlRetrievalMs": {
+        "sampleCount": 8,
+        "p50Ms": 8.993656516075134,
+        "p95Ms": 12.331236207485198
+      },
+      "dedupeMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.667715460062027,
+        "p95Ms": 0.8492215961217879
+      },
+      "rerankingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.004198014736175537,
+        "p95Ms": 0.020747330784797655
+      },
+      "contextPackingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.0066429972648620605,
+        "p95Ms": 0.02736855149269103
+      },
+      "indexing.chunkMs": {
+        "sampleCount": 14,
+        "p50Ms": 11.84817624092102,
+        "p95Ms": 11.84817624092102
+      },
+      "indexing.parseMs": {
+        "sampleCount": 14,
+        "p50Ms": 935.3986051678658,
+        "p95Ms": 935.3986051678658
+      },
+      "indexing.totalMs": {
+        "sampleCount": 14,
+        "p50Ms": 14976.375656962395,
+        "p95Ms": 14976.375656962395
+      },
+      "indexing.pageCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.chunkCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.embeddingMs": {
+        "sampleCount": 14,
+        "p50Ms": 13184.213843882084,
+        "p95Ms": 13184.213843882084
+      },
+      "indexing.persistenceMs": {
+        "sampleCount": 14,
+        "p50Ms": 443.00528717041016,
+        "p95Ms": 443.00528717041016
+      },
+      "indexing.classificationMs": {
+        "sampleCount": 14,
+        "p50Ms": 72.62128120660782,
+        "p95Ms": 72.62128120660782
+      },
+      "indexing.embeddingInputTokens": {
+        "sampleCount": 14,
+        "p50Ms": 7384,
+        "p95Ms": 7384
+      },
+      "endToEndMs": {
+        "sampleCount": 14,
+        "p50Ms": 447,
+        "p95Ms": 22056.25
+      },
+      "agentModelToolVerifierMs": {
+        "sampleCount": 6,
+        "p50Ms": 19883.5,
+        "p95Ms": 23356.75
+      }
+    },
+    "stageBoundary": "combined-hybrid-sql-retrieval-v1",
+    "componentCostMicros": {
+      "queryEmbedding": 8,
+      "queryRewrite": 0,
+      "reranking": 0,
+      "agent": 33789
+    }
+  },
+  "candidate": {
+    "executionId": "controlled_live_execution_7a61d704f8d0c3e565ac2102554f59233d26b7fd307e3785597505eb9151174c",
+    "configurationHash": "4933d341d97339eaac9d7b018734ca411a5f0e75a5189fbef1bd1157e779c2b4",
+    "retrievalRecallAt5": 1,
+    "citationDocumentPrecision": 1,
+    "answerabilityAccuracy": 0.8333333333333334,
+    "agentCompletionRate": 1,
+    "claimGroundedness": {
+      "status": "EVALUABLE",
+      "value": 1
+    },
+    "conflictDetection": {
+      "status": "EVALUABLE",
+      "value": 0.5
+    },
+    "p50LatencyMs": 593.5,
+    "p95LatencyMs": 24381.75,
+    "totalCostMicros": 29257,
+    "caseRunCount": 14,
+    "stageLatency": {
+      "queryTransformationMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.025391995906829834,
+        "p95Ms": 0.16940315365791309
+      },
+      "queryEmbeddingMs": {
+        "sampleCount": 8,
+        "p50Ms": 279.9884840250015,
+        "p95Ms": 556.1334649264811
+      },
+      "combinedHybridSqlRetrievalMs": {
+        "sampleCount": 8,
+        "p50Ms": 11.075035989284515,
+        "p95Ms": 26.039758622646332
+      },
+      "dedupeMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.5758709907531738,
+        "p95Ms": 0.6960585683584213
+      },
+      "rerankingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.005044519901275635,
+        "p95Ms": 0.024056595563888537
+      },
+      "contextPackingMs": {
+        "sampleCount": 8,
+        "p50Ms": 0.0056559741497039795,
+        "p95Ms": 0.025793805718421933
+      },
+      "indexing.chunkMs": {
+        "sampleCount": 14,
+        "p50Ms": 11.054974913597107,
+        "p95Ms": 11.054974913597107
+      },
+      "indexing.parseMs": {
+        "sampleCount": 14,
+        "p50Ms": 949.556589782238,
+        "p95Ms": 949.556589782238
+      },
+      "indexing.totalMs": {
+        "sampleCount": 14,
+        "p50Ms": 14427.281722843647,
+        "p95Ms": 14427.281722843647
+      },
+      "indexing.pageCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.chunkCount": {
+        "sampleCount": 14,
+        "p50Ms": 67,
+        "p95Ms": 67
+      },
+      "indexing.embeddingMs": {
+        "sampleCount": 14,
+        "p50Ms": 12619.220809996128,
+        "p95Ms": 12619.220809996128
+      },
+      "indexing.persistenceMs": {
+        "sampleCount": 14,
+        "p50Ms": 432.5697050690651,
+        "p95Ms": 432.5697050690651
+      },
+      "indexing.classificationMs": {
+        "sampleCount": 14,
+        "p50Ms": 70.64501494169235,
+        "p95Ms": 70.64501494169235
+      },
+      "indexing.embeddingInputTokens": {
+        "sampleCount": 14,
+        "p50Ms": 7384,
+        "p95Ms": 7384
+      },
+      "endToEndMs": {
+        "sampleCount": 14,
+        "p50Ms": 593.5,
+        "p95Ms": 24381.75
+      },
+      "agentModelToolVerifierMs": {
+        "sampleCount": 6,
+        "p50Ms": 20087.5,
+        "p95Ms": 28245.25
+      }
+    },
+    "stageBoundary": "combined-hybrid-sql-retrieval-v1",
+    "componentCostMicros": {
+      "queryEmbedding": 8,
+      "queryRewrite": 0,
+      "reranking": 0,
+      "agent": 29249
+    }
+  },
+  "delta": {
+    "retrievalRecallAt5": 0.625,
+    "citationDocumentPrecision": 0,
+    "answerabilityAccuracy": -0.16666666666666663,
+    "agentCompletionRate": 0,
+    "p95LatencyMs": 2325.5,
+    "totalCostMicros": -4540
+  }
+}

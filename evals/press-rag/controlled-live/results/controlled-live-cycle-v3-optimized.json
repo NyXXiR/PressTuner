@@ -1,0 +1,1181 @@
+{
+  "version": "press-rag-controlled-live-cycle/v1",
+  "createdAt": "2026-08-04T03:04:54.363Z",
+  "evidenceClass": "CONTROLLED_LIVE",
+  "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+  "comparison": {
+    "version": "press-rag-controlled-live-comparison/v1",
+    "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+    "provenance": {
+      "executorId": "press-agent-controlled-live/v1",
+      "baseline": {
+        "executionId": "controlled_live_execution_ae336f24504e866ad924f1a968ece0e2d14ec7aa2b8d0ee2c9b0129c456d7f8f",
+        "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+        "configurationHash": "f1e4e59b0ce091477ec03b64dc1f2905cac53c4f1a3eecf2adbdbbd9644d27c2",
+        "caseRunIds": [
+          "CL-001-4ecf6fff-a0cc-4bc8-8d82-acffc8e7cda3",
+          "CL-002-a11e1ceb-6442-4e01-a918-84d1f0785297",
+          "CL-003-809381ec-d18f-4ec2-b833-140916e7c44c",
+          "CL-004-a4f50ea7-478c-4e6e-ab7a-ee19f6692d73",
+          "CL-005-6eab4f09-0ccd-426e-9ed6-b6bdee7d0b11",
+          "CL-006-99a0795c-b411-447a-9e61-9796a5701fac",
+          "CL-007-f3ac5698-6d15-4741-bbd2-ba0c953bb54a",
+          "CL-008-b3ca3def-e71a-4e8c-bf03-86246ec42393",
+          "CL-009-dd34209b-b0a3-46f9-9267-6b73a47fcb16",
+          "CL-010-e0a418d8-2e53-4eef-b7ee-7e1185571703",
+          "CL-011-f779fae6-5c06-4285-835c-812290caba51",
+          "CL-012-269216ff-e3e8-43a9-a7e7-2db274ef8c88",
+          "CL-013-c7e210a1-9e36-4342-bcdb-c4f1bda5a393",
+          "CL-014-48592935-fafe-4961-afd8-02329a918db4",
+          "CL-014-504e3622-5383-4a29-b0d2-852c81dbbcf6",
+          "CL-014-af494ca5-01c6-4df9-8631-e67880f468a5",
+          "CL-015-b09befbb-3321-48bf-8eeb-9ffb94d11165",
+          "CL-015-2c8a9571-0767-411e-81bd-688b3176f00b",
+          "CL-015-438cf18d-0bb3-4c47-ac9e-595aa37ba1a4",
+          "CL-016-0a491048-98ad-4939-b5ad-55a8c2049632",
+          "CL-017-11cc0de3-8f22-4782-9d43-3229673f18a1",
+          "CL-018-358b6080-d729-4085-b735-4fb79e40e877",
+          "CL-019-9e6828ac-f8ee-4cab-9082-79f7d128915d",
+          "CL-019-c11b333a-63b1-4129-b21e-af5aafafbd9b",
+          "CL-019-614329b0-6869-45c5-8378-d898c838d48f",
+          "CL-020-3ae89e25-838d-40b3-9ee9-b6761c281fba",
+          "CL-020-286a53b5-db87-4bbf-94f1-e5ebce638f0d",
+          "CL-020-61b34682-880f-4c0f-b620-9655bfe618e9",
+          "CL-021-31146b55-fb78-46af-aea1-0a0edd70803d",
+          "CL-022-0e3e31d5-451f-4a50-a476-4787a797a6e5",
+          "CL-023-902793c9-7e5e-4b33-9811-9053b0c33035",
+          "CL-024-02a2cd76-ab1f-4d30-bcd5-17557676b940",
+          "CL-024-7c6191be-f416-4e42-ba45-819bde23f42c",
+          "CL-024-535916c5-93a6-48b3-ab3a-1cc8291a2709",
+          "CL-025-e8dcadcb-2588-4a14-b7ea-8a45c7a38ca6",
+          "CL-026-bcecc9f9-7655-47f9-91d8-8a716d8186d8",
+          "CL-027-bcc84b23-1033-47e0-ba97-0dc0156a07c7",
+          "CL-027-f083c6e3-0708-454c-b5f8-24cd47a579df",
+          "CL-027-7f102ef7-1f92-4468-bfe9-1bdb20961e67",
+          "CL-028-13e95d9f-2aba-4415-aeeb-d0682bb70bcb",
+          "CL-029-90c2cf3d-73b5-4a69-9380-1afc807baffd",
+          "CL-030-cc460ae2-6652-425e-8d73-2c4eda421b6c",
+          "CL-031-36ca4992-1165-4899-a06d-83d53f777f53",
+          "CL-031-748375f4-daa5-4ca1-bfba-932d1e499b26",
+          "CL-031-c0018d24-4102-489a-ae1c-9e99d6d24c3b",
+          "CL-032-bf07055d-f499-4ef0-881d-110a7b061247",
+          "CL-033-f4d92880-5bcc-4c05-af9b-fd289841c86b",
+          "CL-033-ad79c4af-0fb3-4020-9172-a80af035237c",
+          "CL-033-b5b454bd-9232-4e6f-9354-67b4c6ae23e7",
+          "CL-034-660caf56-73aa-49fc-b121-a091bb3e2a63",
+          "CL-034-276b4a59-e805-4eef-82d4-a51d34a84273",
+          "CL-034-bf6dd309-fbd9-420e-b710-4b4f5333a4fc",
+          "CL-035-487aba37-4d83-410a-8716-6bba7882bdf1",
+          "CL-035-c5ab62e4-0d7b-4366-96fe-5639a04ca33c",
+          "CL-035-d653e673-cc73-440c-a8a4-24e0cf913df9",
+          "CL-036-247a671a-bd11-4f98-abae-fba581766876",
+          "CL-036-aea65620-ef70-45b8-8c7d-10ec88d46916",
+          "CL-036-16ca5928-dddc-46a8-ada7-ebf2aa61939b",
+          "CL-037-b80dde7f-ac2b-49ae-906b-63d9285b7e6d",
+          "CL-037-811dc2da-4da5-4a52-94d4-3e954c33d138",
+          "CL-037-94604969-d387-44fa-9d58-c5e10e13cc01",
+          "CL-038-4fb48103-ea71-44f3-ada6-ced83fc0cfd7",
+          "CL-038-0608d92b-d36c-4785-aebe-18b5e421f012",
+          "CL-038-ae1232e6-9654-4101-af2b-58c97408ca2e",
+          "CL-039-8d0893a7-22b9-4ba9-b87e-c01906a5fe5f",
+          "CL-039-58453f18-79d6-4282-be51-75e7241e2868",
+          "CL-039-4bea0093-56b9-4acc-b5cd-6070f3408e0a",
+          "CL-040-83aa3d04-d54c-4d7c-b610-3cf0ca711155",
+          "CL-040-4250813a-00d9-441a-ad79-4154c5cc4a2c",
+          "CL-040-dd0dc464-e3b6-425b-932f-9e3470278ec1"
+        ],
+        "startedAt": "2026-08-04T02:22:50.735Z",
+        "completedAt": "2026-08-04T02:29:35.423Z"
+      },
+      "candidate": {
+        "executionId": "controlled_live_execution_8f92b267b1b587ed4328decea98b9d14ff216d5edb64cd6bda86844782e4cae4",
+        "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10",
+        "configurationHash": "97f531c2f0fb4c7c6e2b195dfeeae4851430bd8492fae56d896ec0ca08b4db35",
+        "caseRunIds": [
+          "CL-001-5f595703-8e7d-426b-8886-8d0e81c012fd",
+          "CL-002-f8711e21-0df3-4743-a366-3405e9e0c06d",
+          "CL-003-21685d9c-382e-42fc-a958-3a5a96c0a021",
+          "CL-004-79ecf11e-c757-4e2f-9558-5337ace1a21c",
+          "CL-005-87a6cad5-6f69-44c3-ad82-c4bcb570e7ac",
+          "CL-006-edf1bdc6-7d07-4ee8-9cf2-283bf318e99b",
+          "CL-007-c292f7f2-f24a-4fe7-9006-3dd3c5236853",
+          "CL-008-3d60b526-6266-4b47-b66e-8ffebe341d3b",
+          "CL-009-00df2c4e-5d5b-45f9-b2fc-0368b818f2f2",
+          "CL-010-07bbbe67-7bb1-4bde-ae32-ad6586e0fc36",
+          "CL-011-f1282d03-af4a-494a-aaac-1433e07827d1",
+          "CL-012-7b17dfd2-02a8-4930-9fd1-277e59ddd42e",
+          "CL-013-e24dc66d-ff9e-4907-8e03-c404e4074845",
+          "CL-014-7fcc0ebf-facc-455c-83e1-07b85ff2ca26",
+          "CL-014-2f851917-d7a9-4c65-93d3-037557f4a08f",
+          "CL-014-8b370f6f-7e30-4965-abb0-fbb0d9f345c1",
+          "CL-015-121f5d4c-9d99-4b44-b9aa-596dd2d731e3",
+          "CL-015-2d26dca0-5d88-49a6-ab2b-90338697728f",
+          "CL-015-d1776bec-0169-4584-b9cb-b09cf413ebad",
+          "CL-016-e1efc349-c917-42e6-835f-1e5777eef23b",
+          "CL-017-b7ebdf23-b8e7-497a-ab4f-eb6fe78c87df",
+          "CL-018-bb4c4fea-4d54-48ac-8e2b-7bf07090e4ca",
+          "CL-019-d15ee3b0-5c4b-4473-a796-e52b525def41",
+          "CL-019-8a80a2e7-9141-4be7-933b-c7d90a78c9f7",
+          "CL-019-91eab44b-f0a1-4683-965c-78d7368113c0",
+          "CL-020-a57d8798-f376-47ad-9649-4f4ca19ae381",
+          "CL-020-9a4baf98-fb92-4f1d-ad1b-9ee103a027e3",
+          "CL-020-15aaf56b-e8e7-414e-802a-f69c52fba22c",
+          "CL-021-0af21772-dce9-4973-a6a6-81ccc1ff0657",
+          "CL-022-475676c0-548c-4c0b-b07d-15d7807bed51",
+          "CL-023-74c6e861-8876-4fb9-8080-4e72856f1c4a",
+          "CL-024-f9584926-4443-42f1-9fcf-33f63723f1bc",
+          "CL-024-16875bfe-8b7b-46c9-bca0-7123d0172059",
+          "CL-024-b976f3df-bbc1-429e-81d3-8f06d20ce41a",
+          "CL-025-ab8a2747-4f94-4e0d-a849-ece5cd20a4c8",
+          "CL-026-789597e1-c28c-4687-bbc9-2f9757ac482e",
+          "CL-027-5667e762-cceb-4ad1-9cb2-274eb8164a6a",
+          "CL-027-f88f7283-243f-4793-8ddf-f3d4a6c4bcc4",
+          "CL-027-c9b5cb1a-5d2f-485b-9d81-b96d086e71c5",
+          "CL-028-587b6aa4-f6cc-4676-84b5-dd578a1be368",
+          "CL-029-6ad2be4c-988e-4aeb-901d-c8a4f8473512",
+          "CL-030-4ee36167-39e6-4c57-b9df-d5614fa47b4c",
+          "CL-031-1c7dde86-7503-418c-845c-8bb3a9f90012",
+          "CL-031-824ca5ee-3a4a-44a0-97cc-124bdd1232d3",
+          "CL-031-65914bcd-0eb5-4940-9bcd-089fb4995df1",
+          "CL-032-ca6318d5-7272-4de4-8bf2-fcd924237a24",
+          "CL-033-5b518a57-c698-44db-aa28-a57fa82d5160",
+          "CL-033-942d8ce4-e17b-4486-a181-a694d06b7566",
+          "CL-033-6ecd3bde-deff-4f4d-9b0b-23de55e833b0",
+          "CL-034-41d826c8-1077-476a-8983-dbf314cb373e",
+          "CL-034-4aa31063-9def-4719-a284-729ecdb45a3f",
+          "CL-034-e8932acd-876f-40ad-83be-152aeb93cea7",
+          "CL-035-010e1e5c-93bb-46b1-a674-8d460e9d5af6",
+          "CL-035-7165945a-de99-4dc6-bd27-a48d93624375",
+          "CL-035-db04d809-5a9f-4378-b981-e0276e073a63",
+          "CL-036-3593dc24-0803-4a3f-880f-0c7d74de15a6",
+          "CL-036-a5061d83-c870-4987-bdac-fb9d837e6724",
+          "CL-036-5d7b56f1-0426-4cc2-b483-a7a5359f4940",
+          "CL-037-7fddb8e6-b7f0-4925-b39b-6c31196c6812",
+          "CL-037-02c32215-3149-4c0a-a422-8a46f88533ab",
+          "CL-037-471b4c20-62bb-4e7e-a723-74079b185f91",
+          "CL-038-8b90cc7b-8770-4a3f-abaf-96debf3264a6",
+          "CL-038-ae7fc1ac-958b-4938-ad65-09f582df82a2",
+          "CL-038-8f9b4e80-3306-4508-ac81-923eb8999d12",
+          "CL-039-411b5635-4b12-4524-b0ec-b839e59a3d6f",
+          "CL-039-5abdab42-c49e-467f-8243-bbdac1d56c7e",
+          "CL-039-8fbe24ff-8a94-4dea-a38c-e6b617d2b5ca",
+          "CL-040-d66eecc5-bd53-40cf-9cd9-c30f17f976fc",
+          "CL-040-9f8389f1-9c6d-4b73-ad14-4f503311c470",
+          "CL-040-908ed78f-0927-4321-8dcd-df06f003b11d"
+        ],
+        "startedAt": "2026-08-04T02:56:25.069Z",
+        "completedAt": "2026-08-04T03:04:54.363Z"
+      }
+    },
+    "baseline": {
+      "executionId": "controlled_live_execution_ae336f24504e866ad924f1a968ece0e2d14ec7aa2b8d0ee2c9b0129c456d7f8f",
+      "configurationHash": "f1e4e59b0ce091477ec03b64dc1f2905cac53c4f1a3eecf2adbdbbd9644d27c2",
+      "retrievalRecallAt5": 0.52,
+      "citationDocumentPrecision": 0.9090909090909091,
+      "answerabilityAccuracy": 0.9111111111111111,
+      "agentCompletionRate": 1,
+      "claimGroundedness": {
+        "status": "EVALUABLE",
+        "value": 1
+      },
+      "conflictDetection": {
+        "status": "EVALUABLE",
+        "value": 0.9333333333333333
+      },
+      "p50LatencyMs": 4003.5,
+      "p95LatencyMs": 18464.499999999996,
+      "totalCostMicros": 120157,
+      "caseRunCount": 70,
+      "stageLatency": {
+        "queryTransformationMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.020228028297424316,
+          "p95Ms": 0.0512127757072448
+        },
+        "queryEmbeddingMs": {
+          "sampleCount": 25,
+          "p50Ms": 268.21306496858597,
+          "p95Ms": 399.1708123922348
+        },
+        "combinedHybridSqlRetrievalMs": {
+          "sampleCount": 25,
+          "p50Ms": 21.567053973674774,
+          "p95Ms": 26.07764160633087
+        },
+        "dedupeMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.5869770050048828,
+          "p95Ms": 0.6918404102325438
+        },
+        "rerankingMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.003836989402770996,
+          "p95Ms": 0.0062138199806213365
+        },
+        "contextPackingMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.006140947341918945,
+          "p95Ms": 0.014526987075805641
+        },
+        "indexing.chunkMs": {
+          "sampleCount": 70,
+          "p50Ms": 12.235803067684174,
+          "p95Ms": 12.235803067684174
+        },
+        "indexing.parseMs": {
+          "sampleCount": 70,
+          "p50Ms": 953.6750000119209,
+          "p95Ms": 953.6750000119209
+        },
+        "indexing.totalMs": {
+          "sampleCount": 70,
+          "p50Ms": 13069.263094007969,
+          "p95Ms": 13069.263094007969
+        },
+        "indexing.pageCount": {
+          "sampleCount": 70,
+          "p50Ms": 67,
+          "p95Ms": 67
+        },
+        "indexing.chunkCount": {
+          "sampleCount": 70,
+          "p50Ms": 67,
+          "p95Ms": 67
+        },
+        "indexing.embeddingMs": {
+          "sampleCount": 70,
+          "p50Ms": 11261.348774135113,
+          "p95Ms": 11261.348774135113
+        },
+        "indexing.persistenceMs": {
+          "sampleCount": 70,
+          "p50Ms": 426.3177751302719,
+          "p95Ms": 426.3177751302719
+        },
+        "indexing.classificationMs": {
+          "sampleCount": 70,
+          "p50Ms": 74.86949974298477,
+          "p95Ms": 74.86949974298477
+        },
+        "indexing.embeddingInputTokens": {
+          "sampleCount": 70,
+          "p50Ms": 7384,
+          "p95Ms": 7384
+        },
+        "endToEndMs": {
+          "sampleCount": 70,
+          "p50Ms": 4003.5,
+          "p95Ms": 18464.499999999996
+        },
+        "agentModelToolVerifierMs": {
+          "sampleCount": 45,
+          "p50Ms": 6531,
+          "p95Ms": 20475.399999999994
+        }
+      },
+      "stageBoundary": "combined-hybrid-sql-retrieval-v1",
+      "componentCostMicros": {
+        "queryEmbedding": 25,
+        "queryRewrite": 0,
+        "reranking": 0,
+        "agent": 120132
+      }
+    },
+    "candidate": {
+      "executionId": "controlled_live_execution_8f92b267b1b587ed4328decea98b9d14ff216d5edb64cd6bda86844782e4cae4",
+      "configurationHash": "97f531c2f0fb4c7c6e2b195dfeeae4851430bd8492fae56d896ec0ca08b4db35",
+      "retrievalRecallAt5": 1,
+      "citationDocumentPrecision": 0.8571428571428571,
+      "answerabilityAccuracy": 0.9111111111111111,
+      "agentCompletionRate": 1,
+      "claimGroundedness": {
+        "status": "EVALUABLE",
+        "value": 1
+      },
+      "conflictDetection": {
+        "status": "EVALUABLE",
+        "value": 0.9333333333333333
+      },
+      "p50LatencyMs": 4894.5,
+      "p95LatencyMs": 21574.449999999997,
+      "totalCostMicros": 148637,
+      "caseRunCount": 70,
+      "stageLatency": {
+        "queryTransformationMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.029514968395233154,
+          "p95Ms": 0.10263699293136593
+        },
+        "queryEmbeddingMs": {
+          "sampleCount": 25,
+          "p50Ms": 283.50313299894333,
+          "p95Ms": 415.5924228191376
+        },
+        "combinedHybridSqlRetrievalMs": {
+          "sampleCount": 25,
+          "p50Ms": 8.672613978385925,
+          "p95Ms": 19.66258641481397
+        },
+        "dedupeMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.692891001701355,
+          "p95Ms": 0.923342204093933
+        },
+        "rerankingMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.005128026008605957,
+          "p95Ms": 0.009427583217620846
+        },
+        "contextPackingMs": {
+          "sampleCount": 25,
+          "p50Ms": 0.007113993167877197,
+          "p95Ms": 0.01993621587753294
+        },
+        "indexing.chunkMs": {
+          "sampleCount": 70,
+          "p50Ms": 12.024649500846863,
+          "p95Ms": 12.024649500846863
+        },
+        "indexing.parseMs": {
+          "sampleCount": 70,
+          "p50Ms": 943.4376641511917,
+          "p95Ms": 943.4376641511917
+        },
+        "indexing.totalMs": {
+          "sampleCount": 70,
+          "p50Ms": 13370.299410045147,
+          "p95Ms": 13370.299410045147
+        },
+        "indexing.pageCount": {
+          "sampleCount": 70,
+          "p50Ms": 67,
+          "p95Ms": 67
+        },
+        "indexing.chunkCount": {
+          "sampleCount": 70,
+          "p50Ms": 67,
+          "p95Ms": 67
+        },
+        "indexing.embeddingMs": {
+          "sampleCount": 70,
+          "p50Ms": 11557.643084168434,
+          "p95Ms": 11557.643084168434
+        },
+        "indexing.persistenceMs": {
+          "sampleCount": 70,
+          "p50Ms": 431.84114879369736,
+          "p95Ms": 431.84114879369736
+        },
+        "indexing.classificationMs": {
+          "sampleCount": 70,
+          "p50Ms": 67.85465085506439,
+          "p95Ms": 67.85465085506439
+        },
+        "indexing.embeddingInputTokens": {
+          "sampleCount": 70,
+          "p50Ms": 7384,
+          "p95Ms": 7384
+        },
+        "endToEndMs": {
+          "sampleCount": 70,
+          "p50Ms": 4894.5,
+          "p95Ms": 21574.449999999997
+        },
+        "agentModelToolVerifierMs": {
+          "sampleCount": 45,
+          "p50Ms": 10085,
+          "p95Ms": 23002.799999999996
+        }
+      },
+      "stageBoundary": "combined-hybrid-sql-retrieval-v1",
+      "componentCostMicros": {
+        "queryEmbedding": 25,
+        "queryRewrite": 0,
+        "reranking": 0,
+        "agent": 148612
+      }
+    },
+    "delta": {
+      "retrievalRecallAt5": 0.48,
+      "citationDocumentPrecision": -0.051948051948051965,
+      "answerabilityAccuracy": 0,
+      "agentCompletionRate": 0,
+      "p95LatencyMs": 3109.9500000000007,
+      "totalCostMicros": 28480
+    }
+  },
+  "calibration": {
+    "version": "press-rag-semantic-judge-calibration/v1",
+    "model": "gpt-4.1-mini",
+    "temperature": 0,
+    "promptHash": "0c65a3a000804740f6ef867162a841eb1bd17a6f262ee0c4acba49c742bff0df",
+    "schemaHash": "cfa361b32b3bb583e7d206d8fa7fdf21bcab07bcf42125625f224cf1bcece119",
+    "reviewerIds": [
+      "nyxxir"
+    ],
+    "records": [
+      {
+        "claimId": "cal-supported-01",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier 'PT-CAREER-001' in the quote, directly supporting the claim that the document identifier is PT-CAREER-001.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly mentions the document identifier 'PT-CAREER-001' in the quote, directly supporting the claim that the document identifier is PT-CAREER-001."
+          }
+        },
+        "rationale": "The evidence explicitly mentions the document identifier 'PT-CAREER-001' in the quote, directly supporting the claim that the document identifier is PT-CAREER-001.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 240
+      },
+      {
+        "claimId": "cal-unsupported-01",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-002, which directly contradicts the claim that the document identifier is PT-CAREER-001.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-002, which directly contradicts the claim that the document identifier is PT-CAREER-001."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-002, which directly contradicts the claim that the document identifier is PT-CAREER-001.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 376
+      },
+      {
+        "claimId": "cal-supported-02",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the identifier 'PT-CAREER-002' multiple times in the context of the document, confirming that the document identifier is indeed PT-CAREER-002.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly mentions the identifier 'PT-CAREER-002' multiple times in the context of the document, confirming that the document identifier is indeed PT-CAREER-002."
+          }
+        },
+        "rationale": "The evidence explicitly mentions the identifier 'PT-CAREER-002' multiple times in the context of the document, confirming that the document identifier is indeed PT-CAREER-002.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 376
+      },
+      {
+        "claimId": "cal-unsupported-02",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence shows the document identifier as PT-CAREER-003, which contradicts the claim that the document identifier is PT-CAREER-002.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence shows the document identifier as PT-CAREER-003, which contradicts the claim that the document identifier is PT-CAREER-002."
+          }
+        },
+        "rationale": "The evidence shows the document identifier as PT-CAREER-003, which contradicts the claim that the document identifier is PT-CAREER-002.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 220
+      },
+      {
+        "claimId": "cal-supported-03",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states the document identifier as PT-CAREER-003, directly supporting the claim.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly states the document identifier as PT-CAREER-003, directly supporting the claim."
+          }
+        },
+        "rationale": "The evidence explicitly states the document identifier as PT-CAREER-003, directly supporting the claim.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 196
+      },
+      {
+        "claimId": "cal-unsupported-03",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-004, not PT-CAREER-003 as claimed. Therefore, the claim that the document identifier is PT-CAREER-003 is contradicted by the evidence.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-004, not PT-CAREER-003 as claimed. Therefore, the claim that the document identifier is PT-CAREER-003 is contradicted by the evidence."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-004, not PT-CAREER-003 as claimed. Therefore, the claim that the document identifier is PT-CAREER-003 is contradicted by the evidence.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 380
+      },
+      {
+        "claimId": "cal-supported-04",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence repeatedly references the identifier PT-CAREER-004 in the context of the document, confirming that the document identifier is indeed PT-CAREER-004.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence repeatedly references the identifier PT-CAREER-004 in the context of the document, confirming that the document identifier is indeed PT-CAREER-004."
+          }
+        },
+        "rationale": "The evidence repeatedly references the identifier PT-CAREER-004 in the context of the document, confirming that the document identifier is indeed PT-CAREER-004.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 352
+      },
+      {
+        "claimId": "cal-unsupported-04",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence shows a document identifier PT-CAREER-005, which contradicts the claim that the document identifier is PT-CAREER-004.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence shows a document identifier PT-CAREER-005, which contradicts the claim that the document identifier is PT-CAREER-004."
+          }
+        },
+        "rationale": "The evidence shows a document identifier PT-CAREER-005, which contradicts the claim that the document identifier is PT-CAREER-004.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 246
+      },
+      {
+        "claimId": "cal-supported-05",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states the document identifier as PT-CAREER-005, which directly supports the claim that the document identifier is PT-CAREER-005.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly states the document identifier as PT-CAREER-005, which directly supports the claim that the document identifier is PT-CAREER-005."
+          }
+        },
+        "rationale": "The evidence explicitly states the document identifier as PT-CAREER-005, which directly supports the claim that the document identifier is PT-CAREER-005.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 243
+      },
+      {
+        "claimId": "cal-unsupported-05",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly states that the document identifier is PT-CAREER-006, which contradicts the claim that the document identifier is PT-CAREER-005.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-006, which contradicts the claim that the document identifier is PT-CAREER-005."
+          }
+        },
+        "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-006, which contradicts the claim that the document identifier is PT-CAREER-005.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 322
+      },
+      {
+        "claimId": "cal-supported-06",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier as PT-CAREER-006 multiple times, directly supporting the claim that the document identifier is PT-CAREER-006.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-006 multiple times, directly supporting the claim that the document identifier is PT-CAREER-006."
+          }
+        },
+        "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-006 multiple times, directly supporting the claim that the document identifier is PT-CAREER-006.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 315
+      },
+      {
+        "claimId": "cal-unsupported-06",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-007, not PT-CAREER-006 as claimed. Therefore, the claim that the document identifier is PT-CAREER-006 is contradicted by the evidence.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-007, not PT-CAREER-006 as claimed. Therefore, the claim that the document identifier is PT-CAREER-006 is contradicted by the evidence."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-007, not PT-CAREER-006 as claimed. Therefore, the claim that the document identifier is PT-CAREER-006 is contradicted by the evidence.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 420
+      },
+      {
+        "claimId": "cal-supported-07",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier as PT-CAREER-007 multiple times, directly supporting the claim that the document identifier is PT-CAREER-007.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-007 multiple times, directly supporting the claim that the document identifier is PT-CAREER-007."
+          }
+        },
+        "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-007 multiple times, directly supporting the claim that the document identifier is PT-CAREER-007.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 392
+      },
+      {
+        "claimId": "cal-unsupported-07",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly states that the document identifier is PT-CAREER-008, which contradicts the claim that the document identifier is PT-CAREER-007.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-008, which contradicts the claim that the document identifier is PT-CAREER-007."
+          }
+        },
+        "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-008, which contradicts the claim that the document identifier is PT-CAREER-007.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 237
+      },
+      {
+        "claimId": "cal-supported-08",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states 'PT-CAREER-008' as the document identifier, which directly supports the claim that the document identifier is PT-CAREER-008.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly states 'PT-CAREER-008' as the document identifier, which directly supports the claim that the document identifier is PT-CAREER-008."
+          }
+        },
+        "rationale": "The evidence explicitly states 'PT-CAREER-008' as the document identifier, which directly supports the claim that the document identifier is PT-CAREER-008.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 232
+      },
+      {
+        "claimId": "cal-unsupported-08",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-009, not PT-CAREER-008 as claimed. Therefore, the claim that the document identifier is PT-CAREER-008 is contradicted by the evidence.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-009, not PT-CAREER-008 as claimed. Therefore, the claim that the document identifier is PT-CAREER-008 is contradicted by the evidence."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-009, not PT-CAREER-008 as claimed. Therefore, the claim that the document identifier is PT-CAREER-008 is contradicted by the evidence.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 407
+      },
+      {
+        "claimId": "cal-supported-09",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence repeatedly identifies the document with the identifier PT-CAREER-009, confirming that the document identifier is indeed PT-CAREER-009 as claimed.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-009, confirming that the document identifier is indeed PT-CAREER-009 as claimed."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-009, confirming that the document identifier is indeed PT-CAREER-009 as claimed.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 377
+      },
+      {
+        "claimId": "cal-unsupported-09",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence repeatedly identifies the document identifier as PT-CAREER-010, not PT-CAREER-009 as claimed. Therefore, the claim that the document identifier is PT-CAREER-009 is contradicted by the evidence.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-010, not PT-CAREER-009 as claimed. Therefore, the claim that the document identifier is PT-CAREER-009 is contradicted by the evidence."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document identifier as PT-CAREER-010, not PT-CAREER-009 as claimed. Therefore, the claim that the document identifier is PT-CAREER-009 is contradicted by the evidence.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 406
+      },
+      {
+        "claimId": "cal-supported-10",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence repeatedly identifies the document with the identifier PT-CAREER-010, confirming that the document identifier is indeed PT-CAREER-010 as claimed.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-010, confirming that the document identifier is indeed PT-CAREER-010 as claimed."
+          }
+        },
+        "rationale": "The evidence repeatedly identifies the document with the identifier PT-CAREER-010, confirming that the document identifier is indeed PT-CAREER-010 as claimed.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 376
+      },
+      {
+        "claimId": "cal-unsupported-10",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly states that the document identifier is PT-CAREER-011, which contradicts the claim that the document identifier is PT-CAREER-010.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-011, which contradicts the claim that the document identifier is PT-CAREER-010."
+          }
+        },
+        "rationale": "The evidence explicitly states that the document identifier is PT-CAREER-011, which contradicts the claim that the document identifier is PT-CAREER-010.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 250
+      },
+      {
+        "claimId": "cal-supported-11",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier as PT-CAREER-011, which directly supports the claim that the document identifier is PT-CAREER-011.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-011, which directly supports the claim that the document identifier is PT-CAREER-011."
+          }
+        },
+        "rationale": "The evidence explicitly mentions the document identifier as PT-CAREER-011, which directly supports the claim that the document identifier is PT-CAREER-011.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 242
+      },
+      {
+        "claimId": "cal-unsupported-11",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence states that the document identifier is PT-CAREER-012, which directly contradicts the claim that the document identifier is PT-CAREER-011.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence states that the document identifier is PT-CAREER-012, which directly contradicts the claim that the document identifier is PT-CAREER-011."
+          }
+        },
+        "rationale": "The evidence states that the document identifier is PT-CAREER-012, which directly contradicts the claim that the document identifier is PT-CAREER-011.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 235
+      },
+      {
+        "claimId": "cal-supported-12",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly includes the document identifier 'PT-CAREER-012' in the quoted text, directly supporting the claim that the document identifier is PT-CAREER-012.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly includes the document identifier 'PT-CAREER-012' in the quoted text, directly supporting the claim that the document identifier is PT-CAREER-012."
+          }
+        },
+        "rationale": "The evidence explicitly includes the document identifier 'PT-CAREER-012' in the quoted text, directly supporting the claim that the document identifier is PT-CAREER-012.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 234
+      },
+      {
+        "claimId": "cal-unsupported-12",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "UNSUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"UNSUPPORTED\",\"rationale\":\"The evidence provided contains information about a document with the identifier PT-PRESS-001, but there is no mention or support for the claim that the document identifier is PT-CAREER-012.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "UNSUPPORTED",
+            "rationale": "The evidence provided contains information about a document with the identifier PT-PRESS-001, but there is no mention or support for the claim that the document identifier is PT-CAREER-012."
+          }
+        },
+        "rationale": "The evidence provided contains information about a document with the identifier PT-PRESS-001, but there is no mention or support for the claim that the document identifier is PT-CAREER-012.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 216
+      },
+      {
+        "claimId": "cal-supported-13",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly states the document identifier as PT-PRESS-001, which directly supports the claim that the document identifier is PT-PRESS-001.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly states the document identifier as PT-PRESS-001, which directly supports the claim that the document identifier is PT-PRESS-001."
+          }
+        },
+        "rationale": "The evidence explicitly states the document identifier as PT-PRESS-001, which directly supports the claim that the document identifier is PT-PRESS-001.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 200
+      },
+      {
+        "claimId": "cal-unsupported-13",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence indicates that the document identifier is PT-PRESS-004, which contradicts the claim that the document identifier is PT-PRESS-001.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence indicates that the document identifier is PT-PRESS-004, which contradicts the claim that the document identifier is PT-PRESS-001."
+          }
+        },
+        "rationale": "The evidence indicates that the document identifier is PT-PRESS-004, which contradicts the claim that the document identifier is PT-PRESS-001.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 217
+      },
+      {
+        "claimId": "cal-supported-14",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly includes the text 'Parser marker: PT-PRESS-004', which directly supports the claim that the document identifier is PT-PRESS-004.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly includes the text 'Parser marker: PT-PRESS-004', which directly supports the claim that the document identifier is PT-PRESS-004."
+          }
+        },
+        "rationale": "The evidence explicitly includes the text 'Parser marker: PT-PRESS-004', which directly supports the claim that the document identifier is PT-PRESS-004.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 214
+      },
+      {
+        "claimId": "cal-unsupported-14",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence explicitly identifies the document identifier as PT-PRESS-005, which contradicts the claim that the document identifier is PT-PRESS-004.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence explicitly identifies the document identifier as PT-PRESS-005, which contradicts the claim that the document identifier is PT-PRESS-004."
+          }
+        },
+        "rationale": "The evidence explicitly identifies the document identifier as PT-PRESS-005, which contradicts the claim that the document identifier is PT-PRESS-004.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 306
+      },
+      {
+        "claimId": "cal-supported-15",
+        "blinded": true,
+        "humanLabel": "SUPPORTED",
+        "judgeLabel": "SUPPORTED",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"SUPPORTED\",\"rationale\":\"The evidence explicitly mentions the document identifier PT-PRESS-005 multiple times, confirming that the document identifier is indeed PT-PRESS-005 as claimed.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "SUPPORTED",
+            "rationale": "The evidence explicitly mentions the document identifier PT-PRESS-005 multiple times, confirming that the document identifier is indeed PT-PRESS-005 as claimed."
+          }
+        },
+        "rationale": "The evidence explicitly mentions the document identifier PT-PRESS-005 multiple times, confirming that the document identifier is indeed PT-PRESS-005 as claimed.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 300
+      },
+      {
+        "claimId": "cal-unsupported-15",
+        "blinded": true,
+        "humanLabel": "UNSUPPORTED",
+        "judgeLabel": "CONTRADICTORY",
+        "rawJudgment": {
+          "role": "assistant",
+          "content": "{\"label\":\"CONTRADICTORY\",\"rationale\":\"The evidence shows the document identifier as PT-CAREER-001, which contradicts the claim that the document identifier is PT-PRESS-005.\"}",
+          "refusal": null,
+          "annotations": [],
+          "parsed": {
+            "label": "CONTRADICTORY",
+            "rationale": "The evidence shows the document identifier as PT-CAREER-001, which contradicts the claim that the document identifier is PT-PRESS-005."
+          }
+        },
+        "rationale": "The evidence shows the document identifier as PT-CAREER-001, which contradicts the claim that the document identifier is PT-PRESS-005.",
+        "reviewer": {
+          "type": "HUMAN",
+          "id": "nyxxir"
+        },
+        "costMicros": 238
+      }
+    ],
+    "supportedCount": 15,
+    "unsupportedOrContradictoryCount": 15,
+    "confusionMatrix": {
+      "truePositive": 15,
+      "trueNegative": 15,
+      "falsePositive": 0,
+      "falseNegative": 0
+    },
+    "agreement": 1,
+    "falseSupportedRate": 0,
+    "totalCostMicros": 8765,
+    "gate": {
+      "minimumLabels": 30,
+      "minimumSupported": 10,
+      "minimumUnsupportedOrContradictory": 10,
+      "minimumAgreement": 0.8,
+      "maximumFalseSupportedRate": 0.1
+    },
+    "status": "PASS",
+    "insufficiencyReasons": []
+  },
+  "regressionGate": {
+    "version": "press-rag-controlled-live-regression-gate/v1",
+    "disposition": "REJECT",
+    "humanReview": "PENDING",
+    "checks": [
+      {
+        "metricId": "retrievalRecallAt5",
+        "status": "PASS",
+        "baseline": 0.52,
+        "candidate": 1,
+        "reason": "candidate must reach 0.80 without regression"
+      },
+      {
+        "metricId": "citationDocumentPrecision",
+        "status": "FAIL",
+        "baseline": 0.9090909090909091,
+        "candidate": 0.8571428571428571,
+        "reason": "candidate must reach 0.90"
+      },
+      {
+        "metricId": "answerabilityAccuracy",
+        "status": "PASS",
+        "baseline": 0.9111111111111111,
+        "candidate": 0.9111111111111111,
+        "reason": "candidate must reach 0.90 within 0.02 non-regression tolerance"
+      },
+      {
+        "metricId": "agentCompletionRate",
+        "status": "PASS",
+        "baseline": 1,
+        "candidate": 1,
+        "reason": "candidate verified completion must reach 0.85"
+      },
+      {
+        "metricId": "claimGroundedness",
+        "status": "PASS",
+        "baseline": 1,
+        "candidate": 1,
+        "reason": "calibrated candidate groundedness must reach 0.90"
+      },
+      {
+        "metricId": "conflictDetection",
+        "status": "PASS",
+        "baseline": 0.9333333333333333,
+        "candidate": 0.9333333333333333,
+        "reason": "candidate conflict detection must reach 0.90 without material regression"
+      },
+      {
+        "metricId": "p95LatencyMs",
+        "status": "FAIL",
+        "baseline": 18464.499999999996,
+        "candidate": 21574.449999999997,
+        "reason": "candidate p95 must be <=20s and within 5% of baseline"
+      },
+      {
+        "metricId": "totalCostMicros",
+        "status": "PASS",
+        "baseline": 120157,
+        "candidate": 148637,
+        "reason": "candidate controlled-run cost must stay within the explicit budget envelope"
+      }
+    ],
+    "deploymentAuthorized": false
+  },
+  "caseStudy": {
+    "failure": "baseline은 명시적 문서 식별자가 포함된 질문에서도 전체 자연어를 임베딩·FTS 질의로 사용해 정답 문서가 상위 5개에 포함되지 않았고 Recall@5가 0.52였다. 초기 candidate-v2도 같은 수치였으며 회귀 게이트가 이를 거부했다.",
+    "hypothesis": "사용자가 명시한 PT-CAREER/PT-PRESS/CE 계열 식별자를 결정적으로 추출해 검색 질의로 사용하면 모델 rewrite·reranker 없이 정답 후보 진입률을 높일 수 있다. 정확 식별자 검색에서는 전달 청크 수를 식별자 수로 제한하면 품질을 유지하며 비용과 지연을 줄일 수 있다.",
+    "change": "candidate-v3에 identifier-aware normalization, 사용자용 식별자를 내부 DB documentId로 오인하지 않는 필터, 정확 식별자 수 기반 Agent top-k 제한을 추가했다. 모델이 생성한 claim이 exact quote 검증을 통과하지 못하거나 잘못 유보하면 서버의 검증된 추출 답변으로 복구하도록 유지했다.",
+    "independentComparison": "승인된 40개 데이터셋의 70회 독립 실행에서 baseline 대비 candidate-v3 최적화본은 Recall@5 0.52→1.00, Agent 완료율 1.00→1.00, calibrated groundedness 1.00→1.00을 기록했다. 개발 파티션의 컨텍스트 최적화 전후 비교에서는 비용 32313→27608 micro-USD, P95 28638.6→27101.9ms였다.",
+    "tradeoffs": "최종 전체 실행에서는 인용 문서 정밀도가 0.9091→0.8571로 하락했고 P95가 18464.5→21574.45ms, 비용이 120157→148637 micro-USD로 증가했다. 검색 recall 향상과 Agent가 실제 근거를 처리하는 비용 사이의 trade-off가 확인되었다.",
+    "gateResult": "Judge calibration은 agreement 1.00, false-supported rate 0으로 PASS했지만 citation precision과 P95 gate가 FAIL하여 후보를 REJECT했고 배포 권한은 부여하지 않았다. 이 결과는 다음 회귀 데이터와 최적화 후보의 기준선으로 보존한다.",
+    "valid": false,
+    "evidenceClass": "CONTROLLED_LIVE",
+    "datasetHash": "527825312e7e8de11097e68f736e0bae7c5602f9e7273f6dab4e398ada61ae10"
+  },
+  "inputHashes": {
+    "comparison": "b99c760ba99f4c8041d2f4b4b3412ded00a3be44024c9b7efe289cae71ca792c",
+    "calibration": "5da53c89788e137a7763af94036270710e16d3d41334fcdedce8668572cbfd60",
+    "regressionGate": "cd5cc8d65998117f7c2a846178e994905a23f5cfd5a02341692ec415f851e867",
+    "caseStudy": "6a57fda77019896fd76c67215790a2caa0f47cb2529ad3c5f718d798ed2f7ae8"
+  },
+  "deploymentAuthorized": false
+}

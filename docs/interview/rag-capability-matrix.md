@@ -1,0 +1,630 @@
+# PressTuner RAG capability matrix
+
+> Generated from `.agent-work/rag-interview-readiness/QUESTION_CATALOG.md`.
+> `implemented` requires reachable code and a direct automated test. Synthetic or replay evidence is never reported as production measurement.
+
+## Status legend
+
+- `implemented`: 현재 runtime 경로와 직접 테스트가 모두 존재
+- `partial`: 일부 runtime/test 근거는 있으나 질문 전체 또는 실측 근거가 부족
+- `missing`: 실행 가능한 구현 또는 검증 근거가 없음
+
+## Evidence registry
+
+- `E-ARCH` (A. 전체 구조 및 구현 범위)
+  - Code: lib/services/press-agent/pressAgentRuntime.ts; domain/press-agent/runPolicy.ts
+  - Tests: lib/services/press-agent/pressAgentRuntime.test.ts; domain/press-agent/runPolicy.test.ts
+  - Artifacts: docs/press-rag-agent.md
+- `E-INGESTION` (B. 문서 처리와 청크 설계)
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+- `E-RETRIEVAL` (C. 임베딩과 벡터 검색)
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+- `E-EVAL` (D. 평가 데이터와 지표)
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+- `E-ABSTENTION` (E. 답변 유보와 문서 충돌)
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+- `E-CITATION` (F. 인용과 생성 결과 검증)
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+- `E-EXPERIMENT` (G. 회귀 평가와 개선 과정)
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+- `E-OPS` (H. 성능과 비용)
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+
+## Detailed questions — 70
+
+- [implemented] `A01` — brieFFlow의 전체 RAG 처리 흐름을 설명해 주세요.
+  - Evidence: E-ARCH
+  - Code: lib/services/press-agent/pressAgentRuntime.ts; domain/press-agent/runPolicy.ts
+  - Tests: lib/services/press-agent/pressAgentRuntime.test.ts; domain/press-agent/runPolicy.test.ts
+  - Artifacts: docs/press-rag-agent.md
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 1-2 runtime/evaluation contracts
+- [implemented] `A02` — 본인이 직접 구현한 부분과 라이브러리·프레임워크를 사용한 부분은 어디인가요?
+  - Evidence: E-ARCH
+  - Code: lib/services/press-agent/pressAgentRuntime.ts; domain/press-agent/runPolicy.ts
+  - Tests: lib/services/press-agent/pressAgentRuntime.test.ts; domain/press-agent/runPolicy.test.ts
+  - Artifacts: docs/press-rag-agent.md
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 1-2 runtime/evaluation contracts
+- [implemented] `A03` — 일반적인 RAG 예제와 brieFFlow의 차이는 무엇인가요?
+  - Evidence: E-ARCH
+  - Code: lib/services/press-agent/pressAgentRuntime.ts; domain/press-agent/runPolicy.ts
+  - Tests: lib/services/press-agent/pressAgentRuntime.test.ts; domain/press-agent/runPolicy.test.ts
+  - Artifacts: docs/press-rag-agent.md
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 1-2 runtime/evaluation contracts
+- [partial] `A04` — 단순 프롬프트에 문서를 첨부하는 방식 대신 RAG가 필요했던 이유는 무엇인가요?
+  - Evidence: E-ARCH
+  - Code: lib/services/press-agent/pressAgentRuntime.ts; domain/press-agent/runPolicy.ts
+  - Tests: lib/services/press-agent/pressAgentRuntime.test.ts; domain/press-agent/runPolicy.test.ts
+  - Artifacts: docs/press-rag-agent.md
+  - Evidence class: code_and_test_with_gap
+  - Gap: 전체 parser-to-verifier 경로의 독립 실행 증거가 아직 부족함
+  - Target: Phase 1-2 runtime/evaluation contracts
+- [partial] `A05` — RAG가 없어도 되는 기능과 반드시 필요한 기능을 어떻게 구분했나요?
+  - Evidence: E-ARCH
+  - Code: lib/services/press-agent/pressAgentRuntime.ts; domain/press-agent/runPolicy.ts
+  - Tests: lib/services/press-agent/pressAgentRuntime.test.ts; domain/press-agent/runPolicy.test.ts
+  - Artifacts: docs/press-rag-agent.md
+  - Evidence class: code_and_test_with_gap
+  - Gap: 전체 parser-to-verifier 경로의 독립 실행 증거가 아직 부족함
+  - Target: Phase 1-2 runtime/evaluation contracts
+- [implemented] `B01` — PDF나 문서를 어떤 방식으로 파싱했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [partial] `B02` — 표, 이미지, 머리글, 페이지 번호가 포함된 문서는 어떻게 처리했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test_with_gap
+  - Gap: 이미지 자체 OCR 실행과 복잡한 다단 레이아웃의 live 품질 실측은 부족함
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `B03` — 청크 크기와 overlap은 어떻게 결정했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `B04` — 모든 문서에 같은 청크 전략을 사용했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `B05` — 보도자료용 문서와 이력서용 문서의 구조가 다른데 동일한 검색 구조를 사용했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `B06` — 원본 페이지와 인용 위치는 어떤 데이터 구조로 보존했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `B07` — 문서가 수정되거나 재업로드되면 기존 임베딩은 어떻게 처리했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `B08` — 중복 문서나 동일 내용의 여러 버전은 어떻게 구분했나요?
+  - Evidence: E-INGESTION
+  - Code: ../PressTuner-scheduler/src/workers/knowledgeHandler.ts; ../PressTuner-scheduler/src/domain/knowledgeParsing.ts; lib/services/knowledge/knowledgeDocumentService.ts
+  - Tests: ../PressTuner-scheduler/src/domain/knowledgeParsing.test.ts; ../PressTuner-scheduler/src/workers/knowledgeHandler.test.ts; lib/services/knowledge/knowledgeDocumentService.test.ts
+  - Artifacts: evals/press-rag/controlled-live/corpus-v4-draft; runtime configuration identity
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-5 ingestion/chunking
+- [implemented] `C01` — 어떤 임베딩 모델과 벡터 저장소를 사용했고, 선택한 이유는 무엇인가요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C02` — 한국어 문서 검색 품질은 어떻게 확인했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C03` — 벡터 유사도는 cosine, inner product, Euclidean 중 무엇을 사용했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C04` — top-k는 어떻게 결정했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [partial] `C05` — 유사도 임계값은 어떻게 정했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test_with_gap
+  - Gap: approved corpus의 rewrite/reranker ablation과 식별자 검색 실측은 완료했으나 similarity threshold calibration은 별도 과제임
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C06` — 벡터 검색만 사용했나요, 키워드 검색이나 하이브리드 검색도 적용했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C07` — 메타데이터 필터는 어떤 항목에 적용했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C08` — 서로 다른 팀의 문서가 검색 결과에 섞이지 않도록 어떻게 막았나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C09` — 검색된 문서가 많을 때 컨텍스트에 넣을 문서는 어떻게 골랐나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C10` — reranker를 사용했나요? 사용했다면 왜 필요했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `C11` — 질문을 그대로 임베딩했나요, 검색용 질문으로 변환했나요?
+  - Evidence: E-RETRIEVAL
+  - Code: lib/services/knowledge/knowledgeRetrievalService.ts; domain/knowledge/retrievalPipeline.ts; domain/evaluation/pressRagRuntimeIdentity.ts
+  - Tests: lib/services/knowledge/knowledgeRetrievalService.test.ts; domain/knowledge/retrievalPipeline.test.ts; domain/evaluation/pressRagRuntimeIdentity.test.ts
+  - Artifacts: evals/press-rag/controlled-live/configurations/*.json; evals/press-rag/controlled-live/results/*.json
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 2-6 retrieval experiments
+- [implemented] `D01` — 평가 데이터셋은 몇 건이며 어떻게 만들었나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D02` — 대표 질문은 어떤 기준으로 선정했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D03` — 질문별 정답 문서와 기대 답변은 누가 정의했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D04` — Retrieval Recall을 어떻게 계산했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D05` — 검색 결과에 정답 청크가 포함됐다는 것을 어떻게 판정했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D06` — 인용 정확도와 근거 일치율은 어떻게 구분했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D07` — 답변의 정확성은 규칙, 사람, LLM Judge 중 어떤 방식으로 평가했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D08` — LLM Judge를 사용했다면 평가 모델 자체의 오류는 어떻게 통제했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D09` — 자동 평가와 수동 평가의 역할을 어떻게 나눴나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D10` — 가장 많이 발생한 실패 유형은 무엇이었나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D11` — 평가를 통해 실제로 변경한 설정이나 구조가 있나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D12` — 변경 전후 품질 차이를 수치로 설명할 수 있나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D13` — 특정 질문의 개선이 다른 질문의 성능을 낮춘 사례가 있었나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [missing] `D14` — 평가 데이터가 실제 사용자 질문을 대표한다고 어떻게 판단했나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: missing
+  - Gap: 평가셋의 실제 사용자 질문 대표성 검증이 없음
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `D15` — 평가 데이터가 프롬프트나 모델에 과적합되는 문제는 어떻게 막았나요?
+  - Evidence: E-EVAL
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/ragMetrics.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; scripts/generateControlledLiveDatasetDraft.test.ts
+  - Artifacts: evals/press-rag/controlled-live/dataset-v4.approved.json (40 human-reviewed cases); controlled-live result artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 5-6 controlled-live evaluation
+- [implemented] `E01` — 근거가 부족하다는 것은 어떤 기준으로 판단했나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 3-6 abstention/conflict calibration
+- [implemented] `E02` — 검색 결과가 없을 때와 관련 없는 결과만 있을 때를 구분했나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 3-6 abstention/conflict calibration
+- [implemented] `E03` — 서로 다른 문서에 상충하는 내용이 있으면 어떻게 탐지했나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 3-6 abstention/conflict calibration
+- [implemented] `E04` — 최신 문서와 과거 문서가 충돌하면 어느 쪽을 우선했나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 3-6 abstention/conflict calibration
+- [implemented] `E05` — 답변을 유보해야 하는 상황에서 모델이 억지로 답하지 않도록 어떻게 제어했나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 3-6 abstention/conflict calibration
+- [implemented] `E06` — 모델이 “근거가 없다”고 잘못 판단하는 경우는 없었나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 3-6 abstention/conflict calibration
+- [missing] `E07` — 답변 유보율이 너무 높아져 사용성이 떨어지는 문제는 어떻게 조정했나요?
+  - Evidence: E-ABSTENTION
+  - Code: domain/knowledge/evidencePolicy.ts; domain/press-agent/instructions.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/knowledge/evidencePolicy.test.ts; domain/press-agent/instructions.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: approved controlled-live abstention/conflict executions and regression gate
+  - Evidence class: missing
+  - Gap: abstention threshold와 usability calibration이 없음
+  - Target: Phase 3-6 abstention/conflict calibration
+- [implemented] `F01` — 모델이 제시한 인용이 실제 원문에 존재하는지 어떻게 검증했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F02` — 페이지 번호와 인용 문장이 어긋나는 문제는 어떻게 처리했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F03` — 검색된 문서를 모델이 잘못 해석한 경우는 어떻게 탐지했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F04` — 모델이 검색 결과에는 없는 내용을 추가하는 것을 어떻게 확인했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F05` — 숫자, 날짜, 회사명 같은 중요 정보는 별도로 검증했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F06` — 인용은 문장 단위인가요, 청크 단위인가요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F07` — 생성 결과가 여러 문서를 종합할 때 각 문장의 출처를 어떻게 연결했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `F08` — 인용 정확성과 자연스러운 문장 생성이 충돌할 때 무엇을 우선했나요?
+  - Evidence: E-CITATION
+  - Code: domain/press-agent/claimSpanVerification.ts; lib/services/knowledge/agentKnowledgeCitationService.ts; lib/services/press-agent/pressAgentRuntime.ts
+  - Tests: domain/press-agent/claimSpanVerification.test.ts; lib/services/knowledge/agentKnowledgeCitationService.test.ts; lib/services/press-agent/pressAgentRuntime.test.ts
+  - Artifacts: claim-span-verifier-v5-extractive-recovery runtime identity and controlled-live fallback/recovery traces
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 4 exact-span and claim verification
+- [implemented] `G01` — 실패 사례를 어떤 형식으로 저장했나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G02` — 실패를 검색 실패, 생성 실패, 검증 실패 중 어떻게 분류했나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G03` — 프롬프트를 변경할 때 이전 버전과 어떻게 비교했나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G04` — 모델의 비결정성 때문에 동일 테스트 결과가 달라지는 문제는 어떻게 다뤘나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G05` — 한 번씩 실행한 결과로 비교했나요, 여러 번 실행해 분포를 확인했나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G06` — 평가 결과가 나빠졌을 때 배포나 변경을 막는 기준이 있었나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G07` — 모델이나 임베딩 버전이 바뀌면 전체 평가를 다시 수행했나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `G08` — 실패 사례가 계속 쌓일 때 평가셋을 어떻게 관리했나요?
+  - Evidence: E-EXPERIMENT
+  - Code: domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts; domain/evaluation/regressionGate.ts; domain/evaluation/feedbackRegressionSignals.ts
+  - Tests: domain/evaluation/controlledLiveEvaluation.test.ts; domain/evaluation/controlledLiveReport.test.ts; domain/evaluation/regressionGate.test.ts; domain/evaluation/feedbackRegressionSignals.test.ts
+  - Artifacts: independent controlled-live baseline/candidate artifacts; deterministic artifacts remain labeled synthetic
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 6-8 feedback/regression loop
+- [implemented] `H01` — RAG 요청의 평균 또는 주요 단계별 응답 시간은 어느 정도였나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 7 observability and cost
+- [implemented] `H02` — 파싱·검색·생성 중 가장 큰 병목은 어디였나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 7 observability and cost
+- [implemented] `H03` — 토큰 비용은 어떤 단위로 기록했나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 7 observability and cost
+- [implemented] `H04` — 검색 문서를 줄이면 품질이 떨어지고 늘리면 비용이 증가하는데 어떻게 균형을 잡았나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 7 observability and cost
+- [partial] `H05` — 모델을 기능별로 다르게 사용했나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test_with_gap
+  - Gap: controlled-live stage별 p50/p95와 비용은 측정했으나 production 사용자 트래픽 수치는 아님
+  - Target: Phase 7 observability and cost
+- [partial] `H06` — 캐시를 적용했다면 어느 단계에 적용했나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test_with_gap
+  - Gap: controlled-live stage별 p50/p95와 비용은 측정했으나 production 사용자 트래픽 수치는 아님
+  - Target: Phase 7 observability and cost
+- [implemented] `H07` — 문서 임베딩 비용과 생성 비용을 어떻게 구분했나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 7 observability and cost
+- [implemented] `H08` — 평가 결과가 좋아도 지연 시간이나 비용이 증가하면 어떤 기준으로 채택했나요?
+  - Evidence: E-OPS
+  - Code: domain/press-agent/observability.ts; domain/press-agent/usage.ts; domain/evaluation/controlledLiveEvaluation.ts; domain/evaluation/controlledLiveReport.ts
+  - Tests: domain/press-agent/observability.test.ts; domain/press-agent/usage.test.ts; domain/evaluation/controlledLiveReport.test.ts
+  - Artifacts: approved controlled-live case/stage latency and component-cost artifacts
+  - Evidence class: code_and_test
+  - Gap: 없음(현재 질문 범위)
+  - Target: Phase 7 observability and cost
+
+## Priority concise aliases — 10
+
+- `P01` alias → `A01` — brieFFlow의 RAG 전체 흐름을 설명해 주세요. (`A01`)
+- `P02` alias → `B03`, `B04` — 문서를 어떤 기준으로 청크로 나눴나요? (`B03`, `B04`)
+- `P03` alias → `C01`, `C03` — 임베딩 모델과 벡터 DB는 무엇이고 왜 선택했나요? (`C01`, `C03`)
+- `P04` alias → `C08` — 팀별 문서 접근 권한은 어디에서 통제했나요? (`C08`)
+- `P05` alias → `D01`, `D03` — 평가 데이터셋은 몇 건이고 어떻게 구성했나요? (`D01`-`D03`)
+- `P06` alias → `D04`, `D07` — 검색 성공과 생성 답변의 정확성을 어떻게 분리해 평가했나요? (`D04`-`D07`)
+- `P07` alias → `E01`, `E07` — 근거가 없거나 문서가 충돌할 때 어떻게 답변을 유보했나요? (`E01`-`E07`)
+- `P08` alias → `F01`, `F07` — 인용 내용이 실제 원문과 일치하는지 어떻게 검증했나요? (`F01`-`F07`)
+- `P09` alias → `D10`, `D13`, `G01`, `G08` — 평가 결과를 바탕으로 실제로 개선한 사례 하나를 설명해 주세요. (`D10`-`D13`, `G01`-`G08`)
+- `P10` alias → `A03` — 기존 RAG 예제와 본인이 구현한 시스템의 차이는 무엇인가요? (`A03`)
+
+## Current baseline truth
+
+- 실제 chunking: `page-char-v1`, target 1,400 chars, overlap 200 chars.
+- 실제 retrieval: team/generation/role-scoped pgvector cosine + PostgreSQL `simple` FTS, equal-weight RRF(k=60), 기본 top-k 8.
+- baseline은 별도 reranker/query rewrite가 없고, versioned model rewrite/listwise reranker 및 role-aware chunk 후보를 독립 실행함.
+- deterministic experiment artifact는 synthetic contract replay이며 product runtime 실행 또는 production 측정을 주장하지 않음.
+- runtime identity는 prompt/tool content hash와 실제 retrieval constants에서 생성됨.
+
