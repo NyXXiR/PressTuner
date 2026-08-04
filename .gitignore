@@ -57,3 +57,10 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 /blob-report/
+
+# isolated Python candidate runtime
+/ai-service/.venv/
+/ai-service/.pytest_cache/
+/ai-service/.ruff_cache/
+/ai-service/.langgraph_api/
+/ai-service/**/__pycache__/

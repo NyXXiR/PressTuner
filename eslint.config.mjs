@@ -21,6 +21,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "ai-service/.venv/**",
+    "ai-service/.pytest_cache/**",
+    "ai-service/.ruff_cache/**",
   ]),
 ]);
 

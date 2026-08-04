@@ -129,6 +129,12 @@ export async function verifyPressRagArtifacts({ root }) {
     if (actual !== expected) {
       throw new Error(`PRESS_RAG_ARTIFACT_HASH_MISMATCH:${name}`);
     }
+    if (name === "press-rag-execution-evidence-v1.json") {
+      const artifact = JSON.parse(bytes.toString("utf8"));
+      if (artifact.schemaVersion !== "press-rag/execution-evidence/v1" || artifact.pipeline?.stages?.length !== 7 || !Array.isArray(artifact.runs) || artifact.runs.length === 0) {
+        throw new Error("PRESS_RAG_EXECUTION_EVIDENCE_INVALID");
+      }
+    }
   }
 
   const configurationPaths = [

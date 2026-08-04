@@ -45,6 +45,7 @@
     "generate:press-rag-controlled-live-cycle": "node --import tsx scripts/generatePressRagControlledLiveCycle.ts",
     "experiment:press-rag": "node --import tsx scripts/runPressRagExperiment.ts",
     "generate:press-rag-improvement": "node --import tsx scripts/generatePressRagImprovementCycle.ts",
+    "generate:press-rag-execution-evidence": "node --import tsx scripts/generatePressRagExecutionEvidence.ts",
     "generate:press-rag-experiment-cycle": "node --import tsx scripts/generatePressRagExperimentCycle.ts",
     "verify:press-rag-artifacts": "node scripts/verifyPressRagArtifacts.mjs",
     "generate:rag-capability-matrix": "node scripts/generateRagCapabilityMatrix.mjs",

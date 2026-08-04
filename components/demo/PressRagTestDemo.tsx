@@ -6,6 +6,7 @@ import type {
   PressRagDemoViewModel,
   PressRagRecordedOutcome,
 } from "@/domain/evaluation/pressRagDemoPresenter";
+import { PressRagWorkflowViewer } from "@/components/demo/PressRagWorkflowViewer";
 
 const CHECK_LABELS: Readonly<Record<keyof PressRagRecordedOutcome["checks"], string>> = {
   retrieval: "기대 문서 검색",
@@ -236,6 +237,16 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
           <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-bold text-muted-foreground">필수 사실</dt><dd className="mt-1 break-words text-xs">{scenario.expectation.requiredFacts.map(({ key, value }) => `${key}: ${value}`).join(" · ") || "없음"}</dd></div>
         </dl>
       </section>
+
+      <PressRagWorkflowViewer
+        key={`${scenario.caseId}-${selectedRun.runIndex}`}
+        baseline={selectedRun.baseline}
+        candidate={selectedRun.candidate}
+        expectation={scenario.expectation}
+        prompt={scenario.prompt}
+        baselineLabel={viewModel.evidence.baseline.label}
+        candidateLabel={viewModel.evidence.candidate.label}
+      />
 
       <section className="mt-8" aria-labelledby="comparison-heading">
         <div className="flex flex-wrap items-end justify-between gap-2">
