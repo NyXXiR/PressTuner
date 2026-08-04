@@ -1,12 +1,15 @@
 import { randomUUID as nodeRandomUUID } from "node:crypto";
 
 import { Client } from "langsmith";
+import { convertToDottedOrderFormat } from "langsmith/run_trees";
 
 type TraceEnvironment = Record<string, string | undefined>;
 
 type LangSmithRunCreate = {
   id: string;
   trace_id: string;
+  start_time: number;
+  dotted_order: string;
   name: string;
   run_type: "chain";
   project_name: string;
@@ -44,6 +47,8 @@ type ClientConfiguration = {
 type TracerDependencies = {
   environment?: TraceEnvironment;
   randomUUID?: () => string;
+  now?: () => number;
+  createDottedOrder?: (epoch: number, runId: string) => string;
   createClient?: (configuration: ClientConfiguration) => LangSmithTraceClient;
 };
 
@@ -123,6 +128,11 @@ export function createLangSmithOperationTracer(
 ) {
   const environment = dependencies.environment ?? process.env;
   const randomUUID = dependencies.randomUUID ?? nodeRandomUUID;
+  const now = dependencies.now ?? Date.now;
+  const createDottedOrder =
+    dependencies.createDottedOrder ??
+    ((epoch: number, runId: string) =>
+      convertToDottedOrderFormat(epoch, runId).dottedOrder);
   const createClient = dependencies.createClient ?? defaultCreateClient;
   let configured:
     | { configuration: ClientConfiguration; client: LangSmithTraceClient }
@@ -160,11 +170,14 @@ export function createLangSmithOperationTracer(
       if (!active) return args.execute();
 
       const runId = randomUUID();
+      const startedAt = now();
       let created = false;
       try {
         await active.client.createRun({
           id: runId,
           trace_id: runId,
+          start_time: startedAt,
+          dotted_order: createDottedOrder(startedAt, runId),
           name: "PressTuner Press Agent operation",
           run_type: "chain",
           project_name: active.configuration.projectName,
@@ -189,7 +202,7 @@ export function createLangSmithOperationTracer(
         if (created) {
           try {
             await active.client.updateRun(runId, {
-              end_time: Date.now(),
+              end_time: now(),
               outputs: { status: "completed" },
             });
           } catch {
@@ -201,7 +214,7 @@ export function createLangSmithOperationTracer(
         if (created) {
           try {
             await active.client.updateRun(runId, {
-              end_time: Date.now(),
+              end_time: now(),
               outputs: { status: "failed" },
               error: safeErrorClass(error),
             });

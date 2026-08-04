@@ -32,6 +32,8 @@ function createHarness(overrides?: {
       LANGSMITH_WORKSPACE_ID: "workspace-1",
     },
     randomUUID: () => "20000000-0000-4000-8000-000000000002",
+    now: () => 1_754_313_120_000,
+    createDottedOrder: (epoch, id) => `order:${epoch}:${id}`,
     createClient: (configuration) => {
       assert.equal(configuration.apiKey, "lsv2_sk_test");
       assert.equal(configuration.apiUrl, "https://api.smith.langchain.com");
@@ -60,6 +62,9 @@ test("records a privacy-safe root run correlated by operation metadata", async (
   assert.deepEqual(created[0], {
     id: "20000000-0000-4000-8000-000000000002",
     trace_id: "20000000-0000-4000-8000-000000000002",
+    start_time: 1_754_313_120_000,
+    dotted_order:
+      "order:1754313120000:20000000-0000-4000-8000-000000000002",
     name: "PressTuner Press Agent operation",
     run_type: "chain",
     project_name: "Ops console",
