@@ -37,10 +37,15 @@ The browser event names have safe defaults and may be overridden at build time:
 ```dotenv
 NEXT_PUBLIC_OPS_CONSOLE_POSTHOG_OUTCOME_EVENT=ai_operation_outcome
 NEXT_PUBLIC_OPS_CONSOLE_GA4_BUSINESS_EVENT=presstuner_ai_operation_business
+POSTHOG_PROJECT_API_KEY=<matching-project-ingestion-token>
+POSTHOG_HOST=https://us.i.posthog.com
 ```
 
 Overrides must be lowercase analytics identifiers containing only letters,
 digits, and underscores. Invalid overrides fall back to the defaults.
+The PostHog ingestion token must belong to the same project queried by Ops
+Console. Because Next.js includes this public token in the built client config,
+changing it requires a new production build rather than only a process restart.
 
 ## Lifecycle and privacy boundary
 
