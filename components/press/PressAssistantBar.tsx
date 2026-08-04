@@ -22,6 +22,7 @@ import {
   agentRunMessage,
   agentStatusNotice,
 } from "@/lib/pressAgentClientPresentation";
+import { emitAiOperationOutcome } from "@/lib/analytics/aiOperationOutcome";
 
 type PlannedAction = {
   id: string;
@@ -60,6 +61,7 @@ type AgentApproval = {
 
 type AgentRunView = {
   id: string;
+  operationId?: string | null;
   status:
     | "PENDING"
     | "RUNNING"
@@ -225,6 +227,15 @@ export default function PressAssistantBar() {
     });
   };
 
+  const observeAgentRun = (run: AgentRunView) => {
+    setAgentRun(run);
+    emitAiOperationOutcome({
+      operationId: run.operationId,
+      status: run.status,
+    });
+    return run;
+  };
+
   const selectedCount = selectedNoteIds.length;
   const contextLine = [
     title || "제목 없음",
@@ -281,7 +292,7 @@ export default function PressAssistantBar() {
         throw new Error(json?.message ?? "승인 처리에 실패했습니다.");
       }
       const nextRun = json.run as AgentRunView;
-      setAgentRun(nextRun);
+      observeAgentRun(nextRun);
       appendMessage({
         role: "assistant",
         body:
@@ -312,8 +323,7 @@ export default function PressAssistantBar() {
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.message ?? "실행 상태를 불러오지 못했습니다.");
-    setAgentRun(body.run);
-    return body.run as AgentRunView;
+    return observeAgentRun(body.run as AgentRunView);
   };
 
   const retryAgentRun = async () => {
@@ -339,7 +349,7 @@ export default function PressAssistantBar() {
       }
       if (!response.ok) throw new Error(body?.message ?? "재시도에 실패했습니다.");
       const nextRun = body.run as AgentRunView;
-      setAgentRun(nextRun);
+      observeAgentRun(nextRun);
       appendMessage({ role: "assistant", ...agentRunMessage(nextRun) });
       setAgentStatus(
         agentStatusNotice(
@@ -525,7 +535,7 @@ export default function PressAssistantBar() {
     try {
       const nextRun = await requestAgentRun(command);
       setPendingPlan(null);
-      setAgentRun(nextRun);
+      observeAgentRun(nextRun);
       appendMessage({
         role: "assistant",
         body:

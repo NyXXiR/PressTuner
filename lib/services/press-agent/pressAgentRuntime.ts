@@ -59,6 +59,13 @@ import {
 import { searchKnowledgeAndPersistAgentCitations } from "@/lib/services/knowledge/agentKnowledgeCitationService";
 import { persistFinalAgentCitations } from "@/lib/services/knowledge/agentKnowledgeEvidenceService";
 import {
+  beginOpsConsoleOperation,
+  completeOpsConsoleOperation,
+  PRESS_AGENT_WORKFLOW_ID,
+  readOpsConsoleOperationEnvironment,
+  type OpsConsoleOperationResult,
+} from "@/lib/services/operations/opsConsoleOperationClient";
+import {
   PRESS_AGENT_V1_VERSION,
   restorePressAgentV1Checkpoint,
 } from "./pressAgentV1Runtime";
@@ -66,6 +73,8 @@ import {
 export const PRESS_AGENT_VERSION = "press-agent-v2";
 export const PRESS_AGENT_MODEL =
   process.env.PT_PRESS_AGENT_MODEL ?? "gpt-4.1-mini";
+const OPERATION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRESS_AGENT_TOKEN_RATES = {
   inputUsdPerMillion: Number(
     process.env.PT_PRESS_AGENT_INPUT_USD_PER_MILLION ?? 0.4,
@@ -130,6 +139,59 @@ const AgentOutputSchema = z.object({
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return sanitizePostgresJson(value) as Prisma.InputJsonValue;
+}
+
+export function readPressAgentOperationId(input: unknown): string | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const operationId = (input as Record<string, unknown>).operationId;
+  return typeof operationId === "string" && OPERATION_ID_PATTERN.test(operationId)
+    ? operationId
+    : null;
+}
+
+async function recordOperationTelemetryFailure(args: {
+  teamId: string;
+  runId: string;
+  phase: "BEGIN" | "COMPLETE";
+  result: OpsConsoleOperationResult;
+}) {
+  if (args.result.status !== "failed") return;
+  try {
+    await prisma.agentRuntimeAuditEvent.create({
+      data: {
+        teamId: args.teamId,
+        runId: args.runId,
+        eventType: "OBSERVABILITY_DELIVERY_FAILED",
+        details: { phase: args.phase, errorCode: args.result.code },
+      },
+    });
+  } catch {
+    // Observability audit failures must not replace the Agent result.
+  }
+}
+
+async function completePressAgentOperation(args: {
+  teamId: string;
+  runId: string;
+  operationId: string | null;
+  completedAt?: Date;
+}) {
+  if (!args.operationId) return;
+  let result: OpsConsoleOperationResult;
+  try {
+    result = await completeOpsConsoleOperation({
+      operationId: args.operationId,
+      completedAt: args.completedAt,
+    });
+  } catch {
+    return;
+  }
+  await recordOperationTelemetryFailure({
+    teamId: args.teamId,
+    runId: args.runId,
+    phase: "COMPLETE",
+    result,
+  });
 }
 
 function summarize(value: unknown) {
@@ -729,6 +791,7 @@ async function persistRunResult(
   runRecord: { id: string; teamId: string; startedById: string },
   result: PressAgentRunResult,
   startedAtMs: number,
+  operationId: string | null,
 ) {
   const nextStatus = transitionPressAgentRun(
     { status: "RUNNING", retryCount: 0 },
@@ -941,6 +1004,13 @@ async function persistRunResult(
         details: { interruptionCount: interruptions.length },
       },
     });
+    if (interruptions.length === 0) {
+      await completePressAgentOperation({
+        teamId: runRecord.teamId,
+        runId: runRecord.id,
+        operationId,
+      });
+    }
   }
 }
 
@@ -984,6 +1054,38 @@ export async function startPressAgentRun(args: {
       ),
     },
   });
+  const operation = await beginOpsConsoleOperation({
+    teamId: args.teamId,
+    userId: args.userId,
+    workflowVersion: PRESS_AGENT_VERSION,
+  });
+  const operationId =
+    operation.status === "registered" ? operation.operationId : null;
+  if (operationId) {
+    try {
+      const privateInput =
+        runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input)
+          ? (runRecord.input as Record<string, unknown>)
+          : {};
+      await prisma.agentRun.update({
+        where: { id: runRecord.id },
+        data: {
+          input: jsonValue({
+            ...privateInput,
+            operationId: operation.operationId,
+          }),
+        },
+      });
+    } catch {
+      // Operation persistence is observability-only and cannot fail the run.
+    }
+  }
+  await recordOperationTelemetryFailure({
+    teamId: args.teamId,
+    runId: runRecord.id,
+    phase: "BEGIN",
+    result: operation,
+  });
   await prisma.agentRuntimeAuditEvent.create({
     data: {
       teamId: args.teamId,
@@ -1023,10 +1125,23 @@ export async function startPressAgentRun(args: {
       },
       {
         groupId: runRecord.id,
-        metadata: { runId: runRecord.id, teamId: runRecord.teamId },
+        metadata: {
+          runId: runRecord.id,
+          ...(operationId
+            ? {
+                operation_id: operation.operationId,
+                workflow_id: PRESS_AGENT_WORKFLOW_ID,
+                workflow_version: PRESS_AGENT_VERSION,
+                environment:
+                  operation.environment ??
+                  readOpsConsoleOperationEnvironment() ??
+                  "unconfigured",
+              }
+            : {}),
+        },
       },
     );
-    await persistRunResult(runRecord, result, startedAtMs);
+    await persistRunResult(runRecord, result, startedAtMs, operationId);
     return getPressAgentRun({
       runId: runRecord.id,
       teamId: args.teamId,
@@ -1075,6 +1190,11 @@ export async function startPressAgentRun(args: {
         failureCategory: classifyAgentFailure(error),
         details: { errorCode: normalized.code },
       },
+    });
+    await completePressAgentOperation({
+      teamId: runRecord.teamId,
+      runId: runRecord.id,
+      operationId,
     });
     return getPressAgentRun({
       runId: runRecord.id,
@@ -1158,23 +1278,53 @@ async function continuePressAgentRun(
     if (runRecord.articleId && !articleUpdatedAt) {
       throw new Error("PRESS_AGENT_ARTICLE_VERSION_CONFLICT");
     }
-    const result = await pressAgentRunner.run(pressAgent, state, {
-      context: {
-        runId: runRecord.id,
-        teamId: runRecord.teamId,
-        userId: actorUserId,
-        articleId: runRecord.articleId,
-        articleUpdatedAt,
-        retrievalConfigurationId:
-          runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input) &&
-          typeof (runRecord.input as Record<string, unknown>).retrievalConfigurationId === "string"
-            ? ((runRecord.input as Record<string, unknown>).retrievalConfigurationId as PressKnowledgeRetrievalConfiguration["id"])
-            : "baseline-v1",
+    const operationId = readPressAgentOperationId(runRecord.input);
+    const result = await withTrace(
+      "PressTuner Grounded Press Agent",
+      async (trace) => {
+        await prisma.agentRun.update({
+          where: { id: runRecord.id },
+          data: { traceId: trace.traceId },
+        });
+        return pressAgentRunner.run(pressAgent, state, {
+          context: {
+            runId: runRecord.id,
+            teamId: runRecord.teamId,
+            userId: actorUserId,
+            articleId: runRecord.articleId,
+            articleUpdatedAt,
+            retrievalConfigurationId:
+              runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input) &&
+              typeof (runRecord.input as Record<string, unknown>).retrievalConfigurationId === "string"
+                ? ((runRecord.input as Record<string, unknown>).retrievalConfigurationId as PressKnowledgeRetrievalConfiguration["id"])
+                : "baseline-v1",
+          },
+          maxTurns: runtimePolicy.maxTurns,
+          signal: composedAbort.signal,
+        });
       },
-      maxTurns: runtimePolicy.maxTurns,
-      signal: composedAbort.signal,
-    });
-    await persistRunResult(runRecord, result, startedAtMs);
+      {
+        groupId: runRecord.id,
+        metadata: {
+          runId: runRecord.id,
+          ...(operationId
+            ? {
+                operation_id: operationId,
+                workflow_id: PRESS_AGENT_WORKFLOW_ID,
+                workflow_version: PRESS_AGENT_VERSION,
+                environment:
+                  readOpsConsoleOperationEnvironment() ?? "unconfigured",
+              }
+            : {}),
+        },
+      },
+    );
+    await persistRunResult(
+      runRecord,
+      result,
+      startedAtMs,
+      operationId,
+    );
     return getPressAgentRun({
       runId: runRecord.id,
       teamId: runRecord.teamId,
@@ -1224,6 +1374,11 @@ async function continuePressAgentRun(
         details: { errorCode: normalized.code },
       },
     });
+    await completePressAgentOperation({
+      teamId: runRecord.teamId,
+      runId: runRecord.id,
+      operationId: readPressAgentOperationId(runRecord.input),
+    });
     return getPressAgentRun({
       runId: runRecord.id,
       teamId: runRecord.teamId,
@@ -1242,6 +1397,7 @@ export async function cancelPressAgentRun(args: {
   canManageTeam?: boolean;
 }) {
   const now = new Date();
+  let operationId: string | null = null;
   await prisma.$transaction(async (tx) => {
     const current = await tx.agentRun.findFirst({
       where: {
@@ -1250,9 +1406,10 @@ export async function cancelPressAgentRun(args: {
         ...(!args.canManageTeam ? { startedById: args.userId } : {}),
         status: { in: ["PENDING", "RUNNING", "WAITING_APPROVAL"] },
       },
-      select: { status: true, retryCount: true },
+      select: { status: true, retryCount: true, input: true },
     });
     if (!current) throw new Error("PRESS_AGENT_RUN_NOT_CANCELABLE");
+    operationId = readPressAgentOperationId(current.input);
     const cancelRequestedStatus = transitionPressAgentRun(
       {
         status: current.status as PressAgentRunStatus,
@@ -1294,6 +1451,12 @@ export async function cancelPressAgentRun(args: {
     });
   });
   activeRunAbortControllers.get(args.runId)?.abort();
+  await completePressAgentOperation({
+    teamId: args.teamId,
+    runId: args.runId,
+    operationId,
+    completedAt: now,
+  });
   return getPressAgentRun(args);
 }
 
@@ -1480,6 +1643,7 @@ export async function getPressAgentRun(args: {
   }
   return {
     ...safeRunRecord,
+    operationId: readPressAgentOperationId(runRecord.input),
     canRetry,
     feedback: Array.isArray(feedbacks) ? (feedbacks[0] ?? null) : null,
   };

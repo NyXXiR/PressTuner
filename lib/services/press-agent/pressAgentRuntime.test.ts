@@ -6,6 +6,7 @@ import test from "node:test";
 import { restorePressAgentV1Checkpoint } from "./pressAgentV1Runtime";
 import {
   normalizeAgentDocumentIds,
+  readPressAgentOperationId,
   resolveAgentSearchTopK,
 } from "./pressAgentRuntime";
 
@@ -48,6 +49,13 @@ test("identifier-aware Agent search limits context to the explicit identifier co
   );
 });
 
+test("only a UUID may cross the private Agent input boundary", () => {
+  const operationId = "10000000-0000-4000-8000-000000000001";
+  assert.equal(readPressAgentOperationId({ operationId }), operationId);
+  assert.equal(readPressAgentOperationId({ operationId: "raw-user-id" }), null);
+  assert.equal(readPressAgentOperationId({ prompt: "private prompt" }), null);
+});
+
 test("Agent v2 runtime separates retrieval sources, final citations, and verified hashes", () => {
   const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
   assert.match(source, /PRESS_AGENT_VERSION = "press-agent-v2"/);
@@ -86,4 +94,16 @@ test("serialized v1 checkpoints retain their original version identity", () => {
     ).sdkState,
     "state",
   );
+});
+
+test("Agent v2 propagates a private operation UUID across durable and trace boundaries", () => {
+  const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
+  assert.match(source, /beginOpsConsoleOperation/);
+  assert.match(source, /operationId: operation\.operationId/);
+  assert.match(source, /operation_id: operation\.operationId/);
+  assert.match(source, /workflow_id: PRESS_AGENT_WORKFLOW_ID/);
+  assert.match(source, /workflow_version: PRESS_AGENT_VERSION/);
+  assert.doesNotMatch(source, /metadata:\s*\{\s*runId:[^}]*teamId:/);
+  assert.match(source, /completePressAgentOperation/);
+  assert.match(source, /readPressAgentOperationId/);
 });

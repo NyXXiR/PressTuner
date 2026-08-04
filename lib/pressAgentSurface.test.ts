@@ -40,4 +40,7 @@ test("the press assistant uses the Agent run and approval APIs", () => {
   assert.match(panel, /target="_blank"/);
   assert.match(runtime, /canRetry/);
   assert.match(runtime, /feedback:/);
+  assert.match(panel, /emitAiOperationOutcome/);
+  assert.match(panel, /operationId\?: string \| null/);
+  assert.match(runtime, /operationId: readPressAgentOperationId/);
 });
