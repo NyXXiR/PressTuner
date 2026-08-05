@@ -14,8 +14,10 @@ OPS_CONSOLE_AI_OPERATIONS_URL=https://ops-console.example.com
 OPS_CONSOLE_AI_OPERATIONS_WRITE_KEY=<project-write-key>
 OPS_CONSOLE_AI_OPERATIONS_ENVIRONMENT=production
 OPS_CONSOLE_AI_OPERATIONS_TIMEOUT_MS=3000
-LANGSMITH_API_KEY=<workspace-service-key>
-LANGSMITH_PROJECT=Ops console
+LANGSMITH_API_KEY=<trace-and-feedback-write-key>
+LANGSMITH_PROJECT=<project-name>
+LANGSMITH_PROJECT_ID=<same-project-uuid>
+LANGSMITH_WORKSPACE_ID=<workspace-uuid-if-required>
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 LANGSMITH_TIMEOUT_MS=3000
 ```
@@ -28,9 +30,45 @@ key.
 
 The LangSmith bridge uses the official SDK independently of the OpenAI Agents
 SDK trace. It writes one root run to the configured project for each initial or
-continued execution. Missing or invalid LangSmith configuration disables only
-that trace. The workspace ID is optional for a key scoped to a single
-workspace; set `LANGSMITH_WORKSPACE_ID` only when the key requires it.
+continued execution, plus privacy-safe child runs for retrieval, evidence
+decision, response behavior, verification, and fallback when that path runs.
+`LANGSMITH_PROJECT_ID` must be the UUID of the same project named by
+`LANGSMITH_PROJECT`; an absent or invalid UUID disables feedback only, while
+tracing remains enabled. The workspace ID is optional for a key scoped to a
+single workspace; set `LANGSMITH_WORKSPACE_ID` only when the key requires it.
+
+Configure these six organization feedback keys as continuous scores from 0 to
+1, with `isLowerScoreBetter: false`:
+
+```text
+rag.retrieval.evidence_use.v1
+rag.retrieval.tool_execution.v1
+rag.abstention.evidence_decision.v1
+rag.grounded_answer.citation_presence.v1
+rag.grounded_answer.claim_verification.v1
+rag.abstention.verification_fallback.v1
+```
+
+Each configuration uses this shape:
+
+```ts
+{
+  feedbackConfig: { type: "continuous", min: 0, max: 1 },
+  isLowerScoreBetter: false,
+}
+```
+
+PressTuner supplies deterministic binary root feedback for these keys (`1` is
+pass and `0` is violation). Do not attach an online code evaluator or
+LLM-as-judge evaluator using the same keys, because that duplicates samples.
+See the [SDK feedback documentation](https://docs.langchain.com/langsmith/attach-user-feedback)
+and [feedback configuration documentation](https://docs.langchain.com/langsmith/annotation-queues-sdk).
+
+Configure the consuming Ops Console with the same exact allowlist:
+
+```dotenv
+OPS_LANGSMITH_QUALITY_METRIC_IDS=rag.retrieval.evidence_use.v1,rag.retrieval.tool_execution.v1,rag.abstention.evidence_decision.v1,rag.grounded_answer.citation_presence.v1,rag.grounded_answer.claim_verification.v1,rag.abstention.verification_fallback.v1
+```
 
 The browser event names have safe defaults and may be overridden at build time:
 
@@ -65,8 +103,11 @@ The producer payload contains only:
 Prompts, article content, raw team/user IDs, credentials, provider response
 bodies, and arbitrary metadata are excluded. LangSmith root metadata contains
 only the operation UUID, workflow ID/version, environment, and lifecycle phase.
-Its inputs and outputs contain only the phase and terminal status; no prompt,
-draft, team ID, user ID, or provider response is sent.
+Root inputs and outputs contain only the phase and terminal status. Child runs
+contain stable stage IDs and allowlisted counts, statuses, policy codes, reason
+codes, and decision hashes. Prompts, generated text, source text, chunks,
+document names, source IDs, claims, quotes, team/user IDs, and arbitrary
+metadata are never sent.
 
 Verified `COMPLETED` and terminal `FAILED` runs are completed best-effort in Ops
 Console. Waiting-for-approval runs remain open. Cancellation also closes the

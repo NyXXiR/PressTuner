@@ -39,6 +39,8 @@ export type PressAgentGuardrailObservation = Readonly<{
   claimVerificationStatus: "PASS" | "FAIL" | null;
   /** Set when the run fell back after a failed verification. */
   fallbackMode: "EXTRACTIVE" | "ABSTENTION" | null;
+  /** Result of verifying the replacement response, when fallback ran. */
+  postFallbackVerificationStatus: "PASS" | "FAIL" | null;
   /** Whether the run withheld an answer. */
   cannotAnswer: boolean | null;
 }>;
@@ -48,6 +50,34 @@ export type PressAgentGuardrailVerdictRecord = Readonly<{
   guardrailId: PressAgentGuardrailId;
   verdict: PressAgentGuardrailVerdict;
 }>;
+
+export type PressAgentCompletionObservationInput = Readonly<{
+  verifiableSourceCount: number;
+  finalCitationCount: number;
+  failedToolCount: number | null;
+  primaryClaimVerificationStatus: "PASS" | "FAIL" | null;
+  fallbackMode: "EXTRACTIVE" | "ABSTENTION" | null;
+  postFallbackVerificationStatus: "PASS" | "FAIL" | null;
+  cannotAnswer: boolean | null;
+}>;
+
+/**
+ * Projects completion counters/statuses into the stable guardrail input. The primary
+ * verification result is deliberately authoritative even when a later fallback passes.
+ */
+export function buildPressAgentCompletionObservation(
+  input: PressAgentCompletionObservationInput,
+): PressAgentGuardrailObservation {
+  return {
+    verifiableSourceCount: Math.max(0, input.verifiableSourceCount),
+    finalCitationCount: Math.max(0, input.finalCitationCount),
+    failedToolCount: input.failedToolCount === null ? null : Math.max(0, input.failedToolCount),
+    claimVerificationStatus: input.primaryClaimVerificationStatus,
+    fallbackMode: input.fallbackMode,
+    postFallbackVerificationStatus: input.postFallbackVerificationStatus,
+    cannotAnswer: input.cannotAnswer,
+  };
+}
 
 function record(
   stageId: PressAgentGuardrailStageId,
@@ -113,7 +143,9 @@ export function deriveGuardrailVerdicts(
       "safe-fallback",
       observation.claimVerificationStatus === "PASS"
         ? (observation.fallbackMode === null ? "pass" : "not_evaluable")
-        : observation.fallbackMode !== null ? "pass" : "violation",
+        : observation.fallbackMode !== null && observation.postFallbackVerificationStatus === "PASS"
+          ? "pass"
+          : "violation",
     ));
   }
 

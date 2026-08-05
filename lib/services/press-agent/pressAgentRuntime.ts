@@ -67,10 +67,17 @@ import {
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
 import {
+  buildPressAgentCompletionObservation,
   deriveGuardrailVerdicts,
   type PressAgentGuardrailObservation,
 } from "@/domain/evaluation/pressAgentGuardrailSignals";
-import { traceLangSmithOperation } from "@/lib/services/operations/langSmithOperationTracer";
+import { derivePressAgentRagFeedback } from "@/domain/evaluation/pressAgentRagFeedbackCriteria";
+import {
+  recordLangSmithRagObservation,
+  reportLangSmithRootFeedback,
+  traceLangSmithOperation,
+  traceLangSmithRagStage,
+} from "@/lib/services/operations/langSmithOperationTracer";
 import {
   PRESS_AGENT_V1_VERSION,
   restorePressAgentV1Checkpoint,
@@ -189,9 +196,11 @@ async function completePressAgentOperation(args: {
   // finished with its attribution missing. Telemetry never changes the Agent result.
   if (args.guardrails) {
     try {
+      const verdicts = deriveGuardrailVerdicts(args.guardrails);
+      await reportLangSmithRootFeedback(derivePressAgentRagFeedback(verdicts));
       const guardrailResult = await reportOpsConsoleGuardrails({
         operationId: args.operationId,
-        verdicts: deriveGuardrailVerdicts(args.guardrails),
+        verdicts,
       });
       await recordOperationTelemetryFailure({
         teamId: args.teamId,
@@ -413,19 +422,35 @@ const searchKnowledgeTool = tool({
       toolName: "search_knowledge",
       input,
       execute: async () => {
-        return searchKnowledgeAndPersistAgentCitations({
-          teamId: context.teamId,
-          runId: context.runId,
-          query: input.query,
-          topK: resolveAgentSearchTopK({
+        const result = await traceLangSmithRagStage({
+          stageId: "retrieval-execution",
+          execute: () => searchKnowledgeAndPersistAgentCitations({
+            teamId: context.teamId,
+            runId: context.runId,
             query: input.query,
-            requestedTopK: input.topK,
+            topK: resolveAgentSearchTopK({
+              query: input.query,
+              requestedTopK: input.topK,
+              configurationId: context.retrievalConfigurationId,
+            }),
+            documentIds: normalizeAgentDocumentIds(input.documentIds),
+            roles: input.roles,
             configurationId: context.retrievalConfigurationId,
           }),
-          documentIds: normalizeAgentDocumentIds(input.documentIds),
-          roles: input.roles,
-          configurationId: context.retrievalConfigurationId,
+          observe: (retrieval) => ({
+            selectedSourceCount: retrieval.citations.length,
+            eligibleSourceCount: retrieval.evidenceDecision.eligibleSourceIds.length,
+            terminalStatus: "COMPLETED",
+          }),
         });
+        await recordLangSmithRagObservation("evidence-decision", {
+          action: result.evidenceDecision.action,
+          code: result.evidenceDecision.code,
+          reasonCodes: result.evidenceDecision.reasonCodes,
+          conflictCount: result.evidenceDecision.conflicts.length,
+          decisionInputHash: result.evidenceDecision.decisionInputHash,
+        });
+        return result;
       },
     });
   },
@@ -837,8 +862,11 @@ async function persistRunResult(
   let finalClaimVerification: ReturnType<typeof verifyAgentAnswerClaimSpans> | undefined;
   let finalOutput = result.finalOutput;
   let previousOutput: Record<string, unknown> = {};
-  // Kept outside the block below so the guardrail report can still read it at completion.
+  // Kept outside the block below so the guardrail report can still read them at completion.
   let verifiableSourceCount = 0;
+  // The fallback path reassigns finalClaimVerification, so the primary result is captured
+  // separately: a fallback that verifies clean must not erase the failure that caused it.
+  let primaryClaimVerificationStatus: "PASS" | "FAIL" | null = null;
   if (finalOutput) {
     const [retrievedSources, existingRun] = await Promise.all([
       prisma.agentRetrievedSource.findMany({
@@ -894,6 +922,14 @@ async function persistRunResult(
       claims: finalOutput.claims,
       sources: verifiableSources,
     });
+    primaryClaimVerificationStatus = finalClaimVerification.status === "PASS" ? "PASS" : "FAIL";
+    await recordLangSmithRagObservation("verification", {
+      status: finalClaimVerification.status,
+      supportedClaimCount: finalClaimVerification.claims.filter(
+        (claim) => claim.status === "SUPPORTED",
+      ).length,
+      totalClaimCount: finalClaimVerification.claims.length,
+    });
     if (finalClaimVerification.status !== "PASS") {
       const failedOutput = finalOutput;
       const failedVerification = finalClaimVerification;
@@ -914,6 +950,10 @@ async function persistRunResult(
       if (finalClaimVerification.status !== "PASS") {
         throw new Error("PRESS_AGENT_EXTRACTIVE_FALLBACK_VERIFICATION_FAILED");
       }
+      await recordLangSmithRagObservation("fallback", {
+        mode: extractive ? "EXTRACTIVE" : "ABSTENTION",
+        postFallbackVerificationStatus: finalClaimVerification.status,
+      });
       previousOutput = {
         ...previousOutput,
         verificationFallback: {
@@ -934,6 +974,11 @@ async function persistRunResult(
       });
     }
     if (!finalOutput) throw new Error("PRESS_AGENT_FINAL_OUTPUT_MISSING");
+    await recordLangSmithRagObservation("response-behavior", {
+      status: finalOutput.cannotAnswer ? "ABSTENTION" : "ANSWER",
+      finalCitationCount: finalOutput.sourceIds.length,
+      claimCount: finalOutput.claims.length,
+    });
     await persistFinalAgentCitations({
       teamId: runRecord.teamId,
       runId: runRecord.id,
@@ -1045,19 +1090,24 @@ async function persistRunResult(
       },
     });
     if (interruptions.length === 0) {
+      const failedToolCount = await prisma.agentStep.count({
+        where: { runId: runRecord.id, kind: "TOOL", status: "FAILED" },
+      });
       await completePressAgentOperation({
         teamId: runRecord.teamId,
         runId: runRecord.id,
         operationId,
-        guardrails: {
+        guardrails: buildPressAgentCompletionObservation({
           verifiableSourceCount,
           finalCitationCount: finalOutput?.sourceIds.length ?? 0,
-          failedToolCount: null,
-          claimVerificationStatus: finalClaimVerification?.status === "PASS" ? "PASS"
-            : finalClaimVerification ? "FAIL" : null,
+          failedToolCount,
+          primaryClaimVerificationStatus,
           fallbackMode: readVerificationFallbackMode(previousOutput),
+          postFallbackVerificationStatus: finalClaimVerification
+            ? finalClaimVerification.status === "PASS" ? "PASS" : "FAIL"
+            : null,
           cannotAnswer: finalOutput?.cannotAnswer ?? null,
-        },
+        }),
       });
     }
   }
@@ -1151,7 +1201,7 @@ export async function startPressAgentRun(args: {
     deadlineAt: runRecord.deadlineAt!,
   });
   try {
-    const result = await traceLangSmithOperation({
+    await traceLangSmithOperation({
       operationId,
       workflowId: PRESS_AGENT_WORKFLOW_ID,
       workflowVersion: PRESS_AGENT_VERSION,
@@ -1160,8 +1210,8 @@ export async function startPressAgentRun(args: {
         readOpsConsoleOperationEnvironment() ??
         "unconfigured",
       phase: "initial",
-      execute: () =>
-        withTrace(
+      execute: async () => {
+        const result = await withTrace(
           "PressTuner Grounded Press Agent",
           async (trace) => {
             await prisma.agentRun.update({
@@ -1199,9 +1249,11 @@ export async function startPressAgentRun(args: {
                 : {}),
             },
           },
-        ),
+        );
+        await persistRunResult(runRecord, result, startedAtMs, operationId);
+        return result;
+      },
     });
-    await persistRunResult(runRecord, result, startedAtMs, operationId);
     return getPressAgentRun({
       runId: runRecord.id,
       teamId: args.teamId,
@@ -1339,14 +1391,14 @@ async function continuePressAgentRun(
       throw new Error("PRESS_AGENT_ARTICLE_VERSION_CONFLICT");
     }
     const operationId = readPressAgentOperationId(runRecord.input);
-    const result = await traceLangSmithOperation({
+    await traceLangSmithOperation({
       operationId,
       workflowId: PRESS_AGENT_WORKFLOW_ID,
       workflowVersion: PRESS_AGENT_VERSION,
       environment: readOpsConsoleOperationEnvironment() ?? "unconfigured",
       phase: "continuation",
-      execute: () =>
-        withTrace(
+      execute: async () => {
+        const result = await withTrace(
           "PressTuner Grounded Press Agent",
           async (trace) => {
             await prisma.agentRun.update({
@@ -1385,14 +1437,11 @@ async function continuePressAgentRun(
                 : {}),
             },
           },
-        ),
+        );
+        await persistRunResult(runRecord, result, startedAtMs, operationId);
+        return result;
+      },
     });
-    await persistRunResult(
-      runRecord,
-      result,
-      startedAtMs,
-      operationId,
-    );
     return getPressAgentRun({
       runId: runRecord.id,
       teamId: runRecord.teamId,

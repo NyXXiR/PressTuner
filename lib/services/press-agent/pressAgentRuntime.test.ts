@@ -110,3 +110,23 @@ test("Agent v2 propagates a private operation UUID across durable and trace boun
   assert.match(source, /completePressAgentOperation/);
   assert.match(source, /readPressAgentOperationId/);
 });
+
+test("Agent v2 instruments stable RAG boundaries and completes inside the active root", () => {
+  const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
+  const retrieval = source.slice(source.indexOf("const searchKnowledgeTool"), source.indexOf("const compareSourcesTool"));
+  const persistence = source.slice(source.indexOf("async function persistRunResult"), source.indexOf("export async function startPressAgentRun"));
+
+  assert.match(retrieval, /traceLangSmithRagStage\(\{\s*stageId: "retrieval-execution"/);
+  assert.match(retrieval, /selectedSourceCount: retrieval\.citations\.length/);
+  assert.match(retrieval, /eligibleSourceCount: retrieval\.evidenceDecision\.eligibleSourceIds\.length/);
+  assert.match(retrieval, /recordLangSmithRagObservation\("evidence-decision"/);
+  assert.match(retrieval, /decisionInputHash: result\.evidenceDecision\.decisionInputHash/);
+
+  assert.match(persistence, /recordLangSmithRagObservation\("verification"/);
+  assert.match(persistence, /recordLangSmithRagObservation\("fallback"/);
+  assert.match(persistence, /recordLangSmithRagObservation\("response-behavior"/);
+  assert.match(persistence, /primaryClaimVerificationStatus = finalClaimVerification\.status/);
+  assert.match(persistence, /kind: "TOOL", status: "FAILED"/);
+  assert.match(source, /reportLangSmithRootFeedback\(derivePressAgentRagFeedback\(verdicts\)\)/);
+  assert.match(source, /execute: async \(\) => \{[\s\S]*?await persistRunResult\(runRecord, result, startedAtMs, operationId\);/);
+});

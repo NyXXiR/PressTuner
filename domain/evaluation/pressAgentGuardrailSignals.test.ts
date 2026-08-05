@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildPressAgentCompletionObservation,
   deriveGuardrailVerdicts,
   PRESS_AGENT_GUARDRAIL_STAGE_IDS,
   type PressAgentGuardrailObservation,
@@ -13,6 +14,7 @@ const base: PressAgentGuardrailObservation = {
   failedToolCount: 0,
   claimVerificationStatus: "PASS",
   fallbackMode: null,
+  postFallbackVerificationStatus: null,
   cannotAnswer: false,
 };
 
@@ -55,9 +57,12 @@ test("an answer without citations violates claim verification at the response st
 });
 
 test("failed verification is a violation and falling back afterwards is the guardrail working", () => {
-  const failedWithFallback = { ...base, claimVerificationStatus: "FAIL" as const, fallbackMode: "EXTRACTIVE" as const };
+  const failedWithFallback = { ...base, claimVerificationStatus: "FAIL" as const, fallbackMode: "EXTRACTIVE" as const, postFallbackVerificationStatus: "PASS" as const };
   assert.equal(find(failedWithFallback, "verification", "citation-claim-verification")?.verdict, "violation");
   assert.equal(find(failedWithFallback, "fallback", "safe-fallback")?.verdict, "pass");
+
+  const failedFallbackVerification = { ...failedWithFallback, postFallbackVerificationStatus: "FAIL" as const };
+  assert.equal(find(failedFallbackVerification, "fallback", "safe-fallback")?.verdict, "violation");
 
   const failedWithoutFallback = { ...base, claimVerificationStatus: "FAIL" as const, fallbackMode: null };
   assert.equal(find(failedWithoutFallback, "fallback", "safe-fallback")?.verdict, "violation");
@@ -70,6 +75,7 @@ test("unobserved guardrails are omitted rather than guessed", () => {
     failedToolCount: null,
     claimVerificationStatus: null,
     fallbackMode: null,
+    postFallbackVerificationStatus: null,
     cannotAnswer: null,
   };
   const verdicts = deriveGuardrailVerdicts(unknown);
@@ -92,4 +98,40 @@ test("verdicts never duplicate a stage and guardrail pair", () => {
     const keys = deriveGuardrailVerdicts(observation).map((entry) => `${entry.stageId}:${entry.guardrailId}`);
     assert.equal(new Set(keys).size, keys.length);
   }
+});
+
+test("completion observations preserve primary failure after fallback verification passes", () => {
+  const observation = buildPressAgentCompletionObservation({
+    verifiableSourceCount: 2,
+    finalCitationCount: 1,
+    failedToolCount: 0,
+    primaryClaimVerificationStatus: "FAIL",
+    fallbackMode: "EXTRACTIVE",
+    postFallbackVerificationStatus: "PASS",
+    cannotAnswer: false,
+  });
+
+  assert.equal(observation.claimVerificationStatus, "FAIL");
+  assert.equal(find(observation, "verification", "citation-claim-verification")?.verdict, "violation");
+  assert.equal(find(observation, "fallback", "safe-fallback")?.verdict, "pass");
+});
+
+test("completion observation builder accepts counts and statuses only", () => {
+  assert.deepEqual(buildPressAgentCompletionObservation({
+    verifiableSourceCount: 0,
+    finalCitationCount: 0,
+    failedToolCount: null,
+    primaryClaimVerificationStatus: null,
+    fallbackMode: null,
+    postFallbackVerificationStatus: null,
+    cannotAnswer: true,
+  }), {
+    verifiableSourceCount: 0,
+    finalCitationCount: 0,
+    failedToolCount: null,
+    claimVerificationStatus: null,
+    fallbackMode: null,
+    postFallbackVerificationStatus: null,
+    cannotAnswer: true,
+  });
 });
