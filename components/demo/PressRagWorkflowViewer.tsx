@@ -163,15 +163,11 @@ export function PressRagWorkflowViewer({
   }
 
   return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-labelledby="workflow-heading">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Recorded RAG workflow</p>
-          <h2 id="workflow-heading" className="mt-1 text-2xl font-black text-foreground">RAG 실행 워크플로 디버거</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            노드나 엣지를 고르면 그 지점에서 5개 가드레일이 어떻게 처리됐는지 아래에 나옵니다.
-          </p>
-        </div>
+    <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5" aria-labelledby="workflow-heading">
+      {/* The page title already names this screen, and the reading instruction sits with the
+          selection bar below where it applies, so this row carries only controls. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 id="workflow-heading" className="text-sm font-black text-foreground">상태 전이 그래프</h2>
         <div className="grid min-w-0 grid-cols-2 gap-2" role="group" aria-label="워크플로 구성 선택">
           {([["baseline", baselineLabel], ["candidate", candidateLabel]] as const).map(([id, label]) => (
             <button
@@ -187,14 +183,14 @@ export function PressRagWorkflowViewer({
         </div>
       </div>
 
-      <p className="mt-4 font-mono text-[11px] text-muted-foreground">
+      <p className="mt-2 font-mono text-[11px] text-muted-foreground">
         {workflow.summary.replaySource} · {workflow.summary.recordedStatus} · 전체 {workflow.summary.totalLatencyMs.toLocaleString("ko-KR")} ms ·{" "}
         <span className="break-all">{workflow.summary.recordedExecutionRef}</span>
       </p>
 
       {/* The graph wraps so the whole state machine stays visible; edges are selectable
           because a transition condition is itself a guardrail judgment. */}
-      <nav className="mt-4" aria-label="워크플로 노드와 엣지">
+      <nav className="mt-3" aria-label="워크플로 노드와 엣지">
         <ol className="flex min-w-0 flex-wrap items-stretch gap-y-2">
           {workflow.nodes.flatMap((node, index) => {
             const nodeVerdict = rollUpGuardrails(guardrails.byNode[node.id] ?? []);
@@ -247,7 +243,8 @@ export function PressRagWorkflowViewer({
         </ol>
       </nav>
 
-      <div id="guardrail-panel" className="mt-5 min-w-0">
+      <div id="guardrail-panel" className="mt-4 min-w-0">
+        <p className="mb-2 text-xs text-muted-foreground">노드나 엣지를 고르면 그 지점에서 5개 가드레일이 어떻게 처리됐는지 아래에 나옵니다.</p>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3" aria-live="polite">
           <p className="min-w-0">
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-primary">

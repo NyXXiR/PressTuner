@@ -185,58 +185,42 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
   }
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14" aria-labelledby="scenario-picker-heading">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Recorded workflow quality presets</p>
-        <h2 id="scenario-picker-heading" className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">RAG 실행 디버깅 프리셋</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">다섯 가지 승인된 synthetic 프리셋에서 기록 실행을 선택합니다. 네트워크 요청 없이 실패와 기대 불일치를 그대로 재생합니다.</p>
-      </div>
-
-      <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="group" aria-label="RAG 검토 프리셋">
+    <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8" aria-labelledby="scenario-picker-heading">
+      {/* Preset and repetition are controls for the workflow below, not sections of their
+          own, so they sit in one bar and the graph stays in the first screen. */}
+      <h2 id="scenario-picker-heading" className="sr-only">RAG 실행 디버깅 프리셋</h2>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="group" aria-label="RAG 검토 프리셋">
         {viewModel.scenarios.map((option, index) => (
           <button
             key={option.preset}
             type="button"
             aria-pressed={index === scenarioIndex}
             onClick={() => selectScenario(index)}
-            className={`min-h-11 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${index === scenarioIndex ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"}`}
+            className={`min-h-11 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${index === scenarioIndex ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"}`}
           >
-            <span className="block text-sm font-black">{option.label}</span>
-            <span className={`mt-1 block text-xs ${index === scenarioIndex ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{option.caseId}</span>
+            <span className="block text-[13px] font-black leading-tight">{option.label}</span>
+            <span className={`mt-0.5 block font-mono text-[10px] ${index === scenarioIndex ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{option.caseId}</span>
           </button>
         ))}
       </div>
 
-      <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0" aria-live="polite">
-          <p className="text-xs font-bold text-muted-foreground">선택한 시나리오 · {scenario.caseId}</p>
-          <h2 className="mt-1 break-words text-xl font-black text-foreground">{scenario.label}</h2>
-          <p className="mt-1 max-w-3xl break-words text-sm text-muted-foreground">{scenario.description}</p>
-        </div>
-        <div className="w-full shrink-0 sm:w-48">
-          <label htmlFor="recorded-run" className="block text-xs font-bold text-foreground">기록된 반복 실행</label>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5" aria-live="polite">
+        <p className="min-w-0 flex-1 text-sm">
+          <strong className="font-black text-foreground">{scenario.label}</strong>
+          <span className="ml-2 break-words text-muted-foreground">{scenario.description}</span>
+        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <label htmlFor="recorded-run" className="text-xs font-bold text-foreground">기록된 반복</label>
           <select
             id="recorded-run"
             value={selectedRun.runIndex}
             onChange={(event) => setRunIndex(Number(event.target.value))}
-            className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="min-h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {scenario.runs.map((run) => <option key={run.runIndex} value={run.runIndex}>기록 {run.runIndex}</option>)}
           </select>
         </div>
       </div>
-
-      <section className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-5" aria-labelledby="expected-heading">
-        <h2 id="expected-heading" className="text-lg font-black text-foreground">승인된 synthetic 기대 동작</h2>
-        <p className="mt-3 break-words rounded-xl bg-background p-4 text-sm leading-7 text-foreground"><strong>승인된 synthetic 질문:</strong> {scenario.prompt}</p>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <div><dt className="text-xs font-bold text-muted-foreground">답변성</dt><dd className="mt-1 font-semibold">{scenario.expectation.answerability}</dd></div>
-          <div><dt className="text-xs font-bold text-muted-foreground">상충 처리</dt><dd className="mt-1 font-semibold">{scenario.expectation.conflict}</dd></div>
-          <div><dt className="text-xs font-bold text-muted-foreground">주장 근거 필수</dt><dd className="mt-1 font-semibold">{scenario.expectation.requiresClaimEvidence ? "예" : "아니요"}</dd></div>
-          <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-bold text-muted-foreground">기대 문서</dt><dd className="mt-1 break-words font-mono text-xs">{scenario.expectation.expectedDocuments.map(({ logicalId }) => logicalId).join(", ") || "없음"}</dd></div>
-          <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-bold text-muted-foreground">필수 사실</dt><dd className="mt-1 break-words text-xs">{scenario.expectation.requiredFacts.map(({ key, value }) => `${key}: ${value}`).join(" · ") || "없음"}</dd></div>
-        </dl>
-      </section>
 
       <PressRagWorkflowViewer
         key={`${scenario.caseId}-${selectedRun.runIndex}`}
@@ -247,6 +231,22 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
         baselineLabel={viewModel.evidence.baseline.label}
         candidateLabel={viewModel.evidence.candidate.label}
       />
+
+      {/* The expected behavior is what the verdicts were judged against, so it reads after
+          the workflow rather than ahead of it. */}
+      <details className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-4" aria-labelledby="expected-heading">
+        <summary className="cursor-pointer text-base font-black text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <span id="expected-heading">승인된 synthetic 기대 동작</span>
+        </summary>
+        <p className="mt-3 break-words rounded-xl bg-background p-4 text-sm leading-7 text-foreground"><strong>승인된 synthetic 질문:</strong> {scenario.prompt}</p>
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <div><dt className="text-xs font-bold text-muted-foreground">답변성</dt><dd className="mt-1 font-semibold">{scenario.expectation.answerability}</dd></div>
+          <div><dt className="text-xs font-bold text-muted-foreground">상충 처리</dt><dd className="mt-1 font-semibold">{scenario.expectation.conflict}</dd></div>
+          <div><dt className="text-xs font-bold text-muted-foreground">주장 근거 필수</dt><dd className="mt-1 font-semibold">{scenario.expectation.requiresClaimEvidence ? "예" : "아니요"}</dd></div>
+          <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-bold text-muted-foreground">기대 문서</dt><dd className="mt-1 break-words font-mono text-xs">{scenario.expectation.expectedDocuments.map(({ logicalId }) => logicalId).join(", ") || "없음"}</dd></div>
+          <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-bold text-muted-foreground">필수 사실</dt><dd className="mt-1 break-words text-xs">{scenario.expectation.requiredFacts.map(({ key, value }) => `${key}: ${value}`).join(" · ") || "없음"}</dd></div>
+        </dl>
+      </details>
 
       <section className="mt-8" aria-labelledby="comparison-heading">
         <div className="flex flex-wrap items-end justify-between gap-2">
