@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { presentPressRagDemo } from "./pressRagDemoPresenter";
 import {
+  PRESS_RAG_EXECUTION_SUMMARY_VERSION,
   PRESS_RAG_WORKFLOW_SCHEMA_VERSION,
   projectPressRagWorkflowView,
   type PressRagWorkflowView,
@@ -55,8 +56,22 @@ test("exports a stable, deterministic, JSON-safe and deeply immutable workflow c
   const first = projectPressRagWorkflowView(outcome, scenario.expectation, scenario.prompt);
   const second = projectPressRagWorkflowView(outcome, scenario.expectation, scenario.prompt);
 
-  assert.equal(PRESS_RAG_WORKFLOW_SCHEMA_VERSION, "press-rag-workflow-view/v2");
+  assert.equal(PRESS_RAG_WORKFLOW_SCHEMA_VERSION, "press-rag-workflow-view/v3");
+  assert.equal(PRESS_RAG_EXECUTION_SUMMARY_VERSION, "press-rag-execution-summary/v1");
   assert.equal(first.schemaVersion, PRESS_RAG_WORKFLOW_SCHEMA_VERSION);
+  assert.equal(first.summary.schemaVersion, PRESS_RAG_EXECUTION_SUMMARY_VERSION);
+  assert.equal(first.summary.recordedExecutionRefVersion, "press-rag-recorded-execution-ref/v1");
+  assert.equal(first.summary.recordedExecutionRef, outcome.recordedExecutionRef);
+  assert.equal(first.summary.replaySource, "APPROVED_CONTROLLED_LIVE_REPLAY");
+  assert.equal(first.summary.recordedStatus, outcome.status);
+  assert.equal(first.summary.totalLatencyMs, outcome.latencyMs);
+  assert.deepEqual(first.summary.facts.map(({ key }) => key), [
+    "evidence-use",
+    "citation-claim-verification",
+    "forbidden-source-protection",
+    "expected-tool-behavior",
+    "safe-fallback",
+  ]);
   assert.equal(first.recordedRunIndex, 1);
   assert.equal(first.initiallySelectedNodeId, "request-intake");
   assert.deepEqual(first.nodes.map(({ id }) => id), NODE_IDS);
@@ -70,12 +85,20 @@ test("exports a stable, deterministic, JSON-safe and deeply immutable workflow c
   assert.equal(node(first, "verification").latencyMs, null);
   assert.equal(node(first, "fallback").latencyMs, null);
   assert.deepEqual(node(first, "request-intake").inspection.input, [
-    { label: "승인된 질문", value: scenario.prompt },
+    { key: "request.prompt", label: "승인된 synthetic 질문", value: scenario.prompt },
   ]);
   for (const workflowNode of first.nodes) {
     assert.ok(workflowNode.inspection.input.length > 0, `${workflowNode.id} input is empty`);
     assert.ok(workflowNode.inspection.evidence.length > 0, `${workflowNode.id} evidence is empty`);
+    assert.ok(workflowNode.inspection.decisions.length > 0, `${workflowNode.id} decisions is empty`);
     assert.ok(workflowNode.inspection.output.length > 0, `${workflowNode.id} output is empty`);
+    for (const panel of Object.values(workflowNode.inspection)) {
+      for (const item of panel) assert.match(item.key, /^[a-z][A-Za-z0-9.]+$/);
+    }
+    if (["FAILED", "SKIPPED", "MISMATCH", "NOT_EVALUABLE"].includes(workflowNode.status)) {
+      assert.match(workflowNode.reasonCode ?? "", /^[A-Z_]+$/);
+      assert.ok(workflowNode.reasonText?.length);
+    }
   }
 
   const serialized = JSON.stringify(first);
@@ -91,6 +114,7 @@ test("exports a stable, deterministic, JSON-safe and deeply immutable workflow c
     "teamId",
     "startedById",
     "reviewerId",
+    "quote",
   ]) {
     assert.doesNotMatch(serialized, new RegExp(`"${key}"\\s*:`));
   }
@@ -103,6 +127,7 @@ test("maps retrieval, verification, and terminal records into input evidence and
   const view = projectPressRagWorkflowView(outcome, scenario.expectation, scenario.prompt);
 
   assert.deepEqual(node(view, "retrieval-execution").inspection.input[0], {
+    key: "retrieval.query",
     label: "검색 질문",
     value: scenario.prompt,
   });
@@ -110,6 +135,7 @@ test("maps retrieval, verification, and terminal records into input evidence and
   assert.ok(node(view, "retrieval-execution").inspection.output.some(({ label }) => label === "검색 결과"));
   assert.ok(node(view, "verification").inspection.evidence.some(({ label }) => label === "주장 1"));
   assert.ok(node(view, "verification").inspection.output.some(({ label }) => label === "검증 결과"));
+  assert.ok(node(view, "verification").inspection.decisions.some(({ label }) => label === "주장 검증 검사"));
   assert.ok(node(view, "terminal-evaluation").inspection.evidence.some(({ label }) => label === "checks.retrieval"));
   assert.ok(node(view, "terminal-evaluation").inspection.output.some(({ label }) => label === "최종 판정"));
 });
@@ -127,6 +153,8 @@ test("retrieval-only runs preserve retrieval mismatch and do not invent downstre
     assert.equal(node(view, "evidence-decision").status, "NOT_EVALUABLE");
     assert.equal(node(view, "verification").status, "NOT_EVALUABLE");
   }
+  assert.equal(baseline.edges[1]?.state, "NOT_TAKEN");
+  assert.equal(candidate.edges[1]?.state, "NOT_TAKEN");
   assert.equal(node(baseline, "terminal-evaluation").status, "MISMATCH");
 });
 
@@ -142,6 +170,7 @@ test("grounded answer failures stop truthfully while the candidate exposes verif
     assert.equal(node(baseline, id).traversal, "UNKNOWN");
     assert.equal(node(baseline, id).status, "NOT_EVALUABLE");
   }
+  assert.ok(baseline.edges.slice(1).every(({ state }) => state === "UNKNOWN"));
   assert.equal(node(candidate, "response-behavior").stageKind, "ANSWER_RESPONSE");
   assert.equal(node(candidate, "verification").status, "MATCH");
   assert.equal(node(candidate, "fallback").status, "RECORDED");
@@ -205,6 +234,22 @@ test("fallback absence is skipped while missing output remains not evaluable", a
   assert.equal(node(failed, "fallback").status, "NOT_EVALUABLE");
   assert.equal(node(noFallback, "fallback").status, "SKIPPED");
   assert.equal(node(noFallback, "fallback").traversal, "NOT_TRAVERSED");
+  assert.equal(node(noFallback, "fallback").reasonCode, "FALLBACK_NOT_USED");
+  assert.equal(noFallback.edges[4]?.state, "NOT_TAKEN");
+  assert.equal(noFallback.edges[5]?.state, "NOT_TAKEN");
+});
+
+test("explicit directional edges never invent traversal and projected evidence contains coordinates only", async () => {
+  const model = await viewModel();
+  const scenario = model.scenarios.find(({ caseId }) => caseId === "CL-034")!;
+  const view = projectPressRagWorkflowView(scenario.runs[0]!.candidate, scenario.expectation, scenario.prompt);
+
+  assert.deepEqual(
+    view.edges.map(({ source, target }) => [source, target]),
+    NODE_IDS.slice(0, -1).map((source, index) => [source, NODE_IDS[index + 1]]),
+  );
+  assert.doesNotMatch(JSON.stringify(view), /"quote"\s*:/);
+  assert.ok(node(view, "verification").inspection.evidence.some(({ value }) => /p\.\d+-\d+/.test(value)));
 });
 
 test("every selectable baseline and candidate recording projects the complete stable path", async () => {

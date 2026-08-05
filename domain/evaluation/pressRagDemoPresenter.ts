@@ -4,6 +4,11 @@ import {
   type ControlledLiveDataset,
   type ControlledLiveDatasetCase,
 } from "./controlledLiveEvaluation";
+import {
+  derivePressRagRecordedExecutionRef,
+  PRESS_RAG_RECORDED_EXECUTION_REF_VERSION,
+} from "./pressRagRecordedExecutionIdentity";
+import { scanSensitiveText } from "./sensitiveDataRedaction";
 
 type DemoPreset =
   | "retrieval"
@@ -16,6 +21,8 @@ type OutcomeStatus = "COMPLETED" | "FAILED";
 
 export type PressRagRecordedOutcome = Readonly<{
   runIndex: number;
+  recordedExecutionRefVersion: typeof PRESS_RAG_RECORDED_EXECUTION_REF_VERSION;
+  recordedExecutionRef: string;
   status: OutcomeStatus;
   errorCode: string | null;
   finalAnswer: string | null;
@@ -49,7 +56,6 @@ export type PressRagRecordedOutcome = Readonly<{
       status: "SUPPORTED" | "UNSUPPORTED";
       text: string;
       evidence: readonly Readonly<{
-        quote: string;
         sourceLabel: string;
         pageStart: number;
         pageEnd: number;
@@ -156,6 +162,7 @@ const MAX = {
 type UnknownRecord = Record<string, unknown>;
 type ArtifactRun = Readonly<{
   caseId: string;
+  caseRunId: string;
   kind: "RETRIEVAL_ONLY" | "AGENT";
   runIndex: number;
   latencyMs: number;
@@ -206,6 +213,19 @@ function record(value: unknown, code = "PRESS_RAG_DEMO_INVALID_ARTIFACT"): Unkno
 function boundedString(value: unknown, max: number, code = "PRESS_RAG_DEMO_INVALID_PRESENTATION_FIELD") {
   if (typeof value !== "string" || value.length === 0 || value.length > max) fail(code);
   return value;
+}
+
+function publicProseString(value: unknown, max: number) {
+  const prose = boundedString(value, max);
+  if (scanSensitiveText(prose).containsSensitiveData) {
+    fail("PRESS_RAG_DEMO_SENSITIVE_PRESENTATION_FIELD");
+  }
+  return prose;
+}
+
+function nullablePublicProseString(value: unknown, max: number) {
+  if (value === null || value === undefined) return null;
+  return publicProseString(value, max);
 }
 
 function nullableString(value: unknown, max: number) {
@@ -283,7 +303,7 @@ function validateArtifact(input: unknown, dataset: ControlledLiveDataset): Valid
     const expectedCase = knownCases.get(caseId);
     if (expectedCase === undefined) fail("PRESS_RAG_DEMO_UNKNOWN_CASE");
     if (!selectedCaseIds.includes(caseId)) fail("PRESS_RAG_DEMO_INVALID_RUN_METADATA");
-    boundedString(result.caseRunId, 160, "PRESS_RAG_DEMO_INVALID_RUN_METADATA");
+    const caseRunId = boundedString(result.caseRunId, 160, "PRESS_RAG_DEMO_INVALID_RUN_METADATA");
     if (result.kind !== expectedCase.kind) fail("PRESS_RAG_DEMO_CASE_KIND_MISMATCH");
     const runIndex = integer(result.runIndex, 1, 10, "PRESS_RAG_DEMO_INVALID_RUN_METADATA");
     const latencyMs = finite(result.latencyMs, 0, MAX.timeMs, "PRESS_RAG_DEMO_INVALID_LATENCY");
@@ -294,6 +314,7 @@ function validateArtifact(input: unknown, dataset: ControlledLiveDataset): Valid
     validateDocumentMappings(resultBody, expectedCase, dataset);
     runs.set(key, {
       caseId,
+      caseRunId,
       kind: expectedCase.kind,
       runIndex,
       latencyMs,
@@ -388,7 +409,7 @@ function mappedDocument(
   if (document === undefined) fail("PRESS_RAG_DEMO_DOCUMENT_MAPPING_INVALID");
   return {
     logicalId: boundedString(logicalId, MAX.short),
-    filename: boundedString(document.title, MAX.filename),
+    filename: publicProseString(document.title, MAX.filename),
   };
 }
 
@@ -433,7 +454,7 @@ function projectCitations(
     const document = mappedDocument(source.documentId, mapping, documents);
     const pages = pageRange(source);
     return {
-      sourceLabel: boundedString(source.sourceId, MAX.short),
+      sourceLabel: publicProseString(source.sourceId, MAX.short),
       logicalDocumentId: document.logicalId,
       filename: document.filename,
       pageStart: pages.pageStart,
@@ -457,14 +478,13 @@ function projectVerification(
     const evidence = array(claim.spans).slice(0, 10).map((spanValue) => {
       const span = record(spanValue);
       return {
-        quote: boundedString(span.quote, MAX.text),
-        sourceLabel: boundedString(span.sourceId, MAX.short),
+        sourceLabel: publicProseString(span.sourceId, MAX.short),
         ...pageRange(span),
       };
     });
     return {
       status: claim.status as "SUPPORTED" | "UNSUPPORTED",
-      text: boundedString(claim.text, MAX.text),
+      text: publicProseString(claim.text, MAX.text),
       evidence,
     };
   });
@@ -555,8 +575,8 @@ function projectOutcome(
     rawSteps = product.steps;
   }
 
-  const finalAnswer = output === null ? null : nullableString(output.answer, MAX.answer);
-  const summary = output === null ? null : nullableString(output.summary, MAX.text);
+  const finalAnswer = output === null ? null : nullablePublicProseString(output.answer, MAX.answer);
+  const summary = output === null ? null : nullablePublicProseString(output.summary, MAX.text);
   const cannotAnswer = output === null ? null : typeof output.cannotAnswer === "boolean" ? output.cannotAnswer : fail("PRESS_RAG_DEMO_INVALID_PRESENTATION_FIELD");
   const retrieval = projectSources(rawHits, mapping, documents, expected, run.kind === "RETRIEVAL_ONLY");
   const citations = projectCitations(rawCitations, mapping, documents, expected);
@@ -571,6 +591,8 @@ function projectOutcome(
 
   return {
     runIndex: run.runIndex,
+    recordedExecutionRefVersion: PRESS_RAG_RECORDED_EXECUTION_REF_VERSION,
+    recordedExecutionRef: derivePressRagRecordedExecutionRef(run.caseRunId),
     status,
     errorCode,
     finalAnswer,
@@ -634,7 +656,7 @@ export function presentPressRagDemo(input: Readonly<{
       label: SCENARIO_COPY[preset].label,
       description: SCENARIO_COPY[preset].description,
       caseId: boundedString(entry.id, MAX.short),
-      prompt: boundedString(entry.prompt, MAX.prompt),
+      prompt: publicProseString(entry.prompt, MAX.prompt),
       partition: partitionFor(dataset, entry.id),
       tags: entry.tags.map((tag) => boundedString(tag, MAX.short)),
       expectation: {
@@ -646,11 +668,11 @@ export function presentPressRagDemo(input: Readonly<{
         expectedDocuments: entry.expectedDocumentIds.map((logicalId) => {
           const document = documents.get(logicalId);
           if (document === undefined) fail("PRESS_RAG_DEMO_INVALID_DATASET");
-          return { logicalId: boundedString(logicalId, MAX.short), title: boundedString(document.title, MAX.filename) };
+          return { logicalId: boundedString(logicalId, MAX.short), title: publicProseString(document.title, MAX.filename) };
         }),
         requiredFacts: entry.requiredFacts.map(({ key, value }) => ({
           key: boundedString(key, MAX.short),
-          value: boundedString(value, MAX.text),
+          value: publicProseString(value, MAX.text),
         })),
       },
       runs,

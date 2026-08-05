@@ -33,6 +33,7 @@
     "test:db:setup": "node scripts/setup-test-database.mjs",
     "qa:core-local": "node scripts/run-core-rag-qa.mjs",
     "qa:press-new-api": "node scripts/run-press-new-api-qa.mjs",
+    "qa:press-agent-operation": "node --import tsx scripts/run-press-agent-operation-qa.mjs",
     "eval:press-rag": "node --import tsx scripts/evaluatePressRag.ts",
     "eval:press-rag-controlled-live": "node --import tsx scripts/runPressRagControlledLive.ts",
     "compare:press-rag-controlled-live": "node --import tsx scripts/comparePressRagControlledLive.ts",

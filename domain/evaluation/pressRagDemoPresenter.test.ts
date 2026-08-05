@@ -79,6 +79,9 @@ test("maps only public logical retrieval evidence and preserves recorded outcome
   assert.ok(grounded.candidate.citations.length > 0);
   assert.ok(grounded.candidate.latencyMs > 0);
   assert.ok(grounded.candidate.costMicros > 0);
+  assert.match(grounded.candidate.recordedExecutionRef, /^pragop_v1_[a-f0-9]{64}$/);
+  assert.equal(grounded.candidate.recordedExecutionRefVersion, "press-rag-recorded-execution-ref/v1");
+  assert.equal("quote" in grounded.candidate.verification.claims[0]!.evidence[0]!, false);
 
   assert.ok(abstention);
   assert.equal(abstention.candidate.cannotAnswer, true);
@@ -88,7 +91,8 @@ test("maps only public logical retrieval evidence and preserves recorded outcome
 });
 
 test("serialized client model excludes raw and internal artifact fields", async () => {
-  const serialized = JSON.stringify(presentPressRagDemo(await inputs()));
+  const artifacts = await inputs();
+  const serialized = JSON.stringify(presentPressRagDemo(artifacts));
   const forbiddenKeys = [
     "context",
     "traceId",
@@ -107,6 +111,51 @@ test("serialized client model excludes raw and internal artifact fields", async 
   ];
   for (const key of forbiddenKeys) assert.doesNotMatch(serialized, new RegExp(`"${key}"\\s*:`));
   assert.doesNotMatch(serialized, /cms[a-z0-9]{20,}/);
+  assert.doesNotMatch(serialized, /"quote"\s*:/);
+  for (const artifact of [artifacts.baseline, artifacts.candidate] as { results: { caseRunId: string }[] }[]) {
+    for (const run of artifact.results) {
+      assert.ok(!serialized.includes(run.caseRunId));
+    }
+  }
+});
+
+test("all selectable recordings have unique and byte-stable recorded execution references", async () => {
+  const artifacts = await inputs();
+  const first = presentPressRagDemo(artifacts);
+  const second = presentPressRagDemo(artifacts);
+  const references = first.scenarios.flatMap(({ runs }) =>
+    runs.flatMap(({ baseline, candidate }) => [baseline.recordedExecutionRef, candidate.recordedExecutionRef]),
+  );
+
+  assert.equal(references.length, 26);
+  assert.equal(new Set(references).size, 26);
+  assert.ok(references.every((reference) => /^pragop_v1_[a-f0-9]{64}$/.test(reference)));
+  assert.deepEqual(
+    references,
+    second.scenarios.flatMap(({ runs }) =>
+      runs.flatMap(({ baseline, candidate }) => [baseline.recordedExecutionRef, candidate.recordedExecutionRef]),
+    ),
+  );
+});
+
+test("fails closed when a projected prose field contains PII or credential-shaped text", async () => {
+  const mutations = [
+    "contact qa@example.com",
+    "call +82 10-1234-5678",
+    "token sk_abcdefghijklmnop",
+  ];
+  for (const unsafe of mutations) {
+    const value = clone(await inputs());
+    const candidate = value.candidate as {
+      results: { caseId: string; result: { productResult: { output: { answer: string } | null } } }[];
+    };
+    const run = candidate.results.find(
+      ({ caseId, result }) => caseId === "CL-034" && result.productResult.output !== null,
+    );
+    if (!run?.result.productResult.output) throw new Error("missing test output");
+    run.result.productResult.output.answer = unsafe;
+    expectCode("PRESS_RAG_DEMO_SENSITIVE_PRESENTATION_FIELD", () => presentPressRagDemo(value));
+  }
 });
 
 test("fails closed with stable artifact and join validation codes", async () => {

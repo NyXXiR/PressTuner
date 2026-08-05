@@ -21,6 +21,8 @@ test("the route is static and passes only the server-built view model to the cli
   assert.match(page, /<PressRagTestDemo viewModel=\{viewModel\}/);
   assert.match(page, /MarketingFooter/);
   assert.match(page, /새 요청을 실행하지 않고, 승인된 controlled-live 기록을 재생합니다/);
+  assert.match(page, /RAG 실행 워크플로 디버거/);
+  assert.match(page, /기록 실행 참조는 Ops Console UUID나 공급자 추적 ID가 아니며 서로 조인할 수 없습니다/);
   assert.match(page, /모델[\s\S]*API[\s\S]*데이터베이스/);
   assert.doesNotMatch(page, /node:fs|prisma|executePressRag|runAgent|process\.env/);
 });
@@ -65,6 +67,10 @@ test("the accessible workflow viewer is ordered before comparison cards and rese
   assert.match(client, /candidate=\{selectedRun\.candidate\}/);
   assert.match(client, /expectation=\{scenario\.expectation\}/);
   assert.match(client, /prompt=\{scenario\.prompt\}/);
+  assert.match(client, /viewModel\.scenarios\.map/);
+  assert.match(client, /lg:grid-cols-5/);
+  assert.doesNotMatch(client, /\.quote\b|<blockquote/);
+  assert.match(client, /근거 좌표/);
 });
 
 test("the workflow viewer exposes configuration, node, focus, status, and live-detail contracts", async () => {
@@ -73,8 +79,13 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /^"use client";/);
   assert.match(viewer, /useState<[^>]*>\("candidate"\)/);
   assert.match(viewer, /<button[\s\S]*?type="button"[\s\S]*?aria-pressed=/);
-  assert.match(viewer, /aria-label=\{`[^`]*\$\{node\.status\}/);
-  assert.match(viewer, /aria-pressed=\{node\.id === selectedNodeId\}/);
+  assert.match(viewer, /aria-label=\{`[^`]*\$\{item\.node\.status\}/);
+  assert.match(viewer, /tabIndex=\{item\.node\.id === selectedNode\.id \? 0 : -1\}/);
+  assert.match(viewer, /aria-current=/);
+  assert.match(viewer, /aria-controls="workflow-node-detail"/);
+  assert.match(viewer, /onKeyDown=/);
+  assert.match(viewer, /resolvePressRagWorkflowNavigationIndex/);
+  assert.match(viewer, /scrollIntoView/);
   assert.match(viewer, /focus-visible:/);
   assert.match(viewer, /aria-live="polite"/);
   assert.match(viewer, /selectedNode\.statusReason/);
@@ -84,18 +95,39 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /이전 상태/);
   assert.match(viewer, /다음 상태/);
   assert.match(viewer, /입력/);
-  assert.match(viewer, /근거와 판정/);
+  assert.match(viewer, /정책·가드레일 결정/);
   assert.match(viewer, /출력/);
   assert.match(viewer, /selectedNode\.inspection\.input/);
   assert.match(viewer, /selectedNode\.inspection\.evidence/);
+  assert.match(viewer, /selectedNode\.inspection\.decisions/);
   assert.match(viewer, /selectedNode\.inspection\.output/);
   assert.match(viewer, /disabled=\{selectedNodeIndex === 0\}/);
   assert.match(viewer, /disabled=\{selectedNodeIndex === workflow\.nodes\.length - 1\}/);
   assert.match(viewer, /role="status"/);
+  assert.match(viewer, /workflow\.summary\.schemaVersion/);
+  assert.match(viewer, /workflow\.summary\.recordedExecutionRef/);
+  assert.match(viewer, /workflow\.summary\.facts\.map/);
+  assert.match(viewer, /graphItems/);
+  assert.match(viewer, /item\.edge\.decisionLabel/);
+  assert.match(viewer, /item\.edge\.state/);
+  assert.match(viewer, /lg:flex-row/);
+  assert.match(viewer, /lg:overflow-x-auto/);
   assert.doesNotMatch(
     viewer,
     /fetch\(|\/api\/|use server|prisma|DATABASE_URL|OPENAI|process\.env|executePressRag|runAgent|mutation|setTimeout|setInterval|reactflow|react-flow|@xyflow|d3|cytoscape/,
   );
+});
+
+test("the versioned contracts use recorded execution terminology and never expose raw operation joins", async () => {
+  const identity = await source("domain/evaluation/pressRagRecordedExecutionIdentity.ts");
+  const workflow = await source("domain/evaluation/pressRagWorkflowView.ts");
+  const presenter = await source("domain/evaluation/pressRagDemoPresenter.ts");
+
+  assert.match(identity, /press-rag-recorded-execution-ref\/v1/);
+  assert.match(workflow, /press-rag-workflow-view\/v3/);
+  assert.match(workflow, /press-rag-execution-summary\/v1/);
+  assert.match(presenter, /recordedExecutionRef/);
+  assert.doesNotMatch(`${identity}\n${workflow}`, /publicOperation|operationId|providerTrace/);
 });
 
 test("presenter and loader stay detached from runtime executors and mutation services", async () => {

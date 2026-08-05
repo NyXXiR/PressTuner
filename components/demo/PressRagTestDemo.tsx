@@ -129,9 +129,9 @@ function OutcomeCard({
               <li key={`${index}-${claim.text.slice(0, 20)}`} className="rounded-xl border border-border p-3 text-xs leading-6">
                 <p className="break-words font-semibold">{claim.status}: {claim.text}</p>
                 {claim.evidence.map((evidence, evidenceIndex) => (
-                  <blockquote key={`${evidenceIndex}-${evidence.sourceLabel}`} className="mt-2 break-words border-l-2 border-primary pl-3 text-muted-foreground">
-                    “{evidence.quote}” — {evidence.sourceLabel}, p.{evidence.pageStart}{evidence.pageEnd === evidence.pageStart ? "" : `–${evidence.pageEnd}`}
-                  </blockquote>
+                  <p key={`${evidenceIndex}-${evidence.sourceLabel}`} className="mt-2 break-words border-l-2 border-primary pl-3 text-muted-foreground">
+                    근거 좌표: {evidence.sourceLabel}, p.{evidence.pageStart}{evidence.pageEnd === evidence.pageStart ? "" : `–${evidence.pageEnd}`}
+                  </p>
                 ))}
               </li>
             ))}
@@ -187,9 +187,9 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14" aria-labelledby="scenario-picker-heading">
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Recorded evidence explorer</p>
-        <h2 id="scenario-picker-heading" className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">검토 시나리오 선택</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">버튼을 선택하면 네트워크 요청 없이 승인된 기록이 즉시 바뀝니다. 실패와 기대 불일치도 그대로 표시합니다.</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Recorded workflow quality presets</p>
+        <h2 id="scenario-picker-heading" className="mt-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl">RAG 실행 디버깅 프리셋</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">다섯 가지 승인된 synthetic 프리셋에서 기록 실행을 선택합니다. 네트워크 요청 없이 실패와 기대 불일치를 그대로 재생합니다.</p>
       </div>
 
       <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="group" aria-label="RAG 검토 프리셋">
@@ -227,8 +227,8 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
       </div>
 
       <section className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-5" aria-labelledby="expected-heading">
-        <h2 id="expected-heading" className="text-lg font-black text-foreground">먼저 확인할 기대 동작</h2>
-        <p className="mt-3 break-words rounded-xl bg-background p-4 text-sm leading-7 text-foreground"><strong>승인된 질문:</strong> {scenario.prompt}</p>
+        <h2 id="expected-heading" className="text-lg font-black text-foreground">승인된 synthetic 기대 동작</h2>
+        <p className="mt-3 break-words rounded-xl bg-background p-4 text-sm leading-7 text-foreground"><strong>승인된 synthetic 질문:</strong> {scenario.prompt}</p>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <div><dt className="text-xs font-bold text-muted-foreground">답변성</dt><dd className="mt-1 font-semibold">{scenario.expectation.answerability}</dd></div>
           <div><dt className="text-xs font-bold text-muted-foreground">상충 처리</dt><dd className="mt-1 font-semibold">{scenario.expectation.conflict}</dd></div>
@@ -250,7 +250,7 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
 
       <section className="mt-8" aria-labelledby="comparison-heading">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <div><h2 id="comparison-heading" className="text-2xl font-black text-foreground">기록 결과 비교</h2><p className="mt-1 text-xs text-muted-foreground">1 micro-USD는 미화 0.000001달러입니다. 비용은 기록 당시 값입니다.</p></div>
+          <div><h2 id="comparison-heading" className="text-2xl font-black text-foreground">보조 기록 결과 비교</h2><p className="mt-1 text-xs text-muted-foreground">워크플로 디버깅을 보완하는 읽기 전용 비교입니다. 1 micro-USD는 미화 0.000001달러입니다.</p></div>
           <p className="text-xs font-bold text-muted-foreground">{scenario.partition} · 반복 {selectedRun.runIndex}</p>
         </div>
         <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-2">

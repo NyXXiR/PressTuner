@@ -8,6 +8,28 @@ const SECRET_PATTERNS = [
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE = /(?<!\d)(?:\+?\d[\d .()-]{7,}\d)(?!\d)/g;
 
+export type SensitiveTextKind = "CREDENTIAL" | "EMAIL" | "PHONE";
+export type SensitiveTextScan = Readonly<{
+  containsSensitiveData: boolean;
+  kinds: readonly SensitiveTextKind[];
+}>;
+
+function matches(pattern: RegExp, value: string) {
+  pattern.lastIndex = 0;
+  return pattern.test(value);
+}
+
+export function scanSensitiveText(value: string): SensitiveTextScan {
+  const kinds: SensitiveTextKind[] = [];
+  if (SECRET_PATTERNS.some((pattern) => matches(pattern, value))) kinds.push("CREDENTIAL");
+  if (matches(EMAIL, value)) kinds.push("EMAIL");
+  if (matches(PHONE, value)) kinds.push("PHONE");
+  return Object.freeze({
+    containsSensitiveData: kinds.length > 0,
+    kinds: Object.freeze(kinds),
+  });
+}
+
 export type RedactionResult = {
   excerpt: string;
   sourceHash: string;
@@ -31,9 +53,6 @@ export function redactRegressionExcerpt(
     excerpt,
     sourceHash: createHash("sha256").update(value).digest("hex"),
     redactionCount,
-    containsProhibitedData: SECRET_PATTERNS.some((pattern) => {
-      pattern.lastIndex = 0;
-      return pattern.test(value);
-    }),
+    containsProhibitedData: SECRET_PATTERNS.some((pattern) => matches(pattern, value)),
   };
 }
