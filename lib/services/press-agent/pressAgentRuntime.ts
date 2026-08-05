@@ -61,10 +61,15 @@ import { persistFinalAgentCitations } from "@/lib/services/knowledge/agentKnowle
 import {
   beginOpsConsoleOperation,
   completeOpsConsoleOperation,
+  reportOpsConsoleGuardrails,
   PRESS_AGENT_WORKFLOW_ID,
   readOpsConsoleOperationEnvironment,
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
+import {
+  deriveGuardrailVerdicts,
+  type PressAgentGuardrailObservation,
+} from "@/domain/evaluation/pressAgentGuardrailSignals";
 import { traceLangSmithOperation } from "@/lib/services/operations/langSmithOperationTracer";
 import {
   PRESS_AGENT_V1_VERSION,
@@ -153,7 +158,7 @@ export function readPressAgentOperationId(input: unknown): string | null {
 async function recordOperationTelemetryFailure(args: {
   teamId: string;
   runId: string;
-  phase: "BEGIN" | "COMPLETE";
+  phase: "BEGIN" | "COMPLETE" | "GUARDRAILS";
   result: OpsConsoleOperationResult;
 }) {
   if (args.result.status !== "failed") return;
@@ -176,8 +181,29 @@ async function completePressAgentOperation(args: {
   runId: string;
   operationId: string | null;
   completedAt?: Date;
+  guardrails?: PressAgentGuardrailObservation;
 }) {
   if (!args.operationId) return;
+
+  // Guardrail verdicts are reported before completion so the operation is never marked
+  // finished with its attribution missing. Telemetry never changes the Agent result.
+  if (args.guardrails) {
+    try {
+      const guardrailResult = await reportOpsConsoleGuardrails({
+        operationId: args.operationId,
+        verdicts: deriveGuardrailVerdicts(args.guardrails),
+      });
+      await recordOperationTelemetryFailure({
+        teamId: args.teamId,
+        runId: args.runId,
+        phase: "GUARDRAILS",
+        result: guardrailResult,
+      });
+    } catch {
+      // A telemetry transport failure must not block completion.
+    }
+  }
+
   let result: OpsConsoleOperationResult;
   try {
     result = await completeOpsConsoleOperation({
@@ -193,6 +219,16 @@ async function completePressAgentOperation(args: {
     phase: "COMPLETE",
     result,
   });
+}
+
+/** Reads the fallback mode the runtime stored when a verification failure forced a retreat. */
+function readVerificationFallbackMode(
+  output: Record<string, unknown> | undefined,
+): "EXTRACTIVE" | "ABSTENTION" | null {
+  const fallback = output?.verificationFallback;
+  if (!fallback || typeof fallback !== "object") return null;
+  const mode = (fallback as { mode?: unknown }).mode;
+  return mode === "EXTRACTIVE" || mode === "ABSTENTION" ? mode : null;
 }
 
 function summarize(value: unknown) {
@@ -801,6 +837,8 @@ async function persistRunResult(
   let finalClaimVerification: ReturnType<typeof verifyAgentAnswerClaimSpans> | undefined;
   let finalOutput = result.finalOutput;
   let previousOutput: Record<string, unknown> = {};
+  // Kept outside the block below so the guardrail report can still read it at completion.
+  let verifiableSourceCount = 0;
   if (finalOutput) {
     const [retrievedSources, existingRun] = await Promise.all([
       prisma.agentRetrievedSource.findMany({
@@ -820,6 +858,7 @@ async function persistRunResult(
       pageStart: source.pageStart,
       pageEnd: source.pageEnd,
     }));
+    verifiableSourceCount = verifiableSources.length;
     const runInput = existingRun.input && typeof existingRun.input === "object" && !Array.isArray(existingRun.input)
       ? (existingRun.input as Record<string, unknown>)
       : {};
@@ -1010,6 +1049,15 @@ async function persistRunResult(
         teamId: runRecord.teamId,
         runId: runRecord.id,
         operationId,
+        guardrails: {
+          verifiableSourceCount,
+          finalCitationCount: finalOutput?.sourceIds.length ?? 0,
+          failedToolCount: null,
+          claimVerificationStatus: finalClaimVerification?.status === "PASS" ? "PASS"
+            : finalClaimVerification ? "FAIL" : null,
+          fallbackMode: readVerificationFallbackMode(previousOutput),
+          cannotAnswer: finalOutput?.cannotAnswer ?? null,
+        },
       });
     }
   }

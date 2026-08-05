@@ -148,3 +148,81 @@ test("operation client converts HTTP, network, and timeout failures to safe code
     assert.doesNotMatch(JSON.stringify(result), /raw-team-id|raw-user-id|private/);
   }
 });
+
+function guardrailClient(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>) {
+  return createOpsConsoleOperationClient({
+    environment: validEnvironment,
+    fetch: fetchImpl as never,
+    now: () => now,
+    randomUUID: (() => {
+      let counter = 0;
+      return () => `20000000-0000-4000-8000-${String((counter += 1)).padStart(12, "0")}`;
+    })(),
+  });
+}
+
+test("guardrail verdicts are pushed as one batch of attributed quality signals", async () => {
+  let captured: Record<string, unknown> | null = null;
+  let capturedUrl = "";
+  const client = guardrailClient(async (url, init) => {
+    capturedUrl = url;
+    captured = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return new Response(null, { status: 202 });
+  });
+
+  const result = await client.reportGuardrails({
+    operationId,
+    verdicts: [
+      { stageId: "verification", guardrailId: "citation-claim-verification", verdict: "violation" },
+      { stageId: "fallback", guardrailId: "safe-fallback", verdict: "pass" },
+    ],
+  });
+
+  assert.equal(result.status, "reported");
+  assert.equal(capturedUrl, "https://ops.example.test/api/ai-operations/v1/events");
+  const body = captured as unknown as { schemaVersion: string; events: Array<Record<string, unknown>> };
+  assert.equal(body.schemaVersion, "ops-console/operation-events-batch/v1");
+  assert.equal(body.events.length, 2);
+
+  const [violation, pass] = body.events;
+  assert.equal(violation!.providerId, "opentelemetry");
+  assert.equal(violation!.operationId, operationId);
+  assert.equal(violation!.providerRecordId, "guardrail:verification:citation-claim-verification");
+  assert.deepEqual(violation!.signal, {
+    kind: "quality", metricId: "guardrail_verdict", value: 1, unit: "violations",
+    sampleCount: 1, direction: "lower_is_better",
+    stageId: "verification", guardrailId: "citation-claim-verification", verdict: "violation",
+  });
+  // A pass still reports, carrying zero so the grid can show a clean cell.
+  assert.equal((pass!.signal as { value: number }).value, 0);
+  // Every event needs its own ID; a repeated ID would be treated as a duplicate.
+  assert.notEqual(violation!.eventId, pass!.eventId);
+});
+
+test("guardrail reporting stays silent when there is nothing to report or no credentials", async () => {
+  let requested = false;
+  const client = guardrailClient(async () => { requested = true; return new Response(null, { status: 202 }); });
+
+  assert.equal((await client.reportGuardrails({ operationId, verdicts: [] })).status, "reported");
+  assert.equal(requested, false);
+
+  const disabledClient = createOpsConsoleOperationClient({
+    environment: {},
+    fetch: (async () => { requested = true; return new Response(null); }) as never,
+  });
+  assert.equal((await disabledClient.reportGuardrails({ operationId, verdicts: [{ stageId: "fallback", guardrailId: "safe-fallback", verdict: "pass" }] })).status, "disabled");
+  assert.equal(requested, false);
+});
+
+test("guardrail reporting rejects a malformed operation ID and never reports a transport failure as success", async () => {
+  const client = guardrailClient(async () => new Response(null, { status: 500 }));
+  const verdicts = [{ stageId: "verification", guardrailId: "citation-claim-verification", verdict: "violation" }] as const;
+
+  const invalid = await client.reportGuardrails({ operationId: "not-a-uuid", verdicts });
+  assert.equal(invalid.status, "failed");
+  assert.equal("code" in invalid && invalid.code, "OPS_CONSOLE_INVALID_OPERATION_ID");
+
+  const serverError = await client.reportGuardrails({ operationId, verdicts });
+  assert.equal(serverError.status, "failed");
+  assert.equal("code" in serverError && serverError.code, "OPS_CONSOLE_HTTP_ERROR");
+});

@@ -1,6 +1,11 @@
 import { createHash, randomUUID as nodeRandomUUID } from "node:crypto";
 
+import type { PressAgentGuardrailVerdictRecord } from "@/domain/evaluation/pressAgentGuardrailSignals";
+
 export const PRESS_AGENT_WORKFLOW_ID = "presstuner.press-agent";
+
+/** Ops Console accepts at most 100 events per batch. */
+const MAX_GUARDRAIL_EVENTS = 100;
 
 type OperationEnvironment = Record<string, string | undefined>;
 type FetchImplementation = (
@@ -16,7 +21,7 @@ type OperationClientDependencies = {
 };
 
 type OperationSuccess = {
-  status: "registered" | "completed";
+  status: "registered" | "completed" | "reported";
   operationId: string;
   environment: string;
 };
@@ -140,7 +145,9 @@ async function request(args: {
     return {
       status: args.body.schemaVersion === "ops-console/operation-registration/v1"
         ? "registered"
-        : "completed",
+        : args.body.schemaVersion === "ops-console/operation-events-batch/v1"
+          ? "reported"
+          : "completed",
       operationId: args.operationId,
       environment: args.configuration.environment,
     };
@@ -206,6 +213,61 @@ export function createOpsConsoleOperationClient(
       });
     },
 
+    /**
+     * Reports guardrail verdicts for a finished operation. Ops Console attributes each
+     * verdict to the workflow stage it names, so its report can point at the stage that
+     * broke a rule. Reporting nothing is valid: an absent verdict reads as "not checked".
+     */
+    async reportGuardrails(args: {
+      operationId: string;
+      verdicts: readonly PressAgentGuardrailVerdictRecord[];
+      occurredAt?: Date;
+    }): Promise<OpsConsoleOperationResult> {
+      const configuration = readConfiguration(environment);
+      if (!configuration) return disabled(args.operationId);
+      if (!UUID_PATTERN.test(args.operationId)) {
+        return {
+          status: "failed",
+          code: "OPS_CONSOLE_INVALID_OPERATION_ID",
+          operationId: args.operationId,
+          environment: configuration.environment,
+        };
+      }
+      if (!args.verdicts.length) {
+        return { status: "reported", operationId: args.operationId, environment: configuration.environment };
+      }
+
+      const timestamp = (args.occurredAt ?? now()).toISOString();
+      return request({
+        configuration,
+        fetch: fetchImpl,
+        url: `${configuration.baseUrl}/api/ai-operations/v1/events`,
+        operationId: args.operationId,
+        body: {
+          schemaVersion: "ops-console/operation-events-batch/v1",
+          events: args.verdicts.slice(0, MAX_GUARDRAIL_EVENTS).map((entry) => ({
+            eventId: randomUUID(),
+            operationId: args.operationId,
+            occurredAt: timestamp,
+            observedAt: timestamp,
+            providerId: "opentelemetry",
+            providerRecordId: `guardrail:${entry.stageId}:${entry.guardrailId}`,
+            signal: {
+              kind: "quality",
+              metricId: "guardrail_verdict",
+              value: entry.verdict === "violation" ? 1 : 0,
+              unit: "violations",
+              sampleCount: 1,
+              direction: "lower_is_better",
+              stageId: entry.stageId,
+              guardrailId: entry.guardrailId,
+              verdict: entry.verdict,
+            },
+          })),
+        },
+      });
+    },
+
     async complete(args: {
       operationId: string;
       completedAt?: Date;
@@ -238,4 +300,5 @@ const defaultClient = createOpsConsoleOperationClient();
 
 export const beginOpsConsoleOperation = defaultClient.begin;
 export const completeOpsConsoleOperation = defaultClient.complete;
+export const reportOpsConsoleGuardrails = defaultClient.reportGuardrails;
 export const readOpsConsoleOperationEnvironment = defaultClient.environment;
