@@ -82,25 +82,18 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /aria-label=\{`[^`]*\$\{item\.node\.status\}/);
   assert.match(viewer, /tabIndex=\{item\.node\.id === selectedNode\.id \? 0 : -1\}/);
   assert.match(viewer, /aria-current=/);
-  assert.match(viewer, /aria-controls="workflow-node-detail"/);
+  assert.match(viewer, /aria-controls=\{`workflow-transition-\$\{item\.node\.id\}`\}/);
   assert.match(viewer, /onKeyDown=/);
   assert.match(viewer, /resolvePressRagWorkflowNavigationIndex/);
   assert.match(viewer, /scrollIntoView/);
   assert.match(viewer, /focus-visible:/);
   assert.match(viewer, /aria-live="polite"/);
-  assert.match(viewer, /selectedNode\.statusReason/);
-  assert.match(viewer, /selectedNode\.traversal/);
-  assert.match(viewer, /selectedNode\.latencyMs === null/);
+  assert.match(viewer, /node\.statusReason/);
+  assert.match(viewer, /node\.traversal/);
+  assert.match(viewer, /node\.latencyMs === null/);
   assert.match(viewer, /현재 위치/);
   assert.match(viewer, /이전 상태/);
   assert.match(viewer, /다음 상태/);
-  assert.match(viewer, /입력/);
-  assert.match(viewer, /정책·가드레일 결정/);
-  assert.match(viewer, /출력/);
-  assert.match(viewer, /selectedNode\.inspection\.input/);
-  assert.match(viewer, /selectedNode\.inspection\.evidence/);
-  assert.match(viewer, /selectedNode\.inspection\.decisions/);
-  assert.match(viewer, /selectedNode\.inspection\.output/);
   assert.match(viewer, /disabled=\{selectedNodeIndex === 0\}/);
   assert.match(viewer, /disabled=\{selectedNodeIndex === workflow\.nodes\.length - 1\}/);
   assert.match(viewer, /role="status"/);
@@ -110,12 +103,32 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /graphItems/);
   assert.match(viewer, /item\.edge\.decisionLabel/);
   assert.match(viewer, /item\.edge\.state/);
-  assert.match(viewer, /lg:flex-row/);
-  assert.match(viewer, /lg:overflow-x-auto/);
   assert.doesNotMatch(
     viewer,
     /fetch\(|\/api\/|use server|prisma|DATABASE_URL|OPENAI|process\.env|executePressRag|runAgent|mutation|setTimeout|setInterval|reactflow|react-flow|@xyflow|d3|cytoscape/,
   );
+});
+
+test("every recorded state transition stays expanded for debugging", async () => {
+  const viewer = await source("components/demo/PressRagWorkflowViewer.tsx");
+
+  // The graph wraps instead of scrolling sideways, so no state can hide off-screen.
+  assert.match(viewer, /flex-wrap/);
+  assert.doesNotMatch(viewer, /overflow-x-auto/);
+
+  // Each transition renders its own input, transition, output, and guardrail result.
+  assert.match(viewer, /workflow\.nodes\.map\(\(node, index\) => \(\s*<TransitionBlock/);
+  for (const panel of ["입력", "출력", "정책·가드레일 결정", "근거"]) {
+    assert.match(viewer, new RegExp(`title="${panel}"`));
+  }
+  for (const field of ["input", "output", "decisions", "evidence"]) {
+    assert.match(viewer, new RegExp(`node\\.inspection\\.${field}`));
+  }
+  assert.match(viewer, /전환/);
+  assert.match(viewer, /previousLabel/);
+  assert.match(viewer, /nextLabel/);
+  assert.match(viewer, /incoming\.decisionLabel/);
+  assert.match(viewer, /outgoing\.decisionLabel/);
 });
 
 test("the versioned contracts use recorded execution terminology and never expose raw operation joins", async () => {

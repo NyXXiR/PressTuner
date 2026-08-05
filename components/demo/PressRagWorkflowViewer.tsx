@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type {
   PressRagDemoViewModel,
@@ -10,6 +10,8 @@ import { resolvePressRagWorkflowNavigationIndex } from "@/domain/evaluation/pres
 import {
   projectPressRagWorkflowView,
   type PressRagWorkflowDetail,
+  type PressRagWorkflowEdge,
+  type PressRagWorkflowNode,
   type PressRagWorkflowNodeId,
   type PressRagWorkflowStatus,
 } from "@/domain/evaluation/pressRagWorkflowView";
@@ -38,6 +40,12 @@ const EDGE_STATE_COPY = {
   UNKNOWN: "확인 불가",
 } as const;
 
+const EDGE_STATE_TONE = {
+  TAKEN: "border-primary/50 bg-primary/10 text-primary",
+  NOT_TAKEN: "border-border bg-muted text-muted-foreground",
+  UNKNOWN: "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100",
+} as const;
+
 function StatusBadge({ status }: { status: PressRagWorkflowStatus }) {
   const copy = STATUS_COPY[status];
   return (
@@ -54,16 +62,107 @@ function InspectionPanel({ title, entries, tone }: {
 }) {
   return (
     <section className={`min-w-0 rounded-xl border p-3 ${tone}`} aria-label={title}>
-      <h4 className="text-sm font-black text-foreground">{title}</h4>
-      <dl className="mt-2 space-y-2 text-xs">
-        {entries.map((entry) => (
-          <div key={entry.key} className="rounded-lg border border-border/80 bg-background/80 p-3">
-            <dt className="font-bold text-muted-foreground">{entry.label}</dt>
-            <dd className="mt-1 whitespace-pre-wrap break-words leading-5 text-foreground">{entry.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <h5 className="text-xs font-black uppercase tracking-[0.12em] text-foreground">{title}</h5>
+      {entries.length ? (
+        <dl className="mt-2 space-y-2 text-xs">
+          {entries.map((entry) => (
+            <div key={entry.key} className="rounded-lg border border-border/80 bg-background/80 p-3">
+              <dt className="font-bold text-muted-foreground">{entry.label}</dt>
+              <dd className="mt-1 whitespace-pre-wrap break-words leading-5 text-foreground">{entry.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">기록 없음</p>
+      )}
     </section>
+  );
+}
+
+/**
+ * One state transition, expanded. Debugging a recorded run means comparing what entered a
+ * state, which edge the run actually took, what the guardrails decided, and what came out —
+ * so every transition stays on the page instead of hiding behind the current selection.
+ */
+function TransitionBlock({
+  node,
+  index,
+  total,
+  incoming,
+  outgoing,
+  previousLabel,
+  nextLabel,
+  selected,
+}: {
+  node: PressRagWorkflowNode;
+  index: number;
+  total: number;
+  incoming: PressRagWorkflowEdge | null;
+  outgoing: PressRagWorkflowEdge | null;
+  previousLabel: string | null;
+  nextLabel: string | null;
+  selected: boolean;
+}) {
+  return (
+    <article
+      id={`workflow-transition-${node.id}`}
+      aria-label={`상태 ${index + 1}/${total} ${node.label}`}
+      className={`min-w-0 scroll-mt-4 rounded-xl border p-4 ${selected ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-background"}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">상태 {index + 1} / {total}</p>
+          <h4 className="mt-1 break-words text-lg font-black text-foreground">{node.label}</h4>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground">
+            {node.latencyMs === null ? "지연 기록 없음" : `${node.latencyMs.toLocaleString("ko-KR")} ms`}
+          </span>
+          <StatusBadge status={node.status} />
+        </div>
+      </div>
+
+      {/* 전환: the node-edge-node hop this state sits in. */}
+      <div className="mt-3 rounded-lg border border-border bg-muted/50 p-3" aria-label={`${node.label} 상태 전환`}>
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">전환</p>
+        <ol className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <li className="font-semibold text-muted-foreground">{previousLabel ?? "시작"}</li>
+          <li aria-hidden="true" className="text-muted-foreground">→</li>
+          <li>
+            {incoming ? (
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-bold ${EDGE_STATE_TONE[incoming.state]}`}>
+                {incoming.decisionLabel} · {EDGE_STATE_COPY[incoming.state]} · {incoming.state}
+              </span>
+            ) : <span className="text-muted-foreground">진입 조건 없음</span>}
+          </li>
+          <li aria-hidden="true" className="text-muted-foreground">→</li>
+          <li className="font-black text-foreground">{node.label}</li>
+          <li aria-hidden="true" className="text-muted-foreground">→</li>
+          <li>
+            {outgoing ? (
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-bold ${EDGE_STATE_TONE[outgoing.state]}`}>
+                {outgoing.decisionLabel} · {EDGE_STATE_COPY[outgoing.state]} · {outgoing.state}
+              </span>
+            ) : <span className="text-muted-foreground">종료</span>}
+          </li>
+          <li aria-hidden="true" className="text-muted-foreground">→</li>
+          <li className="font-semibold text-muted-foreground">{nextLabel ?? "종료"}</li>
+        </ol>
+        <p className="mt-2 text-xs font-bold text-foreground">{node.traversal} · {TRAVERSAL_COPY[node.traversal]}</p>
+      </div>
+
+      <p className="mt-3 break-words rounded-lg bg-muted p-3 text-sm leading-6 text-foreground">{node.statusReason}</p>
+      {node.reasonCode ? (
+        <p className="mt-2 break-words text-xs text-muted-foreground"><code>{node.reasonCode}</code> · {node.reasonText}</p>
+      ) : null}
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <InspectionPanel title="입력" entries={node.inspection.input} tone="border-sky-500/30 bg-sky-500/5" />
+        <InspectionPanel title="출력" entries={node.inspection.output} tone="border-emerald-500/30 bg-emerald-500/5" />
+        <InspectionPanel title="정책·가드레일 결정" entries={node.inspection.decisions} tone="border-violet-500/30 bg-violet-500/5" />
+        <InspectionPanel title="근거" entries={node.inspection.evidence} tone="border-amber-500/30 bg-amber-500/5" />
+      </div>
+    </article>
   );
 }
 
@@ -87,6 +186,7 @@ export function PressRagWorkflowViewer({
   const workflow = projectPressRagWorkflowView(outcome, expectation, prompt);
   const [selectedNodeId, setSelectedNodeId] = useState<PressRagWorkflowNodeId>(workflow.initiallySelectedNodeId);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const shouldScrollRef = useRef(false);
   const selectedNode = workflow.nodes.find((node) => node.id === selectedNodeId) ?? workflow.nodes[0]!;
   const selectedNodeIndex = workflow.nodes.findIndex((node) => node.id === selectedNode.id);
   const incomingEdge = workflow.edges.find(({ target }) => target === selectedNode.id) ?? null;
@@ -98,6 +198,19 @@ export function PressRagWorkflowViewer({
       : [{ kind: "node" as const, node }];
   });
 
+  // Selecting a state brings its transition into view, without stealing scroll on first
+  // render or when the configuration toggle resets the selection.
+  useEffect(() => {
+    if (!shouldScrollRef.current) return;
+    shouldScrollRef.current = false;
+    document.getElementById(`workflow-transition-${selectedNode.id}`)?.scrollIntoView({ block: "nearest" });
+  }, [selectedNode.id]);
+
+  function selectNode(id: PressRagWorkflowNodeId) {
+    shouldScrollRef.current = true;
+    setSelectedNodeId(id);
+  }
+
   function selectConfiguration(next: Configuration) {
     setConfiguration(next);
     setSelectedNodeId(workflow.initiallySelectedNodeId);
@@ -106,7 +219,7 @@ export function PressRagWorkflowViewer({
   function moveToNode(index: number, focus = false) {
     const node = workflow.nodes[index];
     if (!node) return;
-    setSelectedNodeId(node.id);
+    selectNode(node.id);
     if (focus) {
       const button = buttonRefs.current[index];
       button?.focus();
@@ -128,7 +241,7 @@ export function PressRagWorkflowViewer({
           <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Recorded RAG workflow debugger</p>
           <h2 id="workflow-heading" className="mt-1 text-2xl font-black text-foreground">RAG 실행 워크플로 디버거</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            승인된 기록의 입력, 근거, 정책·가드레일 결정, 출력을 일곱 단계로 재생합니다.
+            승인된 기록의 상태 전이를 그래프로 보여주고, 각 전이의 입력·전환·출력·가드레일 결과를 아래에 모두 펼칩니다.
           </p>
         </div>
         <div className="grid min-w-0 grid-cols-2 gap-2" role="group" aria-label="워크플로 구성 선택">
@@ -165,35 +278,40 @@ export function PressRagWorkflowViewer({
         </p>
       </section>
 
-      <nav className="mt-6" aria-label="기록된 RAG 워크플로 단계">
-        <ol className="flex min-w-0 flex-col items-stretch gap-2 overflow-x-visible lg:flex-row lg:items-center lg:overflow-x-auto lg:pb-3">
+      {/* The whole state machine stays visible: nodes and edges wrap instead of scrolling
+          off to the right, so the shape of the run can be read at a glance. */}
+      <nav className="mt-6" aria-label="기록된 RAG 워크플로 상태 그래프">
+        <ol className="flex min-w-0 flex-wrap items-stretch gap-y-3">
           {graphItems.map((item) => {
             if (item.kind === "edge") {
               const active = incomingEdge?.id === item.edge.id || outgoingEdge?.id === item.edge.id;
               return (
-                <li key={item.edge.id} className={`flex shrink-0 flex-col items-center justify-center px-1 py-1 text-center text-[11px] font-bold ${active ? "text-primary" : "text-muted-foreground"}`}>
-                  <span aria-hidden="true" className="text-lg leading-none lg:hidden">↓</span>
-                  <span aria-hidden="true" className="hidden text-lg leading-none lg:block">→</span>
-                  <span>{item.edge.decisionLabel}</span>
-                  <span>{EDGE_STATE_COPY[item.edge.state]} · {item.edge.state}</span>
+                <li key={item.edge.id} className="flex w-full shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-1 text-center sm:w-[7.5rem]">
+                  <span aria-hidden="true" className={`text-lg leading-none ${active ? "text-primary" : "text-muted-foreground"}`}>
+                    <span className="sm:hidden">↓</span><span className="hidden sm:inline">→</span>
+                  </span>
+                  <span className={`text-[11px] font-bold leading-tight ${active ? "text-primary" : "text-muted-foreground"}`}>{item.edge.decisionLabel}</span>
+                  <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${EDGE_STATE_TONE[item.edge.state]}`}>
+                    {EDGE_STATE_COPY[item.edge.state]} · {item.edge.state}
+                  </span>
                 </li>
               );
             }
             const index = workflow.nodes.findIndex(({ id }) => id === item.node.id);
             const status = STATUS_COPY[item.node.status];
             return (
-              <li key={item.node.id} className="min-w-0 shrink-0 lg:w-52">
+              <li key={item.node.id} className="w-full min-w-0 shrink-0 sm:w-[11.5rem]">
                 <button
                   ref={(element) => { buttonRefs.current[index] = element; }}
                   id={`workflow-node-${item.node.id}`}
                   type="button"
                   tabIndex={item.node.id === selectedNode.id ? 0 : -1}
                   aria-current={item.node.id === selectedNode.id ? "step" : undefined}
-                  aria-controls="workflow-node-detail"
+                  aria-controls={`workflow-transition-${item.node.id}`}
                   aria-label={`${item.node.label}: ${item.node.status}, ${item.node.traversal}`}
-                  onClick={() => setSelectedNodeId(item.node.id)}
+                  onClick={() => selectNode(item.node.id)}
                   onKeyDown={(event) => handleNodeKeyDown(event, index)}
-                  className={`flex min-h-24 w-full flex-col items-start justify-between gap-2 rounded-xl border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${item.node.id === selectedNode.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-background hover:bg-muted/60"}`}
+                  className={`flex h-full min-h-24 w-full flex-col items-start justify-between gap-2 rounded-xl border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${item.node.id === selectedNode.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-background hover:bg-muted/60"}`}
                 >
                   <span className="break-words text-sm font-black text-foreground">{index + 1}. {item.node.label}</span>
                   <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${status.tone}`}>
@@ -206,44 +324,36 @@ export function PressRagWorkflowViewer({
         </ol>
       </nav>
 
-      <section
-        id="workflow-node-detail"
-        className="mt-6 min-w-0 rounded-xl border border-border bg-background p-4 sm:p-5"
-        aria-labelledby="workflow-detail-heading"
-        aria-live="polite"
-      >
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">선택한 단계</p>
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-          <h3 id="workflow-detail-heading" className="break-words text-xl font-black text-foreground">{selectedNode.label}</h3>
-          <StatusBadge status={selectedNode.status} />
-        </div>
-        <p className="mt-3 break-words rounded-lg bg-muted p-3 text-sm leading-6 text-foreground">{selectedNode.statusReason}</p>
-        {selectedNode.reasonCode ? (
-          <p className="mt-2 break-words text-xs text-muted-foreground"><code>{selectedNode.reasonCode}</code> · {selectedNode.reasonText}</p>
-        ) : null}
-        <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs" aria-label="현재 상태 전이">
-          <p className="font-black text-primary">현재 위치 {selectedNodeIndex + 1}/{workflow.nodes.length}</p>
-          <p className="mt-1 break-words text-muted-foreground">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+        <p className="min-w-0 text-xs" aria-live="polite">
+          <span className="font-black text-primary">현재 위치 {selectedNodeIndex + 1}/{workflow.nodes.length}</span>
+          <span className="ml-2 break-words text-muted-foreground">
             {incomingEdge ? `${incomingEdge.decisionLabel} (${incomingEdge.state}) → ` : "시작 → "}
             <strong className="text-foreground">{selectedNode.label}</strong>
             {outgoingEdge ? ` → ${outgoingEdge.decisionLabel} (${outgoingEdge.state})` : " → 종료"}
-          </p>
+          </span>
+        </p>
+        <div className="flex gap-2" role="group" aria-label="상태 전이 이동">
+          <button type="button" disabled={selectedNodeIndex === 0} onClick={() => moveToNode(selectedNodeIndex - 1, true)} className="min-h-11 rounded-lg border border-border bg-background px-3 py-2 text-sm font-black text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40">← 이전 상태</button>
+          <button type="button" disabled={selectedNodeIndex === workflow.nodes.length - 1} onClick={() => moveToNode(selectedNodeIndex + 1, true)} className="min-h-11 rounded-lg border border-primary bg-primary px-3 py-2 text-sm font-black text-primary-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40">다음 상태 →</button>
         </div>
-        <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg border border-border p-3"><dt className="text-muted-foreground">경로 상태</dt><dd className="mt-1 font-black text-foreground">{selectedNode.traversal} · {TRAVERSAL_COPY[selectedNode.traversal]}</dd></div>
-          <div className="rounded-lg border border-border p-3"><dt className="text-muted-foreground">기록 지연 시간</dt><dd className="mt-1 font-black text-foreground">{selectedNode.latencyMs === null ? "기록되지 않음" : `${selectedNode.latencyMs.toLocaleString("ko-KR")} ms`}</dd></div>
-        </dl>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <InspectionPanel title="입력" entries={selectedNode.inspection.input} tone="border-sky-500/30 bg-sky-500/5" />
-          <InspectionPanel title="근거" entries={selectedNode.inspection.evidence} tone="border-amber-500/30 bg-amber-500/5" />
-          <InspectionPanel title="정책·가드레일 결정" entries={selectedNode.inspection.decisions} tone="border-violet-500/30 bg-violet-500/5" />
-          <InspectionPanel title="출력" entries={selectedNode.inspection.output} tone="border-emerald-500/30 bg-emerald-500/5" />
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2" role="group" aria-label="상태 전이 이동">
-          <button type="button" disabled={selectedNodeIndex === 0} onClick={() => moveToNode(selectedNodeIndex - 1, true)} className="min-h-11 rounded-lg border border-border px-3 py-2 text-sm font-black text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">← 이전 상태</button>
-          <button type="button" disabled={selectedNodeIndex === workflow.nodes.length - 1} onClick={() => moveToNode(selectedNodeIndex + 1, true)} className="min-h-11 rounded-lg border border-primary bg-primary px-3 py-2 text-sm font-black text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">다음 상태 →</button>
-        </div>
-      </section>
+      </div>
+
+      <div id="workflow-node-detail" className="mt-4 grid min-w-0 gap-4">
+        {workflow.nodes.map((node, index) => (
+          <TransitionBlock
+            key={node.id}
+            incoming={workflow.edges.find(({ target }) => target === node.id) ?? null}
+            index={index}
+            nextLabel={workflow.nodes[index + 1]?.label ?? null}
+            node={node}
+            outgoing={workflow.edges.find(({ source }) => source === node.id) ?? null}
+            previousLabel={workflow.nodes[index - 1]?.label ?? null}
+            selected={node.id === selectedNode.id}
+            total={workflow.nodes.length}
+          />
+        ))}
+      </div>
     </section>
   );
 }
