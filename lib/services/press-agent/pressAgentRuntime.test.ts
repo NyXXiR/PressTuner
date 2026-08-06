@@ -130,3 +130,14 @@ test("Agent v2 instruments stable RAG boundaries and completes inside the active
   assert.match(source, /reportLangSmithRootFeedback\(derivePressAgentRagFeedback\(verdicts\)\)/);
   assert.match(source, /execute: async \(\) => \{[\s\S]*?await persistRunResult\(runRecord, result, startedAtMs, operationId\);/);
 });
+
+test("the optional debugger launch surface preserves default callers and uses durable workflow publishing", () => {
+  const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
+  assert.match(source, /launchSurface\?: "RAG_DEBUGGER_V1"/);
+  assert.match(source, /workflowObserver\?: PressAgentWorkflowStreamObserver/);
+  assert.match(source, /if \(args\.workflowObserver\)/);
+  assert.match(source, /if \(!hasPressAgentWorkflowObserver\(\)\) return null/);
+  assert.match(source, /persistDurablePressAgentWorkflowEvent/);
+  assert.match(source, /deriveGuardrailVerdicts/);
+  assert.match(source, /run: \{ status: warning \? "warning" : "succeeded"/);
+});

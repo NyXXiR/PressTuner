@@ -5,15 +5,15 @@ import test from "node:test";
 const ROOT = new URL("../", import.meta.url);
 async function source(path: string) { return readFile(new URL(path, ROOT), "utf8"); }
 
-test("the demo remains public, static, and server-projected", async () => {
+test("the public static shell mounts an authenticated live debugger before local examples", async () => {
   const [proxy, page, loader] = await Promise.all([
     source("proxy.ts"), source("app/demo/rag-test/page.tsx"), source("lib/services/evaluation/loadPressRagDemo.ts"),
   ]);
   assert.match(proxy, /"\/demo\/:path\*"/);
   assert.match(page, /export const dynamic = "force-static"/);
   assert.match(page, /loadPressRagDemo\(\)/);
-  assert.match(page, /변경값만 브라우저에서 로컬 판정/);
-  assert.match(page, /새 검색, 답변 생성, 모델\/API 호출은 없습니다/);
+  assert.match(page, /로그인한 팀은 실제 AI 실행을 관찰/);
+  assert.match(page, /고급 로컬 예제는 API 호출 없이/);
   assert.match(loader, /^import "server-only";/);
   assert.deepEqual([...loader.matchAll(/"(evals\/press-rag\/controlled-live\/[^"]+\.json)"/g)].map(([, path]) => path), [
     "evals/press-rag/controlled-live/dataset-v4.approved.json",
@@ -114,7 +114,7 @@ test("transitions, guardrails, provenance hashes, and JSON are collapsed details
   assert.match(demo, /데이터 출처와 기록 신원/);
 });
 
-test("client workbench introduces no live, persistence, or mutation dependency", async () => {
+test("local workbench stays deterministic while the live debugger is a separate explicit surface", async () => {
   const paths = [
     "components/demo/PressRagTestDemo.tsx", "components/demo/PressRagWorkflowViewer.tsx",
     "components/demo/PressRagExecutionIdentityStrip.tsx", "components/demo/PressRagStageComparison.tsx",
@@ -122,4 +122,16 @@ test("client workbench introduces no live, persistence, or mutation dependency",
   ];
   const combined = (await Promise.all(paths.map(source))).join("\n");
   assert.doesNotMatch(combined, /fetch\(|\/api\/|use server|@prisma|PrismaClient|DATABASE_URL|OPENAI|process\.env|executePressRag|runAgent|LangSmith|server action/i);
+  const [demo, live, existingRoute] = await Promise.all([
+    source("components/demo/PressRagTestDemo.tsx"),
+    source("components/demo/PressRagLiveDebugger.tsx"),
+    source("app/api/press/agent/runs/route.ts"),
+  ]);
+  assert.ok(demo.indexOf("<PressRagLiveDebugger") < demo.indexOf("고급 로컬 예제"));
+  assert.match(live, /AI 테스트 실행/);
+  assert.match(live, /setInterval\(\(\) => setNow/);
+  const timerLine = live.split("\n").find((line) => line.includes("setInterval")) ?? "";
+  assert.doesNotMatch(timerLine, /setEvents|receive\(/);
+  assert.match(existingRoute, /startPressAgentRun/);
+  assert.doesNotMatch(existingRoute, /rag-debug-runs/);
 });

@@ -82,6 +82,18 @@ import {
   PRESS_AGENT_V1_VERSION,
   restorePressAgentV1Checkpoint,
 } from "./pressAgentV1Runtime";
+import {
+  hasPressAgentWorkflowObserver,
+  persistPressAgentCancellationWorkflow,
+  persistPressAgentWorkflowEvent as persistDurablePressAgentWorkflowEvent,
+  type PressAgentWorkflowStreamObserver,
+  withPressAgentWorkflowObserver,
+} from "./pressAgentWorkflowEventService";
+
+async function persistPressAgentWorkflowEvent(args: Parameters<typeof persistDurablePressAgentWorkflowEvent>[0]) {
+  if (!hasPressAgentWorkflowObserver()) return null;
+  return persistDurablePressAgentWorkflowEvent(args);
+}
 
 export const PRESS_AGENT_VERSION = "press-agent-v2";
 export const PRESS_AGENT_MODEL =
@@ -333,6 +345,13 @@ async function executeToolStep<T>(args: {
       details: { stepId: step.id, toolName: args.toolName, effect: policy.effect },
     },
   });
+  if (args.toolName === "search_knowledge" || args.toolName === "compare_sources") {
+    await persistPressAgentWorkflowEvent({
+      teamId: args.context.teamId,
+      runId: args.context.runId,
+      event: { type: "stage.state", dedupeKey: "stage:retrieval:running", stage: { id: "retrieval-execution", state: "running", findingCode: null } },
+    });
+  }
   try {
     const output = await args.execute();
     await prisma.agentStep.update({
@@ -374,6 +393,13 @@ async function executeToolStep<T>(args: {
         details: { stepId: step.id, toolName: args.toolName, errorCode: normalized.code },
       },
     });
+    if (args.toolName === "search_knowledge" || args.toolName === "compare_sources") {
+      await persistPressAgentWorkflowEvent({
+        teamId: args.context.teamId,
+        runId: args.context.runId,
+        event: { type: "stage.state", dedupeKey: `stage:retrieval:failed:${step.id}`, stage: { id: "retrieval-execution", state: "warning", findingCode: "retrieval-tool-failed", metrics: { failedTools: 1 } } },
+      });
+    }
     throw error;
   }
 }
@@ -450,6 +476,39 @@ const searchKnowledgeTool = tool({
           conflictCount: result.evidenceDecision.conflicts.length,
           decisionInputHash: result.evidenceDecision.decisionInputHash,
         });
+        const selectedSources = result.citations.length;
+        const eligibleSources = result.evidenceDecision.eligibleSourceIds.length;
+        const conflicts = result.evidenceDecision.conflicts.length;
+        const findingCode = selectedSources === 0 ? "retrieval-empty" as const : conflicts > 0 ? "evidence-conflict" as const : null;
+        await persistPressAgentWorkflowEvent({
+          teamId: context.teamId,
+          runId: context.runId,
+          event: { type: "stage.state", dedupeKey: "stage:retrieval:complete", stage: { id: "retrieval-execution", state: selectedSources === 0 ? "warning" : "succeeded", findingCode, metrics: { selectedSources, eligibleSources } } },
+        });
+        await persistPressAgentWorkflowEvent({ teamId: context.teamId, runId: context.runId, event: { type: "edge.state", dedupeKey: "edge:request-retrieval:taken", edge: { id: "request-retrieval", source: "request-intake", target: "retrieval-execution", state: "taken", findingCode: null } } });
+        await persistPressAgentWorkflowEvent({ teamId: context.teamId, runId: context.runId, event: { type: "edge.state", dedupeKey: "edge:retrieval-evidence:moving", edge: { id: "retrieval-evidence", source: "retrieval-execution", target: "evidence-decision", state: "moving", findingCode } } });
+        await persistPressAgentWorkflowEvent({ teamId: context.teamId, runId: context.runId, event: { type: "stage.state", dedupeKey: "stage:evidence:running", stage: { id: "evidence-decision", state: "running", findingCode: null } } });
+        await persistPressAgentWorkflowEvent({
+          teamId: context.teamId,
+          runId: context.runId,
+          event: { type: "edge.state", dedupeKey: "edge:retrieval-evidence:taken", edge: { id: "retrieval-evidence", source: "retrieval-execution", target: "evidence-decision", state: findingCode ? "taken-with-violation" : "taken", findingCode } },
+        });
+        await persistPressAgentWorkflowEvent({
+          teamId: context.teamId,
+          runId: context.runId,
+          event: { type: "stage.state", dedupeKey: "stage:evidence:complete", stage: { id: "evidence-decision", state: conflicts > 0 ? "warning" : "succeeded", findingCode: conflicts > 0 ? "evidence-conflict" : selectedSources === 0 ? "insufficient-evidence" : null, metrics: { selectedSources, eligibleSources, conflicts } } },
+        });
+        await persistPressAgentWorkflowEvent({
+          teamId: context.teamId,
+          runId: context.runId,
+          event: { type: "edge.state", dedupeKey: "edge:evidence-response:moving", edge: { id: "evidence-response", source: "evidence-decision", target: "response-behavior", state: "moving", findingCode } },
+        });
+        await persistPressAgentWorkflowEvent({
+          teamId: context.teamId,
+          runId: context.runId,
+          event: { type: "stage.state", dedupeKey: "stage:response:running", stage: { id: "response-behavior", state: "running", findingCode: null } },
+        });
+        await persistPressAgentWorkflowEvent({ teamId: context.teamId, runId: context.runId, event: { type: "edge.state", dedupeKey: "edge:evidence-response:taken", edge: { id: "evidence-response", source: "evidence-decision", target: "response-behavior", state: findingCode ? "taken-with-violation" : "taken", findingCode } } });
         return result;
       },
     });
@@ -868,6 +927,10 @@ async function persistRunResult(
   // separately: a fallback that verifies clean must not erase the failure that caused it.
   let primaryClaimVerificationStatus: "PASS" | "FAIL" | null = null;
   if (finalOutput) {
+    await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:response:complete", stage: { id: "response-behavior", state: "succeeded", findingCode: null, metrics: { claims: finalOutput.claims.length, citations: finalOutput.sourceIds.length } } } });
+    await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:response-verification:moving", edge: { id: "response-verification", source: "response-behavior", target: "verification", state: "moving", findingCode: null } } });
+    await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:verification:running", stage: { id: "verification", state: "running", findingCode: null } } });
+    await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:response-verification:taken", edge: { id: "response-verification", source: "response-behavior", target: "verification", state: "taken", findingCode: null } } });
     const [retrievedSources, existingRun] = await Promise.all([
       prisma.agentRetrievedSource.findMany({
         where: { runId: runRecord.id },
@@ -972,6 +1035,21 @@ async function persistRunResult(
           details: { reason: "PRESS_AGENT_FINAL_CLAIM_VERIFICATION_FAILED" },
         },
       });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:verification:complete", stage: { id: "verification", state: "warning", findingCode: "claim-verification-failed", metrics: { claims: failedVerification.claims.length, supportedClaims: failedVerification.claims.filter((claim) => claim.status === "SUPPORTED").length } } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:verification-fallback:moving", edge: { id: "verification-fallback", source: "verification", target: "fallback", state: "moving", findingCode: "claim-verification-failed" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:fallback:running", stage: { id: "fallback", state: "running", findingCode: "claim-verification-failed" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:verification-fallback:taken", edge: { id: "verification-fallback", source: "verification", target: "fallback", state: "taken-with-violation", findingCode: "claim-verification-failed" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:fallback:complete", stage: { id: "fallback", state: "warning", findingCode: extractive ? "fallback-extractive" : "fallback-abstention" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:fallback-terminal:taken", edge: { id: "fallback-terminal", source: "fallback", target: "terminal-evaluation", state: "taken-with-violation", findingCode: "claim-verification-failed" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:running", stage: { id: "terminal-evaluation", state: "running", findingCode: null } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:verification-terminal:not-taken", edge: { id: "verification-terminal", source: "verification", target: "terminal-evaluation", state: "not-taken", findingCode: null } } });
+    } else {
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:verification:complete", stage: { id: "verification", state: "succeeded", findingCode: null, metrics: { claims: finalClaimVerification.claims.length, supportedClaims: finalClaimVerification.claims.length } } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:verification-terminal:taken", edge: { id: "verification-terminal", source: "verification", target: "terminal-evaluation", state: "taken", findingCode: null } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:running", stage: { id: "terminal-evaluation", state: "running", findingCode: null } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:verification-fallback:not-taken", edge: { id: "verification-fallback", source: "verification", target: "fallback", state: "not-taken", findingCode: null } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:fallback:skipped", stage: { id: "fallback", state: "skipped", findingCode: "fallback-not-needed" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:fallback-terminal:not-taken", edge: { id: "fallback-terminal", source: "fallback", target: "terminal-evaluation", state: "not-taken", findingCode: null } } });
     }
     if (!finalOutput) throw new Error("PRESS_AGENT_FINAL_OUTPUT_MISSING");
     await recordLangSmithRagObservation("response-behavior", {
@@ -1093,22 +1171,33 @@ async function persistRunResult(
       const failedToolCount = await prisma.agentStep.count({
         where: { runId: runRecord.id, kind: "TOOL", status: "FAILED" },
       });
+      const guardrailObservation = buildPressAgentCompletionObservation({
+        verifiableSourceCount,
+        finalCitationCount: finalOutput?.sourceIds.length ?? 0,
+        failedToolCount,
+        primaryClaimVerificationStatus,
+        fallbackMode: readVerificationFallbackMode(previousOutput),
+        postFallbackVerificationStatus: finalClaimVerification
+          ? finalClaimVerification.status === "PASS" ? "PASS" : "FAIL"
+          : null,
+        cannotAnswer: finalOutput?.cannotAnswer ?? null,
+      });
       await completePressAgentOperation({
         teamId: runRecord.teamId,
         runId: runRecord.id,
         operationId,
-        guardrails: buildPressAgentCompletionObservation({
-          verifiableSourceCount,
-          finalCitationCount: finalOutput?.sourceIds.length ?? 0,
-          failedToolCount,
-          primaryClaimVerificationStatus,
-          fallbackMode: readVerificationFallbackMode(previousOutput),
-          postFallbackVerificationStatus: finalClaimVerification
-            ? finalClaimVerification.status === "PASS" ? "PASS" : "FAIL"
-            : null,
-          cannotAnswer: finalOutput?.cannotAnswer ?? null,
-        }),
+        guardrails: guardrailObservation,
       });
+      const verdicts = deriveGuardrailVerdicts(guardrailObservation);
+      const warning = verdicts.some((verdict) => verdict.verdict === "violation");
+      if (failedToolCount > 0 && readVerificationFallbackMode(previousOutput) === null) {
+        await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:verification-terminal:recovered-tool-failure", edge: { id: "verification-terminal", source: "verification", target: "terminal-evaluation", state: "taken-with-violation", findingCode: "retrieval-tool-failed" } } });
+      }
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:complete", stage: { id: "terminal-evaluation", state: warning ? "warning" : "succeeded", findingCode: warning ? "guardrail-warning" : null, metrics: { failedTools: failedToolCount, citations: finalOutput?.sourceIds.length ?? 0 } } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: warning ? "warning" : "succeeded", findingCode: warning ? "guardrail-warning" : null } } });
+    } else {
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:approval", stage: { id: "terminal-evaluation", state: "blocked", findingCode: "approval-required" } } });
+      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: "blocked", findingCode: "approval-required" } } });
     }
   }
 }
@@ -1119,7 +1208,12 @@ export async function startPressAgentRun(args: {
   articleId?: string | null;
   prompt: string;
   retrievalConfigurationId?: PressKnowledgeRetrievalConfiguration["id"];
-}) {
+  launchSurface?: "RAG_DEBUGGER_V1";
+  workflowObserver?: PressAgentWorkflowStreamObserver;
+}): Promise<Awaited<ReturnType<typeof getPressAgentRun>>> {
+  if (args.workflowObserver) {
+    return withPressAgentWorkflowObserver(args.workflowObserver, () => startPressAgentRun({ ...args, workflowObserver: undefined }));
+  }
   assertAdversarialInput(args.prompt);
   let articleUpdatedAt: string | null = null;
   if (args.articleId) {
@@ -1145,6 +1239,7 @@ export async function startPressAgentRun(args: {
         prompt: args.prompt,
         articleUpdatedAt,
         retrievalConfigurationId: args.retrievalConfigurationId ?? "baseline-v1",
+        ...(args.launchSurface ? { launchSurface: args.launchSurface } : {}),
       },
       startedAt: new Date(),
       runtimePolicySnapshot: jsonValue(DEFAULT_PRESS_AGENT_RUNTIME_POLICY),
@@ -1193,6 +1288,11 @@ export async function startPressAgentRun(args: {
       details: { agentVersion: PRESS_AGENT_VERSION, model: PRESS_AGENT_MODEL },
     },
   });
+  if (args.launchSurface) {
+    await persistPressAgentWorkflowEvent({ teamId: args.teamId, runId: runRecord.id, event: { type: "run.started", dedupeKey: "run:started", run: { status: "running" } } });
+    await persistPressAgentWorkflowEvent({ teamId: args.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:intake:complete", stage: { id: "request-intake", state: "succeeded", findingCode: null } } });
+    await persistPressAgentWorkflowEvent({ teamId: args.teamId, runId: runRecord.id, event: { type: "edge.state", dedupeKey: "edge:request-retrieval:moving", edge: { id: "request-retrieval", source: "request-intake", target: "retrieval-execution", state: "moving", findingCode: null } } });
+  }
   const startedAtMs = Date.now();
   const userAbortController = new AbortController();
   activeRunAbortControllers.set(runRecord.id, userAbortController);
@@ -1303,6 +1403,10 @@ export async function startPressAgentRun(args: {
         details: { errorCode: normalized.code },
       },
     });
+    if (args.launchSurface) {
+      await persistPressAgentWorkflowEvent({ teamId: args.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:failed", stage: { id: "terminal-evaluation", state: "failed", findingCode: "runtime-failed" } } });
+      await persistPressAgentWorkflowEvent({ teamId: args.teamId, runId: runRecord.id, event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: "failed", findingCode: "runtime-failed" } } });
+    }
     await completePressAgentOperation({
       teamId: runRecord.teamId,
       runId: runRecord.id,
@@ -1515,6 +1619,7 @@ export async function cancelPressAgentRun(args: {
 }) {
   const now = new Date();
   let operationId: string | null = null;
+  let isRagDebuggerRun = false;
   await prisma.$transaction(async (tx) => {
     const current = await tx.agentRun.findFirst({
       where: {
@@ -1527,6 +1632,7 @@ export async function cancelPressAgentRun(args: {
     });
     if (!current) throw new Error("PRESS_AGENT_RUN_NOT_CANCELABLE");
     operationId = readPressAgentOperationId(current.input);
+    isRagDebuggerRun = Boolean(current.input && typeof current.input === "object" && !Array.isArray(current.input) && (current.input as Record<string, unknown>).launchSurface === "RAG_DEBUGGER_V1");
     const cancelRequestedStatus = transitionPressAgentRun(
       {
         status: current.status as PressAgentRunStatus,
@@ -1567,6 +1673,9 @@ export async function cancelPressAgentRun(args: {
       },
     });
   });
+  if (isRagDebuggerRun) {
+    await persistPressAgentCancellationWorkflow({ teamId: args.teamId, runId: args.runId });
+  }
   activeRunAbortControllers.get(args.runId)?.abort();
   await completePressAgentOperation({
     teamId: args.teamId,

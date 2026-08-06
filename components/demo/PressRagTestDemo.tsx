@@ -7,6 +7,7 @@ import type {
   PressRagRecordedOutcome,
 } from "@/domain/evaluation/pressRagDemoPresenter";
 import { PressRagWorkflowViewer } from "@/components/demo/PressRagWorkflowViewer";
+import { PressRagLiveDebugger } from "@/components/demo/PressRagLiveDebugger";
 
 const CHECK_LABELS: Readonly<Record<keyof PressRagRecordedOutcome["checks"], string>> = {
   retrieval: "기대 문서 검색",
@@ -188,6 +189,11 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8" aria-labelledby="scenario-picker-heading">
+      <PressRagLiveDebugger />
+      <div className="mt-10 border-t border-border pt-8">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">고급 로컬 예제</p>
+        <p className="mt-2 text-sm text-muted-foreground">아래 controlled-live 기록은 모델이나 API를 호출하지 않고 브라우저에서 결정론적으로 재평가합니다.</p>
+      </div>
       {/* Preset and repetition are controls for the workflow below, not sections of their
           own, so they sit in one bar and the graph stays in the first screen. */}
       <h2 id="scenario-picker-heading" className="sr-only">RAG 실행 디버깅 프리셋</h2>
