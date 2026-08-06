@@ -87,6 +87,49 @@ function flattenObject(obj: Record<string, unknown>, prefix = "", result: Record
   return result;
 }
 
+const SAFE_EVENT_ATTRIBUTE_KEYS: Record<CanonicalAiTelemetryEvent["eventKind"], readonly string[]> = {
+  "run.lifecycle": [],
+  "span.lifecycle": ["domain.node.id"],
+  "transition.evaluation": ["domain.edge.id", "domain.node.id"],
+  "human.approval": ["domain.edge.id"],
+  "edge.traversed": ["domain.edge.id", "domain.node.source", "domain.node.target"],
+  "dataset.item.captured": [],
+  "replay.started": [],
+  "experiment.outcome": [],
+  "regression.outcome": [],
+};
+
+function safeEventAttributes(event: CanonicalAiTelemetryEvent): Record<string, unknown> {
+  return Object.fromEntries(SAFE_EVENT_ATTRIBUTE_KEYS[event.eventKind].flatMap((key) => key in event.attributes ? [[key, event.attributes[key]]] : []));
+}
+
+/**
+ * OTLP is an operational index, not a second evidence store. Keep this switch
+ * exhaustive so new canonical payload fields remain private until reviewed.
+ */
+function safePayload(event: CanonicalAiTelemetryEvent): Record<string, unknown> {
+  switch (event.eventKind) {
+    case "run.lifecycle":
+      return { phase: event.payload.phase, reasonCode: event.payload.reasonCode };
+    case "span.lifecycle":
+      return { phase: event.payload.phase, spanKind: event.payload.spanKind, operationName: event.payload.operationName, nodeId: event.payload.nodeId, reasonCode: event.payload.reasonCode };
+    case "transition.evaluation":
+      return { edgeId: event.payload.edgeId, evaluator: event.payload.evaluator, score: event.payload.score, verdict: event.payload.verdict, evidenceOverflow: event.payload.evidenceOverflow, reasonCode: event.payload.reasonCode };
+    case "human.approval":
+      return { gateId: event.payload.gateId, phase: event.payload.phase, decision: event.payload.decision };
+    case "edge.traversed":
+      return { edgeId: event.payload.edgeId, sourceNodeId: event.payload.sourceNodeId, targetNodeId: event.payload.targetNodeId, verdict: event.payload.verdict, acknowledged: event.payload.acknowledged };
+    case "dataset.item.captured":
+      return { datasetId: event.payload.datasetId, datasetVersion: event.payload.datasetVersion, captureKind: event.payload.captureKind };
+    case "replay.started":
+      return {};
+    case "experiment.outcome":
+      return { datasetId: event.payload.datasetId, datasetVersion: event.payload.datasetVersion, configurationId: event.payload.configurationId, disposition: event.payload.disposition, checks: event.payload.checks };
+    case "regression.outcome":
+      return { datasetId: event.payload.datasetId, datasetVersion: event.payload.datasetVersion, baselineConfigurationId: event.payload.baselineConfigurationId, candidateConfigurationId: event.payload.candidateConfigurationId, disposition: event.payload.disposition, checks: event.payload.checks };
+  }
+}
+
 function mapSpanKind(eventKind: CanonicalAiTelemetryEvent["eventKind"], payload: CanonicalAiTelemetryEvent["payload"]): OtlpSpan["kind"] {
   if (eventKind === "run.lifecycle") return 1; // INTERNAL
   if (eventKind === "span.lifecycle") {
@@ -107,18 +150,16 @@ function mapStatus(status: CanonicalAiTelemetryEvent["status"]): OtlpStatus {
 }
 
 export function projectCanonicalEventToOtlpSpan(event: CanonicalAiTelemetryEvent): OtlpSpan {
-  const flattenedPayload = flattenObject(event.payload as Record<string, unknown>);
+  const flattenedPayload = flattenObject(safePayload(event));
   const attributes: OtlpKeyValue[] = [
     { key: "ai.telemetry.schema_version", value: { stringValue: event.schemaVersion } },
-    { key: "ai.telemetry.event_id", value: { stringValue: event.eventId } },
     { key: "ai.telemetry.event_kind", value: { stringValue: event.eventKind } },
     { key: "ai.telemetry.sequence", value: { intValue: String(event.sequence) } },
     { key: "ai.telemetry.execution_mode", value: { stringValue: event.executionMode } },
     { key: "service.process_id", value: { stringValue: event.scope.processId } },
     { key: "service.process_version", value: { stringValue: event.scope.processVersion } },
     { key: "service.registry_hash", value: { stringValue: event.scope.registryHash } },
-    { key: "service.attempt_id", value: { stringValue: event.scope.attemptId } },
-    ...Object.entries(event.attributes).map(([key, value]) => ({ key, value: toAnyValue(value) })),
+    ...Object.entries(safeEventAttributes(event)).map(([key, value]) => ({ key, value: toAnyValue(value) })),
     ...Object.entries(flattenedPayload).map(([key, value]) => ({ key: `ai.telemetry.payload.${key}`, value: toAnyValue(value) })),
   ];
 

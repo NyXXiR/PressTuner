@@ -3,7 +3,7 @@ import test from "node:test";
 import { CanonicalAiTelemetryEventSchema } from "./contracts";
 import { buildOtlpTraceRequest } from "./otlpProjection";
 
-function event(overrides: Partial<typeof base> = {}): typeof base {
+function event(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return { ...base, ...overrides };
 }
 
@@ -42,7 +42,7 @@ test("converts a canonical run event to an OTLP span with base64 IDs", () => {
   assert.equal(span.name, "run.lifecycle");
   assert.equal(span.kind, 1);
   assert.equal(span.status.code, 1);
-  assert.equal(span.startTimeUnixNano, String(BigInt(new Date("2026-08-06T12:00:00.000Z").getTime()) * 1_000_000n));
+  assert.equal(span.startTimeUnixNano, String(BigInt(new Date("2026-08-06T12:00:00.000Z").getTime()) * BigInt(1_000_000)));
   assert.equal(span.endTimeUnixNano, span.startTimeUnixNano);
 });
 
@@ -83,11 +83,36 @@ test("flattens payload and event attributes into OTLP attributes", () => {
   assert.ok(keys.has("domain.node.id"));
 });
 
-test("does not expose tenant or run identifiers in OTLP attributes", () => {
-  const parsed = CanonicalAiTelemetryEventSchema.parse(event());
+test("allowlists OTLP attributes without tenant, run, case, attempt, actor, or evidence values", () => {
+  const parsed = CanonicalAiTelemetryEventSchema.parse({
+    ...event(),
+    eventKind: "transition.evaluation",
+    parentSpanId: "fedcba9876543210",
+    status: "BLOCK",
+    scope: { ...base.scope, teamId: "tenant-secret", runId: "run-secret", attemptId: "attempt-secret", parentAttemptId: "parent-attempt-secret", caseId: "case-secret" },
+    attributes: { "domain.edge.id": "edge-safe", "domain.node.id": "node-safe", "domain.command.id_hash": "command-secret" },
+    payload: {
+      edgeId: "edge-safe",
+      evaluator: { id: "grounding", version: "1.0.0" },
+      score: { value: 0, label: "BLOCK" },
+      verdict: "BLOCK",
+      evidence: [{ sourceField: "private-field", factKind: "TEXT", factValue: "raw-evidence-secret", factHash: "a".repeat(64), matchStatus: "MISSING", reasonCode: "MISSING_FACT" }],
+      evidenceOverflow: 0,
+      reasonCode: "MISSING_FACT",
+    },
+  });
   const request = buildOtlpTraceRequest([parsed]);
   const span = request.resourceSpans[0]!.scopeSpans[0]!.spans[0]!;
   const keys = new Set(span.attributes.map((attr) => attr.key));
   assert.ok(!keys.has("service.team_id"));
   assert.ok(!keys.has("service.run_id"));
+  assert.ok(!keys.has("service.attempt_id"));
+  assert.ok(!keys.has("ai.telemetry.event_id"));
+  assert.ok(!keys.has("domain.command.id_hash"));
+  assert.ok(keys.has("domain.edge.id"));
+  assert.ok(keys.has("ai.telemetry.payload.evaluator.id"));
+  const serialized = JSON.stringify(request);
+  for (const secret of ["tenant-secret", "run-secret", "attempt-secret", "parent-attempt-secret", "case-secret", "command-secret", "private-field", "raw-evidence-secret"]) {
+    assert.doesNotMatch(serialized, new RegExp(secret));
+  }
 });

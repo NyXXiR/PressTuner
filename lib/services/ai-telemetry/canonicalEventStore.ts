@@ -14,7 +14,7 @@ export async function appendCanonicalEvent(client: StoreClient, input: Canonical
   const existing = await client.agentRuntimeAuditEvent.findUnique({ where: { canonicalEventId: proposed.eventId }, select: { details: true } });
   if (existing) return parseCanonicalAiTelemetryEvent(existing.details);
 
-  await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${proposed.scope.teamId}:${proposed.traceId}`}))`;
+  await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${proposed.scope.teamId}:${proposed.traceId}`}))`;
   const duplicate = await client.agentRuntimeAuditEvent.findUnique({ where: { canonicalEventId: proposed.eventId }, select: { details: true } });
   if (duplicate) return parseCanonicalAiTelemetryEvent(duplicate.details);
   const latest = await client.agentRuntimeAuditEvent.findFirst({ where: { teamId: proposed.scope.teamId, traceId: proposed.traceId, sequence: { not: null } }, orderBy: { sequence: "desc" }, select: { sequence: true } });

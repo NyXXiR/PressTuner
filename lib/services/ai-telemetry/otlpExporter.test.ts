@@ -59,18 +59,18 @@ test("exportRunTelemetry samples out runs below the sample rate", async () => {
 });
 
 test("exportRunTelemetry sends OTLP trace request and returns exported span count", async () => {
-  let captured: { url: string; init: RequestInit } | null = null;
+  const captured: { value?: { url: string; init: RequestInit } } = {};
   const exporter = createOtlpExporter({
     environment: { OPS_CONSOLE_OTLP_TRACES_URL: "https://ops.test/v1/traces", OPS_CONSOLE_AI_OPERATIONS_WRITE_KEY: "write-key" },
     readTelemetry: async () => [baseEvent],
-    fetch: async (url, init) => { captured = { url: String(url), init: init as RequestInit }; return new Response(null, { status: 200 }); },
+    fetch: async (url, init) => { captured.value = { url: String(url), init: init as RequestInit }; return new Response(null, { status: 200 }); },
   });
   const result = await exporter.exportRunTelemetry({ teamId: "team", runId: "run" });
   assert.deepEqual(result, { status: "exported", spans: 1 });
-  assert.equal(captured?.url, "https://ops.test/v1/traces");
-  assert.equal((captured?.init.headers as Record<string, string>).authorization, "Bearer write-key");
-  assert.equal((captured?.init.headers as Record<string, string>)["content-type"], "application/json");
-  const body = JSON.parse(String(captured?.init.body));
+  assert.equal(captured.value?.url, "https://ops.test/v1/traces");
+  assert.equal((captured.value?.init.headers as Record<string, string>).authorization, "Bearer write-key");
+  assert.equal((captured.value?.init.headers as Record<string, string>)["content-type"], "application/json");
+  const body = JSON.parse(String(captured.value?.init.body));
   assert.equal(body.resourceSpans[0].scopeSpans[0].spans.length, 1);
 });
 

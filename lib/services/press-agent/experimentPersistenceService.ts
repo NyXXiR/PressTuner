@@ -53,7 +53,7 @@ export async function persistAgentExperimentCycle(args: {
   const evaluation = evaluateAgentExperiment(artifact, "PENDING");
 
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${args.teamId}:agent-experiment-cycle`}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${args.teamId}:agent-experiment-cycle`}))`;
 
     const configurations = await Promise.all(
       (["baseline", "candidate"] as const).map((role) => {

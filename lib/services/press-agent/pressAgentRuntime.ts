@@ -69,6 +69,7 @@ import {
   readOpsConsoleOperationEnvironment,
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
+import { finalizeProcessRunObservability, PRESS_AI_DEBUGGER_LAUNCH_SURFACE } from "@/lib/services/press-ai-debugger/processPersistence";
 import {
   buildPressAgentCompletionObservation,
   deriveGuardrailVerdicts,
@@ -1662,6 +1663,7 @@ export async function cancelPressAgentRun(args: {
   const now = new Date();
   let operationId: string | null = null;
   let isRagDebuggerRun = false;
+  let isProcessDebuggerRun = false;
   await prisma.$transaction(async (tx) => {
     const current = await tx.agentRun.findFirst({
       where: {
@@ -1674,7 +1676,9 @@ export async function cancelPressAgentRun(args: {
     });
     if (!current) throw new Error("PRESS_AGENT_RUN_NOT_CANCELABLE");
     operationId = readPressAgentOperationId(current.input);
-    isRagDebuggerRun = Boolean(current.input && typeof current.input === "object" && !Array.isArray(current.input) && (current.input as Record<string, unknown>).launchSurface === "RAG_DEBUGGER_V1");
+    const launchSurface = current.input && typeof current.input === "object" && !Array.isArray(current.input) ? (current.input as Record<string, unknown>).launchSurface : null;
+    isRagDebuggerRun = launchSurface === "RAG_DEBUGGER_V1";
+    isProcessDebuggerRun = launchSurface === PRESS_AI_DEBUGGER_LAUNCH_SURFACE;
     const cancelRequestedStatus = transitionPressAgentRun(
       {
         status: current.status as PressAgentRunStatus,
@@ -1718,13 +1722,13 @@ export async function cancelPressAgentRun(args: {
   if (isRagDebuggerRun) {
     await persistPressAgentCancellationWorkflow({ teamId: args.teamId, runId: args.runId });
   }
+  if (isProcessDebuggerRun) {
+    await finalizeProcessRunObservability({ teamId: args.teamId, runId: args.runId, processId: "press-creation", status: "cancelled", findingCode: "user-cancelled" });
+  }
   activeRunAbortControllers.get(args.runId)?.abort();
-  await completePressAgentOperation({
-    teamId: args.teamId,
-    runId: args.runId,
-    operationId,
-    completedAt: now,
-  });
+  if (!isProcessDebuggerRun) {
+    await completePressAgentOperation({ teamId: args.teamId, runId: args.runId, operationId, completedAt: now });
+  }
   return getPressAgentRun(args);
 }
 

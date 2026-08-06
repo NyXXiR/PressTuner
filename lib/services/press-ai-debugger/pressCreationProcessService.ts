@@ -8,7 +8,7 @@ import { normalizeBriefUseCase } from "@/lib/services/article/generationUseCases
 import { reviewUseCase, rePolishUseCase } from "@/lib/services/article/reviewUseCases";
 import { prisma } from "@/lib/prisma";
 import type { PressAiDependencyOverrides } from "@/lib/services/article/pressAiDependencies";
-import { createPressProcessRun, failProcessRun, persistProcessEvent, setProcessWaiting, updateProcessStep } from "./processPersistence";
+import { createPressProcessRun, failProcessRun, finalizeProcessRunObservability, persistProcessEvent, setProcessWaiting, updateProcessStep } from "./processPersistence";
 
 export const StartPressCreationProcessSchema = z.object({ processId: z.literal("press-creation"), rawText: z.string().min(1).max(12_000), tone: z.enum(["formal", "neutral", "friendly"]), reviewInstruction: z.string().max(1000).default("사실과 주의 문구가 보존됐는지 검토해 주세요."), rewriteInstruction: z.string().max(1000).default("선택한 리뷰 의견만 반영해 주세요."), acknowledgedQuotaAndArticleCreation: z.literal(true) }).strict();
 export const ContinuePressCreationProcessSchema = z.discriminatedUnion("action", [
@@ -44,7 +44,7 @@ async function edgeTaken(teamId: string, runId: string, edgeId: string, observer
 
 export async function startPressCreationProcess(args: { teamId: string; userId: string; input: z.infer<typeof StartPressCreationProcessSchema>; observer?: ProcessObserver }, overrides: Partial<Dependencies> = {}) {
   const dependencies: Dependencies = { ...defaults, ...overrides };
-  const run = await createPressProcessRun({ teamId: args.teamId, userId: args.userId, processId: "press-creation", input: args.input });
+  const run = await createPressProcessRun({ teamId: args.teamId, userId: args.userId, processId: "press-creation", input: args.input, enableObservability: true });
   await persistProcessEvent({ teamId: args.teamId, runId: run.id, processId: "press-creation", event: { type: "run.started", dedupeKey: "run:started", run: { status: "running" } }, observer: args.observer });
   let articleId: string | undefined;
   try {
@@ -104,7 +104,7 @@ export async function continuePressCreationProcess(args: { teamId: string; userI
       const output = record(rewritten); const title = output.revisedTitle ?? output.title; const plain = output.revisedPlain ?? output.plain;
       await nodeCompleted(args.teamId, run.id, nodeId, { ...output, title, plain, qualityChecks: evaluatePressDraftQuality(String(plain ?? "")) }, args.observer);
       await prisma.agentRun.update({ where: { id: run.id }, data: { status: "COMPLETED", completedAt: new Date(), output: { cursor: nodeId, articleId: run.articleId, title, plain } } });
-      await persistProcessEvent({ teamId: args.teamId, runId: run.id, processId: "press-creation", event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: "succeeded", findingCode: null } }, observer: args.observer });
+      await finalizeProcessRunObservability({ teamId: args.teamId, runId: run.id, processId: "press-creation", status: "succeeded", observer: args.observer });
     }
     return { runId: run.id, articleId: run.articleId };
   } catch (error) { await failProcessRun({ teamId: args.teamId, runId: run.id, processId: "press-creation", nodeId, error, articleId: run.articleId, observer: args.observer }); throw error; }

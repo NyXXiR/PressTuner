@@ -301,7 +301,7 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     return `${lower.slice(0, 8)}-${lower.slice(8, 12)}-${lower.slice(12, 16)}-${lower.slice(16, 20)}-${lower.slice(20, 32)}`;
   }
 
-  async function trace<T>(args: { operationId: string | null; traceId: string | null; workflowId: string; workflowVersion: string; environment: string; phase: Phase; execute: () => Promise<T> }): Promise<T> {
+  async function trace<T>(args: { operationId: string | null; traceId?: string | null; workflowId: string; workflowVersion: string; environment: string; phase: Phase; execute: () => Promise<T> }): Promise<T> {
     if (!args.operationId || !UUID_PATTERN.test(args.operationId)) return args.execute();
     const active = readConfiguredClient();
     if (!active) return args.execute();
