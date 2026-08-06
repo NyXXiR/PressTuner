@@ -3,9 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { presentPressRagDemo } from "./pressRagDemoPresenter";
+import { PRESS_AGENT_GUARDRAIL_STAGE_IDS } from "./pressAgentGuardrailSignals";
 import {
   PRESS_RAG_EXECUTION_SUMMARY_VERSION,
   PRESS_RAG_WORKFLOW_SCHEMA_VERSION,
+  PRESS_RAG_WORKFLOW_STAGE_IDS,
   projectPressRagWorkflowView,
   type PressRagWorkflowView,
 } from "./pressRagWorkflowView";
@@ -23,6 +25,13 @@ const NODE_IDS = [
 const EDGE_IDS = NODE_IDS.slice(0, -1).map(
   (source, index) => `${source}--${NODE_IDS[index + 1]}`,
 );
+
+test("the five runtime-compatible stage IDs remain aligned", () => {
+  assert.deepEqual(
+    PRESS_RAG_WORKFLOW_STAGE_IDS.filter((id) => id !== "request-intake" && id !== "terminal-evaluation"),
+    PRESS_AGENT_GUARDRAIL_STAGE_IDS,
+  );
+});
 
 async function fixture(name: string) {
   return JSON.parse(await readFile(new URL(name, ROOT), "utf8")) as unknown;

@@ -50,16 +50,31 @@ test("every node and edge always exposes the same five guardrails in a fixed ord
   }
 });
 
-test("exactly one guardrail gates each edge and it names the transition condition", async () => {
+test("edge traversal and its source-stage gate verdict remain independent", async () => {
   for (const { workflow, guardrails } of await projectAll()) {
     for (const edge of workflow.edges) {
       const gates = guardrails.byEdge[edge.id]!.filter((lane) => lane.gate);
       assert.equal(gates.length, 1, `${edge.id} must have exactly one gating guardrail`);
       assert.match(gates[0]!.expected, new RegExp(edge.decisionLabel));
-      // A taken edge cannot be reported as a violation of its own gate.
-      if (edge.state === "TAKEN") assert.equal(gates[0]!.verdict, "PASS");
+      assert.ok(["TAKEN", "NOT_TAKEN", "UNKNOWN"].includes(edge.state));
+      const sourceLane = guardrails.byNode[edge.source]!.find(
+        ({ guardrailId }) => guardrailId === gates[0]!.guardrailId,
+      );
+      assert.equal(
+        gates[0]!.verdict,
+        sourceLane?.verdict === "PASS" || sourceLane?.verdict === "VIOLATION"
+          ? sourceLane.verdict
+          : "NOT_EVALUABLE",
+      );
     }
   }
+});
+
+test("a traversed edge preserves a source-stage violation", async () => {
+  const projections = await projectAll();
+  const pair = projections.flatMap(({ workflow, guardrails }) => workflow.edges.map((edge) => ({ edge, guardrails })))
+    .find(({ edge, guardrails }) => edge.state === "TAKEN" && guardrails.byEdge[edge.id]!.some(({ gate, verdict }) => gate && verdict === "VIOLATION"));
+  assert.ok(pair, "fixtures should include TAKEN + VIOLATION");
 });
 
 test("no lane is ever blank: every result carries expected, observed, and a reason", async () => {

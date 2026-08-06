@@ -93,7 +93,7 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /disabled=\{nodeIndex <= 0\}/);
   assert.match(viewer, /disabled=\{nodeIndex === workflow\.nodes\.length - 1\}/);
   assert.match(viewer, /role="status"/);
-  assert.match(viewer, /workflow\.summary\.recordedExecutionRef/);
+  assert.match(viewer, /recordedOutcome\.recordedExecutionRef/);
   assert.match(viewer, /edge\.decisionLabel/);
   assert.match(viewer, /edge\.state/);
   assert.doesNotMatch(
@@ -110,8 +110,8 @@ test("the graph keeps every state visible and makes edges selectable", async () 
   assert.doesNotMatch(viewer, /overflow-x-auto/);
 
   // A transition condition is itself a guardrail judgment, so edges are selectable too.
-  assert.match(viewer, /setSelection\(\{ kind: "edge", id: edge\.id \}\)/);
-  assert.match(viewer, /setSelection\(\{ kind: "node", id: node\.id \}\)/);
+  assert.match(viewer, /select\(\{ kind: "edge", id: edge\.id \}\)/);
+  assert.match(viewer, /select\(\{ kind: "node", id: node\.id \}\)/);
   assert.match(viewer, /guardrails\.byEdge\[selection\.id\]/);
   assert.match(viewer, /guardrails\.byNode\[selection\.id\]/);
 });
@@ -121,13 +121,13 @@ test("the selected node or edge drives five fixed guardrail lanes", async () => 
   const guardrails = await source("domain/evaluation/pressRagGuardrails.ts");
 
   assert.match(viewer, /PRESS_RAG_GUARDRAIL_IDS/);
-  assert.match(viewer, /results\.map\(\(result\) => \(/);
+  assert.match(viewer, /results\.map\(\(result\) => <GuardrailLane/);
   assert.match(viewer, /<GuardrailLane/);
   // Each lane states the rule, the expectation, what was observed, and why it was judged.
   for (const field of ["result.label", "result.rule", "result.expected", "result.observed", "result.reason"]) {
     assert.match(viewer, new RegExp(field.replace(".", "\\.")));
   }
-  assert.match(viewer, /재검증/);
+  assert.doesNotMatch(viewer, /재검증 완료|기록 재적용/);
   assert.match(viewer, /전이 조건/);
 
   // The five guardrails match the recorded execution summary vocabulary.
@@ -139,6 +139,29 @@ test("the selected node or edge drives five fixed guardrail lanes", async () => 
   }
   assert.match(guardrails, /press-rag-guardrail-view\/v1/);
   assert.doesNotMatch(guardrails, /fetch\(|process\.env|prisma|server-only/);
+});
+
+test("the sandbox exposes structured local editing, read-only JSON, provenance, and reset boundaries", async () => {
+  const viewer = await source("components/demo/PressRagWorkflowViewer.tsx");
+  const panel = await source("components/demo/PressRagWorkflowSandboxPanel.tsx");
+  const client = await source("components/demo/PressRagTestDemo.tsx");
+  const sandbox = await source("domain/evaluation/pressRagWorkflowSandbox.ts");
+  const combined = `${viewer}\n${panel}\n${client}\n${sandbox}`;
+
+  assert.match(viewer, /기록 모드/);
+  assert.match(viewer, /테스트 모드/);
+  assert.match(panel, /structured stage form/);
+  assert.match(panel, /이 단계부터 실행/);
+  assert.match(panel, /테스트 초기화/);
+  assert.match(panel, /기록\/테스트 비교/);
+  assert.match(panel, /고급 JSON \(읽기 전용\)/);
+  assert.match(panel, /<pre/);
+  assert.doesNotMatch(panel, /JSON[^\n]*<textarea|<textarea[^\n]*JSON/);
+  assert.match(viewer, /Asia\/Seoul/);
+  assert.match(viewer, /아티팩트 실행 window/);
+  assert.match(viewer, /resolvePressRagSandboxStageId/);
+  assert.match(client, /key=\{`\$\{scenario\.caseId\}-\$\{selectedRun\.runIndex\}`\}/);
+  assert.doesNotMatch(combined, /fetch\(|\/api\/|use server|@prisma|PrismaClient|process\.env|executePressRag|runAgent|LangSmith|Ops Console|server action/i);
 });
 
 test("the versioned contracts use recorded execution terminology and never expose raw operation joins", async () => {

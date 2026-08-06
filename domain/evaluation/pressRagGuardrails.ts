@@ -315,25 +315,23 @@ function edgeLanes(
   return PRESS_RAG_GUARDRAIL_IDS.map((id) => {
     if (id !== gateId) return notApplicable(id, notGate);
 
-    // The gate reuses the source stage's verdict for the same guardrail: the edge is taken
-    // because that guardrail resolved, so an unresolved guardrail explains an untaken edge.
+    // Traversal describes what the recording did; the gate verdict independently describes
+    // whether the source-stage guardrail was satisfied. A taken edge may therefore violate it.
     const source = nodeResults.find((entry) => entry.guardrailId === id);
-    const verdict: PressRagGuardrailVerdict = state === "TAKEN"
-      ? "PASS"
-      : source && source.verdict === "VIOLATION"
-        ? "VIOLATION"
-        : "NOT_EVALUABLE";
+    const verdict: PressRagGuardrailVerdict = source?.verdict === "PASS" || source?.verdict === "VIOLATION"
+      ? source.verdict
+      : "NOT_EVALUABLE";
 
     return result(
       id,
       verdict,
       `${decisionLabel} — ${sourceLabel}에서 ${targetLabel}로 넘어갈 조건`,
       `${state}${source ? ` · 출발 상태 판정 ${source.verdict}` : ""}`,
-      state === "TAKEN"
-        ? "조건이 성립해 이 전이를 통과했습니다."
-        : source?.verdict === "VIOLATION"
-          ? `${sourceLabel}에서 이 가드레일이 위반돼 전이가 성립하지 않았습니다.`
-          : `${sourceLabel}의 판정 기록이 없어 전이 여부를 확인할 수 없습니다.`,
+      source?.verdict === "VIOLATION"
+        ? `${sourceLabel}에서 가드레일 위반이 관측됐으며 실제 전이 ${state}와 독립적으로 표시합니다.`
+        : source?.verdict === "PASS"
+          ? `${sourceLabel}의 가드레일은 통과했고 실제 전이는 ${state}입니다.`
+          : `${sourceLabel}의 가드레일 판정 기록이 없어 실제 전이 ${state}와 별도로 평가할 수 없습니다.`,
       true,
     );
   });

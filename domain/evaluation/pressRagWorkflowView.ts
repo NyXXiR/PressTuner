@@ -72,6 +72,7 @@ export type PressRagWorkflowEdge = Readonly<{
   target: PressRagWorkflowNodeId;
   decisionLabel: string;
   state: "TAKEN" | "NOT_TAKEN" | "UNKNOWN";
+  inspection: PressRagWorkflowInspection;
 }>;
 
 export type PressRagExecutionSummaryFactKey =
@@ -384,8 +385,26 @@ function edge(
   target: PressRagWorkflowNodeId,
   decisionLabel: string,
   state: PressRagWorkflowEdge["state"],
+  sourceInspection: PressRagWorkflowInspection,
+  targetInspection: PressRagWorkflowInspection,
 ): PressRagWorkflowEdge {
-  return { id: `${source}--${target}`, source, target, decisionLabel, state };
+  return {
+    id: `${source}--${target}`,
+    source,
+    target,
+    decisionLabel,
+    state,
+    inspection: {
+      input: sourceInspection.input,
+      evidence: sourceInspection.evidence,
+      decisions: [
+        ...sourceInspection.decisions,
+        detail("edge.traversal", "전이 상태", state),
+        detail("edge.condition", "전이 조건", decisionLabel),
+      ],
+      output: targetInspection.output,
+    },
+  };
 }
 
 function edgeState(source: PressRagWorkflowNode, target: PressRagWorkflowNode): PressRagWorkflowEdge["state"] {
@@ -545,7 +564,14 @@ export function projectPressRagWorkflowView(
   const labels = ["기록 재생", "검색 근거 평가", "응답 분기 선택", "주장 검증 여부", "안전 대체 여부", "독립 평가"];
   const edges = nodes.slice(0, -1).map((source, index) => {
     const target = nodes[index + 1]!;
-    return edge(source.id, target.id, labels[index]!, edgeState(source, target));
+    return edge(
+      source.id,
+      target.id,
+      labels[index]!,
+      edgeState(source, target),
+      source.inspection,
+      target.inspection,
+    );
   });
 
   return deepFreeze({

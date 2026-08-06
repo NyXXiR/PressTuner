@@ -222,14 +222,25 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
         </div>
       </div>
 
+      <section className="mt-3 rounded-xl border border-border bg-card p-4" aria-labelledby="provenance-heading">
+        <h2 id="provenance-heading" className="text-sm font-black text-foreground">승인 데이터 출처</h2>
+        <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+          <div><dt className="font-bold text-muted-foreground">데이터셋 아티팩트</dt><dd className="mt-1 font-mono">{viewModel.evidence.datasetArtifact}</dd></div>
+          <div><dt className="font-bold text-muted-foreground">버전</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.datasetVersion}</dd></div>
+          <div><dt className="font-bold text-muted-foreground">승인 시각</dt><dd className="mt-1"><time dateTime={viewModel.evidence.approvedAt}>{viewModel.evidence.approvedAt}</time></dd></div>
+        </dl>
+      </section>
+
       <PressRagWorkflowViewer
         key={`${scenario.caseId}-${selectedRun.runIndex}`}
         baseline={selectedRun.baseline}
         candidate={selectedRun.candidate}
         expectation={scenario.expectation}
         prompt={scenario.prompt}
-        baselineLabel={viewModel.evidence.baseline.label}
-        candidateLabel={viewModel.evidence.candidate.label}
+        caseId={scenario.caseId}
+        repetitionCount={scenario.runs.length}
+        baselineEvidence={viewModel.evidence.baseline}
+        candidateEvidence={viewModel.evidence.candidate}
       />
 
       {/* The expected behavior is what the verdicts were judged against, so it reads after

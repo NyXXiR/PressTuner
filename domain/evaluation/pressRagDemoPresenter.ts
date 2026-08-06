@@ -9,6 +9,7 @@ import {
   PRESS_RAG_RECORDED_EXECUTION_REF_VERSION,
 } from "./pressRagRecordedExecutionIdentity";
 import { scanSensitiveText } from "./sensitiveDataRedaction";
+import { derivePressRagChecks } from "./pressRagWorkflowSandbox";
 
 type DemoPreset =
   | "retrieval"
@@ -16,7 +17,7 @@ type DemoPreset =
   | "abstention"
   | "conflict"
   | "safety";
-type CheckStatus = "MATCH" | "MISMATCH" | "NOT_EVALUABLE";
+export type PressRagCheckStatus = "MATCH" | "MISMATCH" | "NOT_EVALUABLE";
 type OutcomeStatus = "COMPLETED" | "FAILED";
 
 export type PressRagRecordedOutcome = Readonly<{
@@ -78,28 +79,33 @@ export type PressRagRecordedOutcome = Readonly<{
     latencyMs: number;
   }>[];
   checks: Readonly<{
-    retrieval: CheckStatus;
-    answerability: CheckStatus;
-    citations: CheckStatus;
-    forbiddenSources: CheckStatus;
-    verification: CheckStatus;
-    expectedTools: CheckStatus;
+    retrieval: PressRagCheckStatus;
+    answerability: PressRagCheckStatus;
+    citations: PressRagCheckStatus;
+    forbiddenSources: PressRagCheckStatus;
+    verification: PressRagCheckStatus;
+    expectedTools: PressRagCheckStatus;
   }>;
 }>;
 
 export type PressRagDemoViewModel = Readonly<{
   evidence: Readonly<{
+    datasetArtifact: "dataset-v4.approved.json";
     datasetVersion: string;
     approvedAt: string;
     approvedCaseCount: number;
     replayNotice: string;
     baseline: Readonly<{
+      artifact: "baseline-v1.json";
       label: "Baseline v1";
+      startedAt: string;
       completedAt: string;
       configurationHash: string;
     }>;
     candidate: Readonly<{
+      artifact: "candidate-v3-optimized.json";
       label: "Candidate v3 optimized";
+      startedAt: string;
       completedAt: string;
       configurationHash: string;
     }>;
@@ -119,6 +125,7 @@ export type PressRagDemoViewModel = Readonly<{
       requiresClaimEvidence: boolean;
       expectedTools: readonly string[];
       expectedDocuments: readonly Readonly<{ logicalId: string; title: string }>[];
+      forbiddenLogicalDocumentIds: readonly string[];
       requiredFacts: readonly Readonly<{ key: string; value: string }>[];
     }>;
     runs: readonly Readonly<{
@@ -173,6 +180,7 @@ type ValidArtifact = Readonly<{
   datasetHash: string;
   configurationHash: string;
   agentRunCount: number;
+  startedAt: string;
   completedAt: string;
   selectedCaseIds: readonly string[];
   runs: ReadonlyMap<string, ArtifactRun>;
@@ -336,7 +344,7 @@ function validateArtifact(input: unknown, dataset: ControlledLiveDataset): Valid
     if (actualCount !== expectedRuns) fail("PRESS_RAG_DEMO_RUN_COVERAGE_MISMATCH");
   }
 
-  return { datasetHash, configurationHash, agentRunCount, completedAt, selectedCaseIds, runs };
+  return { datasetHash, configurationHash, agentRunCount, startedAt, completedAt, selectedCaseIds, runs };
 }
 
 function sameCoverage(left: ValidArtifact, right: ValidArtifact) {
@@ -536,10 +544,6 @@ function projectTools(rawSteps: unknown): PressRagRecordedOutcome["tools"] {
   return tools;
 }
 
-function check(condition: boolean | null): CheckStatus {
-  return condition === null ? "NOT_EVALUABLE" : condition ? "MATCH" : "MISMATCH";
-}
-
 function projectOutcome(
   run: ArtifactRun,
   entry: ControlledLiveDatasetCase,
@@ -583,13 +587,7 @@ function projectOutcome(
   const verification = projectVerification(output);
   const fallback = projectFallback(output);
   const tools = projectTools(rawSteps);
-  const retrievedIds = new Set(retrieval.map(({ logicalDocumentId }) => logicalDocumentId));
-  const citationIds = new Set(citations.map(({ logicalDocumentId }) => logicalDocumentId));
-  const toolNames = new Set(tools.map(({ toolName }) => toolName));
-  const expectedAnswer = entry.expectedAnswerability === "ANSWER";
-  const evaluable = status === "COMPLETED";
-
-  return {
+  const projected = {
     runIndex: run.runIndex,
     recordedExecutionRefVersion: PRESS_RAG_RECORDED_EXECUTION_REF_VERSION,
     recordedExecutionRef: derivePressRagRecordedExecutionRef(run.caseRunId),
@@ -605,27 +603,15 @@ function projectOutcome(
     verification,
     fallback,
     tools,
-    checks: {
-      retrieval: check(entry.expectedDocumentIds.every((id) => retrievedIds.has(id))),
-      answerability: check(evaluable && cannotAnswer !== null ? cannotAnswer !== expectedAnswer : null),
-      citations: check(
-        evaluable
-          ? expectedAnswer
-            ? citations.length > 0 && [...citationIds].every((id) => expected.has(id))
-            : citations.length === 0
-          : null,
-      ),
-      forbiddenSources: check(evaluable ? [...citationIds].every((id) => !entry.forbiddenSourceIds.includes(id)) : null),
-      verification: check(
-        evaluable
-          ? entry.requiresClaimEvidence
-            ? verification.status === "PASS" && verification.supportedClaims === verification.totalClaims
-            : verification.status === null || verification.status === "PASS"
-          : null,
-      ),
-      expectedTools: check(evaluable ? entry.expectedTools.every((name) => toolNames.has(name)) : null),
-    },
+    checks: {} as PressRagRecordedOutcome["checks"],
   };
+  return { ...projected, checks: derivePressRagChecks(projected, {
+    answerability: entry.expectedAnswerability,
+    requiresClaimEvidence: entry.requiresClaimEvidence,
+    expectedTools: entry.expectedTools,
+    expectedDocuments: entry.expectedDocumentIds.map((logicalId) => ({ logicalId })),
+    forbiddenLogicalDocumentIds: entry.forbiddenSourceIds,
+  }) };
 }
 
 export function presentPressRagDemo(input: Readonly<{
@@ -670,6 +656,7 @@ export function presentPressRagDemo(input: Readonly<{
           if (document === undefined) fail("PRESS_RAG_DEMO_INVALID_DATASET");
           return { logicalId: boundedString(logicalId, MAX.short), title: publicProseString(document.title, MAX.filename) };
         }),
+        forbiddenLogicalDocumentIds: entry.forbiddenSourceIds.map((id) => boundedString(id, MAX.short)),
         requiredFacts: entry.requiredFacts.map(({ key, value }) => ({
           key: boundedString(key, MAX.short),
           value: publicProseString(value, MAX.text),
@@ -681,17 +668,22 @@ export function presentPressRagDemo(input: Readonly<{
 
   return deepFreeze({
     evidence: {
+      datasetArtifact: "dataset-v4.approved.json" as const,
       datasetVersion: boundedString(dataset.version, MAX.short),
       approvedAt: timestamp(dataset.approval!.approvedAt),
       approvedCaseCount: dataset.cases.length,
       replayNotice: "새 요청을 실행하지 않고, 승인된 controlled-live 기록을 재생합니다.",
       baseline: {
+        artifact: "baseline-v1.json" as const,
         label: "Baseline v1" as const,
+        startedAt: baseline.startedAt,
         completedAt: baseline.completedAt,
         configurationHash: baseline.configurationHash,
       },
       candidate: {
+        artifact: "candidate-v3-optimized.json" as const,
         label: "Candidate v3 optimized" as const,
+        startedAt: candidate.startedAt,
         completedAt: candidate.completedAt,
         configurationHash: candidate.configurationHash,
       },

@@ -38,10 +38,16 @@ test("projects the five deterministic approved presets and recorded repetitions"
   const view = presentPressRagDemo(await inputs());
 
   assert.equal(view.evidence.datasetVersion, "press-rag-controlled-live-v4-draft");
+  assert.equal(view.evidence.datasetArtifact, "dataset-v4.approved.json");
   assert.equal(view.evidence.approvedCaseCount, 40);
   assert.match(view.evidence.approvedAt, /^2026-/);
   assert.match(view.evidence.baseline.configurationHash, /^[a-f0-9]{64}$/);
   assert.match(view.evidence.candidate.configurationHash, /^[a-f0-9]{64}$/);
+  assert.equal(view.evidence.baseline.artifact, "baseline-v1.json");
+  assert.equal(view.evidence.candidate.artifact, "candidate-v3-optimized.json");
+  assert.match(view.evidence.baseline.startedAt, /^2026-/);
+  assert.match(view.evidence.candidate.startedAt, /^2026-/);
+  assert.ok(Date.parse(view.evidence.baseline.completedAt) >= Date.parse(view.evidence.baseline.startedAt));
   assert.deepEqual(
     view.scenarios.map(({ preset, caseId }) => [preset, caseId]),
     [
@@ -108,6 +114,7 @@ test("serialized client model excludes raw and internal artifact fields", async 
     "startedById",
     "reviewerId",
     "author",
+    "documentIdMap",
   ];
   for (const key of forbiddenKeys) assert.doesNotMatch(serialized, new RegExp(`"${key}"\\s*:`));
   assert.doesNotMatch(serialized, /cms[a-z0-9]{20,}/);
