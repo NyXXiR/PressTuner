@@ -1,5 +1,7 @@
 # Ops Console AI operation instrumentation
 
+Canonical AI telemetry uses the PressTuner-owned `ai-telemetry-event/v1` contract described in [AI telemetry and evaluation control plane](ai/telemetry-evaluation-control-plane.md). Ops Console is a privacy-safe projection rather than the storage schema: it receives hashes, field paths, counts, verdicts, and reason codes, never prompts, memo/generated content, raw tenant/user IDs, credentials, or provider bodies. The producer ID is `press-tuner-canonical-ai-telemetry`; OpenInference attributes come from a separate mapper and do not imply an OTLP transport.
+
 Press Agent v2 registers one privacy-safe operation with Ops Console, carries
 the same UUID into LangSmith, and emits matching terminal browser outcomes to
 PostHog and GA4. The workflow identity is `presstuner.press-agent` with the

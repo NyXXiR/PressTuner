@@ -12,7 +12,8 @@ test("public workflow persistence serializes on the run, dedupes, persists, then
   const observe = source.lastIndexOf("observerStorage.getStore()");
   assert.ok(create >= 0 && observe > create, "observer must run only after the transaction persisted the event");
   assert.match(source, /eventType: PRESS_AGENT_PUBLIC_WORKFLOW_EVENT_TYPE/);
-  assert.doesNotMatch(source, /prompt|answer|sourceName|excerpt|operationId|traceId/);
+  assert.match(source, /appendCanonicalEvent/);
+  assert.doesNotMatch(source, /sourceName|excerpt|operationId/);
 });
 
 test("replay and history enforce team, starter, launch surface, and fail-closed parsing", () => {

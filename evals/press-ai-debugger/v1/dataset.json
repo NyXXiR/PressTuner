@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "press-transition-dataset/v1",
+  "version": "v1",
+  "processId": "press-creation",
+  "processVersion": "2.0.0",
+  "registryHash": "fnv1a32:8f0d6630",
+  "createdAt": "2026-08-06T00:00:00.000Z",
+  "contentHash": "ddc0fe14cbdd2039b1e3086327ae4c814930f951e76a0508b92b185f6309d23d",
+  "requiredEdgeIds": ["initialization-brief", "brief-draft", "draft-review", "review-rewrite"],
+  "cases": [
+    {
+      "id": "ownership-pass", "edgeId": "initialization-brief",
+      "sourceInput": {}, "sourceOutput": { "articleId": "article-ci" }, "targetPayload": {}, "expectedVerdict": "PASS",
+      "article": { "id": "article-ci", "teamId": "ci", "type": "PRESS_RELEASE" }, "expectations": [], "forbiddenMetadataTokens": []
+    },
+    {
+      "id": "memo-grounding-metadata-excluded", "edgeId": "brief-draft",
+      "sourceInput": { "rawText": "8월 20일까지 3곳에서 공개하며 반드시 사전 등록한다. 담당자는 “무료 제공”이라고 말했다.", "tone": "formal", "usage": { "quota": 918273 }, "createdAt": "2099-12-31T12:34:56Z", "url": "https://metadata.invalid/778899", "path": "/api/private/665544", "retrievalScore": 0.123456 },
+      "sourceOutput": { "serviceName": "브리프플로우", "announceType": "출시", "oneLiner": "8월 20일까지 3곳에서 공개하며 반드시 사전 등록한다.", "points": ["담당자는 무료 제공이라고 말했다."], "quoteMessage": "무료 제공", "quoteWho": "담당자", "tone": "formal", "rawText": "원문" },
+      "targetPayload": {}, "expectedVerdict": "PASS", "expectations": [],
+      "forbiddenMetadataTokens": ["918273", "2099-12-31", "metadata.invalid", "778899", "/api/private", "665544", "0.123456"]
+    },
+    {
+      "id": "brief-draft-grounding", "edgeId": "draft-review",
+      "sourceInput": { "serviceName": "브리프플로우", "announceType": "성과", "oneLiner": "전환율이 30% 이상이며 반드시 검수를 거친다.", "points": ["5개 팀이 참여했다."], "quoteMessage": "고객의 시간을 아낀다", "quoteWho": "대표", "eventAt": "2026-08-20", "tone": "neutral", "usage": { "tokens": 445566 }, "url": "https://metadata.invalid/112233" },
+      "sourceOutput": { "articleId": "article-ci", "title": "브리프플로우 성과", "plain": "전환율이 30% 이상이며 반드시 검수를 거친다. 5개 팀이 참여했다. 2026-08-20 대표는 고객의 시간을 아낀다고 말했다." },
+      "targetPayload": { "title": "브리프플로우 성과", "plain": "전환율이 30% 이상이며 반드시 검수를 거친다. 5개 팀이 참여했다. 2026-08-20 대표는 고객의 시간을 아낀다고 말했다." },
+      "expectedVerdict": "PASS", "expectations": [], "forbiddenMetadataTokens": ["445566", "metadata.invalid", "112233"]
+    },
+    {
+      "id": "review-selection-pass", "edgeId": "review-rewrite",
+      "sourceInput": { "articleId": "article-ci", "title": "제목", "plain": "본문" },
+      "sourceOutput": { "notes": [{ "id": "note-1" }] },
+      "targetPayload": { "articleId": "article-ci", "selectedNoteIds": ["note-1"], "userInstruction": "첫 문장을 간결하게 수정" },
+      "expectedVerdict": "PASS", "expectations": [], "forbiddenMetadataTokens": []
+    }
+  ]
+}

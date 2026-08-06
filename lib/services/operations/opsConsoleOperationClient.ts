@@ -1,6 +1,7 @@
 import { createHash, randomUUID as nodeRandomUUID } from "node:crypto";
 
 import type { PressAgentGuardrailVerdictRecord } from "@/domain/evaluation/pressAgentGuardrailSignals";
+import { CANONICAL_TELEMETRY_PRODUCER_ID } from "@/domain/ai-telemetry/opsConsoleProjection";
 
 export const PRESS_AGENT_WORKFLOW_ID = "presstuner.press-agent";
 
@@ -250,7 +251,7 @@ export function createOpsConsoleOperationClient(
             operationId: args.operationId,
             occurredAt: timestamp,
             observedAt: timestamp,
-            providerId: "opentelemetry",
+            providerId: CANONICAL_TELEMETRY_PRODUCER_ID,
             providerRecordId: `guardrail:${entry.stageId}:${entry.guardrailId}`,
             signal: {
               kind: "quality",

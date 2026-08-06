@@ -2441,15 +2441,24 @@ model AgentRegressionCandidateSource {
 }
 
 model AgentRuntimeAuditEvent {
-  id              String   @id @default(cuid()) @map("id")
-  teamId          String   @map("team_id")
-  runId           String?  @map("run_id")
-  eventType       String   @map("event_type")
-  failureCategory String?  @map("failure_category")
-  details         Json     @map("details")
-  occurredAt      DateTime @default(now()) @map("occurred_at")
+  id               String   @id @default(cuid()) @map("id")
+  teamId           String   @map("team_id")
+  runId            String?  @map("run_id")
+  eventType        String   @map("event_type")
+  failureCategory  String?  @map("failure_category")
+  details          Json     @map("details")
+  occurredAt       DateTime @default(now()) @map("occurred_at")
+  schemaVersion    String?  @map("schema_version")
+  canonicalEventId String?  @unique @map("canonical_event_id")
+  traceId          String?  @map("trace_id")
+  spanId           String?  @map("span_id")
+  parentSpanId     String?  @map("parent_span_id")
+  sequence         Int?     @map("sequence")
+  eventKind        String?  @map("event_kind")
 
   @@index([teamId, runId, occurredAt])
+  @@index([teamId, traceId, sequence])
+  @@index([teamId, runId, sequence])
   @@map("agent_runtime_audit_event")
 }
 

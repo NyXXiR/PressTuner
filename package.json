@@ -37,6 +37,7 @@
     "qa:rag-debugger": "node --import tsx scripts/run-press-ai-debugger-qa.ts",
     "qa:press-ai-debugger": "node --import tsx scripts/run-press-ai-debugger-qa.ts",
     "eval:press-rag": "node --import tsx scripts/evaluatePressRag.ts",
+    "eval:press-ai-debugger:ci": "node --import tsx scripts/evaluatePressAiTransitions.ts",
     "eval:press-rag-controlled-live": "node --import tsx scripts/runPressRagControlledLive.ts",
     "compare:press-rag-controlled-live": "node --import tsx scripts/comparePressRagControlledLive.ts",
     "gate:press-rag-controlled-live": "node --import tsx scripts/evaluatePressRagControlledLiveGate.ts",

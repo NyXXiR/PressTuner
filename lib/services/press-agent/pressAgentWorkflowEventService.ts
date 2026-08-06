@@ -12,6 +12,9 @@ import {
   type PressAgentWorkflowEventV1,
 } from "@/domain/evaluation/pressAgentWorkflowEvents";
 import { prisma } from "@/lib/prisma";
+import { parsePressAiProcessEvent } from "@/domain/press-ai-debugger/processEvents";
+import { mapPressProcessEvent } from "@/domain/ai-telemetry/pressMapper";
+import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
 
 export const PRESS_AGENT_PUBLIC_WORKFLOW_EVENT_TYPE = "PUBLIC_WORKFLOW_EVENT_V1";
 export const PRESS_AGENT_RAG_DEBUGGER_LAUNCH_SURFACE = "RAG_DEBUGGER_V1";
@@ -67,6 +70,9 @@ export async function persistPressAgentWorkflowEvent(args: {
         details: { publicEvent: event } as unknown as Prisma.InputJsonValue,
       },
     });
+    const run = await tx.agentRun.findUnique({ where: { id: args.runId }, select: { traceId: true } });
+    const canonicalEvent = mapPressProcessEvent({ teamId: args.teamId, runId: args.runId, traceId: run?.traceId, attemptId: args.runId, processId: "rag-query", processVersion: "1.0.0", registryHash: "legacy-rag-v1" }, parsePressAiProcessEvent(event));
+    if (canonicalEvent) await appendCanonicalEvent(tx, canonicalEvent);
     return event;
   });
   try {

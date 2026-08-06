@@ -5,6 +5,8 @@ import { parsePressAiProcessEvent, type PressAiProcessEvent, type PressAiProcess
 import { boundProcessDetail } from "@/domain/press-ai-debugger/processDetails";
 import { getPressAiProcessDefinition, type PressAiProcessId } from "@/domain/press-ai-debugger/processRegistry";
 import { prisma } from "@/lib/prisma";
+import { mapPressProcessEvent } from "@/domain/ai-telemetry/pressMapper";
+import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
 
 export const PRESS_AI_PROCESS_EVENT_TYPE = "PUBLIC_PROCESS_EVENT_V1";
 export const PRESS_AI_DEBUGGER_LAUNCH_SURFACE = "PRESS_AI_PROCESS_DEBUGGER_V1";
@@ -20,7 +22,7 @@ export async function createPressProcessRun(args: { teamId: string; userId: stri
       input: json({ launchSurface: PRESS_AI_DEBUGGER_LAUNCH_SURFACE, processId: process.id, processVersion: process.version, initialInput: args.input }), startedAt: new Date(),
       steps: { create: process.nodes.map((node, index) => ({ sequence: index + 1, kind: "DOMAIN_PROCESS", toolName: node.id, status: "PENDING", idempotencyKey: `${randomUUID()}:${node.id}` })) },
     },
-    select: { id: true, status: true, createdAt: true },
+    select: { id: true, status: true, traceId: true, createdAt: true },
   });
 }
 
@@ -40,6 +42,10 @@ export async function persistProcessEvent(args: { teamId: string; runId: string;
     const occurredAt = new Date();
     const event = parsePressAiProcessEvent({ schemaVersion: "press-ai-process-event/v1", processId: process.id, processVersion: process.version, eventId: randomUUID(), runId: args.runId, sequence: Math.max(0, ...existing.map((entry) => entry.sequence)) + 1, occurredAt: occurredAt.toISOString(), ...args.event });
     await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: args.runId, eventType: PRESS_AI_PROCESS_EVENT_TYPE, occurredAt, details: json({ publicEvent: event }) } });
+    const run = await tx.agentRun.findUnique({ where: { id: args.runId }, select: { traceId: true } });
+    const attempt = await tx.pressAiDebugAttempt.findUnique({ where: { agentRunId: args.runId }, select: { id: true, parentAttemptId: true, caseId: true, registryHash: true } });
+    const canonicalEvent = mapPressProcessEvent({ teamId: args.teamId, runId: args.runId, traceId: run?.traceId, attemptId: attempt?.id ?? args.runId, parentAttemptId: attempt?.parentAttemptId, caseId: attempt?.caseId, processId: process.id, processVersion: process.version, registryHash: attempt?.registryHash }, event);
+    if (canonicalEvent) await appendCanonicalEvent(tx, canonicalEvent);
     return event;
   });
   await args.observer?.(persisted);

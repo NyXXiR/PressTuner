@@ -185,7 +185,7 @@ test("guardrail verdicts are pushed as one batch of attributed quality signals",
   assert.equal(body.events.length, 2);
 
   const [violation, pass] = body.events;
-  assert.equal(violation!.providerId, "opentelemetry");
+  assert.equal(violation!.providerId, "press-tuner-canonical-ai-telemetry");
   assert.equal(violation!.operationId, operationId);
   assert.equal(violation!.providerRecordId, "guardrail:verification:citation-claim-verification");
   assert.deepEqual(violation!.signal, {

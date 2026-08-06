@@ -13,6 +13,10 @@ import {
   type EvidenceObservation,
 } from "@/domain/evaluation/experimentContracts";
 import { prisma } from "@/lib/prisma";
+import { getProcessRegistryHash } from "@/domain/press-ai-debugger/processRegistryHash";
+import { ragQueryProcess } from "@/domain/press-ai-debugger/processRegistry";
+import { mapExperimentOutcomes, mapHumanApproval } from "@/domain/ai-telemetry/pressMapper";
+import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -183,6 +187,10 @@ export async function persistAgentExperimentCycle(args: {
         }),
       },
     });
+    const telemetryContext = { teamId: args.teamId, runId: cycle.id, attemptId: cycle.id, processId: ragQueryProcess.id, processVersion: ragQueryProcess.version, registryHash: getProcessRegistryHash(ragQueryProcess), executionMode: "DETERMINISTIC" as const, occurredAt: artifact.createdAt };
+    const canonical = mapExperimentOutcomes(telemetryContext, { sourceId: cycle.id, datasetId: datasetVersion.id, datasetVersion: dataset.version, baselineConfigurationId: configurations[0].id, candidateConfigurationId: configurations[1].id, disposition: evaluation.disposition, checks: evaluation.checks });
+    await appendCanonicalEvent(tx, canonical.experiment);
+    await appendCanonicalEvent(tx, canonical.regression);
     return cycle;
   });
 }
@@ -250,6 +258,7 @@ export async function reviewAgentExperimentCycle(args: {
         }),
       },
     });
+    await appendCanonicalEvent(tx, mapHumanApproval({ teamId: args.teamId, runId: cycle.id, attemptId: cycle.id, processId: ragQueryProcess.id, processVersion: ragQueryProcess.version, registryHash: getProcessRegistryHash(ragQueryProcess), executionMode: "DETERMINISTIC", occurredAt: reviewedAt.toISOString() }, { sourceId: cycle.id, gateId: "experiment-human-review", phase: "RECORDED", decision: args.decision, actorId: args.reviewerId }));
     return tx.agentExperimentCycle.findFirstOrThrow({
       where: { id: cycle.id, teamId: args.teamId },
     });

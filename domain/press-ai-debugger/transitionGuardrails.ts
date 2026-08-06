@@ -1,11 +1,11 @@
 import { pressCreationProcess } from "./processRegistry";
+import { extractPressDomainFacts, pressDomainContentText } from "./domainFacts";
+import { hashTelemetryValue } from "@/domain/ai-telemetry/privacy";
 
 export type GuardrailVerdict = "PASS" | "WARN" | "BLOCK";
 export type GuardrailObservation = Readonly<{ guardrailId: string; origin: "MANDATORY" | "CASE_EXPECTATION"; expected: string; observed: string; reason: string; evidence: unknown; verdict: GuardrailVerdict; displayOrder: number }>;
 export type CaseExpectation = Readonly<{ id: string; field: "contains" | "notContains"; value: string; verdict?: "WARN" | "BLOCK" }>;
 
-const criticalTokenPattern = /\b\d+(?:[.,]\d+)?(?:%|분|곳|명|원|년|월|일)?\b|[“\"'][^”\"']+[”\"']/g;
-const stringValue = (value: unknown) => typeof value === "string" ? value : JSON.stringify(value ?? "");
 function observation(id: string, verdict: GuardrailVerdict, expected: string, observed: string, reason: string, evidence: unknown, displayOrder: number, origin: GuardrailObservation["origin"] = "MANDATORY"): GuardrailObservation { return { guardrailId: id, origin, expected, observed, reason, evidence, verdict, displayOrder }; }
 
 export function rollUpGuardrailVerdict(items: readonly Pick<GuardrailObservation, "verdict">[]): GuardrailVerdict { return items.some((item) => item.verdict === "BLOCK") ? "BLOCK" : items.some((item) => item.verdict === "WARN") ? "WARN" : "PASS"; }
@@ -13,7 +13,7 @@ export function rollUpGuardrailVerdict(items: readonly Pick<GuardrailObservation
 export function evaluatePressTransitionGuardrails(args: { edgeId: string; sourceInput: unknown; sourceOutput: unknown; targetPayload: unknown; attempt: { teamId: string; articleId: string }; article?: { id: string; teamId: string | null; type: string; createdAt?: Date }; expectations?: readonly CaseExpectation[] }): { verdict: GuardrailVerdict; observations: GuardrailObservation[] } {
   const edge = pressCreationProcess.edges.find((item) => item.id === args.edgeId);
   if (!edge) throw new Error("PRESS_AI_PROCESS_EDGE_INVALID");
-  const source = stringValue(args.sourceInput); const output = stringValue(args.sourceOutput); const target = stringValue(args.targetPayload);
+  const target = typeof args.targetPayload === "string" ? args.targetPayload : JSON.stringify(args.targetPayload ?? "");
   const observations: GuardrailObservation[] = [];
   edge.mandatoryGuardrailIds.forEach((id, index) => {
     let verdict: GuardrailVerdict = "PASS"; let reason = "필수 조건을 충족했습니다."; let expected = id; let observed = "satisfied"; let evidence: unknown = { edgeId: edge.id };
@@ -21,8 +21,14 @@ export function evaluatePressTransitionGuardrails(args: { edgeId: string; source
       const valid = args.article?.id === args.attempt.articleId && args.article.teamId === args.attempt.teamId && args.article.type === "PRESS_RELEASE";
       verdict = valid ? "PASS" : "BLOCK"; expected = "attempt team 소유의 새 PRESS_RELEASE Article"; observed = args.article ? `${args.article.teamId}/${args.article.type}` : "missing"; reason = valid ? reason : "Article 소유권 또는 유형이 시도와 일치하지 않습니다."; evidence = args.article ?? null;
     } else if (id.includes("grounding") || id.includes("preservation")) {
-      const tokens = [...new Set(source.match(criticalTokenPattern) ?? [])]; const missing = tokens.filter((token) => !output.includes(token));
-      verdict = missing.length ? (id.includes("critical") && missing.length === tokens.length ? "BLOCK" : "WARN") : "PASS"; expected = "입력의 수치·날짜·인용·제한 보존"; observed = missing.length ? `누락: ${missing.join(", ")}` : "critical facts preserved"; reason = missing.length ? "입력의 중요 토큰 일부가 출력에서 확인되지 않습니다." : reason; evidence = { checked: tokens, missing };
+      const sourceMode = edge.id === "brief-draft" ? "raw" : "brief"; const outputMode = edge.id === "brief-draft" ? "brief" : "draft";
+      const extracted = extractPressDomainFacts(args.sourceInput, sourceMode); const outputText = pressDomainContentText(args.sourceOutput, outputMode);
+      const checked = extracted.facts; const missing = checked.filter((fact) => !outputText.includes(fact.normalizedValue));
+      verdict = missing.length ? (id.includes("critical") && checked.length > 0 && missing.length === checked.length ? "BLOCK" : "WARN") : "PASS";
+      expected = `입력의 수치·날짜·인용·제한 보존 (${checked.length} facts${extracted.overflow ? `, +${extracted.overflow} overflow` : ""})`;
+      observed = missing.length ? `누락 ${missing.length}개: ${missing.slice(0, 8).map((fact) => fact.normalizedValue.slice(0, 80)).join(", ")}${missing.length > 8 ? ` 외 ${missing.length - 8}개` : ""}` : "critical facts preserved";
+      reason = missing.length ? "입력의 중요 사실 일부가 출력에서 확인되지 않습니다." : reason;
+      evidence = { checked: checked.slice(0, 32).map((fact) => ({ sourceField: fact.sourceField, factKind: fact.kind, factValue: fact.normalizedValue, factHash: fact.hash, matchStatus: missing.includes(fact) ? "MISSING" : "MATCHED", reasonCode: missing.includes(fact) ? "FACT_MISSING" : "FACT_PRESERVED" })), evidenceOverflow: Math.max(0, checked.length - 32), missingCount: missing.length };
     } else if (id === "press-structure") {
       const value = args.sourceOutput as Record<string, unknown>; const valid = Boolean(value && typeof value.title === "string" && value.title.trim() && target.includes("plain") && /\S/.test(target));
       verdict = valid ? "PASS" : "WARN"; expected = "비어 있지 않은 제목과 본문 구조"; observed = valid ? "title/plain present" : "title 또는 plain 부족"; reason = valid ? reason : "복구 가능한 보도자료 구조 결함입니다."; evidence = { title: value?.title ?? null };
@@ -36,6 +42,10 @@ export function evaluatePressTransitionGuardrails(args: { edgeId: string; source
     }
     observations.push(observation(id, verdict, expected, observed, reason, evidence, index));
   });
-  [...(args.expectations ?? [])].sort((a, b) => a.id.localeCompare(b.id)).forEach((item, index) => { const haystack = `${output}\n${target}`; const pass = item.field === "contains" ? haystack.includes(item.value) : !haystack.includes(item.value); observations.push(observation(item.id, pass ? "PASS" : item.verdict ?? "WARN", `${item.field} ${item.value}`, pass ? "matched" : "not matched", pass ? "케이스 기대값을 충족했습니다." : "케이스 기대값을 충족하지 못했습니다.", { value: item.value }, edge.mandatoryGuardrailIds.length + index, "CASE_EXPECTATION")); });
+  [...(args.expectations ?? [])].sort((a, b) => a.id.localeCompare(b.id)).forEach((item, index) => {
+    const haystack = (["raw", "brief", "draft"] as const).flatMap((mode) => [pressDomainContentText(args.sourceOutput, mode), pressDomainContentText(args.targetPayload, mode)]).join("\n");
+    const pass = item.field === "contains" ? haystack.includes(item.value) : !haystack.includes(item.value);
+    observations.push(observation(item.id, pass ? "PASS" : item.verdict ?? "WARN", `${item.field} ${item.value.slice(0, 240)}`, pass ? "matched" : "not matched", pass ? "케이스 기대값을 충족했습니다." : "케이스 기대값을 충족하지 못했습니다.", { valueHash: hashTelemetryValue(item.value) }, edge.mandatoryGuardrailIds.length + index, "CASE_EXPECTATION"));
+  });
   return { verdict: rollUpGuardrailVerdict(observations), observations };
 }
