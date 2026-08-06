@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireTeamContext } from "@/lib/auth";
+import { CreateCheckpointAttemptSchema, createCheckpointAttempt, getCheckpointAttemptHistory } from "@/lib/services/press-ai-debugger/checkpointDebuggerService";
+import { apiError } from "@/lib/utils/api"; import { validateBody } from "@/lib/utils/validate";
+export const runtime = "nodejs"; export const dynamic = "force-dynamic"; const headers = { "Cache-Control": "no-store" };
+export async function GET() { try { const { team } = await requireTeamContext(); return NextResponse.json({ attempts: await getCheckpointAttemptHistory(team.id) }, { headers }); } catch (error: any) { const status = error?.status ?? 500; return NextResponse.json(apiError(error?.code ?? error?.message ?? "PRESS_AI_DEBUG_HISTORY_FAILED", error?.message ?? "Failed", status).body, { status, headers }); } }
+export async function POST(req: NextRequest) { try { const { team, user } = await requireTeamContext(); const body = validateBody(CreateCheckpointAttemptSchema, await req.json()); if (!body.ok) return NextResponse.json(body.body, { status: body.status, headers }); const value = await createCheckpointAttempt({ teamId: team.id, userId: user.id, input: body.data }); return NextResponse.json(value, { status: value.created ? 201 : 200, headers }); } catch (error: any) { const status = error?.status ?? 500; return NextResponse.json(apiError(error?.code ?? error?.message ?? "PRESS_AI_DEBUG_CREATE_FAILED", error?.message ?? "Failed", status).body, { status, headers }); } }

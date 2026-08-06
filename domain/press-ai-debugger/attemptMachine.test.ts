@@ -1,0 +1,7 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { advanceEdge, completeActiveNode, createAttemptMachine } from "./attemptMachine";
+
+test("execution and advancement are separate commands", () => { const inspecting = completeActiveNode(createAttemptMachine("a"), { nodeId: "a", expectedRevision: 0, outgoingEdgeIds: ["ab"] }); assert.equal(inspecting.phase, "INSPECTING"); assert.equal(inspecting.activeNodeId, null); const next = advanceEdge(inspecting, { edgeId: "ab", targetNodeId: "b", verdict: "PASS", expectedRevision: 1, warnAcknowledged: false }); assert.equal(next.activeNodeId, "b"); assert.equal(next.phase, "READY"); });
+test("BLOCK never advances and WARN needs acknowledgement", () => { const state = completeActiveNode(createAttemptMachine("a"), { nodeId: "a", expectedRevision: 0, outgoingEdgeIds: ["ab"] }); assert.throws(() => advanceEdge(state, { edgeId: "ab", targetNodeId: "b", verdict: "BLOCK", expectedRevision: 1, warnAcknowledged: true }), /BLOCKED/); assert.throws(() => advanceEdge(state, { edgeId: "ab", targetNodeId: "b", verdict: "WARN", expectedRevision: 1, warnAcknowledged: false }), /ACK_REQUIRED/); });
+test("branch selection preserves sibling topology as not taken", () => { const state = completeActiveNode(createAttemptMachine("a"), { nodeId: "a", expectedRevision: 0, outgoingEdgeIds: ["ab", "ac"] }); const next = advanceEdge(state, { edgeId: "ab", targetNodeId: "b", verdict: "PASS", expectedRevision: 1, warnAcknowledged: false }); assert.deepEqual(next.notTakenEdgeIds, ["ac"]); });

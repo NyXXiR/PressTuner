@@ -1,0 +1,2 @@
+import { prisma } from "@/lib/prisma";
+export async function getOrCreateAttemptComparison(teamId: string, candidateAttemptId: string) { const candidate = await prisma.pressAiDebugAttempt.findFirst({ where: { id: candidateAttemptId, teamId }, select: { id: true } }); if (!candidate) throw Object.assign(new Error("PRESS_AI_DEBUG_COMPARISON_NOT_FOUND"), { status: 404 }); return prisma.pressAiDebugComparison.findMany({ where: { candidateAttemptId: candidate.id, candidateAttempt: { teamId } }, orderBy: { createdAt: "asc" } }); }

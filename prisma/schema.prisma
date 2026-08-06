@@ -469,6 +469,40 @@ enum AgentApprovalStatus {
   EXPIRED
 }
 
+enum PressAiDebugCaseStatus {
+  DRAFT
+  SAVED
+}
+
+enum PressAiDebugCaptureKind {
+  AUTOMATIC_BLOCK
+  MANUAL
+}
+
+enum PressAiDebugAttemptStatus {
+  ACTIVE
+  INSPECTING
+  COMPLETED
+  BLOCKED
+  FAILED
+}
+
+enum PressAiDebugCheckpointMode {
+  EXECUTED
+  RESTORED
+}
+
+enum PressAiDebugVerdict {
+  PASS
+  WARN
+  BLOCK
+}
+
+enum PressAiDebugGuardrailOrigin {
+  MANDATORY
+  CASE_EXPECTATION
+}
+
 // ---------------------------------------------------------
 // [MODELS]
 // ---------------------------------------------------------
@@ -573,6 +607,8 @@ model Team {
   articleFacts              ArticleFact[]
   articleVerifications      ArticleVerification[]
   articleFinalCitations     ArticleFinalCitation[]
+  pressAiDebugCases         PressAiDebugCase[]
+  pressAiDebugAttempts      PressAiDebugAttempt[]
 
   // ✅ 자소서 관련 역참조
   experienceBricks ExperienceBrick[]
@@ -681,32 +717,37 @@ model User {
   careerMemoryVersion Int @default(0) @map("career_memory_version")
 
   // Relations
-  articles                   Article[]
-  feedbacks                  Feedback[]
-  usageLogs                  UsageLog[]
-  feedbackBlocks             FeedbackBlock[]
-  memberships                TeamMember[]
-  invitationsSent            TeamInvitation[]          @relation("Inviter")
-  invitationsReceived        TeamInvitation[]          @relation("Invitee")
-  oauthAccounts              OAuthAccount[]
-  sessions                   Session[]
-  createdNotices             Notice[]                  @relation("NoticeCreatedBy")
-  notificationsReceived      Notification[]            @relation("NotificationToUser")
-  readNotifications          NotificationRead[]
-  billingOrders              BillingOrder[]
-  billingHistories           TeamBillingHistory[]
-  checkoutIntents            CheckoutIntent[]
-  articleUsageEvents         ArticleUsageEvent[]
-  reviewAssignmentsReceived  ArticleReviewAssignment[] @relation("ReviewAssignee")
-  reviewAssignmentsGiven     ArticleReviewAssignment[] @relation("ReviewAssignedBy")
-  activities                 UserArticleActivity[]
-  couponRedemptions          CouponRedemption[]
-  uploadedKnowledgeDocuments KnowledgeDocument[]       @relation("KnowledgeDocumentUploader")
-  knowledgeUploadEvents      KnowledgeUploadEvent[]
-  startedAgentRuns           AgentRun[]                @relation("AgentRunStartedBy")
-  agentRunFeedbacks          AgentRunFeedback[]
-  requestedAgentApprovals    AgentApproval[]           @relation("AgentApprovalRequestedBy")
-  decidedAgentApprovals      AgentApproval[]           @relation("AgentApprovalDecidedBy")
+  articles                                     Article[]
+  feedbacks                                    Feedback[]
+  usageLogs                                    UsageLog[]
+  feedbackBlocks                               FeedbackBlock[]
+  memberships                                  TeamMember[]
+  invitationsSent                              TeamInvitation[]          @relation("Inviter")
+  invitationsReceived                          TeamInvitation[]          @relation("Invitee")
+  oauthAccounts                                OAuthAccount[]
+  sessions                                     Session[]
+  createdNotices                               Notice[]                  @relation("NoticeCreatedBy")
+  notificationsReceived                        Notification[]            @relation("NotificationToUser")
+  readNotifications                            NotificationRead[]
+  billingOrders                                BillingOrder[]
+  billingHistories                             TeamBillingHistory[]
+  checkoutIntents                              CheckoutIntent[]
+  articleUsageEvents                           ArticleUsageEvent[]
+  reviewAssignmentsReceived                    ArticleReviewAssignment[] @relation("ReviewAssignee")
+  reviewAssignmentsGiven                       ArticleReviewAssignment[] @relation("ReviewAssignedBy")
+  activities                                   UserArticleActivity[]
+  couponRedemptions                            CouponRedemption[]
+  uploadedKnowledgeDocuments                   KnowledgeDocument[]       @relation("KnowledgeDocumentUploader")
+  knowledgeUploadEvents                        KnowledgeUploadEvent[]
+  startedAgentRuns                             AgentRun[]                @relation("AgentRunStartedBy")
+  agentRunFeedbacks                            AgentRunFeedback[]
+  requestedAgentApprovals                      AgentApproval[]           @relation("AgentApprovalRequestedBy")
+  decidedAgentApprovals                        AgentApproval[]           @relation("AgentApprovalDecidedBy")
+  createdPressAiDebugCases                     PressAiDebugCase[]        @relation("PressAiDebugCaseCreatedBy")
+  createdPressAiDebugAttempts                  PressAiDebugAttempt[]     @relation("PressAiDebugAttemptCreatedBy")
+  acknowledgedPressAiDebugTransitions          PressAiDebugTransition[]  @relation("PressAiDebugTransitionWarnAcknowledgedBy")
+  humanGateAcknowledgedPressAiDebugTransitions PressAiDebugTransition[]  @relation("PressAiDebugTransitionHumanGateAcknowledgedBy")
+  advancedPressAiDebugTransitions              PressAiDebugTransition[]  @relation("PressAiDebugTransitionAdvancedBy")
 
   // ✅ 자소서 관련 역참조
   experienceBricks              ExperienceBrick[]
@@ -751,25 +792,26 @@ model Article {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  styleGuide         StyleGuide?                @relation(fields: [styleGuideId], references: [id], onDelete: SetNull)
-  team               Team?                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user               User?                      @relation(fields: [userId], references: [id])
-  feedbacks          Feedback[]
-  blogExtra          BlogExtra?                 @relation("Article_BlogExtra")
-  resumeExtra        ResumeExtra?               @relation("Article_ResumeExtra")
-  pressExtra         PressExtra?                @relation("Article_PressExtra")
-  styleSignals       StyleSignal[]
-  usageStat          ArticleUsageStat?
-  usageEvents        ArticleUsageEvent[]
-  reviewAssignments  ArticleReviewAssignment[]
-  activities         UserArticleActivity[]
-  agentRuns          AgentRun[]
-  groundingState     ArticleGroundingState?
-  evidenceCandidates ArticleEvidenceCandidate[]
-  facts              ArticleFact[]
-  draftEvidence      ArticleDraftEvidence[]
-  verifications      ArticleVerification[]
-  finalCitations     ArticleFinalCitation[]
+  styleGuide           StyleGuide?                @relation(fields: [styleGuideId], references: [id], onDelete: SetNull)
+  team                 Team?                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user                 User?                      @relation(fields: [userId], references: [id])
+  feedbacks            Feedback[]
+  blogExtra            BlogExtra?                 @relation("Article_BlogExtra")
+  resumeExtra          ResumeExtra?               @relation("Article_ResumeExtra")
+  pressExtra           PressExtra?                @relation("Article_PressExtra")
+  styleSignals         StyleSignal[]
+  usageStat            ArticleUsageStat?
+  usageEvents          ArticleUsageEvent[]
+  reviewAssignments    ArticleReviewAssignment[]
+  activities           UserArticleActivity[]
+  agentRuns            AgentRun[]
+  groundingState       ArticleGroundingState?
+  evidenceCandidates   ArticleEvidenceCandidate[]
+  facts                ArticleFact[]
+  draftEvidence        ArticleDraftEvidence[]
+  verifications        ArticleVerification[]
+  finalCitations       ArticleFinalCitation[]
+  pressAiDebugAttempts PressAiDebugAttempt[]
 
   @@index([teamId, status, createdAt])
   @@index([styleGuideId])
@@ -2047,18 +2089,224 @@ model AgentRun {
   createdAt             DateTime       @default(now()) @map("created_at")
   updatedAt             DateTime       @updatedAt @map("updated_at")
 
-  team             Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  article          Article?               @relation(fields: [articleId], references: [id], onDelete: SetNull)
-  startedBy        User                   @relation("AgentRunStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
-  steps            AgentStep[]
-  approvals        AgentApproval[]
-  retrievedSources AgentRetrievedSource[]
-  citations        AgentCitation[]
-  feedbacks        AgentRunFeedback[]
+  team                Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  article             Article?               @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  startedBy           User                   @relation("AgentRunStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  steps               AgentStep[]
+  approvals           AgentApproval[]
+  retrievedSources    AgentRetrievedSource[]
+  citations           AgentCitation[]
+  feedbacks           AgentRunFeedback[]
+  pressAiDebugAttempt PressAiDebugAttempt?
 
   @@index([teamId, status, createdAt])
   @@index([articleId, createdAt])
   @@map("agent_run")
+}
+
+model PressAiDebugCase {
+  id                 String                  @id @default(cuid()) @map("id")
+  teamId             String                  @map("team_id")
+  createdById        String                  @map("created_by_id")
+  name               String?                 @map("name")
+  status             PressAiDebugCaseStatus  @default(DRAFT) @map("status")
+  processId          String                  @map("process_id")
+  processVersion     String                  @map("process_version")
+  registryHash       String                  @map("registry_hash")
+  sourceAttemptId    String                  @map("source_attempt_id")
+  sourceCheckpointId String                  @map("source_checkpoint_id")
+  startNodeId        String                  @map("start_node_id")
+  inputSnapshot      Json                    @map("input_snapshot")
+  expectations       Json                    @map("expectations")
+  captureKind        PressAiDebugCaptureKind @map("capture_kind")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  team             Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy        User                   @relation("PressAiDebugCaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sourceAttempt    PressAiDebugAttempt    @relation("PressAiDebugCaseSourceAttempt", fields: [sourceAttemptId], references: [id], onDelete: Restrict)
+  sourceCheckpoint PressAiDebugCheckpoint @relation("PressAiDebugCaseSourceCheckpoint", fields: [sourceCheckpointId], references: [id], onDelete: Restrict)
+  attempts         PressAiDebugAttempt[]  @relation("PressAiDebugAttemptCase")
+
+  @@unique([sourceCheckpointId, captureKind])
+  @@index([teamId, status, createdAt])
+  @@index([teamId, processId, createdAt])
+  @@map("press_ai_debug_case")
+}
+
+model PressAiDebugAttempt {
+  id                String                    @id @default(cuid()) @map("id")
+  teamId            String                    @map("team_id")
+  createdById       String                    @map("created_by_id")
+  caseId            String?                   @map("case_id")
+  agentRunId        String                    @unique @map("agent_run_id")
+  parentAttemptId   String?                   @map("parent_attempt_id")
+  baselineAttemptId String?                   @map("baseline_attempt_id")
+  processId         String                    @map("process_id")
+  processVersion    String                    @map("process_version")
+  registryHash      String                    @map("registry_hash")
+  executorVersion   String                    @map("executor_version")
+  startNodeId       String                    @map("start_node_id")
+  activeNodeId      String?                   @map("active_node_id")
+  status            PressAiDebugAttemptStatus @default(ACTIVE) @map("status")
+  revision          Int                       @default(0) @map("revision")
+  articleId         String                    @map("article_id")
+  inputSnapshot     Json                      @map("input_snapshot")
+  terminalVerdict   PressAiDebugVerdict?      @map("terminal_verdict")
+  completedAt       DateTime?                 @map("completed_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  team                 Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy            User                     @relation("PressAiDebugAttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  case                 PressAiDebugCase?        @relation("PressAiDebugAttemptCase", fields: [caseId], references: [id], onDelete: Restrict)
+  agentRun             AgentRun                 @relation(fields: [agentRunId], references: [id], onDelete: Restrict)
+  article              Article                  @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  parentAttempt        PressAiDebugAttempt?     @relation("PressAiDebugAttemptParent", fields: [parentAttemptId], references: [id], onDelete: Restrict)
+  childAttempts        PressAiDebugAttempt[]    @relation("PressAiDebugAttemptParent")
+  baselineAttempt      PressAiDebugAttempt?     @relation("PressAiDebugAttemptBaseline", fields: [baselineAttemptId], references: [id], onDelete: Restrict)
+  candidateAttempts    PressAiDebugAttempt[]    @relation("PressAiDebugAttemptBaseline")
+  sourceCases          PressAiDebugCase[]       @relation("PressAiDebugCaseSourceAttempt")
+  checkpoints          PressAiDebugCheckpoint[]
+  transitions          PressAiDebugTransition[]
+  commands             PressAiDebugCommand[]
+  baselineComparisons  PressAiDebugComparison[] @relation("PressAiDebugComparisonBaselineAttempt")
+  candidateComparisons PressAiDebugComparison[] @relation("PressAiDebugComparisonCandidateAttempt")
+
+  @@index([teamId, status, createdAt])
+  @@index([teamId, caseId, createdAt])
+  @@index([parentAttemptId])
+  @@index([baselineAttemptId])
+  @@map("press_ai_debug_attempt")
+}
+
+model PressAiDebugCheckpoint {
+  id                       String                     @id @default(cuid()) @map("id")
+  attemptId                String                     @map("attempt_id")
+  nodeId                   String                     @map("node_id")
+  sequence                 Int                        @map("sequence")
+  mode                     PressAiDebugCheckpointMode @map("mode")
+  input                    Json                       @map("input")
+  output                   Json                       @map("output")
+  restoredFromCheckpointId String?                    @map("restored_from_checkpoint_id")
+  quotaUnits               Int                        @default(0) @map("quota_units")
+  processVersion           String                     @map("process_version")
+  registryHash             String                     @map("registry_hash")
+  executorVersion          String                     @map("executor_version")
+  createdAt                DateTime                   @default(now()) @map("created_at")
+
+  attempt                PressAiDebugAttempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  restoredFromCheckpoint PressAiDebugCheckpoint?  @relation("PressAiDebugCheckpointRestore", fields: [restoredFromCheckpointId], references: [id], onDelete: Restrict)
+  restoredCheckpoints    PressAiDebugCheckpoint[] @relation("PressAiDebugCheckpointRestore")
+  sourceTransitions      PressAiDebugTransition[]
+  sourceCases            PressAiDebugCase[]       @relation("PressAiDebugCaseSourceCheckpoint")
+  baselineComparisons    PressAiDebugComparison[] @relation("PressAiDebugComparisonBaselineCheckpoint")
+  candidateComparisons   PressAiDebugComparison[] @relation("PressAiDebugComparisonCandidateCheckpoint")
+
+  @@unique([attemptId, nodeId])
+  @@index([attemptId, sequence])
+  @@index([restoredFromCheckpointId])
+  @@map("press_ai_debug_checkpoint")
+}
+
+model PressAiDebugTransition {
+  id                        String              @id @default(cuid()) @map("id")
+  attemptId                 String              @map("attempt_id")
+  edgeId                    String              @map("edge_id")
+  sequence                  Int                 @map("sequence")
+  sourceNodeId              String              @map("source_node_id")
+  targetNodeId              String              @map("target_node_id")
+  sourceCheckpointId        String              @map("source_checkpoint_id")
+  targetPayload             Json                @map("target_payload")
+  verdict                   PressAiDebugVerdict @map("verdict")
+  warnAcknowledgedById      String?             @map("warn_acknowledged_by_id")
+  warnAcknowledgedAt        DateTime?           @map("warn_acknowledged_at")
+  humanGateAcknowledgedById String?             @map("human_gate_acknowledged_by_id")
+  humanGateAcknowledgedAt   DateTime?           @map("human_gate_acknowledged_at")
+  advancedById              String?             @map("advanced_by_id")
+  advancedAt                DateTime?           @map("advanced_at")
+  createdAt                 DateTime            @default(now()) @map("created_at")
+
+  attempt                 PressAiDebugAttempt                @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  sourceCheckpoint        PressAiDebugCheckpoint             @relation(fields: [sourceCheckpointId], references: [id], onDelete: Restrict)
+  warnAcknowledgedBy      User?                              @relation("PressAiDebugTransitionWarnAcknowledgedBy", fields: [warnAcknowledgedById], references: [id], onDelete: Restrict)
+  humanGateAcknowledgedBy User?                              @relation("PressAiDebugTransitionHumanGateAcknowledgedBy", fields: [humanGateAcknowledgedById], references: [id], onDelete: Restrict)
+  advancedBy              User?                              @relation("PressAiDebugTransitionAdvancedBy", fields: [advancedById], references: [id], onDelete: Restrict)
+  observations            PressAiDebugGuardrailObservation[]
+  baselineComparisons     PressAiDebugComparison[]           @relation("PressAiDebugComparisonBaselineTransition")
+  candidateComparisons    PressAiDebugComparison[]           @relation("PressAiDebugComparisonCandidateTransition")
+
+  @@unique([attemptId, edgeId, sourceCheckpointId])
+  @@index([attemptId, sequence])
+  @@map("press_ai_debug_transition")
+}
+
+model PressAiDebugGuardrailObservation {
+  id           String                      @id @default(cuid()) @map("id")
+  transitionId String                      @map("transition_id")
+  guardrailId  String                      @map("guardrail_id")
+  origin       PressAiDebugGuardrailOrigin @map("origin")
+  expected     String                      @map("expected") @db.Text
+  observed     String                      @map("observed") @db.Text
+  reason       String                      @map("reason") @db.Text
+  evidence     Json                        @map("evidence")
+  verdict      PressAiDebugVerdict         @map("verdict")
+  displayOrder Int                         @map("display_order")
+  createdAt    DateTime                    @default(now()) @map("created_at")
+
+  transition PressAiDebugTransition @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+
+  @@unique([transitionId, origin, guardrailId])
+  @@index([transitionId, displayOrder])
+  @@map("press_ai_debug_guardrail_observation")
+}
+
+model PressAiDebugComparison {
+  id                       String               @id @default(cuid()) @map("id")
+  baselineAttemptId        String               @map("baseline_attempt_id")
+  candidateAttemptId       String               @map("candidate_attempt_id")
+  baselineTransitionId     String?              @map("baseline_transition_id")
+  candidateTransitionId    String?              @map("candidate_transition_id")
+  baselineCheckpointId     String?              @map("baseline_checkpoint_id")
+  candidateCheckpointId    String?              @map("candidate_checkpoint_id")
+  oldVerdict               PressAiDebugVerdict? @map("old_verdict")
+  newVerdict               PressAiDebugVerdict? @map("new_verdict")
+  outputComparison         Json                 @map("output_comparison")
+  baselineProcessVersion   String               @map("baseline_process_version")
+  candidateProcessVersion  String               @map("candidate_process_version")
+  baselineRegistryHash     String               @map("baseline_registry_hash")
+  candidateRegistryHash    String               @map("candidate_registry_hash")
+  baselineExecutorVersion  String               @map("baseline_executor_version")
+  candidateExecutorVersion String               @map("candidate_executor_version")
+  createdAt                DateTime             @default(now()) @map("created_at")
+
+  baselineAttempt     PressAiDebugAttempt     @relation("PressAiDebugComparisonBaselineAttempt", fields: [baselineAttemptId], references: [id], onDelete: Restrict)
+  candidateAttempt    PressAiDebugAttempt     @relation("PressAiDebugComparisonCandidateAttempt", fields: [candidateAttemptId], references: [id], onDelete: Restrict)
+  baselineTransition  PressAiDebugTransition? @relation("PressAiDebugComparisonBaselineTransition", fields: [baselineTransitionId], references: [id], onDelete: Restrict)
+  candidateTransition PressAiDebugTransition? @relation("PressAiDebugComparisonCandidateTransition", fields: [candidateTransitionId], references: [id], onDelete: Restrict)
+  baselineCheckpoint  PressAiDebugCheckpoint? @relation("PressAiDebugComparisonBaselineCheckpoint", fields: [baselineCheckpointId], references: [id], onDelete: Restrict)
+  candidateCheckpoint PressAiDebugCheckpoint? @relation("PressAiDebugComparisonCandidateCheckpoint", fields: [candidateCheckpointId], references: [id], onDelete: Restrict)
+
+  @@unique([baselineAttemptId, candidateAttemptId, baselineCheckpointId, candidateCheckpointId])
+  @@index([candidateAttemptId, createdAt])
+  @@map("press_ai_debug_comparison")
+}
+
+model PressAiDebugCommand {
+  id               String   @id @default(cuid()) @map("id")
+  attemptId        String   @map("attempt_id")
+  commandId        String   @map("command_id")
+  kind             String   @map("kind")
+  expectedRevision Int      @map("expected_revision")
+  requestHash      String   @map("request_hash")
+  response         Json     @map("response")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  attempt PressAiDebugAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, commandId])
+  @@index([attemptId, createdAt])
+  @@map("press_ai_debug_command")
 }
 
 model AgentConfigurationVersion {

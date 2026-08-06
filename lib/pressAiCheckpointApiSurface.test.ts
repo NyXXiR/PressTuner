@@ -1,0 +1,6 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+const paths = ["app/api/press/agent/process-debug-attempts/route.ts", "app/api/press/agent/process-debug-attempts/[attemptId]/route.ts", "app/api/press/agent/process-debug-attempts/[attemptId]/steps/[nodeId]/execute/route.ts", "app/api/press/agent/process-debug-attempts/[attemptId]/edges/[edgeId]/advance/route.ts", "app/api/press/agent/process-debug-attempts/[attemptId]/retry/route.ts", "app/api/press/agent/process-debug-attempts/[attemptId]/comparison/route.ts", "app/api/press/agent/process-debug-cases/route.ts", "app/api/press/agent/process-debug-cases/[caseId]/route.ts"];
+test("checkpoint routes require team context, disable caching, and contain no Prisma logic", async () => { for (const path of paths) { const value = await readFile(path, "utf8"); assert.match(value, /requireTeamContext/); assert.match(value, /no-store/); assert.doesNotMatch(value, /prisma\./); } });
+test("mutation boundaries validate command envelopes", async () => { const service = await readFile("lib/services/press-ai-debugger/checkpointDebuggerService.ts", "utf8"); assert.match(service, /commandId/); assert.match(service, /expectedRevision/); assert.match(service, /PRESS_AI_DEBUG_COMMAND_STALE/); });

@@ -26,7 +26,8 @@ export type PressAiProcessEventInput = PressAiProcessEvent extends infer Event ?
 function assertIdentity(event: z.infer<typeof RawEventSchema>) {
   if (!isPressAiProcessId(event.processId)) throw new Error("PRESS_AI_PROCESS_ID_INVALID");
   const process = getPressAiProcessDefinition(event.processId);
-  if (event.processVersion !== process.version) throw new Error("PRESS_AI_PROCESS_VERSION_INVALID");
+  const legacyPressIdentity = event.processId === "press-creation" && event.processVersion === "1.0.0";
+  if (event.processVersion !== process.version && !legacyPressIdentity) throw new Error("PRESS_AI_PROCESS_VERSION_INVALID");
   if (event.type === "node.state") {
     const node = process.nodes.find((entry) => entry.id === event.node.id);
     if (!node) throw new Error("PRESS_AI_PROCESS_NODE_INVALID");

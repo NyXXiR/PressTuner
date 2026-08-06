@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { File } from "node:buffer";
 import test from "node:test";
 
-import { sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse } from "./pressAiProcessDebuggerClient";
+import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
 
 test("uploads a direct File as multipart without a manual content type", async () => {
   let request: RequestInit | undefined;
@@ -36,4 +36,19 @@ test("stream failures preserve the persisted run and article identities", async 
   const encoder = new TextEncoder();
   const response = new Response(new ReadableStream({ start(controller) { controller.enqueue(encoder.encode('event: stream.error\ndata: {"code":"FAILED","runId":"run-1","articleId":"article-1"}\n\n')); controller.close(); } }), { status: 201 });
   await assert.rejects(() => parsePressAiProcessSse(response), (error: any) => error.message === "FAILED" && error.runId === "run-1" && error.articleId === "article-1");
+});
+
+test("checkpoint responses fail closed and preserve structured 409 errors", async () => {
+  await assert.rejects(() => createPressAiCheckpointAttempt({}, async () => new Response(JSON.stringify({ attempt: { id: "bad" } }), { status: 201 })), /Invalid input/);
+  await assert.rejects(() => advancePressAiCheckpointEdge("a", "e", {}, async () => new Response(JSON.stringify({ code: "PRESS_AI_DEBUG_COMMAND_STALE", expectedRevision: 2 }), { status: 409 })), (error: unknown) => error instanceof PressAiDebuggerApiError && error.status === 409 && error.code === "PRESS_AI_DEBUG_COMMAND_STALE" && (error.details as { expectedRevision: number }).expectedRevision === 2);
+});
+
+test("checkpoint history and comparisons read persisted server projections", async () => {
+  const history = await fetchPressAiCheckpointAttemptHistory(async () => new Response(JSON.stringify({ attempts: [{ id: "a1", status: "BLOCKED" }] }), { status: 200 }));
+  const comparisons = await fetchPressAiCheckpointComparison("a2", async (url) => {
+    assert.match(String(url), /a2\/comparison$/);
+    return new Response(JSON.stringify({ comparisons: [{ id: "c1", oldVerdict: "BLOCK", newVerdict: "PASS", outputComparison: { changed: true } }] }), { status: 200 });
+  });
+  assert.equal(history[0]?.id, "a1");
+  assert.equal(comparisons[0]?.newVerdict, "PASS");
 });

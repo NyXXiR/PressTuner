@@ -1,44 +1,9 @@
 import { chromium, type Page } from "playwright";
-import { getPressAiProcessDefinition } from "@/domain/press-ai-debugger/processRegistry";
-
-const argument = process.argv.find((value) => value.startsWith("--base-url="));
-const baseUrl = argument?.slice("--base-url=".length) ?? process.argv[process.argv.indexOf("--base-url") + 1] ?? "http://127.0.0.1:3003";
-const viewports = [{ name: "desktop", width: 1440, height: 1000 }, { name: "mobile", width: 390, height: 844 }];
-const check = (condition: boolean, message: string) => { if (!condition) throw new Error(message); };
-
-async function authenticatedMocks(page: Page) {
-  await page.route("**/api/me", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, user: { id: "qa-user" }, team: { id: "qa-team" } }) }));
-  await page.route("**/api/knowledge/documents", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, documents: [{ id: "qa-ready", originalName: "QA facts.pdf", status: "READY", pageCount: 3, chunkCount: 8, activeGenerationId: "generation", hasPendingReplacement: false }], quota: { activeDocumentCount: 1, storedBytes: 100, uploadsInWindow: 1, limits: { documents: 25, storedBytes: 1000, uploads: 10, windowSeconds: 3600 }, retryAfterSeconds: 0 } }) }));
-  await page.route("**/api/press/agent/process-debug-runs", (route) => { if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, runs: [] }) }); return route.continue(); });
-}
-
-async function main() {
-  const browser = await chromium.launch({ headless: true });
-  try {
-  const results = [];
-  for (const viewport of viewports) {
-    const loggedOut = await browser.newPage({ viewport });
-    await loggedOut.route("**/api/me", (route) => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
-    await loggedOut.goto(`${baseUrl}/demo/rag-test`, { waitUntil: "networkidle" });
-    await loggedOut.getByText("로그인과 팀 선택이 필요합니다.").waitFor();
-    await loggedOut.close();
-
-    const page = await browser.newPage({ viewport }); await authenticatedMocks(page); await page.goto(`${baseUrl}/demo/rag-test`, { waitUntil: "networkidle" });
-    await page.getByRole("heading", { level: 1, name: "Press AI 프로세스 디버거" }).waitFor();
-    const rag = getPressAiProcessDefinition("rag-query"); check(await page.getByLabel(`${rag.label} 워크플로`).getByRole("button").count() === rag.nodes.length, `${viewport.name}: RAG registry node count mismatch`);
-    await page.getByLabel(/보도자료 작성/).check();
-    const creation = getPressAiProcessDefinition("press-creation"); check(await page.getByLabel(`${creation.label} 워크플로`).getByRole("button").count() === creation.nodes.length, `${viewport.name}: Press registry node count mismatch`);
-    await page.getByText("실제 문서가 생성되고 일반 Press 할당량").waitFor();
-    const dimensions = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, client: document.documentElement.clientWidth })); check(dimensions.width <= dimensions.client, `${viewport.name}: horizontal overflow`);
-    results.push({ viewport: viewport.name, ...dimensions }); await page.close();
-  }
-  console.log(JSON.stringify({ ok: true, baseUrl, results }, null, 2));
-  } finally {
-    await browser.close();
-  }
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+const argument = process.argv.find((value) => value.startsWith("--base-url=")); const baseUrl = argument?.slice("--base-url=".length) ?? process.argv[process.argv.indexOf("--base-url") + 1] ?? "http://127.0.0.1:3003";
+const viewports = [{ name: "desktop", width: 1440, height: 1000 }, { name: "mobile", width: 390, height: 844 }]; const check = (condition: boolean, message: string) => { if (!condition) throw new Error(message); };
+type QaAttempt = Record<string, unknown> & { transitions: Array<Record<string, unknown>> };
+function attempt(overrides: Record<string, unknown> = {}): QaAttempt { return { id: "qa-command-0001", processId: "press-creation", processVersion: pressCreationProcess.version, registryHash: "qa-hash", executorVersion: "qa-executor", status: "ACTIVE", revision: 0, articleId: "qa-article", activeNodeId: "article-initialization", startNodeId: "article-initialization", checkpoints: [], transitions: [], ...overrides } as QaAttempt; }
+async function authenticatedMocks(page: Page) { let current = attempt(); await page.route("**/api/me", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, user: { id: "qa-user" }, team: { id: "qa-team" } }) })); await page.route("**/api/press/agent/process-debug-attempts", async (route) => { if (route.request().method() === "POST") return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ created: true, attempt: current }) }); return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ attempts: [] }) }); }); await page.route("**/api/press/agent/process-debug-attempts/qa-command-0001", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ attempt: current }) })); await page.route("**/api/press/agent/process-debug-attempts/qa-command-0001/steps/article-initialization/execute", (route) => { current = attempt({ status: "INSPECTING", revision: 1, activeNodeId: null, checkpoints: [{ id: "cp-init", nodeId: "article-initialization", sequence: 0, mode: "EXECUTED", input: { articleId: "qa-article" }, output: { articleId: "qa-article", teamId: "qa-team", type: "PRESS_RELEASE" }, quotaUnits: 0 }], transitions: [{ id: "tr-init", edgeId: "initialization-brief", sequence: 0, sourceNodeId: "article-initialization", targetNodeId: "brief-normalization", targetPayload: { articleId: "qa-article", rawText: "memo", tone: "formal" }, verdict: "PASS", warnAcknowledgedAt: null, humanGateAcknowledgedAt: null, advancedAt: null, observations: [{ id: "o1", guardrailId: "article-team-ownership", origin: "MANDATORY", expected: "team article", observed: "qa-team", reason: "matched", evidence: {}, verdict: "PASS", displayOrder: 0 }] }] }); return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ replayed: false, response: { revision: 1 } }) }); }); await page.route("**/api/press/agent/process-debug-attempts/qa-command-0001/edges/initialization-brief/advance", (route) => { current = { ...current, status: "ACTIVE", revision: 2, activeNodeId: "brief-normalization", transitions: (current.transitions as Array<Record<string, unknown>>).map((item) => ({ ...item, advancedAt: new Date().toISOString() })) }; return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ replayed: false, response: { revision: 2 } }) }); }); }
+async function main() { const browser = await chromium.launch({ headless: true }); try { const results = []; for (const viewport of viewports) { const loggedOut = await browser.newPage({ viewport }); await loggedOut.route("**/api/me", (route) => route.fulfill({ status: 401, body: "{}" })); await loggedOut.goto(`${baseUrl}/demo/rag-test`, { waitUntil: "networkidle" }); await loggedOut.getByText("로그인과 팀 선택이 필요합니다.").waitFor(); await loggedOut.close(); const page = await browser.newPage({ viewport }); await authenticatedMocks(page); await page.goto(`${baseUrl}/demo/rag-test`, { waitUntil: "networkidle" }); await page.getByRole("heading", { level: 1, name: "Press AI 프로세스 디버거" }).waitFor(); await page.getByLabel("대략적인 메모").fill("memo"); await page.getByText("새 테스트 Article이 생성").click(); await page.getByRole("button", { name: /새 시도 만들기/ }).click(); await page.getByLabel("보도자료 체크포인트 그래프").waitFor(); check(await page.getByLabel("보이는 순서형 워크플로 개요").getByRole("listitem").count() === pressCreationProcess.nodes.length, `${viewport.name}: outline node count`); await page.getByRole("button", { name: "그래프 확대" }).focus(); await page.keyboard.press("Enter"); await page.getByRole("button", { name: "이 노드만 실행" }).click(); await page.getByRole("button", { name: "initialization-brief: PASS", exact: true }).click(); await page.getByText("가드레일 관찰").waitFor(); await page.getByRole("button", { name: "다음 노드 활성화" }).click(); await page.getByText("활성 노드: brief-normalization").waitFor(); const dimensions = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, client: document.documentElement.clientWidth })); check(dimensions.width <= dimensions.client, `${viewport.name}: horizontal overflow`); results.push({ viewport: viewport.name, ...dimensions }); await page.close(); } console.log(JSON.stringify({ ok: true, baseUrl, results }, null, 2)); } finally { await browser.close(); } }
+main().catch((error) => { console.error(error); process.exitCode = 1; });

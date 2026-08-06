@@ -1,31 +1,328 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { projectPressAiProcessEvents, type PressAiProcessEvent } from "@/domain/press-ai-debugger/processEvents";
-import type { PressAiProcessId } from "@/domain/press-ai-debugger/processRegistry";
-import type { PRESS_AI_SAMPLE_SCENARIOS } from "@/domain/press-ai-debugger/sampleManifest";
-import { continuePressAiProcessRun, fetchPressAiKnowledgeDocuments, fetchPressAiProcessHistory, replayPressAiProcessRun, sampleAssetToFile, startPressAiProcessRun, uploadPressAiKnowledgePdf, type PressAiKnowledgeDocument } from "@/lib/pressAiProcessDebuggerClient";
-import { PressAiProcessSelector } from "./PressAiProcessSelector";
-import { PressAiRagSetup } from "./PressAiRagSetup";
-import { PressAiCreationSetup, type PressCreationForm } from "./PressAiCreationSetup";
-import { PressAiProcessWorkflowViewer } from "./PressAiProcessWorkflowViewer";
-import { PressAiProcessRunHistory } from "./PressAiProcessRunHistory";
-type Scenario = (typeof PRESS_AI_SAMPLE_SCENARIOS)[number];
-const DEFAULT_MEMO = "픽셔널 기업 브리프랩은 2031년 4월 17일 ‘루멘 브릿지’를 출시할 예정이다. 비공개 베타에는 20곳이 참여했고, 작업 시간은 150분에서 50분으로 줄었다. 이는 단순 평균이며 대조군이 없고 외부 검증을 거치지 않았다.";
+import { useEffect, useRef, useState } from "react";
+import { PressAiProcessGraph } from "./PressAiProcessGraph";
+import { PressAiEdgeInspector } from "./PressAiEdgeInspector";
+import { PressAiWorkflowOutline } from "./PressAiWorkflowOutline";
+import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
+import { PressAiCasePanel } from "./PressAiCasePanel";
+import { PressAiAttemptComparison } from "./PressAiAttemptComparison";
+import { usePressAiCheckpointDebugger } from "./usePressAiCheckpointDebugger";
+
+const DEFAULT_MEMO =
+  "픽셔널 기업 브리프랩은 2031년 4월 17일 ‘루멘 브릿지’를 출시할 예정이다. 비공개 베타에는 20곳이 참여했고, 작업 시간은 150분에서 50분으로 줄었다. 이는 단순 평균이며 대조군이 없고 외부 검증을 거치지 않았다.";
 export function PressAiProcessDebugger() {
-  const [auth, setAuth] = useState<"checking" | "authenticated" | "anonymous">("checking"); const [processId, setProcessId] = useState<PressAiProcessId>("rag-query"); const [events, setEvents] = useState<PressAiProcessEvent[]>([]); const [runId, setRunId] = useState<string | null>(null); const [runOutput, setRunOutput] = useState<Record<string, any> | null>(null); const [articleId, setArticleId] = useState<string | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const errorRef = useRef<HTMLDivElement>(null);
-  const [documents, setDocuments] = useState<PressAiKnowledgeDocument[]>([]); const [selectedIds, setSelectedIds] = useState<string[]>([]); const [trackedIds, setTrackedIds] = useState<string[]>([]); const [documentLoading, setDocumentLoading] = useState(false); const [uploadProgress, setUploadProgress] = useState("준비된 문서만 선택할 수 있습니다."); const [documentError, setDocumentError] = useState<string | null>(null); const [quota, setQuota] = useState<any>(null); const [scenarioId, setScenarioId] = useState<string | null>(null); const [adding, setAdding] = useState(false); const [prompt, setPrompt] = useState(""); const [retrieval, setRetrieval] = useState<any>("baseline-v1");
-  const [creation, setCreation] = useState<PressCreationForm>({ rawText: DEFAULT_MEMO, tone: "formal", reviewInstruction: "사실과 주의 문구가 보존됐는지 검토해 주세요.", rewriteInstruction: "선택한 의견만 반영하고 새 사실을 만들지 마세요.", acknowledged: false }); const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]); const [history, setHistory] = useState<any[]>([]);
-  const projection = useMemo(() => projectPressAiProcessEvents(processId, events), [processId, events]);
-  const refreshHistory = useCallback(async () => { try { setHistory(await fetchPressAiProcessHistory()); } catch { /* authentication message owns this */ } }, []);
-  const refreshDocuments = useCallback(async () => { setDocumentLoading(true); try { const result = await fetchPressAiKnowledgeDocuments(); setDocuments(result.documents); setQuota(result.quota); setTrackedIds((current) => { const ready = current.filter((id) => result.documents.some((document) => document.id === id && document.selectable)); if (ready.length) setSelectedIds((selected) => [...new Set([...selected, ...ready])]); return current.filter((id) => !ready.includes(id)); }); setDocumentError(null); } catch (cause) { setDocumentError(cause instanceof Error ? cause.message : "문서를 불러오지 못했습니다."); } finally { setDocumentLoading(false); } }, []);
-  useEffect(() => { void fetch("/api/me", { cache: "no-store" }).then((response) => { setAuth(response.ok ? "authenticated" : "anonymous"); if (response.ok) { void refreshDocuments(); void refreshHistory(); } }).catch(() => setAuth("anonymous")); }, [refreshDocuments, refreshHistory]);
-  useEffect(() => { if (!trackedIds.length) return; const timer = setInterval(() => void refreshDocuments(), 5_000); return () => clearInterval(timer); }, [trackedIds.length, refreshDocuments]);
-  useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
-  const receive = (event: PressAiProcessEvent) => setEvents((current) => current.some((entry) => entry.eventId === event.eventId || entry.dedupeKey === event.dedupeKey) ? current : [...current, event]);
-  async function loadRun(id: string) { const replay = await replayPressAiProcessRun(id); const nextProcess = (replay.run.processId ?? replay.events[0]?.processId ?? "rag-query") as PressAiProcessId; setProcessId(nextProcess); setRunId(id); setEvents(replay.events); setRunOutput(replay.run.output && typeof replay.run.output === "object" ? replay.run.output : null); setArticleId(replay.run.articleId ?? null); }
-  async function upload(files: File[]) { if (!files.length) return; setAdding(true); setDocumentError(null); const successes: string[] = []; const failures: string[] = []; for (const file of files) { try { const result = await uploadPressAiKnowledgePdf(file); successes.push(result.document.id); setQuota(result.quota); } catch (cause) { failures.push(`${file.name}: ${cause instanceof Error ? cause.message : "업로드 실패"}`); } } setTrackedIds((ids) => [...new Set([...ids, ...successes])]); setUploadProgress(`${successes.length}개 추가됨${failures.length ? ` · ${failures.length}개 실패` : ""}. 인덱싱 준비 상태를 확인합니다.`); if (failures.length) setDocumentError(failures.join(" / ")); setAdding(false); await refreshDocuments(); }
-  async function addScenario(scenario: Scenario) { setAdding(true); const files: File[] = []; const failures: string[] = []; for (const asset of scenario.assets) { try { files.push(await sampleAssetToFile(asset)); } catch (cause) { failures.push(`${asset.displayName}: ${cause instanceof Error ? cause.message : "샘플 다운로드 실패"}`); } } setAdding(false); if (failures.length) setDocumentError(failures.join(" / ")); await upload(files); }
-  async function execute(input: Record<string, unknown>) { setBusy(true); setError(null); setEvents([]); setRunOutput(null); setRunId(null); try { const received = await startPressAiProcessRun(input, (event) => { setRunId(event.runId); receive(event); }); const id = received[0]?.runId; if (id) await loadRun(id); await refreshHistory(); } catch (cause) { setError(cause instanceof Error ? cause.message : "실행하지 못했습니다."); const failedRunId = cause && typeof cause === "object" && "runId" in cause && typeof cause.runId === "string" ? cause.runId : null; if (failedRunId) { try { await loadRun(failedRunId); } catch {} } } finally { setBusy(false); } }
-  async function continueRun(input: Record<string, unknown>) { if (!runId) return; setBusy(true); setError(null); try { await continuePressAiProcessRun(runId, input); await loadRun(runId); await refreshHistory(); } catch (cause) { setError(cause instanceof Error ? cause.message : "계속 실행하지 못했습니다."); try { await loadRun(runId); } catch {} } finally { setBusy(false); } }
-  return <section className="rounded-2xl border border-primary/35 bg-card p-4 shadow-sm sm:p-6" aria-labelledby="press-ai-debugger-heading"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-primary">실제 Press AI</p><h2 id="press-ai-debugger-heading" className="mt-1 text-xl font-black">Press AI 프로세스 디버거</h2></div><span className="rounded-full border border-border px-3 py-1 text-xs font-bold">{projection.runStatus}</span></div><p className="mt-3 text-sm leading-6 text-muted-foreground">브라우저 상태가 아니라 서버에 저장된 실행, 단계 입력·출력, 이벤트를 표시합니다. 실제 팀 데이터와 일반 할당량을 사용합니다.</p>{auth === "anonymous" ? <p className="mt-4 rounded-xl border border-amber-500/40 p-4 text-sm">로그인과 팀 선택이 필요합니다.</p> : null}{error ? <div ref={errorRef} tabIndex={-1} role="alert" className="mt-4 rounded-xl border border-rose-500 p-4 text-sm text-rose-700">{error}</div> : null}<PressAiProcessSelector value={processId} onChange={(value) => { setProcessId(value); setEvents([]); setRunId(null); setRunOutput(null); setArticleId(null); }} disabled={busy}/>{processId === "rag-query" ? <PressAiRagSetup prompt={prompt} onPromptChange={setPrompt} retrieval={retrieval} onRetrievalChange={setRetrieval} scenarioId={scenarioId} onScenario={(scenario) => { setScenarioId(scenario.id); setPrompt(scenario.recommendedPrompt); }} onAddScenario={(scenario) => void addScenario(scenario)} adding={adding} documents={documents} selectedIds={selectedIds} onSelectedIdsChange={setSelectedIds} onFiles={(files) => void upload(files)} onRefresh={() => void refreshDocuments()} loading={documentLoading} progress={uploadProgress} error={documentError} quota={quota} disabled={busy || auth !== "authenticated"}/> : <PressAiCreationSetup form={creation} onChange={setCreation} runOutput={runOutput} selectedNoteIds={selectedNoteIds} onSelectedNoteIdsChange={setSelectedNoteIds} onStart={() => void execute({ processId: "press-creation", rawText: creation.rawText, tone: creation.tone, reviewInstruction: creation.reviewInstruction, rewriteInstruction: creation.rewriteInstruction, acknowledgedQuotaAndArticleCreation: true })} onConfirmBrief={(brief) => void continueRun({ action: "confirm-brief", confirmedBrief: brief })} onReview={() => void continueRun({ action: "start-review", userInstruction: creation.reviewInstruction })} onRewrite={() => void continueRun({ action: "rewrite-selected", selectedNoteIds, userInstruction: creation.rewriteInstruction })} disabled={busy || auth !== "authenticated"} articleId={articleId}/>} {processId === "rag-query" ? <button type="button" disabled={busy || auth !== "authenticated" || !prompt.trim() || selectedIds.length === 0} onClick={() => void execute({ processId: "rag-query", prompt, promptPresetId: null, retrievalConfigurationId: retrieval, documentIds: selectedIds, articleId: null })} className="mt-4 min-h-11 rounded-xl bg-primary px-5 font-black text-primary-foreground disabled:opacity-50">{busy ? "실제 AI 실행 중" : "RAG 프로세스 실행"}</button> : null}<div aria-live="polite" className="mt-3 text-sm text-muted-foreground">{busy ? "저장 이벤트를 기다리는 중입니다." : projection.waitingGate ? `사용자 확인 대기: ${projection.waitingGate.id}` : "실행 상태가 여기에 표시됩니다."}</div><PressAiProcessWorkflowViewer processId={processId} projection={projection} runId={runId}/>{auth === "authenticated" ? <PressAiProcessRunHistory runs={history} onOpen={(id) => void loadRun(id)}/> : null}</section>;
+  const debuggerState = usePressAiCheckpointDebugger();
+  const [auth, setAuth] = useState<"checking" | "authenticated" | "anonymous">(
+    "checking",
+  );
+  const [rawText, setRawText] = useState(DEFAULT_MEMO);
+  const [tone, setTone] = useState<"formal" | "neutral" | "friendly">("formal");
+  const [reviewInstruction, setReviewInstruction] = useState(
+    "사실과 주의 문구가 보존됐는지 검토해 주세요.",
+  );
+  const [rewriteInstruction, setRewriteInstruction] = useState(
+    "선택한 의견만 반영하고 새 사실을 만들지 마세요.",
+  );
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    void fetch("/api/me", { cache: "no-store" })
+      .then((response) => setAuth(response.ok ? "authenticated" : "anonymous"))
+      .catch(() => setAuth("anonymous"));
+  }, []);
+  useEffect(() => {
+    if (debuggerState.error) errorRef.current?.focus();
+  }, [debuggerState.error]);
+  const attempt = debuggerState.attempt;
+  const selectNode = (id: string) => {
+    setSelectedNodeId(id);
+    setSelectedEdgeId(null);
+  };
+  const selectEdge = (id: string) => {
+    setSelectedEdgeId(id);
+    setSelectedNodeId(null);
+  };
+  const activeCheckpoint = selectedNodeId
+    ? attempt?.checkpoints.find((item) => item.nodeId === selectedNodeId)
+    : null;
+  const reviewCheckpoint = attempt?.checkpoints.find(
+    (item) => item.nodeId === "draft-review",
+  );
+  const reviewNotes =
+    reviewCheckpoint &&
+    reviewCheckpoint.output &&
+    typeof reviewCheckpoint.output === "object" &&
+    Array.isArray((reviewCheckpoint.output as { notes?: unknown[] }).notes)
+      ? (
+          reviewCheckpoint.output as { notes: Array<Record<string, unknown>> }
+        ).notes.filter((item) => typeof item.id === "string")
+      : [];
+  const refreshKey = attempt ? `${attempt.id}:${attempt.revision}` : "empty";
+  return (
+    <section
+      className="min-w-0 rounded-2xl border border-primary/35 bg-card p-4 shadow-sm sm:p-6"
+      aria-labelledby="press-ai-debugger-heading"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
+            Press creation · checkpoint v2
+          </p>
+          <h2
+            id="press-ai-debugger-heading"
+            className="mt-1 text-xl font-black"
+          >
+            Press AI 체크포인트 디버거
+          </h2>
+        </div>
+        <span className="rounded-full border px-3 py-1 text-xs font-bold">
+          {attempt?.status ?? "NOT_STARTED"}
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        노드 실행과 엣지 이동은 별도 명령입니다. 기존 RAG-v1 기록은 기존 URL에서
+        계속 읽을 수 있으며, 이 화면에는 자동 실행 경로가 없습니다.
+      </p>
+      {auth === "anonymous" ? (
+        <p className="mt-4 rounded-xl border border-amber-500/40 p-4 text-sm">
+          로그인과 팀 선택이 필요합니다.
+        </p>
+      ) : null}
+      {debuggerState.error ? (
+        <div
+          ref={errorRef}
+          tabIndex={-1}
+          role="alert"
+          className="mt-4 rounded-xl border border-rose-500 p-4 text-sm text-rose-700"
+        >
+          {debuggerState.error}
+        </div>
+      ) : null}
+      {!attempt ? (
+        <div className="mt-5 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="text-sm font-bold">
+              대략적인 메모
+              <textarea
+                value={rawText}
+                onChange={(event) => setRawText(event.target.value)}
+                rows={7}
+                className="mt-2 w-full rounded-xl border bg-background p-3"
+              />
+            </label>
+            <div className="space-y-3">
+              <label className="block text-sm font-bold">
+                문체
+                <select
+                  value={tone}
+                  onChange={(event) =>
+                    setTone(event.target.value as typeof tone)
+                  }
+                  className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+                >
+                  <option value="formal">격식</option>
+                  <option value="neutral">중립</option>
+                  <option value="friendly">친근</option>
+                </select>
+              </label>
+              <label className="block text-sm font-bold">
+                리뷰 지침
+                <input
+                  value={reviewInstruction}
+                  onChange={(event) => setReviewInstruction(event.target.value)}
+                  className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+                />
+              </label>
+              <label className="block text-sm font-bold">
+                재작성 지침
+                <input
+                  value={rewriteInstruction}
+                  onChange={(event) =>
+                    setRewriteInstruction(event.target.value)
+                  }
+                  className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+                />
+              </label>
+            </div>
+          </div>
+          <label className="flex min-h-11 gap-3 rounded-xl border border-amber-500/40 p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+            />
+            <span>
+              새 테스트 Article이 생성되고 명시적으로 실행한 AI 노드만 일반
+              Press 할당량을 사용함을 확인했습니다.
+            </span>
+          </label>
+          <button
+            type="button"
+            disabled={
+              debuggerState.busy ||
+              auth !== "authenticated" ||
+              !acknowledged ||
+              !rawText.trim()
+            }
+            onClick={() =>
+              void debuggerState.create({
+                rawText,
+                tone,
+                reviewInstruction,
+                rewriteInstruction,
+              })
+            }
+            className="min-h-11 rounded-xl bg-primary px-5 font-black text-primary-foreground disabled:opacity-50"
+          >
+            새 시도 만들기 (AI 실행 없음)
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+          <div className="min-w-0 space-y-4">
+            <PressAiProcessGraph
+              attempt={attempt}
+              busy={debuggerState.busy}
+              selectedNodeId={selectedNodeId}
+              selectedEdgeId={selectedEdgeId}
+              onNode={selectNode}
+              onEdge={selectEdge}
+            />
+            {attempt.activeNodeId === "selected-rewrite" ? (
+              <section className="rounded-xl border p-4">
+                <h3 className="font-black">반영할 리뷰 노트 선택</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  저장된 리뷰 결과 중 실제로 반영할 항목만 고르세요.
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {reviewNotes.map((note) => {
+                    const id = String(note.id);
+                    const label =
+                      typeof note.message === "string"
+                        ? note.message
+                        : typeof note.text === "string"
+                          ? note.text
+                          : id;
+                    return (
+                      <li key={id}>
+                        <label className="flex min-h-11 gap-3 rounded border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedNoteIds.includes(id)}
+                            onChange={(event) =>
+                              setSelectedNoteIds((items) =>
+                                event.target.checked
+                                  ? [...items, id]
+                                  : items.filter((item) => item !== id),
+                              )
+                            }
+                          />
+                          <span>
+                            <strong>{id}</strong>
+                            <br />
+                            {label}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <label className="mt-3 block text-sm font-bold">
+                  수정 지침
+                  <input
+                    value={rewriteInstruction}
+                    onChange={(event) =>
+                      setRewriteInstruction(event.target.value)
+                    }
+                    className="mt-1 min-h-11 w-full rounded border bg-background px-3"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={
+                    debuggerState.busy ||
+                    selectedNoteIds.length === 0 ||
+                    !rewriteInstruction.trim()
+                  }
+                  onClick={() =>
+                    void debuggerState.execute("selected-rewrite", {
+                      selectedNoteIds,
+                      rewriteInstruction,
+                    })
+                  }
+                  className="mt-3 min-h-11 rounded bg-primary px-4 font-bold text-primary-foreground disabled:opacity-50"
+                >
+                  선택한 노트로 수정 실행
+                </button>
+              </section>
+            ) : null}
+            {selectedNodeId && activeCheckpoint ? (
+              <section className="rounded-xl border p-4">
+                <h3 className="font-black">{selectedNodeId} 체크포인트</h3>
+                <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-3 text-xs">
+                  {JSON.stringify(
+                    {
+                      input: activeCheckpoint.input,
+                      output: activeCheckpoint.output,
+                    },
+                    null,
+                    2,
+                  )}
+                </pre>
+              </section>
+            ) : null}
+            {selectedEdgeId ? (
+              <PressAiEdgeInspector
+                key={selectedEdgeId}
+                attempt={attempt}
+                edgeId={selectedEdgeId}
+                busy={debuggerState.busy}
+                onAdvance={(warn, human) =>
+                  void debuggerState.advance(selectedEdgeId, warn, human)
+                }
+                onRetry={(nodeId) => void debuggerState.retry(nodeId)}
+              />
+            ) : null}
+          </div>
+          <div className="space-y-4">
+            <PressAiWorkflowOutline
+              attempt={attempt}
+              busy={debuggerState.busy}
+              onNode={selectNode}
+              onEdge={selectEdge}
+              onExecute={(id) => void debuggerState.execute(id)}
+            />
+            <PressAiAttemptHistory
+              attemptId={attempt.id}
+              refreshKey={refreshKey}
+              onOpen={(id) => void debuggerState.open(id)}
+            />
+            <PressAiCasePanel
+              checkpoints={attempt.checkpoints}
+              busy={debuggerState.busy}
+              onSave={(checkpointId, name, expectations) =>
+                void debuggerState.saveCase(checkpointId, name, expectations)
+              }
+            />
+            <PressAiAttemptComparison
+              attemptId={attempt.id}
+              refreshKey={refreshKey}
+            />
+          </div>
+        </div>
+      )}
+      <p aria-live="polite" className="mt-4 text-sm text-muted-foreground">
+        {debuggerState.busy
+          ? "명령을 저장하고 있습니다."
+          : attempt?.activeNodeId
+            ? `활성 노드: ${attempt.activeNodeId}`
+            : attempt
+              ? "엣지 검사 또는 종료 상태입니다."
+              : "시도를 만들면 문서만 준비됩니다."}
+      </p>
+    </section>
+  );
 }
