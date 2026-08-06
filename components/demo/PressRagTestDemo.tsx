@@ -17,9 +17,11 @@ const CHECK_LABELS: Readonly<Record<keyof PressRagRecordedOutcome["checks"], str
   expectedTools: "기대 도구 사용",
 };
 
+// Solid tones, not a tint plus a `dark:` text colour: `dark:` follows the OS setting rather
+// than the `.dark` class in this app, so a tinted chip is unreadable on a light-mode OS.
 const CHECK_COPY = {
-  MATCH: { icon: "✓", label: "기대와 일치", tone: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200" },
-  MISMATCH: { icon: "×", label: "불일치", tone: "border-rose-500/40 bg-rose-500/10 text-rose-800 dark:text-rose-200" },
+  MATCH: { icon: "✓", label: "기대와 일치", tone: "border-emerald-700 bg-emerald-700 text-white" },
+  MISMATCH: { icon: "×", label: "불일치", tone: "border-rose-700 bg-rose-700 text-white" },
   NOT_EVALUABLE: { icon: "–", label: "평가 불가", tone: "border-border bg-muted text-muted-foreground" },
 } as const;
 
@@ -48,7 +50,7 @@ function OutcomeCard({
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">기록된 실행 {outcome.runIndex}</p>
           <h3 className="mt-1 text-xl font-black text-foreground">{label}</h3>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${failed ? "border-rose-500/40 bg-rose-500/10 text-rose-800 dark:text-rose-200" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"}`}>
+        <span className={`rounded-full border px-3 py-1 text-xs font-bold text-white ${failed ? "border-rose-700 bg-rose-700" : "border-emerald-700 bg-emerald-700"}`}>
           <span aria-hidden="true">{failed ? "× " : "✓ "}</span>
           {failed ? "실패 기록" : "완료 기록"}
         </span>
@@ -58,7 +60,7 @@ function OutcomeCard({
         <h4 id={`${label}-answer-heading`} className="text-sm font-black text-foreground">답변 가능성 및 최종 결과</h4>
         <div className="mt-2 rounded-xl bg-muted/60 p-4">
           {failed ? (
-            <p className="break-words text-sm font-semibold text-rose-800 dark:text-rose-200">
+            <p className="break-words text-sm font-semibold text-destructive">
               오류 코드: <code className="break-all">{outcome.errorCode ?? "기록 없음"}</code>
             </p>
           ) : (
@@ -189,7 +191,7 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
       {/* Preset and repetition are controls for the workflow below, not sections of their
           own, so they sit in one bar and the graph stays in the first screen. */}
       <h2 id="scenario-picker-heading" className="sr-only">RAG 실행 디버깅 프리셋</h2>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="group" aria-label="RAG 검토 프리셋">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-5" role="group" aria-label="RAG 검토 프리셋">
         {viewModel.scenarios.map((option, index) => (
           <button
             key={option.preset}
@@ -222,15 +224,6 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
         </div>
       </div>
 
-      <section className="mt-3 rounded-xl border border-border bg-card p-4" aria-labelledby="provenance-heading">
-        <h2 id="provenance-heading" className="text-sm font-black text-foreground">승인 데이터 출처</h2>
-        <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
-          <div><dt className="font-bold text-muted-foreground">데이터셋 아티팩트</dt><dd className="mt-1 font-mono">{viewModel.evidence.datasetArtifact}</dd></div>
-          <div><dt className="font-bold text-muted-foreground">버전</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.datasetVersion}</dd></div>
-          <div><dt className="font-bold text-muted-foreground">승인 시각</dt><dd className="mt-1"><time dateTime={viewModel.evidence.approvedAt}>{viewModel.evidence.approvedAt}</time></dd></div>
-        </dl>
-      </section>
-
       <PressRagWorkflowViewer
         key={`${scenario.caseId}-${selectedRun.runIndex}`}
         baseline={selectedRun.baseline}
@@ -245,7 +238,7 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
 
       {/* The expected behavior is what the verdicts were judged against, so it reads after
           the workflow rather than ahead of it. */}
-      <details className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-4" aria-labelledby="expected-heading">
+      <details className="mt-3 rounded-2xl border border-primary/30 bg-primary/5 p-4" aria-labelledby="expected-heading">
         <summary className="cursor-pointer text-base font-black text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <span id="expected-heading">승인된 synthetic 기대 동작</span>
         </summary>
@@ -259,24 +252,38 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
         </dl>
       </details>
 
-      <section className="mt-8" aria-labelledby="comparison-heading">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div><h2 id="comparison-heading" className="text-2xl font-black text-foreground">보조 기록 결과 비교</h2><p className="mt-1 text-xs text-muted-foreground">워크플로 디버깅을 보완하는 읽기 전용 비교입니다. 1 micro-USD는 미화 0.000001달러입니다.</p></div>
-          <p className="text-xs font-bold text-muted-foreground">{scenario.partition} · 반복 {selectedRun.runIndex}</p>
+      {/* Read-only reference below the debugger: the graph and inspection panel already
+          carry these facts, so they open on demand instead of doubling the page. */}
+      <details className="mt-4 rounded-2xl border border-border bg-card" aria-labelledby="comparison-heading">
+        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <span id="comparison-heading" className="text-base font-black text-foreground">보조 기록 결과 비교</span>
+          <span className="text-xs font-bold text-muted-foreground">
+            {viewModel.evidence.baseline.label} {selectedRun.baseline.status} · {viewModel.evidence.candidate.label} {selectedRun.candidate.status} · {scenario.partition} 반복 {selectedRun.runIndex}
+          </span>
+        </summary>
+        <div className="px-4 pb-4">
+          <p className="text-xs text-muted-foreground">워크플로 디버깅을 보완하는 읽기 전용 비교입니다. 1 micro-USD는 미화 0.000001달러입니다.</p>
+          <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-2">
+            <OutcomeCard label={viewModel.evidence.baseline.label} outcome={selectedRun.baseline} />
+            <OutcomeCard label={viewModel.evidence.candidate.label} outcome={selectedRun.candidate} />
+          </div>
         </div>
-        <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-2">
-          <OutcomeCard label={viewModel.evidence.baseline.label} outcome={selectedRun.baseline} />
-          <OutcomeCard label={viewModel.evidence.candidate.label} outcome={selectedRun.candidate} />
-        </div>
-      </section>
+      </details>
 
-      <section className="mt-8 rounded-2xl border border-border bg-muted/40 p-5" aria-labelledby="identity-heading">
-        <h2 id="identity-heading" className="text-lg font-black text-foreground">기록 신원</h2>
-        <dl className="mt-3 grid gap-4 text-xs sm:grid-cols-2">
-          <div><dt className="font-bold text-muted-foreground">{viewModel.evidence.baseline.label}</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.baseline.configurationHash}</dd></div>
-          <div><dt className="font-bold text-muted-foreground">{viewModel.evidence.candidate.label}</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.candidate.configurationHash}</dd></div>
+      <details className="mt-3 rounded-2xl border border-border bg-muted/40" aria-labelledby="provenance-heading">
+        <summary className="cursor-pointer p-4 text-base font-black text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <span id="provenance-heading">데이터 출처와 기록 신원</span>
+        </summary>
+        <dl className="grid gap-4 px-4 pb-4 text-xs sm:grid-cols-3">
+          <div><dt className="font-bold text-muted-foreground">데이터셋 아티팩트</dt><dd className="mt-1 font-mono">{viewModel.evidence.datasetArtifact}</dd></div>
+          <div><dt className="font-bold text-muted-foreground">버전</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.datasetVersion}</dd></div>
+          <div><dt className="font-bold text-muted-foreground">승인 시각</dt><dd className="mt-1"><time dateTime={viewModel.evidence.approvedAt}>{viewModel.evidence.approvedAt}</time></dd></div>
+          <div className="sm:col-span-3 sm:grid sm:grid-cols-2 sm:gap-4">
+            <div><dt className="font-bold text-muted-foreground">{viewModel.evidence.baseline.label} configuration hash</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.baseline.configurationHash}</dd></div>
+            <div className="mt-4 sm:mt-0"><dt className="font-bold text-muted-foreground">{viewModel.evidence.candidate.label} configuration hash</dt><dd className="mt-1 break-all font-mono">{viewModel.evidence.candidate.configurationHash}</dd></div>
+          </div>
         </dl>
-      </section>
+      </details>
     </section>
   );
 }

@@ -261,5 +261,7 @@ export function runPressRagSandbox(input: Readonly<{ recordedOutcome: PressRagRe
   const applied = applyDraft(base.outcome, base.prompt, input.draft, input.expectation);
   const workflow = projectPressRagWorkflowView(applied.outcome, input.expectation, applied.prompt);
   const projected = freeze({ ...applied, workflow, guardrails: projectPressRagGuardrails(applied.outcome, input.expectation, workflow) }) as PressRagSandboxProjection;
-  return freeze({ ok: true, result: mergeProjection(recorded, projected, input.draft.stageId) }) as { ok: true; result: PressRagSandboxProjection };
+  // Stages before the edited one keep the verdicts of the base the edit was stacked on,
+  // not the pristine recording, so chained edits do not resurrect replaced upstream stages.
+  return freeze({ ok: true, result: mergeProjection(base, projected, input.draft.stageId) }) as { ok: true; result: PressRagSandboxProjection };
 }

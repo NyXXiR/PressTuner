@@ -147,6 +147,41 @@ test("tool, branch, citation, and fallback edits reevaluate recorded operands wi
   assert.equal(fallback.result.outcome.fallback.mode, "ABSTENTION");
 });
 
+test("a later stage edit stacked on an earlier one keeps the earlier stage broken", async () => {
+  // CL-001 records retrieval as MATCH against a non-empty expected document set,
+  // so a resurrected upstream verdict is visible.
+  const retrievalCase = (await model()).scenarios[0]!;
+  const outcome = retrievalCase.runs[0]!.candidate;
+  const shared = { recordedOutcome: outcome, expectation: retrievalCase.expectation, prompt: retrievalCase.prompt } as const;
+  const retrievalIndex = PRESS_RAG_SANDBOX_STAGE_IDS.indexOf("retrieval-execution");
+  const recorded = projectRecordedPressRagSandbox(outcome, retrievalCase.expectation, retrievalCase.prompt);
+  assert.ok(retrievalCase.expectation.expectedDocuments.length > 0);
+  assert.equal(recorded.workflow.nodes[retrievalIndex]?.status, "MATCH");
+
+  const retrieval = createPressRagStageDraft("retrieval-execution", retrievalCase.prompt, outcome, retrievalCase.expectation);
+  assert.equal(retrieval.stageId, "retrieval-execution");
+  if (retrieval.stageId !== "retrieval-execution") return;
+  const broken = runPressRagSandbox({
+    ...shared,
+    draft: { ...retrieval, hits: retrieval.hits.map((hit) => ({ ...hit, logicalDocumentId: "wrong-document" })) },
+  });
+  assert.equal(broken.ok, true);
+  if (!broken.ok) return;
+  assert.equal(broken.result.workflow.nodes[retrievalIndex]?.status, "MISMATCH");
+
+  // Editing a downstream stage must not restore the recorded upstream verdict.
+  const later = runPressRagSandbox({
+    ...shared,
+    draft: { stageId: "verification", mode: "ANSWER", status: "PASS", supportedClaims: 1, totalClaims: 1 },
+    current: broken.result,
+  });
+  assert.equal(later.ok, true);
+  if (!later.ok) return;
+  assert.equal(later.result.outcome.retrieval[0]?.logicalDocumentId, "wrong-document");
+  assert.equal(later.result.outcome.checks.retrieval, "MISMATCH");
+  assert.equal(later.result.workflow.nodes[retrievalIndex]?.status, "MISMATCH");
+});
+
 test("a forbidden logical citation is recalculated locally and reaches terminal evaluation", async () => {
   const safety = (await model()).scenarios[4]!;
   const outcome = safety.runs[0]!.candidate;

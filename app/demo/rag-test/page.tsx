@@ -30,8 +30,10 @@ export const metadata: Metadata = {
 
 export default async function PressRagTestPage() {
   const viewModel = await loadPressRagDemo();
+  // clip, not hidden: `overflow-x: hidden` makes this a scroll container and would break
+  // the debugger's sticky verdict header.
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background">
+    <div className="min-h-screen overflow-x-clip bg-background">
       <header className="border-b border-border/60 bg-background/95">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="text-lg font-black tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">

@@ -79,7 +79,7 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /^"use client";/);
   assert.match(viewer, /useState<[^>]*>\("candidate"\)/);
   assert.match(viewer, /<button[\s\S]*?type="button"[\s\S]*?aria-pressed=/);
-  assert.match(viewer, /aria-label=\{`\$\{node\.label\}: \$\{STATE_COPY\[node\.status\]\}/);
+  assert.match(viewer, /aria-label=\{`\$\{index \+ 1\}단계 \$\{node\.label\}: \$\{STATUS_COPY\[node\.status\]\.label\}/);
   assert.match(viewer, /tabIndex=\{isSelected \? 0 : -1\}/);
   assert.match(viewer, /aria-current=/);
   assert.match(viewer, /aria-controls="guardrail-panel"/);
@@ -92,7 +92,9 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
   assert.match(viewer, /다음 상태/);
   assert.match(viewer, /disabled=\{nodeIndex <= 0\}/);
   assert.match(viewer, /disabled=\{nodeIndex === workflow\.nodes\.length - 1\}/);
-  assert.match(viewer, /role="status"/);
+  // The stage status reaches assistive tech through the button's accessible name rather
+  // than a `role="status"` live region on every decorative chip.
+  assert.match(viewer, /STATUS_COPY\[node\.status\]\.label/);
   assert.match(viewer, /recordedOutcome\.recordedExecutionRef/);
   assert.match(viewer, /edge\.decisionLabel/);
   assert.match(viewer, /edge\.state/);
@@ -105,8 +107,9 @@ test("the workflow viewer exposes configuration, node, focus, status, and live-d
 test("the graph keeps every state visible and makes edges selectable", async () => {
   const viewer = await source("components/demo/PressRagWorkflowViewer.tsx");
 
-  // Nodes and edges wrap instead of scrolling sideways, so no state hides off-screen.
-  assert.match(viewer, /flex-wrap/);
+  // One grid column per node with fixed connectors between: every state fits the rail at
+  // any width, so none wraps into an orphaned row or hides behind a sideways scroll.
+  assert.match(viewer, /md:grid-cols-\[repeat\(6,minmax\(0,1fr\)_1\.5rem\)_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(viewer, /overflow-x-auto/);
 
   // A transition condition is itself a guardrail judgment, so edges are selectable too.
@@ -121,7 +124,11 @@ test("the selected node or edge drives five fixed guardrail lanes", async () => 
   const guardrails = await source("domain/evaluation/pressRagGuardrails.ts");
 
   assert.match(viewer, /PRESS_RAG_GUARDRAIL_IDS/);
-  assert.match(viewer, /results\.map\(\(result\) => <GuardrailLane/);
+  // Every lane for the selection still renders; violations lead and the lanes that do not
+  // apply to this stage fold into one row instead of padding the panel with empty cells.
+  assert.match(viewer, /notable\.map\(\(result\) => <GuardrailLane/);
+  assert.match(viewer, /inapplicable\.map\(\(result\) => <GuardrailLane/);
+  assert.match(viewer, /VERDICT_COPY\[a\.verdict\]\.rank - VERDICT_COPY\[b\.verdict\]\.rank/);
   assert.match(viewer, /<GuardrailLane/);
   // Each lane states the rule, the expectation, what was observed, and why it was judged.
   for (const field of ["result.label", "result.rule", "result.expected", "result.observed", "result.reason"]) {
@@ -144,16 +151,25 @@ test("the selected node or edge drives five fixed guardrail lanes", async () => 
 test("the sandbox exposes structured local editing, read-only JSON, provenance, and reset boundaries", async () => {
   const viewer = await source("components/demo/PressRagWorkflowViewer.tsx");
   const panel = await source("components/demo/PressRagWorkflowSandboxPanel.tsx");
+  const header = await source("components/demo/PressRagWorkflowVerdictHeader.tsx");
   const client = await source("components/demo/PressRagTestDemo.tsx");
   const sandbox = await source("domain/evaluation/pressRagWorkflowSandbox.ts");
-  const combined = `${viewer}\n${panel}\n${client}\n${sandbox}`;
+  const combined = `${viewer}\n${panel}\n${header}\n${client}\n${sandbox}`;
 
-  assert.match(viewer, /기록 모드/);
-  assert.match(viewer, /테스트 모드/);
+  // The two display modes name what is on screen, and the tested view cannot be selected
+  // before a run has produced one.
+  assert.match(viewer, /기록 그대로/);
+  assert.match(viewer, /내 테스트 반영/);
+  assert.match(viewer, /disabled=\{testResult === null\}/);
   assert.match(panel, /structured stage form/);
   assert.match(panel, /이 단계부터 실행/);
   assert.match(panel, /테스트 초기화/);
-  assert.match(panel, /기록\/테스트 비교/);
+  // The recorded/tested comparison is the verdict header's delta, not a buried details block.
+  assert.match(header, /기록 \{STATUS_COPY\[recordedTerminal\.status\]\.label\}/);
+  assert.match(header, /테스트 \{STATUS_COPY\[terminal\.status\]\.label\}/);
+  // A hand-edited stage survives navigating to another stage and back.
+  assert.match(viewer, /if \(previous\[id\]\) return previous;/);
+  assert.match(viewer, /\{ draft: next, dirty: true \}/);
   assert.match(panel, /고급 JSON \(읽기 전용\)/);
   assert.match(panel, /<pre/);
   assert.doesNotMatch(panel, /JSON[^\n]*<textarea|<textarea[^\n]*JSON/);
