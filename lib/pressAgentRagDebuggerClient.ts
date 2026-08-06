@@ -1,7 +1,12 @@
 import {
+  PRESS_AGENT_WORKFLOW_STAGE_IDS,
   parsePressAgentWorkflowEvent,
   type PressAgentWorkflowEventV1,
+  type PressAgentWorkflowStageId,
 } from "@/domain/evaluation/pressAgentWorkflowEvents";
+import { z } from "zod";
+import type { PressAgentRagDebuggerDocument, StartRagDebuggerRunRequest } from "@/domain/evaluation/pressAgentRagDebugger";
+import type { RagDebuggerDetailResponse } from "@/domain/evaluation/pressAgentRagDebuggerDetails";
 
 export type PressAgentRagDebuggerHistoryItem = { id: string; status: string; createdAt: string; completedAt: string | null };
 
@@ -47,9 +52,39 @@ async function jsonOrThrow(response: Response) {
   return body;
 }
 
-export async function startPressAgentRagDebuggerRun(args: { prompt: string; articleId?: string | null; onEvent: (event: PressAgentWorkflowEventV1) => void; signal?: AbortSignal }) {
-  const response = await fetch("/api/press/agent/rag-debug-runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: args.prompt, articleId: args.articleId }), signal: args.signal });
-  return parsePressAgentWorkflowSse(response, args.onEvent);
+export async function startPressAgentRagDebuggerRun(args: StartRagDebuggerRunRequest & { onEvent: (event: PressAgentWorkflowEventV1) => void; signal?: AbortSignal }) {
+  const { onEvent, signal, ...request } = args;
+  const response = await fetch("/api/press/agent/rag-debug-runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request), signal });
+  return parsePressAgentWorkflowSse(response, onEvent);
+}
+
+const KnowledgeDocumentSchema = z.object({ id: z.string(), originalName: z.string(), status: z.string(), pageCount: z.number().int().nullable(), chunkCount: z.number().int().nonnegative(), activeGenerationId: z.string().nullable(), hasPendingReplacement: z.boolean() }).passthrough();
+
+export async function fetchPressAgentRagDebuggerDocuments(): Promise<PressAgentRagDebuggerDocument[]> {
+  const body = await jsonOrThrow(await fetch("/api/knowledge/documents", { cache: "no-store" }));
+  const parsed = z.object({ documents: z.array(KnowledgeDocumentSchema) }).passthrough().parse(body);
+  return parsed.documents.map((document) => {
+    const selectable = document.status === "READY" && document.activeGenerationId !== null && document.chunkCount > 0 && !document.hasPendingReplacement;
+    const readinessReason = selectable ? null : document.hasPendingReplacement ? "새 버전으로 교체 중입니다." : document.status !== "READY" ? `현재 상태: ${document.status}` : document.activeGenerationId === null ? "활성 인덱스가 없습니다." : "검색 가능한 청크가 없습니다.";
+    return { id: document.id, name: document.originalName, status: document.status, pageCount: document.pageCount, chunkCount: document.chunkCount, selectable, readinessReason };
+  });
+}
+
+const DetailEnvelopeSchema = z.object({
+  schemaVersion: z.literal("press-agent-rag-debug-detail/v1"),
+  run: z.object({ id: z.string(), status: z.string(), createdAt: z.string().datetime({ offset: true }), completedAt: z.string().datetime({ offset: true }).nullable() }).strict(),
+  stageId: z.enum(PRESS_AGENT_WORKFLOW_STAGE_IDS),
+  stageState: z.enum(["waiting", "running", "succeeded", "warning", "failed", "blocked", "skipped"]),
+  availability: z.enum(["available", "pending", "not_applicable", "unavailable"]),
+  message: z.string().nullable(),
+  detail: z.record(z.string(), z.unknown()).nullable(),
+}).strict();
+
+export async function fetchPressAgentRagDebuggerDetail(runId: string, stageId: PressAgentWorkflowStageId, signal?: AbortSignal): Promise<RagDebuggerDetailResponse> {
+  const body = await jsonOrThrow(await fetch(`/api/press/agent/rag-debug-runs/${encodeURIComponent(runId)}/details?stageId=${encodeURIComponent(stageId)}`, { cache: "no-store", signal }));
+  const parsed = DetailEnvelopeSchema.parse(body);
+  if (parsed.run.id !== runId || parsed.stageId !== stageId) throw new Error("PRESS_AGENT_DEBUG_DETAIL_STALE");
+  return parsed;
 }
 
 export async function fetchPressAgentRagDebuggerHistory(): Promise<PressAgentRagDebuggerHistoryItem[]> {

@@ -18,6 +18,7 @@ import {
 import { sanitizePostgresJson } from "@/domain/press-agent/postgresJson";
 import { buildExtractiveVerificationFallback } from "@/domain/press-agent/extractiveFallback";
 import type { PressKnowledgeRetrievalConfiguration } from "@/domain/knowledge/retrievalRuntime";
+import type { PressAgentRagDebuggerDocumentSnapshot, PressAgentRagDebuggerPromptPresetId } from "@/domain/evaluation/pressAgentRagDebugger";
 import { extractExplicitKnowledgeIdentifiers } from "@/domain/knowledge/retrievalPipeline";
 import {
   decryptPressAgentCheckpoint,
@@ -119,6 +120,7 @@ type PressAgentContext = {
   articleId: string | null;
   articleUpdatedAt: string | null;
   retrievalConfigurationId: PressKnowledgeRetrievalConfiguration["id"];
+  selectedDocumentIds: string[] | undefined;
 };
 
 function requirePressAgentContext(runContext: unknown): PressAgentContext {
@@ -143,6 +145,9 @@ function requirePressAgentContext(runContext: unknown): PressAgentContext {
         : null,
     retrievalConfigurationId:
       context.retrievalConfigurationId ?? "baseline-v1",
+    selectedDocumentIds: Array.isArray(context.selectedDocumentIds)
+      ? context.selectedDocumentIds.filter((id): id is string => typeof id === "string")
+      : undefined,
   };
 }
 
@@ -459,7 +464,7 @@ const searchKnowledgeTool = tool({
               requestedTopK: input.topK,
               configurationId: context.retrievalConfigurationId,
             }),
-            documentIds: normalizeAgentDocumentIds(input.documentIds),
+            documentIds: context.selectedDocumentIds ?? normalizeAgentDocumentIds(input.documentIds),
             roles: input.roles,
             configurationId: context.retrievalConfigurationId,
           }),
@@ -960,6 +965,9 @@ async function persistRunResult(
       existingRun.output && typeof existingRun.output === "object" && !Array.isArray(existingRun.output)
         ? (existingRun.output as Record<string, unknown>)
         : {};
+    if (runInput.launchSurface === "RAG_DEBUGGER_V1") {
+      previousOutput = { ...previousOutput, preVerificationOutput: finalOutput };
+    }
     if (finalOutput.cannotAnswer && extractive) {
       previousOutput = {
         ...previousOutput,
@@ -1209,6 +1217,9 @@ export async function startPressAgentRun(args: {
   prompt: string;
   retrievalConfigurationId?: PressKnowledgeRetrievalConfiguration["id"];
   launchSurface?: "RAG_DEBUGGER_V1";
+  promptPresetId?: PressAgentRagDebuggerPromptPresetId | null;
+  selectedDocumentIds?: string[];
+  selectedDocuments?: PressAgentRagDebuggerDocumentSnapshot[];
   workflowObserver?: PressAgentWorkflowStreamObserver;
 }): Promise<Awaited<ReturnType<typeof getPressAgentRun>>> {
   if (args.workflowObserver) {
@@ -1236,10 +1247,19 @@ export async function startPressAgentRun(args: {
       agentVersion: PRESS_AGENT_VERSION,
       model: PRESS_AGENT_MODEL,
       input: {
-        prompt: args.prompt,
-        articleUpdatedAt,
-        retrievalConfigurationId: args.retrievalConfigurationId ?? "baseline-v1",
-        ...(args.launchSurface ? { launchSurface: args.launchSurface } : {}),
+        ...(args.launchSurface ? {
+          launchSurface: args.launchSurface,
+          prompt: args.prompt,
+          promptPresetId: args.promptPresetId ?? null,
+          retrievalConfigurationId: args.retrievalConfigurationId ?? "baseline-v1",
+          selectedDocumentIds: args.selectedDocumentIds ?? [],
+          selectedDocuments: args.selectedDocuments ?? [],
+          articleUpdatedAt,
+        } : {
+          prompt: args.prompt,
+          articleUpdatedAt,
+          retrievalConfigurationId: args.retrievalConfigurationId ?? "baseline-v1",
+        }),
       },
       startedAt: new Date(),
       runtimePolicySnapshot: jsonValue(DEFAULT_PRESS_AGENT_RUNTIME_POLICY),
@@ -1327,6 +1347,7 @@ export async function startPressAgentRun(args: {
                 articleUpdatedAt,
                 retrievalConfigurationId:
                   args.retrievalConfigurationId ?? "baseline-v1",
+                selectedDocumentIds: args.selectedDocumentIds,
               },
               maxTurns: DEFAULT_PRESS_AGENT_RUNTIME_POLICY.maxTurns,
               signal: composedAbort.signal,
@@ -1521,6 +1542,11 @@ async function continuePressAgentRun(
                   typeof (runRecord.input as Record<string, unknown>).retrievalConfigurationId === "string"
                     ? ((runRecord.input as Record<string, unknown>).retrievalConfigurationId as PressKnowledgeRetrievalConfiguration["id"])
                     : "baseline-v1",
+                selectedDocumentIds:
+                  runRecord.input && typeof runRecord.input === "object" && !Array.isArray(runRecord.input) &&
+                  Array.isArray((runRecord.input as Record<string, unknown>).selectedDocumentIds)
+                    ? ((runRecord.input as Record<string, unknown>).selectedDocumentIds as unknown[]).filter((id): id is string => typeof id === "string")
+                    : undefined,
               },
               maxTurns: runtimePolicy.maxTurns,
               signal: composedAbort.signal,

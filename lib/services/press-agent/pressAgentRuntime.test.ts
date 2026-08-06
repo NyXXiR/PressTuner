@@ -134,6 +134,9 @@ test("Agent v2 instruments stable RAG boundaries and completes inside the active
 test("the optional debugger launch surface preserves default callers and uses durable workflow publishing", () => {
   const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
   assert.match(source, /launchSurface\?: "RAG_DEBUGGER_V1"/);
+  assert.match(source, /selectedDocumentIds\?: string\[\]/);
+  assert.match(source, /context\.selectedDocumentIds \?\? normalizeAgentDocumentIds\(input\.documentIds\)/);
+  assert.match(source, /preVerificationOutput: finalOutput/);
   assert.match(source, /workflowObserver\?: PressAgentWorkflowStreamObserver/);
   assert.match(source, /if \(args\.workflowObserver\)/);
   assert.match(source, /if \(!hasPressAgentWorkflowObserver\(\)\) return null/);

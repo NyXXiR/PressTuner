@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   PRESS_AGENT_WORKFLOW_EDGES,
@@ -10,6 +10,9 @@ import {
   type PressAgentWorkflowStageId,
   type projectPressAgentWorkflow,
 } from "@/domain/evaluation/pressAgentWorkflowEvents";
+import type { RagDebuggerDetailResponse } from "@/domain/evaluation/pressAgentRagDebuggerDetails";
+import { fetchPressAgentRagDebuggerDetail } from "@/lib/pressAgentRagDebuggerClient";
+import { PressRagLiveStageDetail } from "./PressRagLiveStageDetail";
 
 const STAGE_COPY: Record<PressAgentWorkflowStageId, string> = {
   "request-intake": "요청 접수", "retrieval-execution": "근거 검색", "evidence-decision": "근거 판단",
@@ -39,9 +42,26 @@ const ACTION_COPY: Partial<Record<PressAgentWorkflowFindingCode, string>> = {
   "guardrail-warning": "경고가 표시된 앞 단계를 열어 원인을 먼저 확인하세요.",
 };
 
-export function PressRagLiveWorkflowViewer({ projection }: { projection: ReturnType<typeof projectPressAgentWorkflow> }) {
+export function PressRagLiveWorkflowViewer({ projection, runId }: { projection: ReturnType<typeof projectPressAgentWorkflow>; runId: string | null }) {
   const [selected, setSelected] = useState<PressAgentWorkflowStageId>("request-intake");
+  const [detail, setDetail] = useState<RagDebuggerDetailResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailRetry, setDetailRetry] = useState(0);
   const stage = projection.stages[selected];
+  useEffect(() => {
+    const controller = new AbortController();
+    void Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      setDetail(null); setDetailError(null);
+      if (!runId) { setDetailLoading(false); return; }
+      setDetailLoading(true);
+      try { setDetail(await fetchPressAgentRagDebuggerDetail(runId, selected, controller.signal)); }
+      catch (cause) { if (!controller.signal.aborted) setDetailError(cause instanceof Error ? cause.message : "DETAIL_LOAD_FAILED"); }
+      finally { if (!controller.signal.aborted) setDetailLoading(false); }
+    });
+    return () => controller.abort();
+  }, [runId, selected, projection.lastSequence, detailRetry]);
   return (
     <div className="mt-5 min-w-0">
       <div className="max-w-full overflow-x-auto pb-3" aria-label="실시간 워크플로 7단계">
@@ -75,6 +95,7 @@ export function PressRagLiveWorkflowViewer({ projection }: { projection: ReturnT
         {stage.findingCode && ACTION_COPY[stage.findingCode] ? <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"><strong>다음 확인:</strong> {ACTION_COPY[stage.findingCode]}</p> : null}
         {stage.metrics ? <dl className="mt-3 flex flex-wrap gap-2">{Object.entries(stage.metrics).map(([key, value]) => <div key={key} className="rounded-lg bg-background px-3 py-2 text-xs"><dt className="text-muted-foreground">{METRIC_COPY[key] ?? key}</dt><dd className="font-black">{value}개</dd></div>)}</dl> : null}
         {selected === "verification" ? <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{["verification-terminal", "verification-fallback"].map((id) => { const edge = projection.edges[id as keyof typeof projection.edges]; return <p key={id} className="rounded-lg border border-border bg-background p-2"><strong>{STAGE_COPY[edge.target]}</strong>: {EDGE_STATE_COPY[edge.state]}{edge.findingCode ? ` · ${PRESS_AGENT_WORKFLOW_FINDING_COPY[edge.findingCode]}` : ""}</p>; })}</div> : null}
+        <PressRagLiveStageDetail response={detail} loading={detailLoading} error={detailError} onRetry={() => setDetailRetry((value) => value + 1)} />
       </aside>
     </div>
   );

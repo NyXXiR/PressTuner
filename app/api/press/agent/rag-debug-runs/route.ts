@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-
+import { StartRagDebuggerRunRequestSchema } from "@/domain/evaluation/pressAgentRagDebugger";
 import { requireTeamContext } from "@/lib/auth";
 import {
-  consumePressAgentRagDebuggerQuota,
+  validateSelectionAndConsumePressAgentRagDebuggerQuota,
   executePressAgentRagDebuggerRun,
   listPressAgentRagDebuggerRuns,
 } from "@/lib/services/press-agent/pressAgentRagDebuggerService";
@@ -14,7 +13,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 150;
 
-const BodySchema = z.object({ prompt: z.string().trim().min(1).max(12_000), articleId: z.string().min(1).nullable().optional() }).strict();
 const STREAM_HEADERS = {
   "Content-Type": "text/event-stream; charset=utf-8",
   "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -36,9 +34,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const { team, user } = await requireTeamContext();
-    const parsed = validateBody(BodySchema, await req.json());
+    const parsed = validateBody(StartRagDebuggerRunRequestSchema, await req.json());
     if (!parsed.ok) return NextResponse.json(parsed.body, { status: parsed.status, headers: { "Cache-Control": "no-store" } });
-    await consumePressAgentRagDebuggerQuota({ teamId: team.id, userId: user.id, articleId: parsed.data.articleId });
+    const selectedDocuments = await validateSelectionAndConsumePressAgentRagDebuggerQuota({ teamId: team.id, userId: user.id, articleId: parsed.data.articleId, documentIds: parsed.data.documentIds });
     const encoder = new TextEncoder();
     let keepalive: ReturnType<typeof setInterval> | undefined;
     let streamClosed = false;
@@ -54,6 +52,7 @@ export async function POST(req: NextRequest) {
             teamId: team.id,
             userId: user.id,
             ...parsed.data,
+            selectedDocuments,
             observer: (event) => send(`event: workflow\ndata: ${JSON.stringify(event)}\n\n`),
           });
           send("event: stream.complete\ndata: {}\n\n");

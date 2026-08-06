@@ -30,12 +30,20 @@ async function installMock(page) {
       event(22, { type: "run.finished", run: { status: "cancelled", findingCode: "user-cancelled" } }),
     ];
     let lastEvents = normal;
+    window.__ragDebuggerLastRequest = null;
     window.fetch = async (input, init = {}) => {
       const url = new URL(typeof input === "string" ? input : input.url, location.origin);
       if (url.pathname === "/api/me") return new Response(JSON.stringify({ ok: true, user: { id: "qa-user" }, team: { id: "qa-team" } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (url.pathname === "/api/knowledge/documents") return new Response(JSON.stringify({ ok: true, documents: [
+        { id: "qa-ready-document", originalName: "QA ready facts.pdf", status: "READY", pageCount: 3, chunkCount: 8, activeGenerationId: "qa-generation", hasPendingReplacement: false },
+        { id: "qa-pending-document", originalName: "QA pending.pdf", status: "INDEXING", pageCount: null, chunkCount: 0, activeGenerationId: null, hasPendingReplacement: false },
+      ] }), { status: 200, headers: { "Content-Type": "application/json" } });
       if (url.pathname === "/api/press/agent/rag-debug-runs" && (!init.method || init.method === "GET")) return new Response(JSON.stringify({ ok: true, runs: [{ id: "qa-debug-run", status: "COMPLETED", createdAt: new Date().toISOString(), completedAt: new Date().toISOString() }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       if (url.pathname === "/api/press/agent/rag-debug-runs" && init.method === "POST") {
-        const prompt = JSON.parse(String(init.body || "{}")).prompt || "";
+        const request = JSON.parse(String(init.body || "{}"));
+        window.__ragDebuggerLastRequest = request;
+        if (JSON.stringify(request.documentIds) !== JSON.stringify(["qa-ready-document"]) || !["baseline-v1", "candidate-v3"].includes(request.retrievalConfigurationId)) throw new Error("UNEXPECTED_DEBUGGER_REQUEST");
+        const prompt = request.prompt || "";
         const selected = prompt.includes("stall") ? [{ ...event(1, { type: "run.started", run: { status: "running" } }), occurredAt: new Date(Date.now() - 31_000).toISOString() }] : prompt.includes("cancel") ? normal.slice(0, 4) : normal;
         lastEvents = selected;
         const encoder = new TextEncoder();
@@ -43,6 +51,16 @@ async function installMock(page) {
       }
       if (url.pathname.endsWith("/cancel") && init.method === "POST") { lastEvents = [...lastEvents, ...cancellation]; return new Response(JSON.stringify({ ok: true, run: { id: "qa-debug-run" } }), { status: 200, headers: { "Content-Type": "application/json" } }); }
       if (url.pathname === "/api/press/agent/rag-debug-runs/qa-debug-run") { const after = Number(url.searchParams.get("afterSequence") || 0); return new Response(JSON.stringify({ ok: true, run: { id: "qa-debug-run", status: "COMPLETED", createdAt: new Date().toISOString() }, events: lastEvents.filter((entry) => entry.sequence > after) }), { status: 200, headers: { "Content-Type": "application/json" } }); }
+      if (url.pathname === "/api/press/agent/rag-debug-runs/qa-debug-run/details") {
+        const stageId = url.searchParams.get("stageId");
+        const state = stageId === "fallback" ? "warning" : stageId === "retrieval-execution" && lastEvents.length === 1 ? "running" : "succeeded";
+        const pending = state === "running";
+        const detail = stageId === "request-intake" ? { prompt: { text: "QA prompt", truncated: false }, promptPresetId: null, retrievalPreset: { id: "baseline-v1", label: "기본 하이브리드 검색", description: "결정론적 검색" }, selectedDocuments: [{ id: "qa-ready-document", name: { text: "QA ready facts.pdf", truncated: false }, readiness: "READY", pageCount: 3, chunkCount: 8 }] }
+          : stageId === "fallback" ? { mode: "EXTRACTIVE", reason: { code: "PRESS_AGENT_FINAL_CLAIM_VERIFICATION_FAILED", label: "최종 주장 검증을 통과하지 못했습니다." }, originalOutput: { answer: { text: "원래 답변", truncated: false }, cannotAnswer: false, claims: [] }, finalOutput: { answer: { text: "안전한 최종 답변", truncated: false }, cannotAnswer: false, claims: [] } }
+          : { totalRetrievedCount: 1, returnedCount: 1, sources: [{ sourceId: "source-1", documentId: "qa-ready-document", documentName: { text: "QA ready facts.pdf", truncated: false }, pages: { start: 1, end: 1 }, score: 0.9, excerpt: { text: "QA 근거", truncated: false }, selectedAsFinalEvidence: true }] };
+        return new Response(JSON.stringify({ schemaVersion: "press-agent-rag-debug-detail/v1", run: { id: "qa-debug-run", status: pending ? "RUNNING" : "COMPLETED", createdAt: new Date().toISOString(), completedAt: pending ? null : new Date().toISOString() }, stageId, stageState: state, availability: pending ? "pending" : "available", message: pending ? "아직 생성되지 않았습니다." : null, detail: pending ? null : detail }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url.pathname.startsWith("/api/press/agent/rag-debug-runs") && init.method === "POST") throw new Error("UNMOCKED_DEBUGGER_POST");
       return originalFetch(input, init);
     };
   });
@@ -64,12 +82,21 @@ async function verifyAuthenticated(browser, viewport) {
   const nodes = page.getByLabel("실시간 워크플로 7단계").getByRole("button");
   check(await nodes.count() === 7, `${viewport.name}: expected seven live nodes`);
   check((await nodes.nth(1).innerText()).includes("대기"), `${viewport.name}: retrieval advanced before its event`);
+  await page.getByText("QA ready facts.pdf").waitFor();
+  await page.getByLabel(/QA ready facts\.pdf/).check();
+  check(await page.getByLabel(/QA pending\.pdf/).isDisabled(), `${viewport.name}: pending document should be disabled`);
   await page.getByLabel("테스트 프롬프트").fill("normal deterministic run");
   await page.getByRole("button", { name: "AI 테스트 실행" }).click();
   await page.getByText("일부 주장이 최종 근거 검증을 통과하지 못했습니다.").waitFor();
   await nodes.nth(4).click();
   await page.getByText(/안전 대체.*경고와 함께 통과/).first().waitFor();
   await page.getByText(/경고/).first().waitFor();
+  await nodes.nth(5).click();
+  await page.getByText("원래 답변").waitFor();
+  await page.getByText("안전한 최종 답변").waitFor();
+  const posted = await page.evaluate(() => window.__ragDebuggerLastRequest);
+  check(JSON.stringify(posted.documentIds) === JSON.stringify(["qa-ready-document"]), `${viewport.name}: mounted document request mismatch`);
+  check(posted.retrievalConfigurationId === "baseline-v1", `${viewport.name}: retrieval preset mismatch`);
   await page.getByRole("button", { name: "결과 보기" }).first().click();
   await page.getByText(/마지막 이벤트/).waitFor();
   await page.getByLabel("테스트 프롬프트").fill("stall deterministic run");
