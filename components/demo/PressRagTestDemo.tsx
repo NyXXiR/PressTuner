@@ -206,20 +206,20 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
         ))}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5" aria-live="polite">
-        <p className="min-w-0 flex-1 text-sm">
+      <div className="mt-3 flex flex-col items-stretch gap-2 rounded-xl border border-border bg-card px-4 py-2.5 sm:flex-row sm:items-center sm:gap-x-4" aria-live="polite">
+        <p className="min-w-0 text-sm sm:flex-1">
           <strong className="font-black text-foreground">{scenario.label}</strong>
           <span className="ml-2 break-words text-muted-foreground">{scenario.description}</span>
         </p>
-        <div className="flex shrink-0 items-center gap-2">
-          <label htmlFor="recorded-run" className="text-xs font-bold text-foreground">기록된 반복</label>
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:shrink-0">
+          <label htmlFor="recorded-run" className="text-xs font-bold text-foreground">기록 반복</label>
           <select
             id="recorded-run"
             value={selectedRun.runIndex}
             onChange={(event) => setRunIndex(Number(event.target.value))}
             className="min-h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            {scenario.runs.map((run) => <option key={run.runIndex} value={run.runIndex}>기록 {run.runIndex}</option>)}
+            {scenario.runs.map((run) => <option key={run.runIndex} value={run.runIndex}>{run.runIndex} / {scenario.runs.length}회</option>)}
           </select>
         </div>
       </div>
@@ -230,7 +230,9 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
         candidate={selectedRun.candidate}
         expectation={scenario.expectation}
         prompt={scenario.prompt}
+        scenarioLabel={scenario.label}
         caseId={scenario.caseId}
+        partition={scenario.partition}
         repetitionCount={scenario.runs.length}
         baselineEvidence={viewModel.evidence.baseline}
         candidateEvidence={viewModel.evidence.candidate}
@@ -256,13 +258,13 @@ export function PressRagTestDemo({ viewModel }: { viewModel: PressRagDemoViewMod
           carry these facts, so they open on demand instead of doubling the page. */}
       <details className="mt-4 rounded-2xl border border-border bg-card" aria-labelledby="comparison-heading">
         <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <span id="comparison-heading" className="text-base font-black text-foreground">보조 기록 결과 비교</span>
+          <span id="comparison-heading" className="text-base font-black text-foreground">소스 구성 기록 비교 (Baseline/Candidate)</span>
           <span className="text-xs font-bold text-muted-foreground">
             {viewModel.evidence.baseline.label} {selectedRun.baseline.status} · {viewModel.evidence.candidate.label} {selectedRun.candidate.status} · {scenario.partition} 반복 {selectedRun.runIndex}
           </span>
         </summary>
         <div className="px-4 pb-4">
-          <p className="text-xs text-muted-foreground">워크플로 디버깅을 보완하는 읽기 전용 비교입니다. 1 micro-USD는 미화 0.000001달러입니다.</p>
+          <p className="text-xs text-muted-foreground">두 아티팩트 구성을 비교하는 읽기 전용 자료입니다. 위의 기록/테스트 로컬 판정 비교와는 다릅니다. 1 micro-USD는 미화 0.000001달러입니다.</p>
           <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-2">
             <OutcomeCard label={viewModel.evidence.baseline.label} outcome={selectedRun.baseline} />
             <OutcomeCard label={viewModel.evidence.candidate.label} outcome={selectedRun.candidate} />

@@ -1,74 +1,41 @@
 "use client";
 
-import { STATUS_COPY, StatusChip, VerdictChip, isBrokenStatus } from "@/components/demo/pressRagWorkflowCopy";
+import { STATUS_COPY, StatusChip, isBrokenStatus } from "@/components/demo/pressRagWorkflowCopy";
+import type { PressRagRecordedOutcome } from "@/domain/evaluation/pressRagDemoPresenter";
 import type { PressRagWorkflowNodeId, PressRagWorkflowView } from "@/domain/evaluation/pressRagWorkflowView";
 
-/**
- * The one-line answer the debugger owes before anything else: did this run hold up, and if
- * not, which stage broke first. Everything here comes from the already-derived
- * `workflow.summary`; nothing is recomputed in the view.
- */
 export function PressRagWorkflowVerdictHeader({
-  workflow, recordedWorkflow, isTest, onSelectNode,
+  recordedWorkflow, testedWorkflow, recordedOutcome, onSelectNode,
 }: {
-  workflow: PressRagWorkflowView;
   recordedWorkflow: PressRagWorkflowView;
-  isTest: boolean;
+  testedWorkflow: PressRagWorkflowView | null;
+  recordedOutcome: PressRagRecordedOutcome;
   onSelectNode: (id: PressRagWorkflowNodeId) => void;
 }) {
-  const terminal = workflow.nodes.at(-1)!;
   const recordedTerminal = recordedWorkflow.nodes.at(-1)!;
-  const changed = isTest && terminal.status !== recordedTerminal.status;
-  const firstBroken = workflow.nodes.find(({ status }) => isBrokenStatus(status));
-  const brokenCount = workflow.nodes.filter(({ status }) => isBrokenStatus(status)).length;
+  const testedTerminal = testedWorkflow?.nodes.at(-1) ?? null;
+  const firstBroken = recordedWorkflow.nodes.find(({ status }) => isBrokenStatus(status));
+  const originalFailure = recordedOutcome.status === "FAILED";
+  const originalMismatch = !originalFailure && recordedTerminal.status === "MISMATCH";
 
   return (
-    <div className="grid min-w-0 gap-3 rounded-xl border border-border bg-background/70 p-3 sm:p-4">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">최종 판정</span>
-          <StatusChip status={terminal.status} size="md" />
-          {changed ? (
-            <span className="text-xs font-bold text-muted-foreground">
-              기록 {STATUS_COPY[recordedTerminal.status].label} <span aria-hidden="true">→</span> 테스트 {STATUS_COPY[terminal.status].label}
-            </span>
-          ) : null}
-        </div>
-
-        {firstBroken ? (
-          <button
-            type="button"
-            onClick={() => onSelectNode(firstBroken.id)}
-            className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-rose-700 bg-rose-700 px-3 text-xs font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            처음 깨진 단계 · {firstBroken.label}
-            {brokenCount > 1 ? <span className="font-normal">외 {brokenCount - 1}개</span> : null}
-            <span aria-hidden="true">↓</span>
-          </button>
-        ) : (
-          <span className="text-xs font-bold text-foreground">깨진 단계 없음 · 모든 단계가 기대와 일치합니다.</span>
-        )}
-
-        <p className="ml-auto shrink-0 text-xs text-muted-foreground">
-          총 지연 <strong className="font-black text-foreground">{workflow.summary.totalLatencyMs.toLocaleString("ko-KR")} ms</strong>
-          <span className="mx-2" aria-hidden="true">·</span>
-          기록 상태 {workflow.summary.recordedStatus}
-        </p>
+    <section className="grid min-w-0 gap-3" aria-label="원본 기록 판정">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-3">
+        <div><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">기록 최종 판정</p><StatusChip status={recordedTerminal.status} size="md" /></div>
+        {testedTerminal ? <div><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">테스트 최종 판정</p><StatusChip status={testedTerminal.status} size="md" /></div> : null}
+        <p className="ml-auto text-xs text-muted-foreground">기록 지연 <strong className="text-foreground">{recordedWorkflow.summary.totalLatencyMs.toLocaleString("ko-KR")} ms</strong></p>
       </div>
-
-      <ul className="grid min-w-0 gap-1.5 sm:grid-cols-2 lg:grid-cols-5" aria-label="실행 요약 사실">
-        {workflow.summary.facts.map((fact) => (
-          <li
-            key={fact.key}
-            title={fact.reasonText ?? undefined}
-            className="flex min-w-0 flex-col gap-1 rounded-lg border border-border bg-card px-2.5 py-2"
-          >
-            <span className="truncate text-[11px] font-bold text-muted-foreground">{fact.label}</span>
-            <VerdictChip verdict={STATUS_COPY[fact.status].verdict} text={STATUS_COPY[fact.status].label} />
-            <span className="truncate text-[10px] text-muted-foreground">{fact.value}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+      {originalFailure || originalMismatch ? (
+        <div role="alert" className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-700 bg-rose-50 p-3 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100">
+          <p className="text-sm font-black">
+            {originalFailure ? "원본 실행 실패" : "원본 기대 불일치"} · 기록 최종 판정 {STATUS_COPY[recordedTerminal.status].label}
+            {firstBroken ? <span className="ml-2 font-normal">처음 깨진 단계: {firstBroken.label}</span> : null}
+          </p>
+          {firstBroken ? <button type="button" onClick={() => onSelectNode(firstBroken.id)} className="min-h-9 rounded-lg border border-rose-700 px-3 text-xs font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">해당 단계 보기</button> : null}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-emerald-700/40 bg-emerald-50 p-3 text-sm font-bold text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100">원본 기록은 승인된 기대와 일치합니다.</p>
+      )}
+    </section>
   );
 }

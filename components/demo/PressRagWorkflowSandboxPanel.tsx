@@ -41,8 +41,10 @@ const control = "min-h-9 min-w-0 rounded-lg border border-border bg-background p
 const addButton = "min-h-10 rounded-lg border border-dashed border-primary text-xs font-black text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
 export function PressRagWorkflowSandboxPanel({
-  draft, errors, runErrors, editedStages, recorded, tested, onChange, onRun, onReset,
+  stageLabel, editableFields, draft, errors, runErrors, editedStages, recorded, tested, onChange, onRun, onReset,
 }: {
+  stageLabel: string;
+  editableFields: readonly string[];
   draft: PressRagStageDraft;
   errors: readonly PressRagSandboxValidationError[];
   runErrors: readonly PressRagSandboxValidationError[];
@@ -59,11 +61,12 @@ export function PressRagWorkflowSandboxPanel({
   const blocking = [...errors, ...runErrors];
 
   return (
-    <section className="min-w-0 rounded-xl border border-primary/30 bg-primary/5 lg:sticky lg:top-[19rem] lg:max-h-[calc(100vh-21rem)] lg:overflow-y-auto" aria-labelledby="sandbox-form-heading">
+    <section className="min-w-0 rounded-xl border border-primary/30 bg-primary/5" aria-labelledby="sandbox-form-heading">
       <div className="grid gap-3 p-3 sm:p-4">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-primary">structured stage form</p>
-          <h3 id="sandbox-form-heading" className="text-sm font-black">선택 단계 테스트 입력</h3>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-primary">선택 단계 편집</p>
+          <h3 id="sandbox-form-heading" className="text-sm font-black">{stageLabel} 변경값</h3>
+          <p className="mt-1 text-[11px] font-bold text-foreground">편집 가능 · {editableFields.join(" · ")}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">파생 rank·expected·checks·traversal·gate verdict는 읽기 전용입니다.</p>
           {editedStages.length ? <p className="mt-1 text-[11px] font-bold text-primary">직접 편집한 단계 {editedStages.length}개는 다른 단계를 봐도 유지됩니다.</p> : null}
         </div>
@@ -231,16 +234,16 @@ export function PressRagWorkflowSandboxPanel({
         </details>
       </div>
 
-      {/* The run control stays reachable without scrolling past the whole form. */}
-      <div className="sticky bottom-0 grid gap-2 border-t border-primary/30 bg-card/95 p-3 backdrop-blur sm:px-4">
+      <div className="grid gap-2 border-t border-primary/30 bg-card/95 p-3 sm:px-4">
         {blocking.length ? (
           <p role="alert" className="text-xs font-bold text-destructive">
             입력 오류 {blocking.length}건 · {blocking[0]!.field}: {blocking[0]!.message}
           </p>
         ) : null}
+        <p className="text-xs font-bold text-muted-foreground">기록된 값만 다시 계산합니다. 새 검색, 답변 생성, 모델/API 호출은 없습니다.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={errors.length > 0} onClick={onRun} className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-black text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40">
-            이 단계부터 실행
+            변경값으로 로컬 판정 계산
           </button>
           <button type="button" onClick={onReset} className="min-h-11 rounded-lg border border-border bg-background px-4 text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             테스트 초기화
