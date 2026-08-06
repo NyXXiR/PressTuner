@@ -47,6 +47,7 @@ import {
 } from "@/domain/press-agent/runtimePolicy";
 import { assertToolPolicy, PRESS_AGENT_TOOL_POLICIES } from "@/domain/press-agent/toolPolicy";
 import { classifyAgentFailure } from "@/domain/evaluation/failureTaxonomy";
+import { generateCanonicalTraceId } from "@/domain/ai-telemetry/identifiers";
 import {
   estimateAgentCostMicros,
   extractCachedInputTokens,
@@ -59,6 +60,7 @@ import {
 } from "@/lib/services/press/pressService";
 import { searchKnowledgeAndPersistAgentCitations } from "@/lib/services/knowledge/agentKnowledgeCitationService";
 import { persistFinalAgentCitations } from "@/lib/services/knowledge/agentKnowledgeEvidenceService";
+import { exportRunTelemetry } from "@/lib/services/ai-telemetry/otlpExporter";
 import {
   beginOpsConsoleOperation,
   completeOpsConsoleOperation,
@@ -1208,6 +1210,13 @@ async function persistRunResult(
       await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: "blocked", findingCode: "approval-required" } } });
     }
   }
+  // Export canonical telemetry to Ops Console via OTLP. Fail-open: telemetry delivery
+  // must never alter the Agent result or PressTuner run state.
+  try {
+    await exportRunTelemetry({ teamId: runRecord.teamId, runId: runRecord.id });
+  } catch {
+    // Observability-only export failure is intentionally swallowed.
+  }
 }
 
 export async function startPressAgentRun(args: {
@@ -1235,6 +1244,7 @@ export async function startPressAgentRun(args: {
     if (!article) throw new Error("PRESS_AGENT_ARTICLE_SCOPE_MISMATCH");
     articleUpdatedAt = article.updatedAt.toISOString();
   }
+  const traceId = generateCanonicalTraceId();
   const runRecord = await prisma.agentRun.create({
     data: {
       teamId: args.teamId,
@@ -1246,6 +1256,7 @@ export async function startPressAgentRun(args: {
       ).status,
       agentVersion: PRESS_AGENT_VERSION,
       model: PRESS_AGENT_MODEL,
+      traceId,
       input: {
         ...(args.launchSurface ? {
           launchSurface: args.launchSurface,
@@ -1272,6 +1283,7 @@ export async function startPressAgentRun(args: {
     teamId: args.teamId,
     userId: args.userId,
     workflowVersion: PRESS_AGENT_VERSION,
+    traceId,
   });
   const operationId =
     operation.status === "registered" ? operation.operationId : null;
@@ -1323,6 +1335,7 @@ export async function startPressAgentRun(args: {
   try {
     await traceLangSmithOperation({
       operationId,
+      traceId,
       workflowId: PRESS_AGENT_WORKFLOW_ID,
       workflowVersion: PRESS_AGENT_VERSION,
       environment:
@@ -1333,11 +1346,7 @@ export async function startPressAgentRun(args: {
       execute: async () => {
         const result = await withTrace(
           "PressTuner Grounded Press Agent",
-          async (trace) => {
-            await prisma.agentRun.update({
-              where: { id: runRecord.id },
-              data: { traceId: trace.traceId },
-            });
+          async () => {
             return pressAgentRunner.run(pressAgent, args.prompt, {
               context: {
                 runId: runRecord.id,
@@ -1354,6 +1363,7 @@ export async function startPressAgentRun(args: {
             });
           },
           {
+            traceId,
             groupId: runRecord.id,
             metadata: {
               runId: runRecord.id,
@@ -1490,6 +1500,14 @@ async function continuePressAgentRun(
   if (runRecord.status === "CANCELED" || runRecord.status === "CANCEL_REQUESTED") {
     throw new Error("PRESS_AGENT_RUN_CANCELED");
   }
+  const traceId = runRecord.traceId ?? generateCanonicalTraceId();
+  if (!runRecord.traceId) {
+    try {
+      await prisma.agentRun.update({ where: { id: runRecord.id }, data: { traceId } });
+    } catch {
+      // Trace continuity is observability-only and cannot fail the run.
+    }
+  }
   const deadlineAt =
     runRecord.deadlineAt ??
     new Date(Date.now() + DEFAULT_PRESS_AGENT_RUNTIME_POLICY.totalDeadlineMs);
@@ -1518,6 +1536,7 @@ async function continuePressAgentRun(
     const operationId = readPressAgentOperationId(runRecord.input);
     await traceLangSmithOperation({
       operationId,
+      traceId,
       workflowId: PRESS_AGENT_WORKFLOW_ID,
       workflowVersion: PRESS_AGENT_VERSION,
       environment: readOpsConsoleOperationEnvironment() ?? "unconfigured",
@@ -1525,11 +1544,7 @@ async function continuePressAgentRun(
       execute: async () => {
         const result = await withTrace(
           "PressTuner Grounded Press Agent",
-          async (trace) => {
-            await prisma.agentRun.update({
-              where: { id: runRecord.id },
-              data: { traceId: trace.traceId },
-            });
+          async () => {
             return pressAgentRunner.run(pressAgent, state, {
               context: {
                 runId: runRecord.id,
@@ -1553,6 +1568,7 @@ async function continuePressAgentRun(
             });
           },
           {
+            traceId,
             groupId: runRecord.id,
             metadata: {
               runId: runRecord.id,

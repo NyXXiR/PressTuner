@@ -110,6 +110,31 @@ test("records a privacy-safe root run correlated by operation metadata", async (
   assert.equal(JSON.stringify({ created, updated }).includes("privateDraft"), false);
 });
 
+test("uses a provided canonical traceId and converts it to UUID form for LangSmith", async () => {
+  const { tracer, created } = createHarness();
+  const canonicalTraceId = "123e4567e89b12d3a456426614174000";
+  const expectedUuid = "123e4567-e89b-12d3-a456-426614174000";
+
+  await tracer.trace({
+    operationId,
+    traceId: canonicalTraceId,
+    workflowId: "presstuner.press-agent",
+    workflowVersion: "press-agent-v2",
+    environment: "production",
+    phase: "initial",
+    execute: async () => tracer.traceRagStage({
+      stageId: "retrieval-execution",
+      execute: async () => "result",
+      observe: () => ({ selectedSourceCount: 1, eligibleSourceCount: 1, terminalStatus: "COMPLETED" } as never),
+    }),
+  });
+
+  assert.equal(created.length, 2);
+  assert.equal(created[0]!.trace_id, expectedUuid);
+  assert.equal(created[1]!.trace_id, expectedUuid);
+  assert.equal(created[1]!.parent_run_id, created[0]!.id);
+});
+
 test("never lets LangSmith delivery failure alter the Agent result", async () => {
   const createFailure = createHarness({ createError: new Error("offline") });
   assert.equal(

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID as nodeRandomUUID } from "node:crypto";
 
 function digest(namespace: string, parts: readonly (string | number | null | undefined)[]) {
   return createHash("sha256")
@@ -11,6 +11,15 @@ export function normalizeCanonicalTraceId(value: string | null | undefined, ...f
   return normalized && /^[0-9a-f]{32}$/.test(normalized)
     ? normalized
     : digest("ai-telemetry:trace:v1", fallback.length ? fallback : [value]).slice(0, 32);
+}
+
+/**
+ * Generate a canonical 32-hex-character trace ID. The result is derived from a
+ * v4 UUID with dashes removed so it is compatible with both LangSmith (which
+ * uses UUIDs) and the canonical telemetry schema (which stores hex32 trace IDs).
+ */
+export function generateCanonicalTraceId(randomUUID: () => string = nodeRandomUUID): string {
+  return normalizeCanonicalTraceId(randomUUID());
 }
 
 export function deriveCanonicalSpanId(...parts: readonly (string | number | null | undefined)[]) {

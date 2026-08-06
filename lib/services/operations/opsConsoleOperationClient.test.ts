@@ -7,6 +7,7 @@ import {
 } from "./opsConsoleOperationClient";
 
 const operationId = "10000000-0000-4000-8000-000000000001";
+const traceId = "123e4567e89b12d3a456426614174000";
 const now = new Date("2026-08-04T12:00:00.000Z");
 const validEnvironment = {
   OPS_CONSOLE_AI_OPERATIONS_URL: "https://ops.example.test",
@@ -36,6 +37,7 @@ test("operation client stays disabled for missing or invalid credentials without
       teamId: "raw-team-id",
       userId: "raw-user-id",
       workflowVersion: "press-agent-v2",
+      traceId,
     });
     assert.deepEqual(result, {
       status: "disabled",
@@ -63,6 +65,7 @@ test("operation client sends strict registration and completion contracts with p
     teamId: "raw-team-id",
     userId: "raw-user-id",
     workflowVersion: "press-agent-v2",
+    traceId,
   });
   assert.deepEqual(begun, {
     status: "registered",
@@ -77,6 +80,7 @@ test("operation client sends strict registration and completion contracts with p
   assert.deepEqual(JSON.parse(String(requests[0].init?.body)), {
     schemaVersion: "ops-console/operation-registration/v1",
     operationId,
+    traceId,
     workflow: { id: "presstuner.press-agent", version: "press-agent-v2" },
     tenantRef: pseudonymizeOperationReference("raw-team-id"),
     environment: "production",
@@ -105,6 +109,27 @@ test("operation client sends strict registration and completion contracts with p
   });
   const serializedRequests = JSON.stringify(requests);
   assert.doesNotMatch(serializedRequests, /raw-team-id|raw-user-id/);
+});
+
+test("operation client rejects an invalid traceId before requesting", async () => {
+  const client = createOpsConsoleOperationClient({
+    environment: validEnvironment,
+    fetch: async () => new Response(null, { status: 201 }),
+    randomUUID: () => operationId,
+    now: () => now,
+  });
+  const result = await client.begin({
+    teamId: "raw-team-id",
+    userId: "raw-user-id",
+    workflowVersion: "press-agent-v2",
+    traceId: "not-a-valid-trace-id",
+  });
+  assert.deepEqual(result, {
+    status: "failed",
+    code: "OPS_CONSOLE_INVALID_TRACE_ID",
+    operationId,
+    environment: "production",
+  });
 });
 
 test("operation client converts HTTP, network, and timeout failures to safe codes", async () => {
@@ -142,6 +167,7 @@ test("operation client converts HTTP, network, and timeout failures to safe code
       teamId: "raw-team-id",
       userId: "raw-user-id",
       workflowVersion: "press-agent-v2",
+      traceId,
     });
     assert.equal(result.status, "failed");
     assert.equal(result.code, item.code);

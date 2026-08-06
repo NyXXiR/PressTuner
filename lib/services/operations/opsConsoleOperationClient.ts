@@ -32,6 +32,7 @@ type OperationUnavailable = {
   code:
     | "OPS_CONSOLE_DISABLED"
     | "OPS_CONSOLE_INVALID_OPERATION_ID"
+    | "OPS_CONSOLE_INVALID_TRACE_ID"
     | "OPS_CONSOLE_HTTP_ERROR"
     | "OPS_CONSOLE_NETWORK_ERROR"
     | "OPS_CONSOLE_TIMEOUT";
@@ -50,6 +51,7 @@ type ClientConfiguration = {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/i;
 const ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/i;
 const DEFAULT_TIMEOUT_MS = 3_000;
 const MAX_TIMEOUT_MS = 10_000;
@@ -185,10 +187,19 @@ export function createOpsConsoleOperationClient(
       teamId: string;
       userId: string;
       workflowVersion: string;
+      traceId: string;
     }): Promise<OpsConsoleOperationResult> {
       const operationId = randomUUID();
       const configuration = readConfiguration(environment);
       if (!configuration) return disabled(operationId);
+      if (!TRACE_ID_PATTERN.test(args.traceId)) {
+        return {
+          status: "failed",
+          code: "OPS_CONSOLE_INVALID_TRACE_ID",
+          operationId,
+          environment: configuration.environment,
+        };
+      }
       const timestamp = now().toISOString();
       return request({
         configuration,
@@ -198,6 +209,7 @@ export function createOpsConsoleOperationClient(
         body: {
           schemaVersion: "ops-console/operation-registration/v1",
           operationId,
+          traceId: args.traceId,
           workflow: {
             id: PRESS_AGENT_WORKFLOW_ID,
             version: args.workflowVersion,

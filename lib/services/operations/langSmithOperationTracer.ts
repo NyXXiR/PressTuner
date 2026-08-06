@@ -296,17 +296,23 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     }));
   }
 
-  async function trace<T>(args: { operationId: string | null; workflowId: string; workflowVersion: string; environment: string; phase: Phase; execute: () => Promise<T> }): Promise<T> {
+  function hex32ToUuid(value: string): string {
+    const lower = value.toLowerCase();
+    return `${lower.slice(0, 8)}-${lower.slice(8, 12)}-${lower.slice(12, 16)}-${lower.slice(16, 20)}-${lower.slice(20, 32)}`;
+  }
+
+  async function trace<T>(args: { operationId: string | null; traceId: string | null; workflowId: string; workflowVersion: string; environment: string; phase: Phase; execute: () => Promise<T> }): Promise<T> {
     if (!args.operationId || !UUID_PATTERN.test(args.operationId)) return args.execute();
     const active = readConfiguredClient();
     if (!active) return args.execute();
     const runId = randomUUID();
+    const traceId = args.traceId && /^[0-9a-f]{32}$/i.test(args.traceId) ? hex32ToUuid(args.traceId) : runId;
     const startedAt = now();
     const dottedOrder = createDottedOrder(startedAt, runId);
     try {
       await active.client.createRun({
         id: runId,
-        trace_id: runId,
+        trace_id: traceId,
         start_time: startedAt,
         dotted_order: dottedOrder,
         name: "PressTuner Press Agent operation",
@@ -318,7 +324,7 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     } catch {
       return args.execute();
     }
-    const root: ActiveRun = { client: active.client, configuration: active.configuration, rootId: runId, traceId: runId, runId, dottedOrder, operationId: args.operationId, workflowId: args.workflowId, workflowVersion: args.workflowVersion, phase: args.phase };
+    const root: ActiveRun = { client: active.client, configuration: active.configuration, rootId: runId, traceId, runId, dottedOrder, operationId: args.operationId, workflowId: args.workflowId, workflowVersion: args.workflowVersion, phase: args.phase };
     try {
       const result = await activeRuns.run(root, args.execute);
       try {
