@@ -4,10 +4,10 @@ import type { ArticleResult } from "../types/article";
 import { getEventPublishRelation, formatYMDHM } from "@/lib/utils/datetime";
 import { PRESS_RELEASE_SYSTEM_PROMPT, PRESS_RELEASE_USER_PROMPT } from "./prompts/press-release";
 import { AI_MODELS } from "../constants/ai";
+import type { PressAiDependencyOverrides } from "@/lib/services/article/pressAiDependencies";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let client: OpenAI | null = null;
+function openAiClient() { return client ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY }); }
 
 type GenerateArticleParams = {
   serviceName?: string;
@@ -29,6 +29,7 @@ type GenerateArticleParams = {
 
 type GenerateArticleOptions = {
   model?: "gpt-4o" | "gpt-4o-mini" | "gpt-4-turbo" | string;
+  dependencies?: Pick<PressAiDependencyOverrides, "completeJson" | "now">;
 };
 
 export function normalizeUsedFactIds(value: unknown): string[] {
@@ -85,7 +86,7 @@ export async function generateArticleWithLLM(
 
   // eventAt / publishAt 관계 분석 (시제 가이드용)
   const relation = getEventPublishRelation(eventAt, publishAt);
-  const nowLabel = formatYMDHM(new Date());
+  const nowLabel = formatYMDHM(options.dependencies?.now?.() ?? new Date());
 
   let tenseGuide = "";
   if (relation === "future" && eventAt) {
@@ -163,17 +164,9 @@ export async function generateArticleWithLLM(
 
   console.log(`[generateArticleWithLLM] Using model: ${model}`);
 
-  const completion = await client.chat.completions.create({
-    model: model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.3,
-    response_format: { type: "json_object" },
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "{}";
+  const raw = options.dependencies?.completeJson
+    ? await options.dependencies.completeJson({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], temperature: 0.3, responseFormat: { type: "json_object" } })
+    : (await openAiClient().chat.completions.create({ model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], temperature: 0.3, response_format: { type: "json_object" } })).choices[0]?.message?.content ?? "{}";
 
   let parsed: ArticleResult;
   try {

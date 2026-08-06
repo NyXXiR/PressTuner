@@ -21,6 +21,8 @@ import {
   evaluatePressDraftQuality,
   type PressApiQualityCheck,
 } from "@/lib/devPressApiPlayground";
+import { derivePressPlaygroundHandoff } from "@/domain/press-ai-debugger/processExecutor";
+import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 
 type StepId =
   | "init"
@@ -64,50 +66,16 @@ const PRESS_MEMO = [
   "김민서 대표는 ‘문장 작성 시간을 줄이고 사실 판단에 집중하도록 설계했다’고 말했다.",
 ].join("\n");
 
-const STEPS: StepDefinition[] = [
-  {
-    id: "init",
-    label: "문서 초기화",
-    method: "POST",
-    path: "/api/articles/init",
-    hasBody: true,
-  },
-  {
-    id: "normalize",
-    label: "브리프 정규화",
-    method: "POST",
-    path: "/api/articles/{articleId}/brief/normalize",
-    cost: 2,
-    needsArticle: true,
-    hasBody: true,
-  },
-  {
-    id: "generate",
-    label: "초안 생성",
-    method: "POST",
-    path: "/api/articles/{articleId}/generate",
-    cost: 5,
-    needsArticle: true,
-    hasBody: true,
-  },
-  {
-    id: "polish",
-    label: "AI 첨삭",
-    method: "POST",
-    path: "/api/articles/{articleId}/polish",
-    cost: 3,
-    needsArticle: true,
-    hasBody: true,
-  },
-  {
-    id: "repolish",
-    label: "선택 첨삭 재작성",
-    method: "POST",
-    path: "/api/articles/{articleId}/re-polish",
-    cost: 4,
-    needsArticle: true,
-    hasBody: true,
-  },
+const STEP_DEFINITIONS: StepDefinition[] = [
+  ...pressCreationProcess.nodes.map((node) => ({
+    id: node.client!.stepId,
+    label: node.label,
+    method: node.client!.method,
+    path: node.client!.path,
+    cost: node.quotaUnits,
+    needsArticle: node.client!.needsArticle,
+    hasBody: node.client!.hasBody,
+  })),
   {
     id: "save",
     label: "재작성 원고 저장",
@@ -293,7 +261,7 @@ export default function PressApiPlaygroundClient({
   const [runMode, setRunMode] = useState<"single" | "all" | null>(null);
 
   const selectedStep =
-    STEPS.find((step) => step.id === selectedStepId) ?? STEPS[0];
+    STEP_DEFINITIONS.find((step) => step.id === selectedStepId) ?? STEP_DEFINITIONS[0];
   const selectedResult = results[selectedStepId];
 
   function updateBody(stepId: StepId, value: string) {
@@ -320,79 +288,13 @@ export default function PressApiPlaygroundClient({
     return step.path.replace("{articleId}", articleIdRef.current);
   }
 
-  function deriveNextBody(stepId: StepId, responseValue: unknown) {
-    const json = asRecord(responseValue);
-    if (stepId === "init") {
-      const nextArticleId = String(json.articleId || json.id || "");
-      if (nextArticleId) updateArticleId(nextArticleId);
-      return;
-    }
-    if (stepId === "normalize") {
-      const normalizeRequest = asRecord(
-        JSON.parse(bodiesRef.current.normalize || "{}"),
-      );
-      updateBody(
-        "generate",
-        pretty({
-          serviceName: json.serviceName || "",
-          announceType: json.announceType,
-          oneLiner: json.oneLiner || "",
-          points: Array.isArray(json.points) ? json.points : [],
-          quoteWho: json.quoteWho || "",
-          quoteMessage: json.quoteMessage || "",
-          ...(json.eventAt ? { eventAt: json.eventAt } : {}),
-          ...(json.publishAt ? { publishAt: json.publishAt } : {}),
-          tone: normalizeRequest.tone || "formal",
-          rawText: normalizeRequest.rawText || "",
-          quotaMode: "simplified",
-        }),
-      );
-      return;
-    }
-    if (stepId === "generate") {
-      updateBody(
-        "polish",
-        pretty({
-          title: json.title || "",
-          plain: buildGeneratedPlain(json),
-          userInstruction:
-            "수치의 측정 기준과 제한사항 누락, 근거보다 강해진 표현, 기사체를 점검해줘.",
-          quotaMode: "simplified",
-        }),
-      );
-      return;
-    }
-    if (stepId === "polish") {
-      const noteIds = Array.isArray(json.notes)
-        ? json.notes
-            .slice(0, 2)
-            .map((note: Record<string, any>) => note.id)
-            .filter(Boolean)
-        : [];
-      updateBody(
-        "repolish",
-        pretty({
-          selectedNoteIds: noteIds,
-          userInstruction:
-            "확정 사실과 모든 조건을 유지하며 선택한 제안만 반영해줘.",
-          quotaMode: "simplified",
-        }),
-      );
-      return;
-    }
-    if (stepId === "repolish") {
-      updateBody(
-        "save",
-        pretty({
-          title: json.revisedTitle || json.title || "",
-          plain: json.revisedPlain || json.plain || "",
-          harnessAction: {
-            type: "apply_pending_rewrite",
-            appliedAt: new Date().toISOString(),
-          },
-        }),
-      );
-    }
+  function applyProcessHandoff(stepId: StepId, responseValue: unknown) {
+    const node = pressCreationProcess.nodes.find((entry) => entry.client?.stepId === stepId);
+    if (!node) return;
+    const priorInput = asRecord(JSON.parse(bodiesRef.current[stepId] || "{}"));
+    const handoff = derivePressPlaygroundHandoff(node.id, responseValue, priorInput);
+    if ("articleId" in handoff && handoff.articleId) updateArticleId(handoff.articleId);
+    if ("nextStepId" in handoff && handoff.nextStepId && handoff.body) updateBody(handoff.nextStepId, pretty(handoff.body));
   }
 
   function qualityChecks(stepId: StepId, responseValue: unknown) {
@@ -528,7 +430,7 @@ export default function PressApiPlaygroundClient({
       };
       setResults((current) => ({ ...current, [step.id]: result }));
       if (!response.ok) throw new Error(result.error);
-      deriveNextBody(step.id, responseValue);
+      applyProcessHandoff(step.id, responseValue);
       return responseValue;
     } catch (caught) {
       const message =
@@ -571,7 +473,7 @@ export default function PressApiPlaygroundClient({
     setResults({});
     updateArticleId("");
     try {
-      for (const step of STEPS) {
+      for (const step of STEP_DEFINITIONS) {
         await executeStep(step);
       }
     } catch {
@@ -654,7 +556,7 @@ export default function PressApiPlaygroundClient({
         <div className="border border-border bg-card px-4 py-3">
           <div className="text-xs text-muted-foreground">API 단계</div>
           <div className="mt-1 text-lg font-bold">
-            {completedCount}/{STEPS.length}
+            {completedCount}/{STEP_DEFINITIONS.length}
           </div>
         </div>
         <div className="border border-border bg-card px-4 py-3">
@@ -687,7 +589,7 @@ export default function PressApiPlaygroundClient({
             실행 순서
           </div>
           <div className="divide-y divide-border">
-            {STEPS.map((step, index) => {
+            {STEP_DEFINITIONS.map((step, index) => {
               const result = results[step.id];
               const active = activeStepId === step.id;
               return (
@@ -887,4 +789,3 @@ export default function PressApiPlaygroundClient({
     </main>
   );
 }
-

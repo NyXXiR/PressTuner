@@ -1,27 +1,12 @@
 import { z } from "zod";
+import { ragQueryProcess } from "@/domain/press-ai-debugger/processRegistry";
 
-export const PRESS_AGENT_WORKFLOW_STAGE_IDS = [
-  "request-intake",
-  "retrieval-execution",
-  "evidence-decision",
-  "response-behavior",
-  "verification",
-  "fallback",
-  "terminal-evaluation",
-] as const;
+export type PressAgentWorkflowStageId = (typeof ragQueryProcess.nodes)[number]["id"];
+export type PressAgentWorkflowEdgeId = (typeof ragQueryProcess.edges)[number]["id"];
 
-export const PRESS_AGENT_WORKFLOW_EDGES = [
-  { id: "request-retrieval", source: "request-intake", target: "retrieval-execution" },
-  { id: "retrieval-evidence", source: "retrieval-execution", target: "evidence-decision" },
-  { id: "evidence-response", source: "evidence-decision", target: "response-behavior" },
-  { id: "response-verification", source: "response-behavior", target: "verification" },
-  { id: "verification-terminal", source: "verification", target: "terminal-evaluation" },
-  { id: "verification-fallback", source: "verification", target: "fallback" },
-  { id: "fallback-terminal", source: "fallback", target: "terminal-evaluation" },
-] as const;
-
-export type PressAgentWorkflowStageId = typeof PRESS_AGENT_WORKFLOW_STAGE_IDS[number];
-export type PressAgentWorkflowEdgeId = typeof PRESS_AGENT_WORKFLOW_EDGES[number]["id"];
+/** Compatibility exports. The registry is the only topology source of truth. */
+export const PRESS_AGENT_WORKFLOW_STAGE_IDS = ragQueryProcess.nodes.map((node) => node.id) as [PressAgentWorkflowStageId, ...PressAgentWorkflowStageId[]];
+export const PRESS_AGENT_WORKFLOW_EDGES = ragQueryProcess.edges.map(({ id, source, target }) => ({ id: id as PressAgentWorkflowEdgeId, source: source as PressAgentWorkflowStageId, target: target as PressAgentWorkflowStageId }));
 
 const StageIdSchema = z.enum(PRESS_AGENT_WORKFLOW_STAGE_IDS);
 const StageStateSchema = z.enum(["waiting", "running", "succeeded", "warning", "failed", "blocked", "skipped"]);

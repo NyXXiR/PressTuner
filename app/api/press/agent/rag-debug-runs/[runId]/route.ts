@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireTeamContext } from "@/lib/auth";
-import { replayPressAgentWorkflowEvents } from "@/lib/services/press-agent/pressAgentRagDebuggerService";
+import { replayPressAiProcessEvents } from "@/lib/services/press-ai-debugger/processEventService";
 import { apiError } from "@/lib/utils/api";
 import { validateQuery } from "@/lib/utils/validate";
 
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ runId: 
     const { runId } = await context.params;
     const parsed = validateQuery(QuerySchema, Object.fromEntries(req.nextUrl.searchParams));
     if (!parsed.ok) return NextResponse.json(parsed.body, { status: parsed.status, headers: { "Cache-Control": "no-store" } });
-    const result = await replayPressAgentWorkflowEvents({ teamId: team.id, userId: user.id, runId, afterSequence: parsed.data.afterSequence });
+    const result = await replayPressAiProcessEvents({ teamId: team.id, userId: user.id, runId, afterSequence: parsed.data.afterSequence });
     return NextResponse.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: any) {
     const status = error?.message === "PRESS_AGENT_DEBUG_RUN_NOT_FOUND" ? 404 : error?.status ?? 500;

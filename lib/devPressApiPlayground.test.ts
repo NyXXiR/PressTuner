@@ -88,6 +88,8 @@ test("development route exposes the complete stateful flow and server guard", as
     "utf8",
   );
   const proxy = await readFile(resolve(process.cwd(), "proxy.ts"), "utf8");
+  const registry = await readFile(resolve(process.cwd(), "domain/press-ai-debugger/processRegistry.ts"), "utf8");
+  const clientContract = `${client}\n${registry}`;
 
   assert.match(page, /assertDevPressApiPlaygroundEnabled/);
   assert.match(page, /requireTeamContext/);
@@ -105,7 +107,7 @@ test("development route exposes the complete stateful flow and server guard", as
     "/status",
     "/api/articles/usage",
   ]) {
-    assert.match(client, new RegExp(endpoint.replace("/", "\\/")));
+    assert.match(clientContract, new RegExp(endpoint.replace("/", "\\/")));
   }
   assert.match(proxy, /ENABLE_DEV_API_PLAYGROUND/);
   assert.match(proxy, /"\/dev\/:path\*"/);

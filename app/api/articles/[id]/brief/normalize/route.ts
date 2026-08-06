@@ -4,6 +4,7 @@ import { requireTeamContextFlexible } from "@/lib/auth";
 import { extractTeamIdFromRequest } from "@/lib/auth/team";
 import { normalizeBriefUseCase } from "@/lib/services/article/generationUseCases";
 import { apiError } from "@/lib/utils/api";
+import { NormalizeBriefBodySchema } from "@/domain/press/pressFlowContracts";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -18,10 +19,11 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     const { id } = await ctx.params;
 
     // 1) body 파싱
-    const body = await req.json().catch((err) => {
+    const rawBody = await req.json().catch((err) => {
       console.log("[brief/normalize][BODY_PARSE_FAIL]", { rid, err });
       return null;
     });
+    const body = NormalizeBriefBodySchema.safeParse(rawBody ?? {}).data ?? {};
 
     const rawText = body?.rawText;
     const tone = body?.tone;

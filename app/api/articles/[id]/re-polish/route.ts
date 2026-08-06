@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { rePolishUseCase } from "@/lib/services/article/reviewUseCases";
 import { requireTeamContextFlexible } from "@/lib/auth";
 import { apiError } from "@/lib/utils/api";
+import { RewriteArticleBodySchema } from "@/domain/press/pressFlowContracts";
+import { validateBody } from "@/lib/utils/validate";
 
 export async function POST(
   req: NextRequest,
@@ -9,7 +11,9 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
+    const parsed = validateBody(RewriteArticleBodySchema, await req.json());
+    if (!parsed.ok) return NextResponse.json(parsed.body, { status: parsed.status });
+    const body = parsed.data;
     const { selectedNoteIds, userInstruction, teamId, quotaMode } = body;
 
     const { user, team } = await requireTeamContextFlexible({ teamId });

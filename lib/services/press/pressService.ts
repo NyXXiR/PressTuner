@@ -14,6 +14,7 @@ import { finalizeVerifiedArticle } from "@/lib/services/article/articleFinalizat
 import { type ArticleType } from "@prisma/client";
 import { serviceError } from "@/lib/services/serviceError";
 import { normalizeEditedPlainForPersistence } from "@/domain/article/articleCanonicalContent";
+import type { PressAiDependencyOverrides } from "@/lib/services/article/pressAiDependencies";
 
 async function getArticleAccessForTeamEdit(
   articleId: string,
@@ -188,6 +189,7 @@ export async function generateArticleFromBrief(input: {
     eventAt?: string;
     publishAt?: string;
   };
+  dependencies?: PressAiDependencyOverrides;
 }) {
   const article = await prisma.article.findFirst({
     where: { id: input.articleId, teamId: input.teamId },
@@ -228,6 +230,7 @@ export async function generateArticleFromBrief(input: {
     rawText: input.body.rawText,
     eventAt: input.body.eventAt,
     publishAt: input.body.publishAt,
+    dependencies: input.dependencies,
   });
 
   const usage = await getUsageSummaryUseCase(input.teamId, input.articleId);

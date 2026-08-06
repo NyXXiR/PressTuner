@@ -5,10 +5,11 @@ import { extractTeamIdFromRequest } from "@/lib/auth/team";
 import { ArticleType } from "@prisma/client";
 import { initArticleDraft } from "@/lib/services/press/pressService";
 import { apiError } from "@/lib/utils/api";
+import { InitializeArticleBodySchema } from "@/domain/press/pressFlowContracts";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = InitializeArticleBodySchema.safeParse(await req.json().catch(() => ({}))).data ?? {};
     const headerOrQueryTeamId = extractTeamIdFromRequest(req);
     const bodyTeamId = body?.teamId;
 
@@ -17,13 +18,13 @@ export async function POST(req: NextRequest) {
     });
 
     const typeRaw = body?.type;
-    const type: ArticleType =
+    const type = (
       typeRaw === "PRESS_RELEASE" ||
       typeRaw === "BLOG_POST" ||
       typeRaw === "NEWSLETTER" ||
       typeRaw === "OTHER"
         ? typeRaw
-        : "PRESS_RELEASE";
+        : "PRESS_RELEASE") as ArticleType;
 
     const created = await initArticleDraft({
       teamId: team.id,

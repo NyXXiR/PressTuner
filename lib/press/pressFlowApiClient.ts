@@ -65,6 +65,9 @@ export type GenerateArticleInput = {
   quotaMode?: "simplified";
 };
 
+export type ReviewArticleInput = { teamId?: string; title: string; plain: string; userInstruction?: string; quotaMode?: "simplified" };
+export type RewriteArticleInput = { teamId?: string; selectedNoteIds: string[]; userInstruction: string; quotaMode?: "simplified" };
+
 export type VerificationState = {
   freshness: "CURRENT" | "STALE";
   verification: {
@@ -265,6 +268,14 @@ export function createPressFlowApiClient(options: ClientOptions = {}) {
         `/api/articles/${encodeURIComponent(articleId)}/generate`,
         input,
       );
+    },
+
+    reviewArticle(articleId: string, input: ReviewArticleInput) {
+      return request<Record<string, any>>("POST", `/api/articles/${encodeURIComponent(articleId)}/polish`, input);
+    },
+
+    rewriteArticle(articleId: string, input: RewriteArticleInput) {
+      return request<Record<string, any>>("POST", `/api/articles/${encodeURIComponent(articleId)}/re-polish`, input);
     },
 
     readGrounding(articleId: string) {

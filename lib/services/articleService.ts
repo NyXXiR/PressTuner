@@ -52,6 +52,7 @@ import { loadKnowledgeContexts } from "./knowledge/knowledgeContextService";
 import { hashArticleContent } from "@/domain/article/articleContentHash";
 import { filterActionableReviewNotes } from "@/domain/article/reviewNotePolicy";
 import { finalizeVerifiedArticle } from "./article/articleFinalizationService";
+import { resolvePressAiDependencies, type PressAiDependencyOverrides } from "./article/pressAiDependencies";
 export type {
   ArticleUsageSummary,
   UsagePayload,
@@ -76,6 +77,15 @@ const openai = new OpenAI({
 
 const BRIEF_MODEL = process.env.PT_BRIEF_MODEL ?? "gpt-4.1-mini";
 const POLISH_MODEL = process.env.PT_POLISH_MODEL ?? "gpt-4.1-mini";
+
+function pressAiDependencies(overrides?: PressAiDependencyOverrides) {
+  return resolvePressAiDependencies(overrides, {
+    searchKnowledge,
+    loadKnowledgeContexts,
+    now: () => new Date(),
+    completeJson: async (request) => (await openai.chat.completions.create({ model: request.model, messages: request.messages, response_format: request.responseFormat, temperature: request.temperature })).choices[0]?.message?.content ?? "{}",
+  });
+}
 
 // -------------------------
 // Helper Functions
@@ -280,6 +290,7 @@ type GenerateArticleInput = {
   rawText?: string;
   eventAt?: string;
   publishAt?: string;
+  dependencies?: PressAiDependencyOverrides;
 
 };
 
@@ -435,7 +446,7 @@ export async function generateArticle(
     rawText,
     eventAt,
     publishAt,
-  });
+  }, { dependencies: input.dependencies });
 
   const generatedAt = formatISO(new Date());
   const generatedPlain = buildPlainFromDraftParts({
@@ -577,7 +588,8 @@ export async function generateArticleIntoExisting(
     select: { id: true, content: true, excerpt: true },
     orderBy: { createdAt: "asc" },
   });
-  const knowledgeContexts = await loadKnowledgeContexts({
+  const dependencies = pressAiDependencies(input.dependencies);
+  const knowledgeContexts = await dependencies.loadKnowledgeContexts({
     teamId,
     query: [
       input.serviceName,
@@ -608,7 +620,7 @@ export async function generateArticleIntoExisting(
     })),
     stylePolicy: knowledgeContexts.stylePolicy,
     styleExamples: knowledgeContexts.styleExamples,
-  });
+  }, { dependencies: input.dependencies });
   const acceptedFactIds = new Set(acceptedFacts.map(({ id }) => id));
   const usedFactIds = llmResult.usedFactIds ?? [];
   if (usedFactIds.some((id) => !acceptedFactIds.has(id))) {
@@ -744,6 +756,7 @@ export async function normalizeBriefUseCase(input: {
   rawText: string;
   tone?: unknown;
   quotaMode?: "simplified";
+  dependencies?: PressAiDependencyOverrides;
 }): Promise<{
   brief: NormalizedBrief;
   factCandidates: Awaited<
@@ -810,9 +823,10 @@ export async function normalizeBriefUseCase(input: {
   let factCandidates: Awaited<
     ReturnType<typeof discoverArticleEvidenceCandidates>
   > = [];
+  const dependencies = pressAiDependencies(input.dependencies);
   try {
     const [knowledge, corpus] = await Promise.all([
-      searchKnowledge({
+      dependencies.searchKnowledge({
         teamId: team.id,
         query: rawText,
         topK: 6,
@@ -845,15 +859,7 @@ export async function normalizeBriefUseCase(input: {
       tone: toneSafe,
       complete: async ({ system, user }) => {
         logAiPayload("Normalize Brief", { system, user });
-        const completion = await openai.chat.completions.create({
-          model: BRIEF_MODEL,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-          response_format: { type: "json_object" },
-        });
-        const content = completion.choices[0]?.message?.content;
+        const content = await dependencies.completeJson({ model: BRIEF_MODEL, messages: [{ role: "system", content: system }, { role: "user", content: user }], responseFormat: { type: "json_object" } });
         if (!content) {
           throwErr("LLM_EMPTY_RESULT", 500, "분석 결과가 비어 있습니다.");
         }
@@ -887,6 +893,7 @@ export async function generateFromBriefUseCase(input: {
   rawText?: string;
   eventAt?: string;
   publishAt?: string;
+  dependencies?: PressAiDependencyOverrides;
 }): Promise<ArticleResultWithId> {
   const { teamId, userId, articleId } = input;
 
@@ -910,6 +917,7 @@ export async function generateFromBriefUseCase(input: {
     rawText: input.rawText,
     eventAt: input.eventAt,
     publishAt: input.publishAt,
+    dependencies: input.dependencies,
   });
 }
 
@@ -1087,6 +1095,7 @@ export async function reviewUseCase(input: {
   plain: string;
   userInstruction?: string;
   quotaMode?: "simplified";
+  dependencies?: PressAiDependencyOverrides;
 }): Promise<ReviewResult & { usage: any }> {
   const { team, userId, articleId, title, plain } = input;
   const pressSubscription = await loadPressSubscription(team.id);
@@ -1120,12 +1129,13 @@ export async function reviewUseCase(input: {
     pressExtra: article.pressExtra,
   });
 
+  const dependencies = pressAiDependencies(input.dependencies);
   const [acceptedFacts, knowledgeContexts] = await Promise.all([
     prisma.articleFact.findMany({
       where: { articleId, teamId: team.id, active: true },
       select: { id: true, content: true, excerpt: true },
     }),
-    loadKnowledgeContexts({
+    dependencies.loadKnowledgeContexts({
       teamId: team.id,
       query: [title, plain].join("\n"),
       topK: 8,
@@ -1198,8 +1208,8 @@ ${knowledgeContexts.stylePolicy || "기본적인 보도자료 작성 원칙을 �
 - **중요**: "quote"는 반드시 입력된 본문(plain)에 존재하는 텍스트여야 한다. 본문에 없는 텍스트는 인용하지 말 것.
 `.trim();
 
-  const reviewGeneratedAt = formatISO(new Date());
-  const completion = await openai.chat.completions.create({
+  const reviewGeneratedAt = formatISO(dependencies.now());
+  const completionContent = await dependencies.completeJson({
     model: POLISH_MODEL,
     messages: [
       { role: "system", content: systemPrompt },
@@ -1228,11 +1238,11 @@ ${plain}
         `.trim(),
       },
     ],
-    response_format: { type: "json_object" },
+    responseFormat: { type: "json_object" },
     temperature: 0,
   });
 
-  const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+  const parsed = JSON.parse(completionContent || "{}");
   const rawNotes = filterActionableReviewNotes(
     plain,
     Array.isArray(parsed.notes) ? parsed.notes : [],
@@ -1331,6 +1341,7 @@ export async function rePolishUseCase(input: {
   selectedNoteIds: string[];
   userInstruction: string;
   quotaMode?: "simplified";
+  dependencies?: PressAiDependencyOverrides;
 }) {
   const { articleId, teamId, userId, selectedNoteIds, userInstruction } = input;
   const pressSubscription = await loadPressSubscription(teamId);
@@ -1372,12 +1383,13 @@ export async function rePolishUseCase(input: {
     throwErr("BAD_REQUEST", 400, "활성화된 분석 세션이 없습니다.");
   }
 
+  const dependencies = pressAiDependencies(input.dependencies);
   const [acceptedFacts, knowledgeContexts] = await Promise.all([
     prisma.articleFact.findMany({
       where: { articleId, teamId, active: true },
       select: { id: true, content: true, excerpt: true },
     }),
-    loadKnowledgeContexts({
+    dependencies.loadKnowledgeContexts({
       teamId,
       query: [article.title, article.rawInput].filter(Boolean).join("\n"),
       topK: 8,
@@ -1477,20 +1489,20 @@ export async function rePolishUseCase(input: {
       styleExamples: knowledgeContexts.styleExamples,
     });
 
-    const completion = await openai.chat.completions.create({
+    const completionContent = await dependencies.completeJson({
       model: POLISH_MODEL,
       messages: [
         { role: "system", content: promptBundle.systemPrompt },
         { role: "user", content: promptBundle.userPrompt },
       ],
-      response_format: { type: "json_object" },
+      responseFormat: { type: "json_object" },
       temperature: 0.3,
     });
 
-    const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    const parsed = JSON.parse(completionContent || "{}");
     const newTitle = parsed.title || baseTitle;
     const newPlain = parsed.plain || basePlain;
-    const rewrittenAt = formatISO(new Date());
+    const rewrittenAt = formatISO(dependencies.now());
 
     const txResult = await prisma.$transaction(async (tx) => {
       const newCount =

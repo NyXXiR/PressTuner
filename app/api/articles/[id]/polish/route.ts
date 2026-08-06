@@ -1,18 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
+import { ReviewArticleBodySchema } from "@/domain/press/pressFlowContracts";
 import { extractTeamIdFromRequest } from "@/lib/auth/team";
 import { requireCurrentUserId, requireTeamContextFlexible } from "@/lib/auth";
 import { reviewUseCase } from "@/lib/services/article/reviewUseCases";
 import { validateBody } from "@/lib/utils/validate";
 import { apiError } from "@/lib/utils/api";
-
-const BodySchema = z.object({
-  teamId: z.string().optional(),
-  title: z.string().min(1),
-  plain: z.string().min(1),
-  userInstruction: z.string().max(1000).optional(),
-  quotaMode: z.enum(["simplified"]).optional(),
-});
 
 export async function POST(
   req: NextRequest,
@@ -23,7 +15,7 @@ export async function POST(
   try {
     const userId = await requireCurrentUserId();
     const bodyPayload = await req.json();
-    const parsed = validateBody(BodySchema, bodyPayload);
+    const parsed = validateBody(ReviewArticleBodySchema, bodyPayload);
     if (!parsed.ok) {
       return NextResponse.json(parsed.body, { status: parsed.status });
     }

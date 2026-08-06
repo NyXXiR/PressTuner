@@ -49,6 +49,8 @@ test("all operations preserve the existing article route contracts", async () =>
     points: ["first"],
     tone: "formal",
   });
+  await client.reviewArticle("article/one", { title: "제목", plain: "본문", userInstruction: "검토" });
+  await client.rewriteArticle("article/one", { selectedNoteIds: ["note-1"], userInstruction: "수정" });
   await client.readGrounding("article/one");
   await client.decideGroundingCandidate(
     "article/one",
@@ -101,6 +103,22 @@ test("all operations preserve the existing article route contracts", async () =>
         },
       },
       {
+        path: "/api/articles/article%2Fone/polish",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: undefined,
+        cache: undefined,
+        body: { title: "제목", plain: "본문", userInstruction: "검토" },
+      },
+      {
+        path: "/api/articles/article%2Fone/re-polish",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: undefined,
+        cache: undefined,
+        body: { selectedNoteIds: ["note-1"], userInstruction: "수정" },
+      },
+      {
         path: "/api/articles/article%2Fone/grounding",
         method: "GET",
         headers: undefined,
@@ -143,7 +161,7 @@ test("all operations preserve the existing article route contracts", async () =>
       },
     ],
   );
-  assert.equal(exchanges.length, 8);
+  assert.equal(exchanges.length, 10);
   assert.deepEqual(exchanges[0], {
     method: "POST",
     path: "/api/articles/init",

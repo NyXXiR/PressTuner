@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { StartRagDebuggerRunRequestSchema } from "@/domain/evaluation/pressAgentRagDebugger";
 import { requireTeamContext } from "@/lib/auth";
 import {
-  validateSelectionAndConsumePressAgentRagDebuggerQuota,
-  executePressAgentRagDebuggerRun,
   listPressAgentRagDebuggerRuns,
 } from "@/lib/services/press-agent/pressAgentRagDebuggerService";
+import { startProcessDebugRun } from "@/lib/services/press-ai-debugger/processRunService";
 import { apiError } from "@/lib/utils/api";
 import { validateBody } from "@/lib/utils/validate";
 
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
     const { team, user } = await requireTeamContext();
     const parsed = validateBody(StartRagDebuggerRunRequestSchema, await req.json());
     if (!parsed.ok) return NextResponse.json(parsed.body, { status: parsed.status, headers: { "Cache-Control": "no-store" } });
-    const selectedDocuments = await validateSelectionAndConsumePressAgentRagDebuggerQuota({ teamId: team.id, userId: user.id, articleId: parsed.data.articleId, documentIds: parsed.data.documentIds });
     const encoder = new TextEncoder();
     let keepalive: ReturnType<typeof setInterval> | undefined;
     let streamClosed = false;
@@ -48,12 +46,11 @@ export async function POST(req: NextRequest) {
         };
         keepalive = setInterval(() => send(": keepalive\n\n"), 15_000);
         try {
-          await executePressAgentRagDebuggerRun({
+          await startProcessDebugRun({
             teamId: team.id,
             userId: user.id,
-            ...parsed.data,
-            selectedDocuments,
-            observer: (event) => send(`event: workflow\ndata: ${JSON.stringify(event)}\n\n`),
+            input: { processId: "rag-query", ...parsed.data },
+            onEvent: (event) => send(`event: workflow\ndata: ${JSON.stringify(event)}\n\n`),
           });
           send("event: stream.complete\ndata: {}\n\n");
         } catch {

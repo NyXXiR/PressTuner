@@ -1,6 +1,8 @@
 import type {
   GenerateArticleInput,
   NormalizeBriefInput,
+  ReviewArticleInput,
+  RewriteArticleInput,
   createPressFlowApiClient,
 } from "./pressFlowApiClient";
 
@@ -17,6 +19,16 @@ async function ensureArticle(
     ...(teamId ? { teamId } : {}),
   });
   return initialized.articleId;
+}
+
+export async function reviewSimplifiedPressFlow(input: { api: PressFlowApi; articleId: string; review: Omit<ReviewArticleInput, "quotaMode"> }) {
+  const result = await input.api.reviewArticle(input.articleId, { ...input.review, quotaMode: "simplified" });
+  return { articleId: input.articleId, result };
+}
+
+export async function rewriteSimplifiedPressFlow(input: { api: PressFlowApi; articleId: string; rewrite: Omit<RewriteArticleInput, "quotaMode"> }) {
+  const result = await input.api.rewriteArticle(input.articleId, { ...input.rewrite, quotaMode: "simplified" });
+  return { articleId: input.articleId, result };
 }
 export async function normalizeSimplifiedPressFlow(input: {
   api: PressFlowApi;
