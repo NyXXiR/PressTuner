@@ -1,11 +1,15 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PressAiProcessGraph } from "./PressAiProcessGraph";
-import { PressAiEdgeInspector } from "./PressAiEdgeInspector";
-import { PressAiWorkflowOutline } from "./PressAiWorkflowOutline";
-import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
-import { PressAiCasePanel } from "./PressAiCasePanel";
-import { PressAiAttemptComparison } from "./PressAiAttemptComparison";
+import { PressAiRunActionBar } from "./PressAiRunActionBar";
+import { PressAiRunTimeline } from "./PressAiRunTimeline";
+import { PressAiSidePanels } from "./PressAiSidePanels";
+import {
+  edgeAnchorId,
+  focusAnchor,
+  nextAction,
+  nodeAnchorId,
+} from "./pressAiRunProgress";
 import { usePressAiCheckpointDebugger } from "./usePressAiCheckpointDebugger";
 
 const DEFAULT_MEMO =
@@ -25,9 +29,15 @@ export function PressAiProcessDebugger() {
   );
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [acknowledged, setAcknowledged] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const errorRef = useRef<HTMLDivElement>(null);
+  /** Graph selection drives the timeline: open the matching row and scroll it into view. */
+  const revealRow = (key: string, anchorId: string) => {
+    setSelectedKey(key);
+    setOpenRows((state) => ({ ...state, [key]: true }));
+    focusAnchor(anchorId);
+  };
   useEffect(() => {
     void fetch("/api/me", { cache: "no-store" })
       .then((response) => setAuth(response.ok ? "authenticated" : "anonymous"))
@@ -37,17 +47,7 @@ export function PressAiProcessDebugger() {
     if (debuggerState.error) errorRef.current?.focus();
   }, [debuggerState.error]);
   const attempt = debuggerState.attempt;
-  const selectNode = (id: string) => {
-    setSelectedNodeId(id);
-    setSelectedEdgeId(null);
-  };
-  const selectEdge = (id: string) => {
-    setSelectedEdgeId(id);
-    setSelectedNodeId(null);
-  };
-  const activeCheckpoint = selectedNodeId
-    ? attempt?.checkpoints.find((item) => item.nodeId === selectedNodeId)
-    : null;
+  const action = useMemo(() => nextAction(attempt), [attempt]);
   const reviewCheckpoint = attempt?.checkpoints.find(
     (item) => item.nodeId === "draft-review",
   );
@@ -60,14 +60,21 @@ export function PressAiProcessDebugger() {
           reviewCheckpoint.output as { notes: Array<Record<string, unknown>> }
         ).notes.filter((item) => typeof item.id === "string")
       : [];
+  const rewriteReady =
+    selectedNoteIds.length > 0 && Boolean(rewriteInstruction.trim());
   const refreshKey = attempt ? `${attempt.id}:${attempt.revision}` : "empty";
+  const runRewrite = () =>
+    void debuggerState.execute("selected-rewrite", {
+      selectedNoteIds,
+      rewriteInstruction,
+    });
   return (
     <section
-      className="min-w-0 rounded-2xl border border-primary/35 bg-card p-4 shadow-sm sm:p-6"
+      className="pt-overflow-visible min-w-0 rounded-2xl border border-primary/35 bg-card p-4 shadow-sm sm:p-6"
       aria-labelledby="press-ai-debugger-heading"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
             Press creation · checkpoint v2
           </p>
@@ -77,15 +84,15 @@ export function PressAiProcessDebugger() {
           >
             Press AI 체크포인트 디버거
           </h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            노드 실행과 엣지 이동은 별도 명령입니다. 기존 RAG-v1 기록은 기존
+            URL에서 계속 읽을 수 있으며, 이 화면에는 자동 실행 경로가 없습니다.
+          </p>
         </div>
         <span className="rounded-full border px-3 py-1 text-xs font-bold">
           {attempt?.status ?? "NOT_STARTED"}
         </span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-muted-foreground">
-        노드 실행과 엣지 이동은 별도 명령입니다. 기존 RAG-v1 기록은 기존 URL에서
-        계속 읽을 수 있으며, 이 화면에는 자동 실행 경로가 없습니다.
-      </p>
       {auth === "anonymous" ? (
         <p className="mt-4 rounded-xl border border-amber-500/40 p-4 text-sm">
           로그인과 팀 선택이 필요합니다.
@@ -96,7 +103,7 @@ export function PressAiProcessDebugger() {
           ref={errorRef}
           tabIndex={-1}
           role="alert"
-          className="mt-4 rounded-xl border border-rose-500 p-4 text-sm text-rose-700"
+          className="mt-4 rounded-xl border border-rose-500 p-4 text-sm text-rose-700 dark:text-rose-300"
         >
           {debuggerState.error}
         </div>
@@ -181,140 +188,117 @@ export function PressAiProcessDebugger() {
           </button>
         </div>
       ) : (
-        <div className="mt-5 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-          <div className="min-w-0 space-y-4">
-            <PressAiProcessGraph
-              attempt={attempt}
-              busy={debuggerState.busy}
-              selectedNodeId={selectedNodeId}
-              selectedEdgeId={selectedEdgeId}
-              onNode={selectNode}
-              onEdge={selectEdge}
-            />
-            {attempt.activeNodeId === "selected-rewrite" ? (
-              <section className="rounded-xl border p-4">
-                <h3 className="font-black">반영할 리뷰 노트 선택</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  저장된 리뷰 결과 중 실제로 반영할 항목만 고르세요.
-                </p>
-                <ul className="mt-3 space-y-2">
-                  {reviewNotes.map((note) => {
-                    const id = String(note.id);
-                    const label =
-                      typeof note.message === "string"
-                        ? note.message
-                        : typeof note.text === "string"
-                          ? note.text
-                          : id;
-                    return (
-                      <li key={id}>
-                        <label className="flex min-h-11 gap-3 rounded border p-3 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedNoteIds.includes(id)}
-                            onChange={(event) =>
-                              setSelectedNoteIds((items) =>
-                                event.target.checked
-                                  ? [...items, id]
-                                  : items.filter((item) => item !== id),
-                              )
-                            }
-                          />
-                          <span>
-                            <strong>{id}</strong>
-                            <br />
-                            {label}
-                          </span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <label className="mt-3 block text-sm font-bold">
-                  수정 지침
-                  <input
-                    value={rewriteInstruction}
-                    onChange={(event) =>
-                      setRewriteInstruction(event.target.value)
-                    }
-                    className="mt-1 min-h-11 w-full rounded border bg-background px-3"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={
-                    debuggerState.busy ||
-                    selectedNoteIds.length === 0 ||
-                    !rewriteInstruction.trim()
-                  }
-                  onClick={() =>
-                    void debuggerState.execute("selected-rewrite", {
-                      selectedNoteIds,
-                      rewriteInstruction,
-                    })
-                  }
-                  className="mt-3 min-h-11 rounded bg-primary px-4 font-bold text-primary-foreground disabled:opacity-50"
-                >
-                  선택한 노트로 수정 실행
-                </button>
-              </section>
-            ) : null}
-            {selectedNodeId && activeCheckpoint ? (
-              <section className="rounded-xl border p-4">
-                <h3 className="font-black">{selectedNodeId} 체크포인트</h3>
-                <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-3 text-xs">
-                  {JSON.stringify(
-                    {
-                      input: activeCheckpoint.input,
-                      output: activeCheckpoint.output,
-                    },
-                    null,
-                    2,
-                  )}
-                </pre>
-              </section>
-            ) : null}
-            {selectedEdgeId ? (
-              <PressAiEdgeInspector
-                key={selectedEdgeId}
+        <div className="mt-4 min-w-0">
+          <PressAiRunActionBar
+            attempt={attempt}
+            busy={debuggerState.busy}
+            action={action}
+            rewriteReady={rewriteReady}
+            onExecute={(nodeId) => void debuggerState.execute(nodeId)}
+            onRewrite={runRewrite}
+            onAdvance={(edgeId, warn, human) =>
+              void debuggerState.advance(edgeId, warn, human)
+            }
+            onRetry={(nodeId) => void debuggerState.retry(nodeId)}
+          />
+          {attempt.activeNodeId === "selected-rewrite" ? (
+            <section
+              id="press-ai-review-selection"
+              tabIndex={-1}
+              className="mb-4 min-w-0 scroll-mt-24 rounded-xl border border-primary/40 bg-primary/5 p-4 focus:outline-none"
+            >
+              <h3 className="font-black">반영할 리뷰 노트 선택</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                저장된 리뷰 결과 중 실제로 반영할 항목만 고르세요. 선택하면 위의
+                실행 버튼이 열립니다.
+              </p>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {reviewNotes.map((note) => {
+                  const id = String(note.id);
+                  const label =
+                    typeof note.message === "string"
+                      ? note.message
+                      : typeof note.text === "string"
+                        ? note.text
+                        : id;
+                  return (
+                    <li key={id}>
+                      <label className="flex min-h-11 gap-3 rounded border bg-background p-3 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedNoteIds.includes(id)}
+                          onChange={(event) =>
+                            setSelectedNoteIds((items) =>
+                              event.target.checked
+                                ? [...items, id]
+                                : items.filter((item) => item !== id),
+                            )
+                          }
+                        />
+                        <span className="min-w-0">
+                          <strong>{id}</strong>
+                          <br />
+                          {label}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <label className="mt-3 block text-sm font-bold">
+                수정 지침
+                <input
+                  value={rewriteInstruction}
+                  onChange={(event) => setRewriteInstruction(event.target.value)}
+                  className="mt-1 min-h-11 w-full rounded border bg-background px-3"
+                />
+              </label>
+            </section>
+          ) : null}
+          <details className="mb-4 min-w-0 rounded-xl border border-border">
+            <summary className="cursor-pointer px-4 py-2 text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              프로세스 그래프
+            </summary>
+            <div className="border-t border-border">
+              <PressAiProcessGraph
                 attempt={attempt}
-                edgeId={selectedEdgeId}
                 busy={debuggerState.busy}
-                onAdvance={(warn, human) =>
-                  void debuggerState.advance(selectedEdgeId, warn, human)
+                selectedNodeId={
+                  selectedKey?.startsWith("node:")
+                    ? selectedKey.slice(5)
+                    : null
                 }
-                onRetry={(nodeId) => void debuggerState.retry(nodeId)}
+                selectedEdgeId={
+                  selectedKey?.startsWith("edge:")
+                    ? selectedKey.slice(5)
+                    : null
+                }
+                onNode={(id) => revealRow(`node:${id}`, nodeAnchorId(id))}
+                onEdge={(id) => revealRow(`edge:${id}`, edgeAnchorId(id))}
               />
-            ) : null}
-          </div>
-          <div className="space-y-4">
-            <PressAiWorkflowOutline
+            </div>
+          </details>
+          <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+            <PressAiRunTimeline
               attempt={attempt}
               busy={debuggerState.busy}
-              onNode={selectNode}
-              onEdge={selectEdge}
-              onExecute={(id) => void debuggerState.execute(id)}
+              open={openRows}
+              onOpenChange={setOpenRows}
+              onRetry={(nodeId) => void debuggerState.retry(nodeId)}
             />
-            <PressAiAttemptHistory
-              attemptId={attempt.id}
+            <PressAiSidePanels
+              attempt={attempt}
+              busy={debuggerState.busy}
               refreshKey={refreshKey}
               onOpen={(id) => void debuggerState.open(id)}
-            />
-            <PressAiCasePanel
-              checkpoints={attempt.checkpoints}
-              busy={debuggerState.busy}
-              onSave={(checkpointId, name, expectations) =>
+              onSaveCase={(checkpointId, name, expectations) =>
                 void debuggerState.saveCase(checkpointId, name, expectations)
               }
-            />
-            <PressAiAttemptComparison
-              attemptId={attempt.id}
-              refreshKey={refreshKey}
             />
           </div>
         </div>
       )}
-      <p aria-live="polite" className="mt-4 text-sm text-muted-foreground">
+      <p aria-live="polite" className="sr-only">
         {debuggerState.busy
           ? "명령을 저장하고 있습니다."
           : attempt?.activeNodeId

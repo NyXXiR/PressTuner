@@ -153,7 +153,7 @@ export function PressAiProcessGraph(props: {
                   width="84"
                   height="26"
                   rx="8"
-                  fill="white"
+                  className="fill-card"
                   stroke={color}
                 />
                 <text
@@ -191,7 +191,7 @@ export function PressAiProcessGraph(props: {
                   width="180"
                   height="80"
                   rx="14"
-                  fill="white"
+                  className="fill-card"
                   stroke={
                     props.selectedNodeId === node.id || active
                       ? "#2563eb"
@@ -206,6 +206,7 @@ export function PressAiProcessGraph(props: {
                   y={point.y + 30}
                   fontSize="14"
                   fontWeight="800"
+                  className="fill-foreground"
                 >
                   {node.label}
                 </text>
@@ -213,7 +214,7 @@ export function PressAiProcessGraph(props: {
                   x={point.x + 14}
                   y={point.y + 55}
                   fontSize="11"
-                  fill="#475569"
+                  className="fill-muted-foreground"
                 >
                   {active && props.busy
                     ? "RUNNING"
