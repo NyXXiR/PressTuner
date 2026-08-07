@@ -8,6 +8,7 @@ import {
   registerAcquisitionAttribution,
   type PostHogAcquisitionApi,
 } from "@/lib/analytics/acquisition-attribution";
+import { captureOpsNativePage } from "@/lib/analytics/opsNative";
 
 type PostHogProviderProps = {
   apiKey: string | null;
@@ -156,6 +157,8 @@ function PostHogPageTracker({
   const search = searchParams?.toString() ?? "";
 
   useEffect(() => {
+    // Ops native collection is independent from the optional PostHog adapter.
+    captureOpsNativePage(pathname ?? "/");
     if (!apiKey) {
       return;
     }
