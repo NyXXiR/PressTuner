@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { requireTeamContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAndIncrementQuota } from "@/lib/services/usageService";
+import { consumeAiQuota } from "@/domain/quota/aiQuota";
 import { startPressAgentRun } from "@/lib/services/press-agent/pressAgentRuntime";
 import { apiError } from "@/lib/utils/api";
 import { validateBody } from "@/lib/utils/validate";
@@ -23,12 +23,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(parsed.body, { status: parsed.status });
     }
     await prisma.$transaction((tx) =>
-      verifyAndIncrementQuota(tx, {
+      consumeAiQuota({
         teamId: team.id,
         userId: user.id,
         targetId: parsed.data.articleId ?? null,
-        type: "ARTICLE",
         action: "press_panel_chat",
+        client: tx,
       }),
     );
     const runRecord = await startPressAgentRun({

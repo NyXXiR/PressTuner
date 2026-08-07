@@ -8,12 +8,32 @@ import {
 } from "@/config/billing/plans";
 import {
   consumeAiQuota,
+  getAiPanelPolicyForPlan,
   getAiQuotaAdminConfig,
   getAiQuotaStateForSurface,
   getAiQuotaActionDefinition,
   updateAiQuotaAdminConfig,
 } from "@/domain/quota/aiQuota";
 import { prisma } from "@/lib/prisma";
+
+test("catalog panel policies preserve the existing per-plan windows and limits", () => {
+  const expected = {
+    free_v1: [10, 80],
+    basic_monthly_v1: [25, 250],
+    pro_monthly_v1: [50, 800],
+    enterprise_monthly_v1: [100, 2000],
+  } as const;
+
+  for (const [planId, [burstLimit, dailyLimit]] of Object.entries(expected)) {
+    const policy = getAiPanelPolicyForPlan(BILLING_PLANS[planId]);
+    assert.deepEqual(policy, {
+      burstDurationMs: 10 * 60 * 1000,
+      burstLimit,
+      dailyDurationMs: 24 * 60 * 60 * 1000,
+      dailyLimit,
+    });
+  }
+});
 
 test("AI quota action weights reflect request cost tiers", () => {
   assert.equal(getAiQuotaActionDefinition("press_panel_chat").units, 1);

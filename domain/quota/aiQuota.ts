@@ -9,7 +9,7 @@ import {
   type PlanId,
 } from "@/config/billing/plans";
 import { prisma } from "@/lib/prisma";
-import { QuotaLimitError } from "@/domain/quota/errors";
+import { AiPanelRateLimitError, QuotaLimitError } from "@/domain/quota/errors";
 import {
   getEffectiveProductSubscription,
   productForSurface,
@@ -29,6 +29,10 @@ export type AiQuotaAction =
   | "resume_repolish"
   | "resume_generate"
   | "resume_parse";
+
+export function isAiPanelAction(action: AiQuotaAction): action is "press_panel_chat" | "resume_chat" {
+  return action === "press_panel_chat" || action === "resume_chat";
+}
 
 type AiQuotaActionDefinition = {
   surface: AiQuotaSurface;
@@ -175,6 +179,12 @@ function resolvePlan(team: Pick<TeamQuotaPlanSnapshot, "plan" | "planId">): Bill
   );
 }
 
+export function getAiPanelPolicyForPlan(
+  plan: Pick<BillingPlan, "aiPanel">,
+): BillingPlan["aiPanel"] {
+  return { ...plan.aiPanel };
+}
+
 function isSubscriptionUsable(team: TeamQuotaPlanSnapshot, now: Date) {
   if (team.plan === "FREE") return true;
   if (team.membershipStatus === "EXPIRED") return false;
@@ -204,6 +214,78 @@ function modelPrefix(surface: AiQuotaSurface) {
 function modelForAction(action: AiQuotaAction) {
   const def = AI_QUOTA_ACTIONS[action];
   return `quota:${def.surface}:${action}`;
+}
+
+async function readPanelEvents(args: {
+  client: QuotaClient;
+  teamId: string;
+  userId: string;
+  action: "press_panel_chat" | "resume_chat";
+  now: Date;
+  policy: BillingPlan["aiPanel"];
+}) {
+  const since = new Date(
+    args.now.getTime() -
+      Math.max(args.policy.burstDurationMs, args.policy.dailyDurationMs),
+  );
+  return args.client.usageLog.findMany({
+    where: {
+      teamId: args.teamId,
+      userId: args.userId,
+      action: UsageAction.CHAT,
+      createdAt: { gte: since },
+      OR: [
+        {
+          model:
+            args.action === "press_panel_chat"
+              ? "quota:PRESS:press_panel_chat"
+              : "quota:RESUME:resume_chat",
+        },
+        {
+          model: {
+            startsWith:
+              args.action === "press_panel_chat" ? "panel:press:" : "panel:resume:",
+          },
+        },
+      ],
+    },
+    select: { createdAt: true },
+  });
+}
+
+async function assertAiPanelAvailable(args: {
+  client: QuotaClient;
+  teamId: string;
+  userId: string | null | undefined;
+  action: AiQuotaAction;
+  now: Date;
+  policy: BillingPlan["aiPanel"];
+}) {
+  if (!isAiPanelAction(args.action) || !args.userId) return;
+
+  const events = await readPanelEvents({
+    client: args.client,
+    teamId: args.teamId,
+    userId: args.userId,
+    action: args.action,
+    now: args.now,
+    policy: args.policy,
+  });
+  const burstSince = args.now.getTime() - args.policy.burstDurationMs;
+  const dailySince = args.now.getTime() - args.policy.dailyDurationMs;
+  const burstCount = events.filter(
+    (event) => event.createdAt.getTime() >= burstSince,
+  ).length;
+  const dailyCount = events.filter(
+    (event) => event.createdAt.getTime() >= dailySince,
+  ).length;
+
+  if (
+    burstCount >= args.policy.burstLimit ||
+    dailyCount >= args.policy.dailyLimit
+  ) {
+    throw new AiPanelRateLimitError();
+  }
 }
 
 async function isPinnedQaQuotaExemptTeam(
@@ -799,15 +881,43 @@ export async function consumeAiQuota(params: {
   const client = params.client ?? prisma;
   const def = await resolveAiQuotaActionDefinition(params.action, client);
   const units = Math.max(params.units ?? def.units, 1);
+  const now = params.now ?? new Date();
   await lockTeamQuotaRow(client, params.teamId);
 
   const before = await assertAiQuotaAvailable({
     teamId: params.teamId,
     action: params.action,
     units,
-    now: params.now,
+    now,
     client,
   });
+
+  if (isAiPanelAction(params.action)) {
+    const subscription = await getEffectiveProductSubscription(
+      params.teamId,
+      productForSurface(def.surface),
+      client,
+    );
+    const team: TeamQuotaPlanSnapshot = {
+      id: subscription.teamId,
+      plan: subscription.plan,
+      planId: subscription.planId,
+      membershipStatus: subscription.membershipStatus,
+      planExpiresAt: subscription.planExpiresAt,
+    };
+    const plan = isSubscriptionUsable(team, now) ? resolvePlan(team) : FREE_FALLBACK;
+    const qaQuotaExempt = await isPinnedQaQuotaExemptTeam(client, params.teamId);
+    if (!qaQuotaExempt) {
+      await assertAiPanelAvailable({
+        client,
+        teamId: params.teamId,
+        userId: params.userId,
+        action: params.action,
+        now,
+        policy: getAiPanelPolicyForPlan(plan),
+      });
+    }
+  }
 
   await client.usageLog.create({
     data: {
@@ -834,7 +944,7 @@ export async function consumeAiQuota(params: {
     teamId: params.teamId,
     surface: def.surface,
     requestedUnits: units,
-    now: params.now,
+    now,
     client,
   }).catch(() => before);
 }

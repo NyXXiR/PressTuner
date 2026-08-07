@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requireTeamContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAndIncrementQuota } from "@/lib/services/usageService";
+import { consumeAiQuota } from "@/domain/quota/aiQuota";
 import { searchKnowledge } from "@/lib/services/knowledge/knowledgeRetrievalService";
 import { apiError } from "@/lib/utils/api";
 import { validateBody } from "@/lib/utils/validate";
@@ -24,11 +24,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(parsed.body, { status: parsed.status });
     }
     await prisma.$transaction((tx) =>
-      verifyAndIncrementQuota(tx, {
+      consumeAiQuota({
         teamId: team.id,
         userId: user.id,
-        type: "ARTICLE",
         action: "press_panel_chat",
+        client: tx,
       }),
     );
     const result = await searchKnowledge({

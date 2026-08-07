@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { verifyAndIncrementQuota } from "@/lib/services/usageService";
+import { consumeAiQuota } from "@/domain/quota/aiQuota";
 import type { PressAgentRagDebuggerDocumentSnapshot, PressAgentRagDebuggerPromptPresetId, PressAgentRagDebuggerRetrievalConfigurationId } from "@/domain/evaluation/pressAgentRagDebugger";
 import { startPressAgentRun } from "./pressAgentRuntime";
 import {
@@ -31,7 +31,7 @@ export async function validateSelectionAndConsumePressAgentRagDebuggerQuota(args
       if (!document) throw new PressAgentRagDebuggerSelectionError();
       return { id: document.id, name: document.originalName, readiness: "READY" as const, pageCount: document.pageCount, chunkCount: document.chunkCount };
     });
-    await verifyAndIncrementQuota(tx, { teamId: args.teamId, userId: args.userId, targetId: args.articleId ?? null, type: "ARTICLE", action: "press_panel_chat" });
+    await consumeAiQuota({ teamId: args.teamId, userId: args.userId, targetId: args.articleId ?? null, action: "press_panel_chat", client: tx });
     return snapshots;
   });
 }

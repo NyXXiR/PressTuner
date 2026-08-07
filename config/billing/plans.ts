@@ -8,6 +8,7 @@ import {
   type CatalogAiQuotaSurfacePolicy,
   type CatalogAiQuotaWindowKey,
   type CatalogAiQuotaWindowPolicy,
+  type CatalogAiPanelPolicy,
   type CatalogPlanCategory,
   type CatalogProductLine,
   type CatalogPlanPromotion,
@@ -28,6 +29,7 @@ export type AiQuotaWindowKey = CatalogAiQuotaWindowKey;
 export type AiQuotaWindowPolicy = CatalogAiQuotaWindowPolicy;
 export type AiQuotaSurfacePolicy = CatalogAiQuotaSurfacePolicy;
 export type AiQuotaPolicy = CatalogAiQuotaPolicy;
+export type AiPanelPolicy = CatalogAiPanelPolicy;
 
 export type BillingPlan = Omit<BillingPlanCatalogEntry, "planType"> & {
   planType: PlanType;

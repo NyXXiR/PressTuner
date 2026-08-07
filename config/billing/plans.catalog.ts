@@ -32,6 +32,13 @@ export type CatalogAiQuotaPolicy = Record<
   CatalogAiQuotaSurfacePolicy
 >;
 
+export type CatalogAiPanelPolicy = {
+  burstDurationMs: number;
+  burstLimit: number;
+  dailyDurationMs: number;
+  dailyLimit: number;
+};
+
 export type BillingPlanCatalogEntry = {
   id: string;
   code: string;
@@ -45,6 +52,7 @@ export type BillingPlanCatalogEntry = {
   quotaPeriod: CatalogQuotaPeriod;
   quotaResume: number;
   aiQuota: CatalogAiQuotaPolicy;
+  aiPanel: CatalogAiPanelPolicy;
   unlimitedPressUsage?: boolean;
   perBrief: number;
   perPolish: number;
@@ -89,6 +97,22 @@ function unlimitedPressQuota(policy: CatalogAiQuotaPolicy): CatalogAiQuotaPolicy
   };
 }
 
+function aiPanelPolicy(planType: CatalogPlanType): CatalogAiPanelPolicy {
+  const limits = {
+    FREE: { burstLimit: 10, dailyLimit: 80 },
+    BASIC: { burstLimit: 25, dailyLimit: 250 },
+    PRO: { burstLimit: 50, dailyLimit: 800 },
+    ENTERPRISE: { burstLimit: 100, dailyLimit: 2000 },
+  }[planType];
+
+  return {
+    burstDurationMs: 10 * 60 * 1000,
+    burstLimit: limits.burstLimit,
+    dailyDurationMs: DAY_MS,
+    dailyLimit: limits.dailyLimit,
+  };
+}
+
 export const BILLING_PLAN_CATALOG = [
   {
     id: "free_v1",
@@ -103,6 +127,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 10,
     aiQuota: unlimitedPressQuota(rollingAiQuota(16, 40, 15, 40)),
+    aiPanel: aiPanelPolicy("FREE"),
     unlimitedPressUsage: true,
     // Keep Free Press generous during active QA and portfolio review.
     perBrief: 1000,
@@ -122,6 +147,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 10,
     aiQuota: rollingAiQuota(60, 300, 15, 40),
+    aiPanel: aiPanelPolicy("BASIC"),
     perBrief: 3,
     perPolish: 3,
     blurb: "1인 기업 및 스타트업 추천",
@@ -140,6 +166,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 10,
     aiQuota: rollingAiQuota(150, 900, 15, 40),
+    aiPanel: aiPanelPolicy("PRO"),
     perBrief: 5,
     perPolish: 5,
     blurb: "전문 마케터 및 성장하는 팀",
@@ -158,6 +185,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 10,
     aiQuota: rollingAiQuota(500, 3000, 15, 40),
+    aiPanel: aiPanelPolicy("ENTERPRISE"),
     perBrief: 10,
     perPolish: 10,
     blurb: "PR 에이전시 및 대규모 조직",
@@ -175,6 +203,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 150,
     aiQuota: rollingAiQuota(10, 25, 60, 300),
+    aiPanel: aiPanelPolicy("BASIC"),
     perBrief: 1,
     perPolish: 1,
     blurb: "취업 준비의 시작",
@@ -193,6 +222,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 2000,
     aiQuota: rollingAiQuota(10, 25, 180, 1200),
+    aiPanel: aiPanelPolicy("PRO"),
     perBrief: 1,
     perPolish: 1,
     blurb: "무제한 합격 패스",
@@ -211,6 +241,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 10000,
     aiQuota: rollingAiQuota(10, 25, 600, 4000),
+    aiPanel: aiPanelPolicy("ENTERPRISE"),
     perBrief: 1,
     perPolish: 1,
     blurb: "채용 컨설턴트와 대규모 취업 지원 조직",
@@ -228,6 +259,7 @@ export const BILLING_PLAN_CATALOG = [
     quotaPeriod: "MONTHLY",
     quotaResume: 1000,
     aiQuota: rollingAiQuota(160, 900, 160, 900),
+    aiPanel: aiPanelPolicy("PRO"),
     perBrief: 5,
     perPolish: 5,
     blurb: "홍보와 채용을 한 번에",

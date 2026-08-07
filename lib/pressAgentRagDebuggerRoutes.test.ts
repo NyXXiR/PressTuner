@@ -14,9 +14,8 @@ test("debugger routes are authenticated, delegated, streaming, and never cache",
   ]);
   assert.match(collection, /requireTeamContext\(\)/);
   assert.match(item, /requireTeamContext\(\)/);
-  assert.match(collection, /validateSelectionAndConsumePressAgentRagDebuggerQuota/);
-  assert.match(collection, /executePressAgentRagDebuggerRun/);
-  assert.match(collection, /await executePressAgentRagDebuggerRun/);
+  assert.match(collection, /startProcessDebugRun/);
+  assert.match(collection, /await startProcessDebugRun/);
   assert.match(collection, /text\/event-stream/);
   assert.match(collection, /X-Accel-Buffering/);
   assert.match(collection, /maxDuration = 150/);
@@ -24,7 +23,7 @@ test("debugger routes are authenticated, delegated, streaming, and never cache",
   assert.doesNotMatch(`${collection}\n${item}`, /@\/lib\/prisma|startPressAgentRun|verifyAndIncrementQuota/);
   assert.match(details, /requireTeamContext\(\)/);
   assert.match(details, /isPressAgentWorkflowStageId/);
-  assert.match(details, /getPressAgentRagDebuggerRunDetail/);
+  assert.match(details, /getPressAiProcessDetail/);
   assert.match(details, /Cache-Control.*no-store/);
   assert.doesNotMatch(details, /@\/lib\/prisma|PrismaClient/);
   assert.match(existing, /NextResponse\.json\(\{ ok: true, run: runRecord \}, \{ status: 201 \}\)/);
