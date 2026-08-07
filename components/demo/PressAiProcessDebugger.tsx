@@ -255,10 +255,10 @@ export function PressAiProcessDebugger() {
               </label>
             </section>
           ) : null}
-          <details className="mb-4 min-w-0 rounded-xl border border-border">
-            <summary className="cursor-pointer px-4 py-2 text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <section className="mb-4 min-w-0 rounded-xl border border-border" aria-labelledby="press-ai-process-graph-heading">
+            <h3 id="press-ai-process-graph-heading" className="px-4 py-2 text-sm font-black">
               프로세스 그래프
-            </summary>
+            </h3>
             <div className="border-t border-border">
               <PressAiProcessGraph
                 attempt={attempt}
@@ -277,7 +277,7 @@ export function PressAiProcessDebugger() {
                 onEdge={(id) => revealRow(`edge:${id}`, edgeAnchorId(id))}
               />
             </div>
-          </details>
+          </section>
           <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
             <PressAiRunTimeline
               attempt={attempt}
