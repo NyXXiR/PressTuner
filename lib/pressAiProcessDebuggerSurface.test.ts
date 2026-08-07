@@ -7,6 +7,7 @@ const source = (path: string) => readFile(path, "utf8");
 test("the retained URL exposes explicit checkpoint execution without a RAG auto-run control", async () => {
   const [page, debuggerSource, graph, timeline] = await Promise.all([source("app/demo/rag-test/page.tsx"), source("components/demo/PressAiProcessDebugger.tsx"), source("components/demo/PressAiProcessGraph.tsx"), source("components/demo/PressAiRunTimeline.tsx")]);
   assert.match(page, /Press AI 프로세스 디버거/); assert.match(page, /PressAiProcessDebugger/);
+  assert.match(page, /export const dynamic = "force-static"/); assert.doesNotMatch(page, /PressRagLiveDebugger|PressRagTestDemo|controlled-live/);
   assert.match(debuggerSource, /새 시도 만들기 \(AI 실행 없음\)/); assert.doesNotMatch(debuggerSource, /startPressAiProcessRun|RAG 프로세스 실행/);
   assert.match(graph, /pressCreationProcess\.edges\.map/); assert.match(graph, /markerEnd/); assert.match(graph, /그래프 확대/);
   assert.match(graph, /animateTransform/); assert.match(graph, /RUNNING/);
@@ -31,11 +32,18 @@ test("the run action bar is the single home for the next command", async () => {
   assert.match(debuggerSource, /PressAiRunActionBar/); assert.match(debuggerSource, /nextAction\(attempt\)/);
 });
 
-test("upload and viewer use production contracts instead of local topology arrays", async () => {
-  const [upload, viewer, creation] = await Promise.all([source("lib/pressAiProcessDebuggerClient.ts"), source("components/demo/PressAiProcessWorkflowViewer.tsx"), source("components/demo/PressAiCreationSetup.tsx")]);
-  assert.match(upload, /body\.set\("file", file\)/); assert.doesNotMatch(upload, /multipart\/form-data/);
-  assert.match(viewer, /getPressAiProcessDefinition/); assert.doesNotMatch(viewer, /const\s+(?:STAGES|STEPS)\s*=/); assert.doesNotMatch(viewer, /nodes\.length\s*[=!]==?\s*\d/);
-  assert.match(creation, /실제 문서가 생성/); assert.match(creation, /selectedNoteIds/); assert.match(creation, /\/press\/\$\{encodeURIComponent/);
+test("the debugger UI reads its topology from the registry, never a local copy", async () => {
+  const sources = await Promise.all([
+    source("components/demo/PressAiRunTimeline.tsx"),
+    source("components/demo/PressAiRunActionBar.tsx"),
+    source("components/demo/pressAiRunProgress.ts"),
+    source("components/demo/PressAiEdgeInspector.tsx"),
+  ]);
+  for (const file of sources) {
+    assert.doesNotMatch(file, /const\s+(?:STAGES|STEPS|NODES|EDGES)\s*=/);
+    assert.doesNotMatch(file, /nodes\.length\s*[=!]==?\s*\d/);
+  }
+  assert.match(sources[2], /pressCreationProcess\.nodes/); assert.match(sources[2], /pressCreationProcess\.edges/);
 });
 
 test("legacy generic route remains available for RAG-v1 replay", async () => {
