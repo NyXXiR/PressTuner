@@ -231,7 +231,7 @@ export async function generateArticleFromBrief(input: {
     dependencies: input.dependencies,
   });
 
-  const usage = await getUsageSummaryUseCase(input.teamId, input.articleId);
+  const usage = await getUsageSummaryUseCase(input.teamId);
 
   const { articleId: resultArticleId, ...rest } = result as any;
   const finalArticleId = (resultArticleId ?? input.articleId) as string;

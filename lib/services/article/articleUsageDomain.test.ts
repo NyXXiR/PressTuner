@@ -51,7 +51,7 @@ test("active Free Press subscriptions expose unlimited article operations", () =
   );
 });
 
-test("Free Press keeps recording article usage after the catalog counters are exceeded", async () => {
+test("legacy article counters do not reject central Press quota consumption", async () => {
   const suffix = randomUUID();
   const user = await prisma.user.create({
     data: { loginId: `free-unlimited-${suffix}`, label: "Free unlimited" },
@@ -84,6 +84,10 @@ test("Free Press keeps recording article usage after the catalog counters are ex
       membershipStatus: "ACTIVE" as const,
       planExpiresAt: null,
     };
+    await prisma.articleUsageStat.create({
+      data: { articleId: article.id, briefUsed: 999, polishUsed: 999 },
+    });
+
     for (let index = 0; index < 3; index += 1) {
       await prisma.$transaction((tx) =>
         consumeArticleUsageOrThrow(tx, {
@@ -95,13 +99,22 @@ test("Free Press keeps recording article usage after the catalog counters are ex
       );
     }
 
+    await prisma.$transaction((tx) =>
+      consumeArticleUsageOrThrow(tx, {
+        subscription,
+        articleId: article.id,
+        userId: user.id,
+        type: ArticleUsageType.GENERATE,
+      }),
+    );
+
     assert.equal(
       (
         await prisma.articleUsageStat.findUniqueOrThrow({
           where: { articleId: article.id },
         })
       ).briefUsed,
-      3,
+      1002,
     );
     assert.equal(
       await prisma.usageLog.count({
@@ -111,6 +124,15 @@ test("Free Press keeps recording article usage after the catalog counters are ex
         },
       }),
       3,
+    );
+    assert.equal(
+      await prisma.usageLog.count({
+        where: {
+          teamId: team.id,
+          model: "quota:PRESS:press_draft_generate",
+        },
+      }),
+      1,
     );
   } finally {
     await prisma.team.delete({ where: { id: team.id } });

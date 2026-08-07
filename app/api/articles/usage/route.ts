@@ -21,7 +21,7 @@ export async function GET(req: Request) {
      * - getUsageSummaryUseCase 내부에서 id가 없으면
      *   "팀의 오늘 전체 생성량"과 "플랜 기본 제한"을 기준으로 데이터를 구성할 것입니다.
      */
-    const usage = await getUsageSummaryUseCase(team.id, undefined);
+    const usage = await getUsageSummaryUseCase(team.id);
 
     // 3. 프론트엔드 ArticleUsageSummary 타입에 맞춰 응답
     return NextResponse.json({

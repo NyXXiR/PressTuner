@@ -16,8 +16,7 @@ import { PRESS_PRODUCT } from "@/domain/products/press/policy";
 import { consumeAiQuota, type AiQuotaAction } from "@/domain/quota/aiQuota";
 import { getEffectiveProductSubscription } from "@/domain/billing/productSubscription";
 import { prisma } from "@/lib/prisma";
-import { ServiceError } from "@/lib/errors";
-import { formatISO, kstTodayUtcRange } from "@/lib/utils/datetime";
+import { formatISO } from "@/lib/utils/datetime";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -66,10 +65,6 @@ export type UsagePayload = {
   remaining: { briefRemaining: number; polishRemaining: number };
   lastAt: { lastBriefAt: Date | null; lastPolishAt: Date | null };
 };
-
-function throwUsageError(code: string, message: string): never {
-  throw new ServiceError(code, 403, message);
-}
 
 function toPrismaJson(value: unknown): Prisma.InputJsonValue {
   try {
@@ -243,42 +238,15 @@ export async function consumeArticleUsageOrThrow(
 ): Promise<ArticleUsageSummary> {
   const { subscription, articleId, userId, type, meta } = args;
   const limits = resolveArticleLimits(subscription);
-  const { startUtc, endUtc } = kstTodayUtcRange();
-  const statBefore = await getOrCreateUsageStat(tx, articleId);
-
-  if (
-    !limits.unlimited &&
-    type === ArticleUsageType.BRIEF &&
-    statBefore.briefUsed >= limits.briefLimit
-  ) {
-    throwUsageError("ARTICLE_BRIEF_LIMIT_EXCEEDED", "Article brief limit exceeded.");
-  }
-  if (!limits.unlimited && type === ArticleUsageType.GENERATE) {
-    const dailyCount = await tx.articleUsageEvent.count({
-      where: {
-        teamId: subscription.id,
-        type: ArticleUsageType.GENERATE,
-        createdAt: { gte: startUtc, lt: endUtc },
-      },
-    });
-    if (dailyCount >= limits.quotaLimit) {
-      throwUsageError("DAILY_GENERATE_LIMIT_EXCEEDED", "Daily article generation limit exceeded.");
-    }
-  }
-  if (
-    !limits.unlimited &&
-    type === ArticleUsageType.POLISH &&
-    statBefore.polishUsed >= limits.polishLimit
-  ) {
-    throwUsageError("ARTICLE_POLISH_LIMIT_EXCEEDED", "Article polish limit exceeded.");
-  }
 
   const quotaAction: AiQuotaAction | null =
     type === ArticleUsageType.BRIEF
       ? "press_brief_normalize"
       : type === ArticleUsageType.POLISH
         ? "press_review"
-        : null;
+        : type === ArticleUsageType.GENERATE
+          ? "press_draft_generate"
+          : null;
   if (quotaAction) {
     await consumeAiQuota({
       client: tx,
@@ -286,7 +254,7 @@ export async function consumeArticleUsageOrThrow(
       userId,
       targetId: articleId,
       action: quotaAction,
-      meta: { ...(meta ?? {}), legacyArticleUsageType: type },
+      meta: { ...(meta ?? {}), articleUsageTelemetryType: type },
     });
   }
 

@@ -76,7 +76,6 @@ type ApiMeResponse = {
     pendingPlan?: string | null;
     pendingPlanStartsAt?: string | null;
     cancelRequestedAt?: string | null;
-    credits: number;
   };
   teams?: Array<MyTeamInfo>;
   usage?: UsageResponse;

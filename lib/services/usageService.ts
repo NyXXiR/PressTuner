@@ -6,13 +6,11 @@ import {
   PlanCategory,
   Prisma,
   UsageAction,
-  ArticleUsageType,
 } from "@prisma/client";
 import {
   BILLING_PLANS,
   isPlanId,
   getPlan,
-  hasUnlimitedPressUsage,
   type BillingPlan,
   type PlanId,
   type QuotaPeriod,
@@ -36,14 +34,6 @@ import {
 // ------------------------------------------------------------------
 
 export { QuotaLimitError } from "@/domain/quota/errors";
-
-export class ArticleUsageLimitError extends Error {
-  code = "ARTICLE_USAGE_LIMIT" as const;
-  constructor(message: string) {
-    super(message);
-    this.name = "ArticleUsageLimitError";
-  }
-}
 
 // ------------------------------------------------------------------
 // [Configuration & Helpers]
@@ -315,149 +305,4 @@ export async function logUsage(params: {
   } catch (e) {
     console.error("Usage Log Failed:", e);
   }
-}
-
-// ------------------------------------------------------------------
-// [Public Methods: Per-Article Limits (Brief/Polish)]
-// ------------------------------------------------------------------
-// * 이 부분은 문서(Article) 내부의 브리프/윤문 제한 로직입니다. (Resume와 무관)
-
-export type ArticleUsageSummary = {
-  planLimits: {
-    perBrief: number;
-    perPolish: number;
-    unlimited: boolean;
-  };
-  articleUsage: {
-    briefUsed: number;
-    briefRemaining: number;
-    polishUsed: number;
-    polishRemaining: number;
-  };
-};
-
-/**
- * 특정 문서(Article) 내 기능 사용량 조회
- */
-export async function getArticleUsageSummary(
-  teamId: string,
-  articleId: string
-): Promise<ArticleUsageSummary> {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: {
-      plan: true,
-      planId: true,
-      membershipStatus: true,
-      planExpiresAt: true,
-    },
-  });
-
-  if (!team) throw new Error("Team not found");
-
-  const active = isSubscriptionActive(team);
-  const planConfig = resolvePlan({
-    plan: active ? team.plan : "FREE",
-    planId: active ? team.planId : null,
-  });
-
-  // DB에서 사용 통계 조회 (없으면 생성)
-  const stat = await prisma.articleUsageStat.upsert({
-    where: { articleId },
-    create: { articleId },
-    update: {},
-    select: {
-      briefUsed: true,
-      polishUsed: true,
-    },
-  });
-
-  const briefLimit = Math.max(planConfig.perBrief ?? 0, 0);
-  const polishLimit = Math.max(planConfig.perPolish ?? 0, 0);
-
-  return {
-    planLimits: {
-      perBrief: briefLimit,
-      perPolish: polishLimit,
-      unlimited:
-        active &&
-        team.plan === "FREE" &&
-        hasUnlimitedPressUsage(planConfig),
-    },
-    articleUsage: {
-      briefUsed: stat.briefUsed,
-      briefRemaining: Math.max(briefLimit - stat.briefUsed, 0),
-      polishUsed: stat.polishUsed,
-      polishRemaining: Math.max(polishLimit - stat.polishUsed, 0),
-    },
-  };
-}
-
-/**
- * 문서 내 기능(Brief/Polish) 사용 및 차감
- */
-export async function consumeArticleUsage(params: {
-  teamId: string;
-  articleId: string;
-  type: ArticleUsageType;
-  userId?: string | null;
-  meta?: Record<string, any>;
-}) {
-  const { teamId, articleId, type, userId, meta } = params;
-
-  // 1. 한도 정보 확인
-  const summary = await getArticleUsageSummary(teamId, articleId);
-  const limit =
-    type === "BRIEF"
-      ? summary.planLimits.perBrief
-      : summary.planLimits.perPolish;
-
-  const now = new Date();
-
-  // 2. 차감 처리
-  await prisma.$transaction(async (tx) => {
-    // Lock 확보용 upsert
-    await tx.articleUsageStat.upsert({
-      where: { articleId },
-      create: { articleId },
-      update: {},
-    });
-
-    const updateQuery =
-      type === "BRIEF"
-        ? { briefUsed: { increment: 1 }, lastBriefAt: now }
-        : { polishUsed: { increment: 1 }, lastPolishAt: now };
-
-    // 조건부 업데이트 (한도 넘으면 업데이트 안 됨)
-    const whereQuery = summary.planLimits.unlimited
-      ? { articleId }
-      : type === "BRIEF"
-        ? { articleId, briefUsed: { lt: limit } }
-        : { articleId, polishUsed: { lt: limit } };
-
-    const result = await tx.articleUsageStat.updateMany({
-      where: whereQuery,
-      data: updateQuery,
-    });
-
-    if (!summary.planLimits.unlimited && result.count === 0) {
-      const label = type === "BRIEF" ? "브리프 생성" : "AI 문장 다듬기";
-      throw new ArticleUsageLimitError(
-        `${label} 사용 가능 횟수(${limit}회)를 모두 소진했습니다.`
-      );
-    }
-
-    // 이벤트 로그
-    await tx.articleUsageEvent.create({
-      data: {
-        articleId,
-        teamId,
-        userId: userId ?? null,
-        type,
-        meta: meta ?? Prisma.JsonNull,
-      },
-    });
-  });
-
-  return getArticleUsageSummary(teamId, articleId);
 }

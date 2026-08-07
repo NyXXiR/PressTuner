@@ -33,7 +33,7 @@ export async function getArticleForUser(input: {
 
   let usage = null;
   if (article.teamId) {
-    usage = await getUsageSummaryUseCase(article.teamId, input.articleId);
+    usage = await getUsageSummaryUseCase(article.teamId);
   }
 
   return { article, usage };

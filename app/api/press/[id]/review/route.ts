@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCurrentUserId } from "@/lib/auth";
 import OpenAI from "openai";
-import {
-  ArticleUsageLimitError,
-  // ✅ [변경] 함수명 변경
-  consumeArticleUsage,
-  getArticleUsageSummary,
-} from "@/lib/services/usageService"; // 경로가 usage-service.ts라면 맞춤
-import { ArticleUsageType } from "@prisma/client";
 import { apiError } from "@/lib/utils/api";
 import { getPressReviewRules } from "@/lib/services/pressReviewService";
 import { consumeAiQuota } from "@/domain/quota/aiQuota";
@@ -172,9 +165,6 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       return NextResponse.json({ highlights: null });
     }
 
-    // ✅ [수정] 함수명 및 리턴 타입 대응
-    // Before: usageBefore.article.polishRemaining
-    // After: usageBefore.articleUsage.polishRemaining
     if (!article.teamId) {
       return NextResponse.json(
         apiError("INVALID_ARTICLE_STATE", "팀 문서가 아닙니다.", 400).body,
@@ -182,21 +172,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       );
     }
 
-    const usageBefore = await getArticleUsageSummary(article.teamId, id);
-
-    if (usageBefore.articleUsage.polishRemaining <= 0) {
-      return NextResponse.json(
-        apiError(
-          "USAGE_LIMIT_EXCEEDED",
-          `AI 첨삭 제공 횟수를 모두 사용했습니다. (${usageBefore.articleUsage.polishUsed}/${usageBefore.planLimits.perPolish})`,
-          403,
-          { details: { usage: usageBefore } }
-        ).body,
-        { status: 403 }
-      );
-    }
-
-    await consumeAiQuota({
+    const usageAfter = await consumeAiQuota({
       teamId: article.teamId,
       userId: currentUserId,
       targetId: id,
@@ -234,32 +210,6 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
         end: sent.end,
         note: s.note,
       });
-    }
-
-    // ✅ [수정] 함수명 및 타입 대응
-    let usageAfter = usageBefore;
-    try {
-      usageAfter = await consumeArticleUsage({
-        teamId: article.teamId,
-        articleId: id,
-        type: ArticleUsageType.POLISH,
-        userId: currentUserId,
-        meta: {
-          source: "PRESS_REVIEW",
-          spansCount: spans.length,
-          model: "gpt-4.1-mini",
-        },
-      });
-    } catch (e: any) {
-      if (e instanceof ArticleUsageLimitError) {
-        return NextResponse.json(
-          apiError("USAGE_LIMIT_EXCEEDED", e.message, 403, {
-            details: { usage: usageBefore },
-          }).body,
-          { status: 403 }
-        );
-      }
-      console.error("[review] polish usage consume failed", e);
     }
 
     return NextResponse.json({

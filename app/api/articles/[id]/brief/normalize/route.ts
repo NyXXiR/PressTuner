@@ -82,8 +82,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     // ✅ 서비스에서 던지는 구체적인 에러 코드를 체크합니다.
     if (
       status === 403 &&
-      (e?.code === "ARTICLE_BRIEF_LIMIT_EXCEEDED" ||
-        e?.code === "BRIEF_LIMIT_EXCEEDED" ||
+      (e?.code === "BRIEF_LIMIT_EXCEEDED" ||
         e?.code === "AI_QUOTA_LIMIT_EXCEEDED" ||
         e?.code === "SIMPLIFIED_PRESS_QUOTA_LIMIT")
     ) {

@@ -31,13 +31,13 @@ import {
   consumeSimplifiedPressQuota,
   type SimplifiedPressQuotaState,
 } from "./simplifiedPressQuotaService";
-import { consumeAiQuota } from "@/domain/quota/aiQuota";
 import {
-  buildArticleUsageSummary,
+  consumeAiQuota,
+  getAiQuotaStateForSurface,
+} from "@/domain/quota/aiQuota";
+import {
   consumeArticleUsageOrThrow,
-  getOrCreateArticleUsageStat as getArticleUsageStat,
   requirePressSubscription as loadPressSubscription,
-  resolveArticleLimits,
   resolvePressRewriteLimit,
   type ArticleUsageSummary,
 } from "./article/articleUsageDomain";
@@ -53,13 +53,14 @@ import { hashArticleContent } from "@/domain/article/articleContentHash";
 import { filterActionableReviewNotes } from "@/domain/article/reviewNotePolicy";
 import { finalizeVerifiedArticle } from "./article/articleFinalizationService";
 import { resolvePressAiDependencies, type PressAiDependencyOverrides } from "./article/pressAiDependencies";
+import { resolvePressQuotaMode } from "@/domain/press/pressFlowContracts";
 export type {
   ArticleUsageSummary,
   UsagePayload,
 } from "./article/articleUsageDomain";
 
 // ✅ [Updated] Use datetime.ts utilities
-import { formatISO, kstTodayUtcRange } from "@/lib/utils/datetime";
+import { formatISO } from "@/lib/utils/datetime";
 
 import { ServiceError } from "../errors";
 
@@ -359,31 +360,38 @@ export type NormalizedBrief = {
 
 export async function getUsageSummaryUseCase(
   teamId: string,
-  articleId?: string,
 ): Promise<ArticleUsageSummary> {
   const team = await loadPressSubscription(teamId);
-
-  const limits = resolveArticleLimits(team);
-
-  let stat = {
-    briefUsed: 0,
-    polishUsed: 0,
-    lastBriefAt: null as Date | null,
-    lastPolishAt: null as Date | null,
+  const quota = await getAiQuotaStateForSurface({
+    teamId,
+    surface: "PRESS",
+  });
+  return {
+    plan: {
+      effectivePlanType: team.plan,
+      effectivePlanId: team.planId,
+      effectivePlanName: quota.planName,
+      perBrief: quota.limitUnits,
+      perPolish: quota.limitUnits,
+      membershipStatus: team.membershipStatus,
+      planExpiresAt: team.planExpiresAt
+        ? formatISO(team.planExpiresAt)
+        : null,
+      isSubscriptionActive: team.membershipStatus === "ACTIVE",
+      unlimited: quota.unlimited,
+    },
+    article: {
+      unlimited: quota.unlimited,
+      briefUsed: quota.usedUnits,
+      briefLimit: quota.limitUnits,
+      briefRemaining: quota.remainingUnits,
+      polishUsed: quota.usedUnits,
+      polishLimit: quota.limitUnits,
+      polishRemaining: quota.remainingUnits,
+      lastBriefAt: null,
+      lastPolishAt: null,
+    },
   };
-
-  if (articleId) {
-    const dbStat = await getArticleUsageStat(articleId);
-
-    stat = {
-      briefUsed: dbStat.briefUsed ?? 0,
-      polishUsed: dbStat.polishUsed ?? 0,
-      lastBriefAt: dbStat.lastBriefAt ?? null,
-      lastPolishAt: dbStat.lastPolishAt ?? null,
-    };
-  }
-
-  return buildArticleUsageSummary({ subscription: team, limits, stat });
 }
 
 export async function initArticleDraftUseCase(input: {
@@ -563,25 +571,6 @@ export async function generateArticleIntoExisting(
       publishAt: input.publishAt,
     },
   });
-
-  const limits = resolveArticleLimits(team);
-  const { startUtc, endUtc } = kstTodayUtcRange();
-
-  const dailyCount = await prisma.articleUsageEvent.count({
-    where: {
-      teamId: team.id,
-      type: ArticleUsageType.GENERATE,
-      createdAt: { gte: startUtc, lt: endUtc },
-    },
-  });
-
-  if (!limits.unlimited && dailyCount >= limits.quotaLimit) {
-    throwErr(
-      "DAILY_GENERATE_LIMIT_EXCEEDED",
-      403,
-      "오늘 생성 가능한 초안 개수를 모두 소진했습니다.",
-    );
-  }
 
   const acceptedFacts = await prisma.articleFact.findMany({
     where: { articleId, teamId, active: true },
@@ -786,7 +775,7 @@ export async function normalizeBriefUseCase(input: {
       },
     });
 
-    if (input.quotaMode === "simplified") {
+    if (resolvePressQuotaMode(input.quotaMode) === "simplified") {
       await tx.articleUsageStat.upsert({
         where: { articleId },
         create: {
@@ -1147,7 +1136,7 @@ export async function reviewUseCase(input: {
     await assertArticleTeamOrThrow(tx, articleId, team.id);
 
     const usage =
-      input.quotaMode === "simplified"
+      resolvePressQuotaMode(input.quotaMode) === "simplified"
         ? await consumeSimplifiedPressQuota(tx, {
             teamId: team.id,
             articleId,
@@ -1169,7 +1158,7 @@ export async function reviewUseCase(input: {
       create: {
         articleId,
         teamId: team.id,
-        polishUsed: input.quotaMode === "simplified" ? 0 : 1,
+        polishUsed: resolvePressQuotaMode(input.quotaMode) === "simplified" ? 0 : 1,
         rePolishCount: 0,
         polishSessionId: newSessionId,
         lastPolishAt: new Date(),
@@ -1412,7 +1401,7 @@ export async function rePolishUseCase(input: {
       return result;
     }
 
-    if (input.quotaMode === "simplified") {
+    if (resolvePressQuotaMode(input.quotaMode) === "simplified") {
       await consumeSimplifiedPressQuota(tx, {
         teamId,
         articleId,

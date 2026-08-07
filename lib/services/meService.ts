@@ -42,7 +42,6 @@ export async function getMePayload(session: Session) {
           pendingPlan: true,
           pendingPlanStartsAt: true,
           cancelRequestedAt: true,
-          credits: true,
           allowMemberEdit: true,
           allowMemberFinalize: true,
         },
@@ -102,7 +101,6 @@ export async function getMePayload(session: Session) {
       cancelRequestedAt: currentTeam.cancelRequestedAt
         ? currentTeam.cancelRequestedAt.toISOString()
         : null,
-      credits: currentTeam.credits,
       allowMemberEdit: currentTeam.allowMemberEdit,
       allowMemberFinalize: currentTeam.allowMemberFinalize,
     },

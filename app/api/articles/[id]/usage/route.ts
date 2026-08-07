@@ -16,7 +16,7 @@ export async function GET(
 
     const { team } = await requireTeamContextFlexible({ teamId });
 
-    const usage = await getUsageSummaryUseCase(team.id, id);
+    const usage = await getUsageSummaryUseCase(team.id);
 
     return NextResponse.json({ ok: true, id, articleId: id, ...usage });
   } catch (e: any) {
