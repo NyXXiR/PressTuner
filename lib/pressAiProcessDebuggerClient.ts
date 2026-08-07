@@ -101,6 +101,11 @@ export async function fetchPressAiKnowledgeDocuments(fetchImpl: typeof fetch = f
   return { documents: mapKnowledgeDocuments(Array.isArray(value.documents) ? value.documents : []), quota: value.quota ?? null };
 }
 
+export async function deletePressAiKnowledgeDocument(documentId: string, fetchImpl: typeof fetch = fetch) {
+  const value = await jsonOrThrow(await fetchImpl(`/api/knowledge/documents/${encodeURIComponent(documentId)}`, { method: "DELETE" }));
+  return value;
+}
+
 export async function parsePressAiProcessSse(response: Response, onEvent?: (event: PressAiProcessEvent) => void) {
   if (!response.ok || !response.body) throw new PressAiDebuggerApiError(`PRESS_AI_PROCESS_STREAM_HTTP_${response.status}`, response.status, null);
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ""; const events: PressAiProcessEvent[] = []; const ids = new Set<string>(); const keys = new Set<string>();

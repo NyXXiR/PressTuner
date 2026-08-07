@@ -496,7 +496,7 @@ export function Header({
             <div className="flex items-center gap-2 sm:gap-4">
               {/* simple 헤더는 원래 사용량 위젯을 숨기지만, 자소서 작업 공간에서는
                   AI 한도 잔량이 작업 계획에 직결되므로 항상 노출한다. */}
-              {isAuthed && quotaUsage && (!isSimple || isResumeMode) && (
+              {isAuthed && quotaUsage && (
                 <div className="relative" ref={usageWrapRef}>
                   <button
                     type="button"
@@ -781,7 +781,7 @@ export function Header({
                         )}
 
                         {/* 모바일에서도 잔여량 보기 */}
-                        {!isSimple && quotaUsage && (
+                        {quotaUsage && (
                         <div className="md:hidden px-2 py-2 text-xs text-muted-foreground border-b border-border/50 mb-1">
                           <div className="flex items-center justify-between mb-1">
                             <span>{usageLabel}</span>

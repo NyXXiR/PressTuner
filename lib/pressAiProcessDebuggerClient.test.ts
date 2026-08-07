@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { File } from "node:buffer";
 import test from "node:test";
 
-import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
+import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
 
 test("uploads a direct File as multipart without a manual content type", async () => {
   let request: RequestInit | undefined;
@@ -30,6 +30,15 @@ test("converts a bundled asset to the declared upload File", async () => {
 test("readiness mapping selects only indexed non-replacement documents", () => {
   const mapped = mapKnowledgeDocuments([{ id: "ready", originalName: "a.pdf", status: "READY", pageCount: 1, chunkCount: 2, activeGenerationId: "g", hasPendingReplacement: false }, { id: "processing", originalName: "b.pdf", status: "PROCESSING", pageCount: null, chunkCount: 0, activeGenerationId: null, hasPendingReplacement: false }]);
   assert.deepEqual(mapped.map((item) => item.selectable), [true, false]);
+});
+
+test("unmounts a demo knowledge document through the team-scoped endpoint", async () => {
+  let request = "";
+  await deletePressAiKnowledgeDocument("doc-1", async (url, init) => {
+    request = `${String(url)}:${init?.method}`;
+    return new Response(JSON.stringify({ ok: true, deleted: true }), { status: 200 });
+  });
+  assert.equal(request, "/api/knowledge/documents/doc-1:DELETE");
 });
 
 test("stream failures preserve the persisted run and article identities", async () => {

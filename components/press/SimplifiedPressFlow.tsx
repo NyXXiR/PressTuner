@@ -315,7 +315,9 @@ export function SimplifiedPressFlow() {
     verificationState.verification?.result !== "BLOCK";
   const monthlyRemaining = me?.usageArticleRemaining;
   const monthlyLimit = me?.usageArticleLimit;
+  const monthlyUnlimited = me?.usage?.article?.unlimited === true;
   const isMonthlyLimitReached =
+    !monthlyUnlimited &&
     typeof monthlyRemaining === "number" && monthlyRemaining <= 0;
   const isMonthlyLimitNear =
     typeof monthlyRemaining === "number" &&
@@ -324,10 +326,17 @@ export function SimplifiedPressFlow() {
     monthlyRemaining > 0 &&
     monthlyRemaining <= Math.ceil(monthlyLimit * 0.1);
   const limitNotice = isMonthlyLimitReached
-    ? me?.usagePeriodEnd
+    ? me?.usage?.article?.resetAt ?? me?.usagePeriodEnd
       ? `사용 한도에 도달했습니다. ${new Date(
-          me.usagePeriodEnd,
-        ).toLocaleDateString("ko-KR")} 이후 다시 사용할 수 있습니다.`
+          me?.usage?.article?.resetAt ?? me.usagePeriodEnd!,
+        ).toLocaleString("ko-KR", {
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })} 이후 다시 사용할 수 있습니다.`
       : "사용 한도에 도달했습니다."
     : isMonthlyLimitNear
       ? "사용 한도에 가까워졌습니다. 계속 사용하려면 플랜 업그레이드를 검토하세요."

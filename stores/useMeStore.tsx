@@ -17,6 +17,7 @@ export type MyTeamInfo = {
 
 // ✅ [NEW] 개별 쿼터 타입 (usage-service.ts와 일치)
 export type GlobalQuotaUsage = {
+  unlimited?: boolean;
   limit: number;
   usage: number;
   remaining: number;
@@ -112,6 +113,7 @@ export type MeFlat = {
 
   usageArticleLimit?: number;
   usageArticleRemaining?: number;
+  usageArticleResetAt?: string;
 
   usageResumeLimit?: number;
   usageResumeRemaining?: number;
@@ -167,6 +169,7 @@ export function toFlat(data: ApiMeResponse): MeFlat {
 
     usageArticleLimit: usage?.article.limit,
     usageArticleRemaining: usage?.article.remaining,
+    usageArticleResetAt: usage?.article.resetAt,
 
     usageResumeLimit: usage?.resume.limit,
     usageResumeRemaining: usage?.resume.remaining,

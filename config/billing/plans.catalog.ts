@@ -104,8 +104,9 @@ export const BILLING_PLAN_CATALOG = [
     quotaResume: 10,
     aiQuota: unlimitedPressQuota(rollingAiQuota(16, 40, 15, 40)),
     unlimitedPressUsage: true,
-    perBrief: 1,
-    perPolish: 1,
+    // Keep Free Press generous during active QA and portfolio review.
+    perBrief: 1000,
+    perPolish: 1000,
     blurb: "기능 체험을 위한 무료 플랜",
   },
   {

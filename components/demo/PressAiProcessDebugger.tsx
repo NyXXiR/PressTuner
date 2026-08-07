@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PressAiProcessGraph } from "./PressAiProcessGraph";
+import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
 import { PressAiRunActionBar } from "./PressAiRunActionBar";
 import { PressAiRunTimeline } from "./PressAiRunTimeline";
 import { PressAiSidePanels } from "./PressAiSidePanels";
@@ -108,6 +109,7 @@ export function PressAiProcessDebugger() {
           {debuggerState.error}
         </div>
       ) : null}
+      <PressAiKnowledgePanel />
       {!attempt ? (
         <div className="mt-5 space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
