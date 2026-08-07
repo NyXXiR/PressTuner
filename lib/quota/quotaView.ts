@@ -12,6 +12,20 @@ export type QuotaView = {
   resetRelativeLabel: string;
 };
 
+export function formatQuotaRemaining(unlimited: boolean, remaining: number) {
+  return unlimited ? "∞" : remaining.toLocaleString();
+}
+
+export function formatQuotaBalance(
+  unlimited: boolean,
+  remaining: number,
+  limit: number,
+) {
+  return unlimited
+    ? "무제한"
+    : `${remaining.toLocaleString()} / ${limit.toLocaleString()} 크레딧 남음`;
+}
+
 type QuotaInput = {
   unlimited?: boolean;
   limit?: number;

@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toQuotaView } from "./quotaView";
+import {
+  formatQuotaBalance,
+  formatQuotaRemaining,
+  toQuotaView,
+} from "./quotaView";
+
+test("unlimited quota display never exposes the legacy numeric balance", () => {
+  assert.equal(formatQuotaRemaining(true, 16), "∞");
+  assert.equal(formatQuotaBalance(true, 16, 16), "무제한");
+});
 
 const NOW = new Date("2026-07-20T10:00:00.000Z");
 

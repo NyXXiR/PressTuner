@@ -36,7 +36,12 @@ import type {
 } from "@/components/notifications/types";
 import { getPlanBadgeStyle } from "@/config/billing/plans";
 import { getProfileMenuItems, type CommonNavMode } from "@/lib/constants/nav";
-import { toQuotaView, type QuotaStatus } from "@/lib/quota/quotaView";
+import {
+  formatQuotaBalance,
+  formatQuotaRemaining,
+  toQuotaView,
+  type QuotaStatus,
+} from "@/lib/quota/quotaView";
 
 const ADMIN_HUB_LINK_VISIBLE =
   process.env.NODE_ENV !== "production" ||
@@ -256,10 +261,10 @@ export function Header({
   const planType = me?.teamPlan || "FREE";
 
   const remainingText = quotaView.unlimited
-    ? "∞"
+    ? formatQuotaRemaining(true, usageRemaining)
     : quotaView.status === "limited"
       ? "0"
-      : usageRemaining.toLocaleString();
+      : formatQuotaRemaining(false, usageRemaining);
 
   const usageLabel = isResumeMode ? "자소서 크레딧" : "보도자료 크레딧";
   const quotaResetText =
@@ -543,33 +548,37 @@ export function Header({
                               {planName}
                             </span>
                           </div>
-                          {/* Progress Bar Section */}
-                          <div className="mb-2">
-                            <div className="flex justify-between text-xs mb-1.5">
-                              <span className="text-muted-foreground">
-                                남은 {usageLabel}
-                              </span>
-                              <span className="font-medium">
-                                {remainingPercent}% 남음
-                              </span>
+                          {!quotaView.unlimited && (
+                            <div className="mb-2">
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-muted-foreground">
+                                  남은 {usageLabel}
+                                </span>
+                                <span className="font-medium">
+                                  {remainingPercent}% 남음
+                                </span>
+                              </div>
+                              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={cx(
+                                    "h-full rounded-full transition-all duration-500",
+                                    QUOTA_PROGRESS_STYLES[quotaView.status],
+                                  )}
+                                  style={{ width: `${remainingPercent}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={cx(
-                                  "h-full rounded-full transition-all duration-500",
-                                  QUOTA_PROGRESS_STYLES[quotaView.status],
-                                )}
-                                style={{ width: `${remainingPercent}%` }}
-                              />
-                            </div>
-                          </div>
+                          )}
 
                           <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
                             <p>
-                              {usageRemaining.toLocaleString()} /{" "}
-                              {usageLimit.toLocaleString()} 크레딧 남음
+                              {formatQuotaBalance(
+                                quotaView.unlimited,
+                                usageRemaining,
+                                usageLimit,
+                              )}
                             </p>
-                            <p>{quotaResetText}</p>
+                            {!quotaView.unlimited && <p>{quotaResetText}</p>}
                           </div>
                         </div>
 
