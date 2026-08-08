@@ -10,6 +10,7 @@ import {
 } from "./PressAiVerdictBadge";
 import {
   edgeAnchorId,
+  findNode,
   nodeAnchorId,
   payloadFields,
   timelineRows,
@@ -67,15 +68,18 @@ function RawJson(props: { label: string; value: unknown }) {
 export function PressAiRunTimeline(props: {
   attempt: PressAiCheckpointAttempt;
   busy: boolean;
+  /** Row the action bar points at: expanded unless the operator collapsed it. */
+  defaultOpenKey?: string | null;
   open: Record<string, boolean>;
   onOpenChange: (open: Record<string, boolean>) => void;
   onRetry: (nodeId: string) => void;
 }) {
   const rows = timelineRows(props.attempt, props.busy);
   const open = props.open;
+  const isOpen = (key: string) => open[key] ?? key === props.defaultOpenKey;
   const toggle = (key: string) =>
-    props.onOpenChange({ ...open, [key]: !open[key] });
-  const allOpen = rows.every((row) => open[row.key]);
+    props.onOpenChange({ ...open, [key]: !isOpen(key) });
+  const allOpen = rows.every((row) => isOpen(row.key));
 
   return (
     <section
@@ -88,9 +92,7 @@ export function PressAiRunTimeline(props: {
           type="button"
           onClick={() =>
             props.onOpenChange(
-              allOpen
-                ? {}
-                : Object.fromEntries(rows.map((row) => [row.key, true])),
+              Object.fromEntries(rows.map((row) => [row.key, !allOpen])),
             )
           }
           className="min-h-9 rounded border border-border px-3 text-xs font-bold"
@@ -100,7 +102,7 @@ export function PressAiRunTimeline(props: {
       </div>
       <ol className="divide-y divide-border">
         {rows.map((row) => {
-          const expanded = Boolean(open[row.key]);
+          const expanded = isOpen(row.key);
           if (row.kind === "node") {
             const { node, checkpoint } = row;
             return (
@@ -195,7 +197,11 @@ export function PressAiRunTimeline(props: {
                   ↓
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-bold">
-                  {edge.id}
+                  {findNode(edge.source)?.label ?? edge.source} →{" "}
+                  {findNode(edge.target)?.label ?? edge.target}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {edge.id}
+                  </span>
                 </span>
                 <VerdictBadge
                   verdict={transition?.verdict ?? "PENDING"}

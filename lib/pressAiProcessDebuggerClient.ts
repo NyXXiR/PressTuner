@@ -25,6 +25,8 @@ export type PressAiCheckpointAttemptSummary = {
   parentAttemptId: string | null;
   createdAt: string;
   completedAt: string | null;
+  memoExcerpt?: string;
+  checkpointCount?: number;
 };
 
 export type PressAiCheckpointComparison = {

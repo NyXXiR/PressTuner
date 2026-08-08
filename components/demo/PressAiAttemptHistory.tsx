@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+import { formatRelativeTimeKo } from "@/lib/formatRelativeTimeKo";
 import {
   fetchPressAiCheckpointAttemptHistory,
   type PressAiCheckpointAttemptSummary,
 } from "@/lib/pressAiProcessDebuggerClient";
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "진행 중",
+  INSPECTING: "전이 검사 중",
+  COMPLETED: "완료",
+  BLOCKED: "차단됨",
+  FAILED: "실패",
+};
 
 export function PressAiAttemptHistory(props: {
   attemptId?: string;
@@ -33,28 +43,50 @@ export function PressAiAttemptHistory(props: {
       alive = false;
     };
   }, [props.refreshKey]);
+  const nodeCount = pressCreationProcess.nodes.length;
   return (
     <aside className="rounded-xl border border-border p-4 text-sm">
       <h3 className="font-black">시도 기록</h3>
-      {error ? <p className="mt-2 text-rose-700">{error}</p> : null}
+      {error ? <p className="mt-2 text-rose-700 dark:text-rose-300">{error}</p> : null}
       <ol className="mt-3 max-h-64 space-y-2 overflow-auto">
-        {attempts.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              onClick={() => props.onOpen(item.id)}
-              aria-current={item.id === props.attemptId ? "true" : undefined}
-              className="min-h-11 w-full rounded-lg border p-2 text-left aria-[current=true]:border-primary aria-[current=true]:bg-primary/5"
-            >
-              <span className="block font-bold">
-                {item.parentAttemptId ? "재시도" : "최초 시도"} · {item.status}
-              </span>
-              <span className="block break-all text-xs text-muted-foreground">
-                {item.id}
-              </span>
-            </button>
-          </li>
-        ))}
+        {attempts.map((item) => {
+          const statusLabel = STATUS_LABEL[item.status] ?? item.status;
+          const completed = item.status === "COMPLETED";
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                onClick={() => props.onOpen(item.id)}
+                aria-current={item.id === props.attemptId ? "true" : undefined}
+                title={item.id}
+                className="min-h-11 w-full rounded-lg border p-2.5 text-left aria-[current=true]:border-primary aria-[current=true]:bg-primary/5"
+              >
+                <span className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate font-bold">
+                    {item.memoExcerpt || "메모 없음"}
+                  </span>
+                  <span
+                    className={`shrink-0 text-xs font-black ${
+                      completed
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {completed
+                      ? `${nodeCount}/${nodeCount} 완료`
+                      : `${item.checkpointCount ?? 0}/${nodeCount} 노드`}
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {item.parentAttemptId ? "재시도" : "최초 시도"} · {statusLabel}
+                  {item.createdAt
+                    ? ` · ${formatRelativeTimeKo(item.createdAt)}`
+                    : ""}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ol>
       {attempts.length === 0 && !error ? (
         <p className="mt-2 text-muted-foreground">저장된 시도가 없습니다.</p>

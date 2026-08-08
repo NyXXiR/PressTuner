@@ -1,3 +1,4 @@
+import { guardrailLabelKo } from "@/domain/press-ai-debugger/guardrailLabels";
 import type { PressAiNodeState, PressAiVerdict } from "./pressAiRunProgress";
 import { NODE_STATE_LABEL } from "./pressAiRunProgress";
 
@@ -47,10 +48,11 @@ export function GuardrailChip(props: {
 }) {
   return (
     <span
+      title={props.guardrailId}
       className={`inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold ${VERDICT_TONE[props.verdict]}`}
     >
       <span aria-hidden="true">{VERDICT_MARK[props.verdict]}</span>
-      <span className="truncate">{props.guardrailId}</span>
+      <span className="truncate">{guardrailLabelKo(props.guardrailId)}</span>
       {props.origin === "CASE_EXPECTATION" ? (
         <span className="font-normal opacity-70">케이스</span>
       ) : null}
@@ -60,9 +62,12 @@ export function GuardrailChip(props: {
 
 export function PendingGuardrailChip(props: { guardrailId: string }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-border px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
+    <span
+      title={props.guardrailId}
+      className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-border px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground"
+    >
       <span aria-hidden="true">·</span>
-      <span className="truncate">{props.guardrailId}</span>
+      <span className="truncate">{guardrailLabelKo(props.guardrailId)}</span>
     </span>
   );
 }

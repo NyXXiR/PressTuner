@@ -39,7 +39,8 @@ export function PressAiEdgeInspector(props: {
       aria-label={`${edge.id} 전이 검사`}
     >
       <h4 className="text-sm font-black">
-        {edge.source} → {edge.target}
+        {pressCreationProcess.nodes.find((item) => item.id === edge.source)?.label ?? edge.source} →{" "}
+        {pressCreationProcess.nodes.find((item) => item.id === edge.target)?.label ?? edge.target}
       </h4>
       <p className="mt-1 text-xs text-muted-foreground">
         소스 출력에서 이 전이가 실제로 만들어 낸 대상 입력입니다.
@@ -99,7 +100,7 @@ export function PressAiEdgeInspector(props: {
             >
               {restartable.map((item) => (
                 <option key={item.id} value={item.nodeId}>
-                  {item.nodeId}
+                  {pressCreationProcess.nodes.find((node) => node.id === item.nodeId)?.label ?? item.nodeId}
                   {item.nodeId === edge.source ? " (권장)" : ""}
                 </option>
               ))}

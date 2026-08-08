@@ -1,5 +1,9 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  readAttemptIdFromSearch,
+  withAttemptParam,
+} from "@/lib/pressAiDebuggerAttemptUrl";
 import {
   advancePressAiCheckpointEdge,
   createPressAiCheckpointAttempt,
@@ -14,6 +18,33 @@ export function usePressAiCheckpointDebugger() {
   const [attempt, setAttempt] = useState<PressAiCheckpointAttempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  // Restore the attempt named in ?attempt= so refresh and shared links survive.
+  // Layout effect: the flag must be up before first paint or the create form flashes.
+  useLayoutEffect(() => {
+    const attemptId = readAttemptIdFromSearch(window.location.search);
+    if (!attemptId) return;
+    setRestoring(true);
+    void fetchPressAiCheckpointAttempt(attemptId)
+      .then(setAttempt)
+      .catch(() => {
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${withAttemptParam(window.location.search, null)}`,
+        );
+      })
+      .finally(() => setRestoring(false));
+  }, []);
+  const attemptId = attempt?.id ?? null;
+  useEffect(() => {
+    if (!attemptId) return;
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${withAttemptParam(window.location.search, attemptId)}`,
+    );
+  }, [attemptId]);
   const commands = useRef(new Map<string, string>());
   const command = (key: string) => {
     const prior = commands.current.get(key);
@@ -51,6 +82,7 @@ export function usePressAiCheckpointDebugger() {
     attempt,
     busy,
     error,
+    restoring,
     create: async (input: {
       rawText: string;
       tone: string;

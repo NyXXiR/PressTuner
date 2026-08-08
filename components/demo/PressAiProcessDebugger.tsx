@@ -1,5 +1,7 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
 import { PressAiProcessGraph } from "./PressAiProcessGraph";
 import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
 import { PressAiRunActionBar } from "./PressAiRunActionBar";
@@ -15,21 +17,84 @@ import { usePressAiCheckpointDebugger } from "./usePressAiCheckpointDebugger";
 
 const DEFAULT_MEMO =
   "픽셔널 기업 브리프랩은 2031년 4월 17일 ‘루멘 브릿지’를 출시할 예정이다. 비공개 베타에는 20곳이 참여했고, 작업 시간은 150분에서 50분으로 줄었다. 이는 단순 평균이며 대조군이 없고 외부 검증을 거치지 않았다.";
+
+const DRAFT_KEY = "press-ai-debugger-draft";
+const LOGIN_HREF = "/login?next=%2Fdemo%2Frag-test";
+
+type DebuggerDraft = {
+  rawText: string;
+  tone: "formal" | "neutral" | "friendly";
+  reviewInstruction: string;
+  rewriteInstruction: string;
+};
+
+const DEFAULT_DRAFT: DebuggerDraft = {
+  rawText: DEFAULT_MEMO,
+  tone: "formal",
+  reviewInstruction: "사실과 주의 문구가 보존됐는지 검토해 주세요.",
+  rewriteInstruction: "선택한 의견만 반영하고 새 사실을 만들지 마세요.",
+};
+
+/** Restores what the operator typed before the login round-trip. */
+function readStoredDraft(): DebuggerDraft {
+  if (typeof window === "undefined") return DEFAULT_DRAFT;
+  try {
+    const stored = window.sessionStorage.getItem(DRAFT_KEY);
+    if (!stored) return DEFAULT_DRAFT;
+    const draft = JSON.parse(stored) as Partial<DebuggerDraft>;
+    return {
+      rawText:
+        typeof draft.rawText === "string" && draft.rawText.trim()
+          ? draft.rawText
+          : DEFAULT_DRAFT.rawText,
+      tone:
+        draft.tone === "formal" ||
+        draft.tone === "neutral" ||
+        draft.tone === "friendly"
+          ? draft.tone
+          : DEFAULT_DRAFT.tone,
+      reviewInstruction:
+        typeof draft.reviewInstruction === "string"
+          ? draft.reviewInstruction
+          : DEFAULT_DRAFT.reviewInstruction,
+      rewriteInstruction:
+        typeof draft.rewriteInstruction === "string"
+          ? draft.rewriteInstruction
+          : DEFAULT_DRAFT.rewriteInstruction,
+    };
+  } catch {
+    return DEFAULT_DRAFT;
+  }
+}
+
 export function PressAiProcessDebugger() {
   const debuggerState = usePressAiCheckpointDebugger();
   const [auth, setAuth] = useState<"checking" | "authenticated" | "anonymous">(
     "checking",
   );
-  const [rawText, setRawText] = useState(DEFAULT_MEMO);
-  const [tone, setTone] = useState<"formal" | "neutral" | "friendly">("formal");
+  const [rawText, setRawText] = useState(() => readStoredDraft().rawText);
+  const [tone, setTone] = useState<"formal" | "neutral" | "friendly">(
+    () => readStoredDraft().tone,
+  );
   const [reviewInstruction, setReviewInstruction] = useState(
-    "사실과 주의 문구가 보존됐는지 검토해 주세요.",
+    () => readStoredDraft().reviewInstruction,
   );
   const [rewriteInstruction, setRewriteInstruction] = useState(
-    "선택한 의견만 반영하고 새 사실을 만들지 마세요.",
+    () => readStoredDraft().rewriteInstruction,
   );
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [acknowledged, setAcknowledged] = useState(false);
+  /** Hand the draft to sessionStorage on the way out; restored on the way back. */
+  const goToLogin = () => {
+    try {
+      window.sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ rawText, tone, reviewInstruction, rewriteInstruction }),
+      );
+    } catch {
+      // storage is best-effort; the login navigation matters more
+    }
+  };
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const errorRef = useRef<HTMLDivElement>(null);
@@ -49,6 +114,13 @@ export function PressAiProcessDebugger() {
   }, [debuggerState.error]);
   const attempt = debuggerState.attempt;
   const action = useMemo(() => nextAction(attempt), [attempt]);
+  // The row the action bar points at starts expanded; an explicit collapse still wins.
+  const defaultOpenKey =
+    action.kind === "advance" || action.kind === "retry"
+      ? `edge:${action.edgeId}`
+      : action.kind === "execute" || action.kind === "rewrite"
+        ? `node:${action.nodeId}`
+        : null;
   const reviewCheckpoint = attempt?.checkpoints.find(
     (item) => item.nodeId === "draft-review",
   );
@@ -95,9 +167,23 @@ export function PressAiProcessDebugger() {
         </span>
       </div>
       {auth === "anonymous" ? (
-        <p className="mt-4 rounded-xl border border-amber-500/40 p-4 text-sm">
-          로그인과 팀 선택이 필요합니다.
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-bold">
+              로그인하면 실제로 실행해 볼 수 있습니다.
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              지금 작성한 메모와 지침은 로그인 후에도 유지됩니다.
+            </p>
+          </div>
+          <Link
+            href={LOGIN_HREF}
+            onClick={goToLogin}
+            className="flex min-h-11 shrink-0 items-center rounded-xl bg-primary px-5 font-black text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            로그인하고 시작하기
+          </Link>
+        </div>
       ) : null}
       {debuggerState.error ? (
         <div
@@ -110,8 +196,13 @@ export function PressAiProcessDebugger() {
         </div>
       ) : null}
       <PressAiKnowledgePanel />
-      {!attempt ? (
-        <div className="mt-5 space-y-4">
+      {debuggerState.restoring ? (
+        <p role="status" className="mt-5 rounded-xl border border-border p-4 text-sm text-muted-foreground">
+          주소에 저장된 시도를 불러오는 중입니다…
+        </p>
+      ) : !attempt ? (
+        <div className="mt-5 grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <div className="min-w-0 space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="text-sm font-bold">
               대략적인 메모
@@ -157,37 +248,61 @@ export function PressAiProcessDebugger() {
               </label>
             </div>
           </div>
-          <label className="flex min-h-11 gap-3 rounded-xl border border-amber-500/40 p-3 text-sm">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(event) => setAcknowledged(event.target.checked)}
-            />
-            <span>
-              새 테스트 Article이 생성되고 명시적으로 실행한 AI 노드만 일반
-              Press 할당량을 사용함을 확인했습니다.
-            </span>
-          </label>
-          <button
-            type="button"
-            disabled={
-              debuggerState.busy ||
-              auth !== "authenticated" ||
-              !acknowledged ||
-              !rawText.trim()
-            }
-            onClick={() =>
-              void debuggerState.create({
-                rawText,
-                tone,
-                reviewInstruction,
-                rewriteInstruction,
-              })
-            }
-            className="min-h-11 rounded-xl bg-primary px-5 font-black text-primary-foreground disabled:opacity-50"
-          >
-            새 시도 만들기 (AI 실행 없음)
-          </button>
+          {auth === "anonymous" ? (
+            <p className="rounded-xl border border-amber-500/40 p-3 text-sm text-muted-foreground">
+              시도를 만들면 새 테스트 Article이 생성되고, 명시적으로 실행한 AI
+              노드만 일반 Press 할당량을 사용합니다.
+            </p>
+          ) : (
+            <label className="flex min-h-11 gap-3 rounded-xl border border-amber-500/40 p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(event) => setAcknowledged(event.target.checked)}
+              />
+              <span>
+                새 테스트 Article이 생성되고 명시적으로 실행한 AI 노드만 일반
+                Press 할당량을 사용함을 확인했습니다.
+              </span>
+            </label>
+          )}
+          {auth === "anonymous" ? (
+            <Link
+              href={LOGIN_HREF}
+              onClick={goToLogin}
+              className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-black text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              로그인하고 시작하기
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled={
+                debuggerState.busy ||
+                auth !== "authenticated" ||
+                !acknowledged ||
+                !rawText.trim()
+              }
+              onClick={() =>
+                void debuggerState.create({
+                  rawText,
+                  tone,
+                  reviewInstruction,
+                  rewriteInstruction,
+                })
+              }
+              className="min-h-11 rounded-xl bg-primary px-5 font-black text-primary-foreground disabled:opacity-50"
+            >
+              새 시도 만들기 (AI 실행 없음)
+            </button>
+          )}
+        </div>
+        {auth === "authenticated" ? (
+          <PressAiAttemptHistory
+            refreshKey="initial"
+            onOpen={(id) => void debuggerState.open(id)}
+          />
+        ) : null}
         </div>
       ) : (
         <div className="mt-4 min-w-0">
@@ -284,6 +399,7 @@ export function PressAiProcessDebugger() {
             <PressAiRunTimeline
               attempt={attempt}
               busy={debuggerState.busy}
+              defaultOpenKey={defaultOpenKey}
               open={openRows}
               onOpenChange={setOpenRows}
               onRetry={(nodeId) => void debuggerState.retry(nodeId)}

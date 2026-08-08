@@ -11,6 +11,7 @@ import { appendCanonicalEvent, appendCanonicalEventInTransaction } from "@/lib/s
 import type { PressAiDependencyOverrides } from "@/lib/services/article/pressAiDependencies";
 import { createPressProcessRun } from "./processPersistence";
 import { createPressDebugArticle, executePressDebugNode, PRESS_AI_DEBUG_EXECUTOR_VERSION } from "./processNodeExecutors";
+import { summarizeCheckpointAttemptHistory } from "./attemptHistorySummary";
 import { findCheckpointAttempt, json, listCheckpointAttempts, publicCheckpointAttempt } from "./checkpointRepository";
 import { hashPressAiDebugCommand, PressAiDebugConflictError, replayOrRunCommand } from "./commandRepository";
 
@@ -39,7 +40,7 @@ export async function createCheckpointAttempt(args: { teamId: string; userId: st
 }
 
 export async function getCheckpointAttempt(teamId: string, attemptId: string) { const attempt = await findCheckpointAttempt(teamId, attemptId); if (!attempt) throw Object.assign(new Error("PRESS_AI_DEBUG_ATTEMPT_NOT_FOUND"), { status: 404 }); return publicCheckpointAttempt(attempt); }
-export async function getCheckpointAttemptHistory(teamId: string) { return publicCheckpointAttempt(await listCheckpointAttempts(teamId)); }
+export async function getCheckpointAttemptHistory(teamId: string) { return publicCheckpointAttempt(summarizeCheckpointAttemptHistory(await listCheckpointAttempts(teamId))); }
 
 export async function executeCheckpointNode(args: { teamId: string; userId: string; attemptId: string; nodeId: string; input: z.infer<typeof ExecuteCheckpointNodeSchema>; dependencies?: PressAiDependencyOverrides }) {
   const before = await prisma.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { agentRun: { select: { traceId: true } } } });

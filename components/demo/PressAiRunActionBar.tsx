@@ -94,7 +94,7 @@ export function PressAiRunActionBar(props: {
                   aria-label={`${node.sequence + 1}. ${node.label} 단계로 이동`}
                   aria-current={current ? "step" : undefined}
                   title={`${node.label} · ${state}`}
-                  className={`size-7 rounded-full border text-xs font-black transition-colors ${
+                  className={`size-9 rounded-full border text-xs font-black transition-colors ${
                     state === "EXECUTED" || state === "RESTORED"
                       ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                       : state === "WAITING"

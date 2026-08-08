@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PressAiProcessDebugger } from "@/components/demo/PressAiProcessDebugger";
+import { PressDemoHeaderStatus } from "@/components/demo/PressDemoHeaderStatus";
 import { MarketingFooter } from "@/components/layout/MarketingFooter";
 
 export const dynamic = "force-static";
@@ -36,12 +37,7 @@ export default function PressRagTestPage() {
           <Link href="/" className="text-lg font-black tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             brieFFlow
           </Link>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">로그인 후 실제 실행</span>
-            <Link href="/login" className="border border-border px-4 py-2 text-sm font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-              로그인
-            </Link>
-          </div>
+          <PressDemoHeaderStatus />
         </div>
       </header>
 
