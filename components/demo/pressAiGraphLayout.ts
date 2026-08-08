@@ -4,10 +4,10 @@ import type {
   PressAiProcessNode,
 } from "@/domain/press-ai-debugger/processRegistry";
 
-export const GRAPH_NODE_WIDTH = 160;
-export const GRAPH_NODE_HEIGHT = 68;
-const COLUMN_GAP = 52;
-const ROW_GAP = 24;
+export const GRAPH_NODE_WIDTH = 180;
+export const GRAPH_NODE_HEIGHT = 80;
+const COLUMN_GAP = 60;
+const ROW_GAP = 36;
 const PADDING = 16;
 
 export type GraphNodePlacement = {

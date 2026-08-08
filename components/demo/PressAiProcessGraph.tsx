@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import {
@@ -9,6 +9,20 @@ import {
 } from "./pressAiGraphLayout";
 import { NODE_STATE_LABEL, nodeState } from "./pressAiRunProgress";
 
+/** Logical canvas; the SVG scales this to whatever width the card gives it. */
+const CANVAS_WIDTH = 1180;
+const CANVAS_PADDING = 32;
+/**
+ * Canvas height follows the graph, with slack left over for panning. A fixed
+ * height reserved the same band for a five-node chain as for a wide branching
+ * graph, and most of it stayed empty.
+ */
+const CANVAS_SLACK = 150;
+const MIN_CANVAS_HEIGHT = 260;
+const MAX_CANVAS_HEIGHT = 420;
+const MIN_SCALE = 0.45;
+const MAX_SCALE = 1.8;
+
 const VERDICT_LABEL: Record<string, string> = {
   PASS: "통과",
   WARN: "주의",
@@ -16,12 +30,15 @@ const VERDICT_LABEL: Record<string, string> = {
   PENDING: "대기",
 };
 
+const clampScale = (value: number) =>
+  Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+
 /**
- * Boxes and arrows, because the process is a graph: a node may fan out to two
- * targets and a later node may merge several paths, which a single-file rail
- * cannot express. The layout is measured rather than fixed, so the drawing is
- * exactly as tall as the graph needs — the old canvas reserved 420px and left
- * most of it empty — and the page, not the SVG, owns wheel and touch scrolling.
+ * Pannable, zoomable node canvas. Node positions come from the layered layout
+ * rather than a hardcoded zigzag, so a node that fans out to two targets keeps
+ * both targets in the next column and a merge node stays right of every path
+ * feeding it. "화면 맞춤" derives its transform from the measured graph, so the
+ * canvas opens centered on the content instead of a fixed offset.
  */
 export function PressAiProcessGraph(props: {
   attempt: PressAiCheckpointAttempt | null;
@@ -32,21 +49,125 @@ export function PressAiProcessGraph(props: {
   onEdge: (id: string) => void;
 }) {
   const layout = useMemo(() => layoutPressAiGraph(pressCreationProcess), []);
+  const canvasHeight = Math.min(
+    MAX_CANVAS_HEIGHT,
+    Math.max(MIN_CANVAS_HEIGHT, Math.round(layout.height + CANVAS_SLACK)),
+  );
+  const fit = useMemo(() => {
+    const scale = clampScale(
+      Math.min(
+        (CANVAS_WIDTH - CANVAS_PADDING * 2) / layout.width,
+        (canvasHeight - CANVAS_PADDING * 2) / layout.height,
+      ),
+    );
+    return {
+      scale,
+      x: (CANVAS_WIDTH - layout.width * scale) / 2,
+      y: (canvasHeight - layout.height * scale) / 2,
+    };
+  }, [layout, canvasHeight]);
+
+  const [view, setView] = useState(fit);
+  const drag = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
+
+  /** Zoom about the canvas centre so the graph does not drift off-screen. */
+  const zoomBy = (delta: number) =>
+    setView((current) => {
+      const scale = clampScale(current.scale + delta);
+      const ratio = scale / current.scale;
+      return {
+        scale,
+        x: CANVAS_WIDTH / 2 - (CANVAS_WIDTH / 2 - current.x) * ratio,
+        y: canvasHeight / 2 - (canvasHeight / 2 - current.y) * ratio,
+      };
+    });
+
   const activate = (event: React.KeyboardEvent, select: () => void) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       select();
     }
   };
+
   return (
-    <div className="overflow-x-auto">
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-2">
+        <button
+          type="button"
+          onClick={() => zoomBy(0.15)}
+          className="min-h-11 rounded border border-border px-3 font-bold hover:bg-muted"
+          aria-label="그래프 확대"
+        >
+          ＋
+        </button>
+        <button
+          type="button"
+          onClick={() => zoomBy(-0.15)}
+          className="min-h-11 rounded border border-border px-3 font-bold hover:bg-muted"
+          aria-label="그래프 축소"
+        >
+          －
+        </button>
+        <button
+          type="button"
+          onClick={() => setView(fit)}
+          className="min-h-11 rounded border border-border px-3 text-sm font-bold hover:bg-muted"
+        >
+          화면 맞춤
+        </button>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {Math.round(view.scale * 100)}% · 드래그로 이동, Ctrl+휠로 확대
+        </span>
+      </div>
+
       <svg
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
-        width={layout.width}
-        height={layout.height}
+        viewBox={`0 0 ${CANVAS_WIDTH} ${canvasHeight}`}
+        // pan-y keeps vertical page scrolling on touch; horizontal drag pans.
+        style={{ height: canvasHeight, touchAction: "pan-y" }}
+        className="w-full cursor-grab bg-muted/20 active:cursor-grabbing"
         role="group"
         aria-label="보도자료 체크포인트 그래프"
-        className="max-w-none"
+        onWheel={(event) => {
+          // Plain wheel belongs to the page; only an explicit modifier zooms.
+          if (!event.ctrlKey && !event.metaKey) return;
+          event.preventDefault();
+          zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+        }}
+        onPointerDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          drag.current = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            ox: view.x,
+            oy: view.y,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const state = drag.current;
+          if (!state || state.pointerId !== event.pointerId) return;
+          // Client pixels are canvas units scaled by the rendered width.
+          const rect = event.currentTarget.getBoundingClientRect();
+          const unit = rect.width ? CANVAS_WIDTH / rect.width : 1;
+          setView((current) => ({
+            ...current,
+            x: state.ox + (event.clientX - state.x) * unit,
+            y: state.oy + (event.clientY - state.y) * unit,
+          }));
+        }}
+        onPointerUp={(event) => {
+          if (drag.current?.pointerId === event.pointerId) drag.current = null;
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+        }}
       >
         <defs>
           <marker
@@ -54,153 +175,188 @@ export function PressAiProcessGraph(props: {
             viewBox="0 0 10 10"
             refX="9"
             refY="5"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="7"
+            markerHeight="7"
             orient="auto-start-reverse"
           >
             <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
           </marker>
+          <pattern
+            id="checkpoint-grid"
+            width="22"
+            height="22"
+            patternUnits="userSpaceOnUse"
+          >
+            <circle cx="1.5" cy="1.5" r="1.5" className="fill-border/60" />
+          </pattern>
         </defs>
+        <rect
+          width={CANVAS_WIDTH}
+          height={canvasHeight}
+          fill="url(#checkpoint-grid)"
+          pointerEvents="none"
+        />
 
-        {layout.edges.map(({ edge, path, labelX, labelY }) => {
-          const transition = props.attempt?.transitions.find(
-            (item) => item.edgeId === edge.id,
-          );
-          const verdict = transition?.verdict ?? "PENDING";
-          const selected = props.selectedEdgeId === edge.id;
-          const tone =
-            verdict === "BLOCK"
-              ? "stroke-rose-500 text-rose-600 dark:text-rose-300"
-              : verdict === "WARN"
-                ? "stroke-amber-500 text-amber-600 dark:text-amber-300"
-                : verdict === "PASS"
-                  ? "stroke-emerald-500 text-emerald-600 dark:text-emerald-300"
-                  : "stroke-border text-muted-foreground";
-          return (
-            <g
-              key={edge.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`${edge.id} 전이: ${VERDICT_LABEL[verdict]}`}
-              onClick={() => props.onEdge(edge.id)}
-              onKeyDown={(event) => activate(event, () => props.onEdge(edge.id))}
-              className={`cursor-pointer focus-visible:outline-none ${tone}`}
-            >
-              <path
-                d={path}
-                fill="none"
-                strokeWidth={selected ? 3 : 2}
-                strokeDasharray={verdict === "PENDING" ? "5 4" : undefined}
-                markerEnd="url(#checkpoint-arrow)"
-                className="stroke-[inherit]"
-              />
-              <rect
-                x={labelX - 20}
-                y={labelY - 11}
-                width="40"
-                height="22"
-                rx="7"
-                className="fill-card stroke-[inherit]"
-                strokeWidth={selected ? 2 : 1}
-              />
-              <text
-                x={labelX}
-                y={labelY + 4}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="800"
-                fill="currentColor"
+        <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
+          {layout.edges.map(({ edge, path, labelX, labelY }) => {
+            const transition = props.attempt?.transitions.find(
+              (item) => item.edgeId === edge.id,
+            );
+            const verdict = transition?.verdict ?? "PENDING";
+            const selected = props.selectedEdgeId === edge.id;
+            const tone =
+              verdict === "BLOCK"
+                ? "stroke-rose-500 text-rose-600 dark:text-rose-300"
+                : verdict === "WARN"
+                  ? "stroke-amber-500 text-amber-600 dark:text-amber-300"
+                  : verdict === "PASS"
+                    ? "stroke-emerald-500 text-emerald-600 dark:text-emerald-300"
+                    : "stroke-muted-foreground/60 text-muted-foreground";
+            return (
+              <g
+                key={edge.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`${edge.id} 전이: ${VERDICT_LABEL[verdict]}`}
+                onClick={() => props.onEdge(edge.id)}
+                onKeyDown={(event) =>
+                  activate(event, () => props.onEdge(edge.id))
+                }
+                className={`cursor-pointer focus-visible:outline-none ${tone}`}
               >
-                {VERDICT_LABEL[verdict]}
-              </text>
-            </g>
-          );
-        })}
-
-        {layout.nodes.map(({ node, x, y }) => {
-          const state = nodeState(props.attempt, node, props.busy);
-          const selected = props.selectedNodeId === node.id;
-          const running = state === "RUNNING";
-          const tone =
-            state === "EXECUTED"
-              ? "stroke-emerald-500"
-              : state === "RESTORED"
-                ? "stroke-sky-500"
-                : state === "ACTIVE" || running
-                  ? "stroke-primary"
-                  : "stroke-border";
-          return (
-            <g
-              key={node.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`${node.sequence + 1}. ${node.label}: ${NODE_STATE_LABEL[state]}`}
-              onClick={() => props.onNode(node.id)}
-              onKeyDown={(event) => activate(event, () => props.onNode(node.id))}
-              className="cursor-pointer focus-visible:outline-none"
-            >
-              <rect
-                x={x}
-                y={y}
-                width={GRAPH_NODE_WIDTH}
-                height={GRAPH_NODE_HEIGHT}
-                rx="12"
-                className={`fill-card ${tone}`}
-                strokeWidth={selected ? 3 : state === "WAITING" ? 1.5 : 2}
-              />
-              {selected ? (
-                <rect
-                  x={x + 3}
-                  y={y + 3}
-                  width={GRAPH_NODE_WIDTH - 6}
-                  height={GRAPH_NODE_HEIGHT - 6}
-                  rx="9"
+                <path
+                  d={path}
                   fill="none"
-                  className="stroke-primary/40"
-                  strokeWidth="1"
+                  strokeWidth={selected ? 4 : 2.5}
+                  strokeDasharray={verdict === "PENDING" ? "6 5" : undefined}
+                  markerEnd="url(#checkpoint-arrow)"
+                  className="stroke-[inherit]"
                 />
-              ) : null}
-              <text
-                x={x + 14}
-                y={y + 26}
-                fontSize="13"
-                fontWeight="800"
-                className="fill-foreground"
-              >
-                {node.sequence + 1}. {node.label}
-              </text>
-              <text
-                x={x + 14}
-                y={y + 48}
-                fontSize="11"
-                className="fill-muted-foreground"
-              >
-                {NODE_STATE_LABEL[state]}
-                {node.gate ? " · 게이트" : ""}
-              </text>
-              {running ? (
-                <circle
-                  cx={x + GRAPH_NODE_WIDTH - 18}
-                  cy={y + 22}
-                  r="7"
-                  fill="none"
-                  className="stroke-primary"
-                  strokeWidth="2.5"
-                  strokeDasharray="12 7"
+                <rect
+                  x={labelX - 26}
+                  y={labelY - 12}
+                  width="52"
+                  height="24"
+                  rx="8"
+                  className="fill-card stroke-[inherit]"
+                  strokeWidth={selected ? 2 : 1.5}
+                />
+                <text
+                  x={labelX}
+                  y={labelY + 4}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fontWeight="800"
+                  fill="currentColor"
                 >
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from={`0 ${x + GRAPH_NODE_WIDTH - 18} ${y + 22}`}
-                    to={`360 ${x + GRAPH_NODE_WIDTH - 18} ${y + 22}`}
-                    dur="0.9s"
-                    repeatCount="indefinite"
+                  {VERDICT_LABEL[verdict]}
+                </text>
+              </g>
+            );
+          })}
+
+          {layout.nodes.map(({ node, x, y }) => {
+            const state = nodeState(props.attempt, node, props.busy);
+            const selected = props.selectedNodeId === node.id;
+            const running = state === "RUNNING";
+            const tone =
+              state === "EXECUTED"
+                ? "stroke-emerald-500"
+                : state === "RESTORED"
+                  ? "stroke-sky-500"
+                  : state === "ACTIVE" || running
+                    ? "stroke-primary"
+                    : "stroke-border";
+            return (
+              <g
+                key={node.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`${node.sequence + 1}. ${node.label}: ${NODE_STATE_LABEL[state]}`}
+                onClick={() => props.onNode(node.id)}
+                onKeyDown={(event) =>
+                  activate(event, () => props.onNode(node.id))
+                }
+                className="cursor-pointer focus-visible:outline-none"
+              >
+                {selected ? (
+                  <rect
+                    x={x - 4}
+                    y={y - 4}
+                    width={GRAPH_NODE_WIDTH + 8}
+                    height={GRAPH_NODE_HEIGHT + 8}
+                    rx="18"
+                    fill="none"
+                    className="stroke-primary/50"
+                    strokeWidth="2"
                   />
-                </circle>
-              ) : null}
-            </g>
-          );
-        })}
+                ) : null}
+                <rect
+                  x={x}
+                  y={y}
+                  width={GRAPH_NODE_WIDTH}
+                  height={GRAPH_NODE_HEIGHT}
+                  rx="14"
+                  className={`fill-card ${tone}`}
+                  strokeWidth={state === "WAITING" ? 2 : 3}
+                />
+                {/* Connector ports, so the card reads as a wired node. */}
+                <circle
+                  cx={x}
+                  cy={y + GRAPH_NODE_HEIGHT / 2}
+                  r="4"
+                  className="fill-background stroke-border"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx={x + GRAPH_NODE_WIDTH}
+                  cy={y + GRAPH_NODE_HEIGHT / 2}
+                  r="4"
+                  className="fill-background stroke-border"
+                  strokeWidth="2"
+                />
+                <text
+                  x={x + 16}
+                  y={y + 32}
+                  fontSize="14"
+                  fontWeight="800"
+                  className="fill-foreground"
+                >
+                  {node.sequence + 1}. {node.label}
+                </text>
+                <text
+                  x={x + 16}
+                  y={y + 56}
+                  fontSize="11"
+                  className="fill-muted-foreground"
+                >
+                  {NODE_STATE_LABEL[state]}
+                  {node.gate ? " · 게이트" : ""}
+                </text>
+                {running ? (
+                  <circle
+                    cx={x + GRAPH_NODE_WIDTH - 20}
+                    cy={y + 24}
+                    r="8"
+                    fill="none"
+                    className="stroke-primary"
+                    strokeWidth="3"
+                    strokeDasharray="14 8"
+                  >
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from={`0 ${x + GRAPH_NODE_WIDTH - 20} ${y + 24}`}
+                      to={`360 ${x + GRAPH_NODE_WIDTH - 20} ${y + 24}`}
+                      dur="0.9s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                ) : null}
+              </g>
+            );
+          })}
+        </g>
       </svg>
     </div>
   );
