@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import {
@@ -49,6 +49,11 @@ export function PressAiProcessGraph(props: {
   onEdge: (id: string) => void;
 }) {
   const layout = useMemo(() => layoutPressAiGraph(pressCreationProcess), []);
+  /** A terminal node has nothing to wire onward, so it gets no output port. */
+  const hasOutgoing = useMemo(
+    () => new Set(layout.edges.map(({ edge }) => edge.source)),
+    [layout],
+  );
   const canvasHeight = Math.min(
     MAX_CANVAS_HEIGHT,
     Math.max(MIN_CANVAS_HEIGHT, Math.round(layout.height + CANVAS_SLACK)),
@@ -68,6 +73,12 @@ export function PressAiProcessGraph(props: {
   }, [layout, canvasHeight]);
 
   const [view, setView] = useState(fit);
+  const svgRef = useRef<SVGSVGElement>(null);
+  /** Wheel zoom applies only once the canvas is focused, so scrolling past it
+   *  still scrolls the page. Read through a ref because the listener is bound
+   *  natively and must not be torn down on every focus change. */
+  const [engaged, setEngaged] = useState(false);
+  const engagedRef = useRef(false);
   const drag = useRef<{
     pointerId: number;
     x: number;
@@ -87,6 +98,33 @@ export function PressAiProcessGraph(props: {
         y: canvasHeight / 2 - (canvasHeight / 2 - current.y) * ratio,
       };
     });
+
+  // React registers `wheel` passively at the root, so preventDefault inside
+  // onWheel is ignored and the browser scrolls (or zooms) anyway. Bind natively.
+  useEffect(() => {
+    const element = svgRef.current;
+    if (!element) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!engagedRef.current || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      setView((current) => {
+        const scale = clampScale(current.scale + (event.deltaY < 0 ? 0.12 : -0.12));
+        const ratio = scale / current.scale;
+        return {
+          scale,
+          x: CANVAS_WIDTH / 2 - (CANVAS_WIDTH / 2 - current.x) * ratio,
+          y: canvasHeight / 2 - (canvasHeight / 2 - current.y) * ratio,
+        };
+      });
+    };
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, [canvasHeight]);
+
+  const setEngagement = (value: boolean) => {
+    engagedRef.current = value;
+    setEngaged(value);
+  };
 
   const activate = (event: React.KeyboardEvent, select: () => void) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -122,22 +160,33 @@ export function PressAiProcessGraph(props: {
           화면 맞춤
         </button>
         <span className="ml-auto text-xs text-muted-foreground">
-          {Math.round(view.scale * 100)}% · 드래그로 이동, Ctrl+휠로 확대
+          {Math.round(view.scale * 100)}% · 드래그로 이동 ·{" "}
+          {engaged ? "휠 또는 +/- 키로 확대" : "캔버스를 클릭하면 휠로 확대"}
         </span>
       </div>
 
       <svg
+        ref={svgRef}
+        tabIndex={0}
         viewBox={`0 0 ${CANVAS_WIDTH} ${canvasHeight}`}
         // pan-y keeps vertical page scrolling on touch; horizontal drag pans.
         style={{ height: canvasHeight, touchAction: "pan-y" }}
-        className="w-full cursor-grab bg-muted/20 active:cursor-grabbing"
+        className="w-full cursor-grab bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
         role="group"
-        aria-label="보도자료 체크포인트 그래프"
-        onWheel={(event) => {
-          // Plain wheel belongs to the page; only an explicit modifier zooms.
-          if (!event.ctrlKey && !event.metaKey) return;
-          event.preventDefault();
-          zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+        aria-label="보도자료 체크포인트 그래프. 클릭하면 휠과 +/- 키로 확대할 수 있습니다."
+        onFocus={() => setEngagement(true)}
+        onBlur={() => setEngagement(false)}
+        onKeyDown={(event) => {
+          if (event.key === "+" || event.key === "=") {
+            event.preventDefault();
+            zoomBy(0.15);
+          } else if (event.key === "-" || event.key === "_") {
+            event.preventDefault();
+            zoomBy(-0.15);
+          } else if (event.key === "0") {
+            event.preventDefault();
+            setView(fit);
+          }
         }}
         onPointerDown={(event) => {
           if (event.target !== event.currentTarget) return;
@@ -173,11 +222,11 @@ export function PressAiProcessGraph(props: {
           <marker
             id="checkpoint-arrow"
             viewBox="0 0 10 10"
-            refX="9"
+            refX="8"
             refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto"
           >
             <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
           </marker>
@@ -233,19 +282,19 @@ export function PressAiProcessGraph(props: {
                   className="stroke-[inherit]"
                 />
                 <rect
-                  x={labelX - 26}
-                  y={labelY - 12}
-                  width="52"
-                  height="24"
-                  rx="8"
+                  x={labelX - 21}
+                  y={labelY - 32}
+                  width="42"
+                  height="20"
+                  rx="7"
                   className="fill-card stroke-[inherit]"
                   strokeWidth={selected ? 2 : 1.5}
                 />
                 <text
                   x={labelX}
-                  y={labelY + 4}
+                  y={labelY - 18}
                   textAnchor="middle"
-                  fontSize="11"
+                  fontSize="10"
                   fontWeight="800"
                   fill="currentColor"
                 >
@@ -300,21 +349,17 @@ export function PressAiProcessGraph(props: {
                   className={`fill-card ${tone}`}
                   strokeWidth={state === "WAITING" ? 2 : 3}
                 />
-                {/* Connector ports, so the card reads as a wired node. */}
-                <circle
-                  cx={x}
-                  cy={y + GRAPH_NODE_HEIGHT / 2}
-                  r="4"
-                  className="fill-background stroke-border"
-                  strokeWidth="2"
-                />
-                <circle
-                  cx={x + GRAPH_NODE_WIDTH}
-                  cy={y + GRAPH_NODE_HEIGHT / 2}
-                  r="4"
-                  className="fill-background stroke-border"
-                  strokeWidth="2"
-                />
+                {/* Output port only: the arrowhead already marks the input end,
+                    and a dot at both ends made the connector read as two-way. */}
+                {hasOutgoing.has(node.id) ? (
+                  <circle
+                    cx={x + GRAPH_NODE_WIDTH}
+                    cy={y + GRAPH_NODE_HEIGHT / 2}
+                    r="4"
+                    className="fill-background stroke-border"
+                    strokeWidth="2"
+                  />
+                ) : null}
                 <text
                   x={x + 16}
                   y={y + 32}

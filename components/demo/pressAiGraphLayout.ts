@@ -4,9 +4,10 @@ import type {
   PressAiProcessNode,
 } from "@/domain/press-ai-debugger/processRegistry";
 
-export const GRAPH_NODE_WIDTH = 180;
+export const GRAPH_NODE_WIDTH = 150;
 export const GRAPH_NODE_HEIGHT = 80;
-const COLUMN_GAP = 60;
+/** Wide enough that the connector shows a real line and arrowhead, not just a chip. */
+const COLUMN_GAP = 88;
 const ROW_GAP = 36;
 const PADDING = 16;
 
