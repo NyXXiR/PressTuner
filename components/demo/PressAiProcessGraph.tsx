@@ -7,7 +7,11 @@ import {
   GRAPH_NODE_WIDTH,
   layoutPressAiGraph,
 } from "./pressAiGraphLayout";
-import { NODE_STATE_LABEL, nodeState } from "./pressAiRunProgress";
+import {
+  NODE_STATE_LABEL,
+  VERDICT_LABEL,
+  nodeState,
+} from "./pressAiRunProgress";
 
 /** Logical canvas; the SVG scales this to whatever width the card gives it. */
 const CANVAS_WIDTH = 1180;
@@ -17,18 +21,11 @@ const CANVAS_PADDING = 32;
  * height reserved the same band for a five-node chain as for a wide branching
  * graph, and most of it stayed empty.
  */
-const CANVAS_SLACK = 150;
-const MIN_CANVAS_HEIGHT = 260;
+const CANVAS_SLACK = 90;
+const MIN_CANVAS_HEIGHT = 200;
 const MAX_CANVAS_HEIGHT = 420;
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 1.8;
-
-const VERDICT_LABEL: Record<string, string> = {
-  PASS: "통과",
-  WARN: "주의",
-  BLOCK: "차단",
-  PENDING: "대기",
-};
 
 const clampScale = (value: number) =>
   Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));

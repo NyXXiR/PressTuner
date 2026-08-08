@@ -42,6 +42,27 @@ export function nodeState(
   );
 }
 
+/** One vocabulary for verdicts across the graph, the timeline and the action bar. */
+export const VERDICT_LABEL: Record<PressAiVerdict | "PENDING", string> = {
+  PASS: "통과",
+  WARN: "주의",
+  BLOCK: "차단",
+  PENDING: "대기",
+};
+
+/** Attempt lifecycle as the operator reads it; the raw enum stays in `title`. */
+export const ATTEMPT_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "진행 중",
+  INSPECTING: "전이 검사 중",
+  COMPLETED: "완료",
+  BLOCKED: "차단됨",
+  FAILED: "실패",
+  NOT_STARTED: "시작 전",
+};
+
+export const attemptStatusLabel = (status: string) =>
+  ATTEMPT_STATUS_LABEL[status] ?? status;
+
 export const NODE_STATE_LABEL: Record<PressAiNodeState, string> = {
   RUNNING: "실행 중",
   ACTIVE: "실행 대기",

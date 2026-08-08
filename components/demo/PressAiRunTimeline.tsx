@@ -79,7 +79,10 @@ export function PressAiRunTimeline(props: {
   const isOpen = (key: string) => open[key] ?? key === props.defaultOpenKey;
   const toggle = (key: string) =>
     props.onOpenChange({ ...open, [key]: !isOpen(key) });
-  const allOpen = rows.every((row) => isOpen(row.key));
+  const expandable = rows.filter(
+    (row) => row.kind === "node" || Boolean(row.transition),
+  );
+  const allOpen = expandable.every((row) => isOpen(row.key));
 
   return (
     <section
@@ -92,7 +95,7 @@ export function PressAiRunTimeline(props: {
           type="button"
           onClick={() =>
             props.onOpenChange(
-              Object.fromEntries(rows.map((row) => [row.key, !allOpen])),
+              Object.fromEntries(expandable.map((row) => [row.key, !allOpen])),
             )
           }
           className="min-h-9 rounded border border-border px-3 text-xs font-bold"
@@ -177,6 +180,9 @@ export function PressAiRunTimeline(props: {
           const observed = new Set(
             transition?.observations.map((item) => item.guardrailId) ?? [],
           );
+          // Nothing has been judged yet, so expanding would only show `null`
+          // and a placeholder sentence. Offer a one-line note instead.
+          const evaluated = Boolean(transition);
           return (
             <li
               key={row.key}
@@ -186,9 +192,10 @@ export function PressAiRunTimeline(props: {
             >
               <button
                 type="button"
-                onClick={() => toggle(row.key)}
-                aria-expanded={expanded}
-                className="flex w-full min-w-0 items-center gap-2 text-left"
+                onClick={() => (evaluated ? toggle(row.key) : undefined)}
+                aria-expanded={evaluated ? expanded : undefined}
+                aria-disabled={evaluated ? undefined : true}
+                className={`flex w-full min-w-0 items-center gap-2 text-left ${evaluated ? "" : "cursor-default"}`}
               >
                 <span
                   aria-hidden="true"
@@ -211,7 +218,7 @@ export function PressAiRunTimeline(props: {
                   aria-hidden="true"
                   className="text-xs text-muted-foreground"
                 >
-                  {expanded ? "▾" : "▸"}
+                  {evaluated ? (expanded ? "▾" : "▸") : ""}
                 </span>
               </button>
               <div className="mt-2 flex flex-wrap items-center gap-1 pl-8">
@@ -245,7 +252,12 @@ export function PressAiRunTimeline(props: {
                     <PendingGuardrailChip key={id} guardrailId={id} />
                   ))}
               </div>
-              {expanded ? (
+              {!evaluated ? (
+                <p className="mt-2 pl-8 text-xs text-muted-foreground">
+                  소스 노드를 실행하면 이 전이가 평가됩니다.
+                </p>
+              ) : null}
+              {evaluated && expanded ? (
                 <div className="mt-3 pl-8">
                   <PressAiEdgeInspector
                     attempt={props.attempt}

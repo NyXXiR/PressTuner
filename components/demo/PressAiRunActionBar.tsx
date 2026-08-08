@@ -109,7 +109,9 @@ export function PressAiRunActionBar(props: {
           })}
         </ol>
 
-        <div className="min-w-0 flex-1">
+        {/* Full width on mobile: squeezed into the dots' row the label truncated
+            while the button row below it sat half empty. */}
+        <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">
               다음 단계
@@ -123,7 +125,7 @@ export function PressAiRunActionBar(props: {
               />
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground sm:truncate">
             {props.busy ? "명령을 저장하고 있습니다." : action.hint}
           </p>
         </div>

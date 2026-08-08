@@ -2,21 +2,20 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
+import { DEFAULT_MEMO } from "./pressAiDebuggerDefaults";
 import { PressAiProcessGraph } from "./PressAiProcessGraph";
 import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
 import { PressAiRunActionBar } from "./PressAiRunActionBar";
 import { PressAiRunTimeline } from "./PressAiRunTimeline";
 import { PressAiSidePanels } from "./PressAiSidePanels";
 import {
+  attemptStatusLabel,
   edgeAnchorId,
   focusAnchor,
   nextAction,
   nodeAnchorId,
 } from "./pressAiRunProgress";
 import { usePressAiCheckpointDebugger } from "./usePressAiCheckpointDebugger";
-
-const DEFAULT_MEMO =
-  "픽셔널 기업 브리프랩은 2031년 4월 17일 ‘루멘 브릿지’를 출시할 예정이다. 비공개 베타에는 20곳이 참여했고, 작업 시간은 150분에서 50분으로 줄었다. 이는 단순 평균이며 대조군이 없고 외부 검증을 거치지 않았다.";
 
 const DRAFT_KEY = "press-ai-debugger-draft";
 const LOGIN_HREF = "/login?next=%2Fdemo%2Frag-test";
@@ -144,26 +143,19 @@ export function PressAiProcessDebugger() {
   return (
     <section
       className="pt-overflow-visible min-w-0 rounded-2xl border border-primary/35 bg-card p-4 shadow-sm sm:p-6"
-      aria-labelledby="press-ai-debugger-heading"
+      aria-label="Press AI 체크포인트 디버거"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
-            Press creation · checkpoint v2
-          </p>
-          <h2
-            id="press-ai-debugger-heading"
-            className="mt-1 text-xl font-black"
-          >
-            Press AI 체크포인트 디버거
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            노드 실행과 엣지 이동은 별도 명령입니다. 기존 RAG-v1 기록은 기존
-            URL에서 계속 읽을 수 있으며, 이 화면에는 자동 실행 경로가 없습니다.
-          </p>
-        </div>
-        <span className="rounded-full border px-3 py-1 text-xs font-bold">
-          {attempt?.status ?? "NOT_STARTED"}
+      {/* The page header above already names and explains this screen; repeating
+          the title and description here only pushed the controls below the fold. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
+          Press creation · checkpoint v2
+        </p>
+        <span
+          title={attempt?.status ?? "NOT_STARTED"}
+          className="rounded-full border px-3 py-1 text-xs font-bold"
+        >
+          {attemptStatusLabel(attempt?.status ?? "NOT_STARTED")}
         </span>
       </div>
       {auth === "anonymous" ? (

@@ -38,11 +38,8 @@ export function PressAiEdgeInspector(props: {
       className="min-w-0 rounded-xl border border-border bg-background p-4"
       aria-label={`${edge.id} 전이 검사`}
     >
-      <h4 className="text-sm font-black">
-        {pressCreationProcess.nodes.find((item) => item.id === edge.source)?.label ?? edge.source} →{" "}
-        {pressCreationProcess.nodes.find((item) => item.id === edge.target)?.label ?? edge.target}
-      </h4>
-      <p className="mt-1 text-xs text-muted-foreground">
+      {/* The timeline row directly above already names this transition. */}
+      <p className="text-xs text-muted-foreground">
         소스 출력에서 이 전이가 실제로 만들어 낸 대상 입력입니다.
       </p>
       <div className="mt-2">

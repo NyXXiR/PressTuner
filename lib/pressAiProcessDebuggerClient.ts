@@ -81,14 +81,17 @@ export async function sampleAssetToFile(asset: { path: string; uploadFilename: s
   return new File([blob], asset.uploadFilename, { type: "application/pdf" });
 }
 
-export type PressAiKnowledgeDocument = { id: string; name: string; status: string; pageCount: number | null; chunkCount: number; selectable: boolean; readinessReason: string | null };
+export type PressAiKnowledgeDocument = { id: string; name: string; status: string; pageCount: number | null; chunkCount: number; selectable: boolean; readinessReason: string | null; errorMessage: string | null; createdAt: string | null; updatedAt: string | null };
+
+const timestamp = (value: unknown) => (typeof value === "string" ? value : null);
 
 export function mapKnowledgeDocuments(input: unknown[]): PressAiKnowledgeDocument[] {
   return z.array(DocumentSchema).parse(input).map((document) => {
     const chunkCount = document.chunkCount ?? 0;
     const selectable = document.status === "READY" && Boolean(document.activeGenerationId) && chunkCount > 0 && !document.hasPendingReplacement;
     const readinessReason = selectable ? null : document.hasPendingReplacement ? "새 버전으로 교체 중입니다." : document.status !== "READY" ? `현재 상태: ${document.status}` : !document.activeGenerationId ? "활성 인덱스가 없습니다." : "검색 가능한 청크가 없습니다.";
-    return { id: document.id, name: document.originalName, status: document.status, pageCount: document.pageCount ?? null, chunkCount, selectable, readinessReason };
+    // Timestamps drive the "N초 경과" readout while indexing is in flight.
+    return { id: document.id, name: document.originalName, status: document.status, pageCount: document.pageCount ?? null, chunkCount, selectable, readinessReason, errorMessage: timestamp((document as { errorMessage?: unknown }).errorMessage), createdAt: timestamp((document as { createdAt?: unknown }).createdAt), updatedAt: timestamp((document as { updatedAt?: unknown }).updatedAt) };
   });
 }
 

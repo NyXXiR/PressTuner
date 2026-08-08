@@ -3,18 +3,12 @@
 import { useEffect, useState } from "react";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import { formatRelativeTimeKo } from "@/lib/formatRelativeTimeKo";
+import { isDefaultMemoExcerpt } from "./pressAiDebuggerDefaults";
+import { attemptStatusLabel } from "./pressAiRunProgress";
 import {
   fetchPressAiCheckpointAttemptHistory,
   type PressAiCheckpointAttemptSummary,
 } from "@/lib/pressAiProcessDebuggerClient";
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "진행 중",
-  INSPECTING: "전이 검사 중",
-  COMPLETED: "완료",
-  BLOCKED: "차단됨",
-  FAILED: "실패",
-};
 
 export function PressAiAttemptHistory(props: {
   attemptId?: string;
@@ -50,7 +44,7 @@ export function PressAiAttemptHistory(props: {
       {error ? <p className="mt-2 text-rose-700 dark:text-rose-300">{error}</p> : null}
       <ol className="mt-3 max-h-64 space-y-2 overflow-auto">
         {attempts.map((item) => {
-          const statusLabel = STATUS_LABEL[item.status] ?? item.status;
+          const statusLabel = attemptStatusLabel(item.status);
           const completed = item.status === "COMPLETED";
           return (
             <li key={item.id}>
@@ -63,7 +57,9 @@ export function PressAiAttemptHistory(props: {
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate font-bold">
-                    {item.memoExcerpt || "메모 없음"}
+                    {isDefaultMemoExcerpt(item.memoExcerpt)
+                      ? "기본 메모"
+                      : item.memoExcerpt || "메모 없음"}
                   </span>
                   <span
                     className={`shrink-0 text-xs font-black ${

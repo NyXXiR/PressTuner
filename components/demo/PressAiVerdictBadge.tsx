@@ -1,6 +1,6 @@
 import { guardrailLabelKo } from "@/domain/press-ai-debugger/guardrailLabels";
 import type { PressAiNodeState, PressAiVerdict } from "./pressAiRunProgress";
-import { NODE_STATE_LABEL } from "./pressAiRunProgress";
+import { NODE_STATE_LABEL, VERDICT_LABEL } from "./pressAiRunProgress";
 
 const VERDICT_TONE: Record<PressAiVerdict | "PENDING", string> = {
   PASS: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
@@ -31,11 +31,12 @@ export function VerdictBadge(props: {
 }) {
   return (
     <span
+      title={props.verdict}
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-black tracking-tight ${VERDICT_TONE[props.verdict]}`}
     >
       <span aria-hidden="true">{VERDICT_MARK[props.verdict]}</span>
-      {props.verdict}
-      {props.advanced ? <span className="font-bold">· 통과</span> : null}
+      {VERDICT_LABEL[props.verdict]}
+      {props.advanced ? <span className="font-bold">· 이동함</span> : null}
     </span>
   );
 }

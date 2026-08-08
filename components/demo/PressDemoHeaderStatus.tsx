@@ -59,18 +59,19 @@ export function PressDemoHeaderStatus() {
     );
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-full border border-border py-1.5 pl-2 pr-4 text-xs font-bold">
+    // On a 390px header the full team + quota string crowded out the logo.
+    <div className="flex min-w-0 items-center gap-2 rounded-full border border-border py-1.5 pl-2 pr-2 text-xs font-bold sm:pr-4">
       <span
         aria-hidden="true"
         className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-black text-primary-foreground"
       >
         {status.userLabel.slice(0, 1) || "?"}
       </span>
-      <span className="min-w-0 truncate">
+      <span className="hidden min-w-0 truncate sm:inline">
         {status.teamName}
         {status.userLabel ? ` · ${status.userLabel}` : ""}
       </span>
-      <span className="hidden shrink-0 font-semibold text-muted-foreground sm:inline">
+      <span className="hidden shrink-0 font-semibold text-muted-foreground md:inline">
         {status.articleUnlimited
           ? "Press 할당량 무제한"
           : status.articleRemaining !== null

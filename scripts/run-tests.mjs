@@ -62,7 +62,8 @@ async function main() {
   loadDotEnv({ path: resolve(process.cwd(), ".env"), override: false });
   const testDatabaseUrl = resolveTestDatabaseUrl(process.env);
   const requestedPaths = process.argv.slice(2);
-  const roots = requestedPaths.length > 0 ? requestedPaths : ["lib", "domain"];
+  const roots =
+    requestedPaths.length > 0 ? requestedPaths : ["lib", "domain", "components"];
   const files = await discoverTestFiles(roots);
   if (files.length === 0) {
     console.error("No test files found under lib/ or domain/.");
