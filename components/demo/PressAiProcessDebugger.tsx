@@ -5,6 +5,7 @@ import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
 import { DEFAULT_MEMO } from "./pressAiDebuggerDefaults";
 import { PressAiProcessGraph } from "./PressAiProcessGraph";
 import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
+import { PressAiProducerVerificationPanel } from "./PressAiProducerVerificationPanel";
 import { PressAiRunActionBar } from "./PressAiRunActionBar";
 import { PressAiRunTimeline } from "./PressAiRunTimeline";
 import { PressAiSidePanels } from "./PressAiSidePanels";
@@ -310,6 +311,7 @@ export function PressAiProcessDebugger() {
             }
             onRetry={(nodeId) => void debuggerState.retry(nodeId)}
           />
+          <PressAiProducerVerificationPanel attemptId={attempt.id} revision={attempt.revision} />
           {attempt.activeNodeId === "selected-rewrite" ? (
             <section
               id="press-ai-review-selection"

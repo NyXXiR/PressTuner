@@ -5,10 +5,28 @@ import test from "node:test";
 
 import { restorePressAgentV1Checkpoint } from "./pressAgentV1Runtime";
 import {
+  beginPressAgentObservability,
   normalizeAgentDocumentIds,
   readPressAgentOperationId,
   resolveAgentSearchTopK,
 } from "./pressAgentRuntime";
+
+test("Agent execution fails open when observability bootstrap rejects", async () => {
+  const failures: string[] = [];
+  const result = await beginPressAgentObservability({
+    teamId: "team",
+    userId: "user",
+    runId: "run",
+    traceId: "a".repeat(32),
+  }, {
+    buildManifest: async () => { throw new Error("manifest unavailable"); },
+    recordFailure: async ({ result: failure }) => {
+      if (failure.status === "failed") failures.push(failure.code);
+    },
+  });
+  assert.equal(result.status, "failed");
+  assert.deepEqual(failures, ["OPS_CONSOLE_PROTOCOL_ERROR"]);
+});
 
 test("Agent document filters accept only opaque persisted IDs, not user-facing labels", () => {
   assert.deepEqual(
@@ -104,8 +122,10 @@ test("Agent v2 propagates a private operation UUID across durable and trace boun
   assert.match(source, /phase: "continuation"/);
   assert.match(source, /operationId: operation\.operationId/);
   assert.match(source, /operation_id: operation\.operationId/);
-  assert.match(source, /workflow_id: PRESS_AGENT_WORKFLOW_ID/);
-  assert.match(source, /workflow_version: PRESS_AGENT_VERSION/);
+  assert.match(source, /OPS_PRODUCER_WORKFLOW_ID = "presstuner\.rag-query"/);
+  assert.match(source, /OPS_PRODUCER_WORKFLOW_VERSION = "1\.0\.0"/);
+  assert.doesNotMatch(source, /workflow_id: PRESS_AGENT_WORKFLOW_ID/);
+  assert.doesNotMatch(source, /workflow_version: PRESS_AGENT_VERSION/);
   assert.doesNotMatch(source, /metadata:\s*\{\s*runId:[^}]*teamId:/);
   assert.match(source, /completePressAgentOperation/);
   assert.match(source, /readPressAgentOperationId/);
@@ -129,6 +149,36 @@ test("Agent v2 instruments stable RAG boundaries and completes inside the active
   assert.match(persistence, /kind: "TOOL", status: "FAILED"/);
   assert.match(source, /reportLangSmithRootFeedback\(derivePressAgentRagFeedback\(verdicts\)\)/);
   assert.match(source, /execute: async \(\) => \{[\s\S]*?await persistRunResult\(runRecord, result, startedAtMs, operationId\);/);
+});
+
+test("waiting approval is non-terminal and terminal OTLP export is centralized before completion", () => {
+  const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
+  const persistence = source.slice(source.indexOf("async function persistRunResult"), source.indexOf("export async function startPressAgentRun"));
+  const finalizedBranch = persistence.indexOf("if (finalized.count === 1)");
+  const terminalBranch = persistence.indexOf("if (interruptions.length === 0) {", finalizedBranch);
+  const waitingBranch = persistence.indexOf("} else {", terminalBranch);
+  const terminalFinish = persistence.indexOf('type: "run.finished"', terminalBranch);
+  assert.ok(finalizedBranch >= 0 && terminalBranch > finalizedBranch);
+  assert.ok(terminalFinish > terminalBranch && terminalFinish < waitingBranch);
+  const waiting = persistence.slice(waitingBranch);
+  assert.doesNotMatch(waiting, /type: "run\.finished"/);
+
+  const complete = source.slice(source.indexOf("async function completePressAgentOperation"), source.indexOf("function readVerificationFallbackMode"));
+  const factIndex = complete.indexOf("exportRunExecutionFacts");
+  const otlpIndex = complete.indexOf("exportRunTelemetry");
+  const completionIndex = complete.indexOf("completeOpsConsoleOperation");
+  assert.ok(factIndex >= 0 && factIndex < otlpIndex && otlpIndex < completionIndex);
+  assert.doesNotMatch(persistence, /exportRunTelemetry/);
+});
+
+test("cancellation aborts active execution before canonical fact and operation export", () => {
+  const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
+  const cancellation = source.slice(source.indexOf("export async function cancelPressAgentRun"), source.indexOf("export async function decidePressAgentApproval"));
+  const abortIndex = cancellation.indexOf(".abort()");
+  assert.ok(abortIndex >= 0);
+  assert.ok(abortIndex < cancellation.indexOf("persistPressAgentCancellationWorkflow"));
+  assert.ok(abortIndex < cancellation.indexOf("finalizeProcessRunObservability"));
+  assert.ok(abortIndex < cancellation.indexOf("completePressAgentOperation"));
 });
 
 test("the optional debugger launch surface preserves default callers and uses durable workflow publishing", () => {

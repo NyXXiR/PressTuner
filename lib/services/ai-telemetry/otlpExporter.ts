@@ -1,11 +1,20 @@
-import { buildOtlpTraceRequest, type OtlpTraceRequest } from "@/domain/ai-telemetry/otlpProjection";
+import {
+  buildContentFreeOtlpRequests,
+  PRODUCER_PROTOCOL_LIMITS,
+  type ContentFreeSpanInput,
+  type OtlpTraceRequest,
+} from "@nyxxir/ops-producer";
+import type { CanonicalAiTelemetryEvent } from "@/domain/ai-telemetry/contracts";
+import { CANONICAL_EVENT_LIMIT_EXCEEDED, MAX_CANONICAL_EXPORT_EVENTS } from "@/domain/ai-telemetry/exportLimits";
 import { readCanonicalRunTelemetryRaw } from "./telemetryReadService";
+import { isSecureCredentialEndpoint } from "@/lib/services/operations/credentialEndpointSecurity";
 import { createHash } from "node:crypto";
 
 export const DEFAULT_OTLP_TIMEOUT_MS = 3_000;
 export const MAX_OTLP_TIMEOUT_MS = 10_000;
-export const DEFAULT_OTLP_BATCH_SIZE = 200;
+export const DEFAULT_OTLP_BATCH_SIZE = PRODUCER_PROTOCOL_LIMITS.otlpTraceRequest.maxSpans;
 export const DEFAULT_OTLP_RETRY_MAX_ATTEMPTS = 3;
+export const MAX_OTLP_RETRY_MAX_ATTEMPTS = 10;
 export const DEFAULT_OTLP_RETRY_BASE_MS = 500;
 export const MAX_OTLP_RETRY_BASE_MS = 5_000;
 
@@ -39,7 +48,7 @@ export function readOtlpExporterConfiguration(environment: Record<string, string
   } catch {
     return null;
   }
-  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) return null;
+  if (!isSecureCredentialEndpoint(url) || url.username || url.password || url.search || url.hash) return null;
 
   const requestedTimeout = Number(environment.OPS_CONSOLE_OTLP_TRACES_TIMEOUT_MS ?? DEFAULT_OTLP_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(requestedTimeout) ? Math.min(MAX_OTLP_TIMEOUT_MS, Math.max(1, Math.floor(requestedTimeout))) : DEFAULT_OTLP_TIMEOUT_MS;
@@ -48,7 +57,9 @@ export function readOtlpExporterConfiguration(environment: Record<string, string
   const sampleRate = Number.isFinite(requestedSampleRate) ? Math.min(1, Math.max(0, requestedSampleRate)) : 1;
 
   const requestedRetryAttempts = Number(environment.OPS_CONSOLE_OTLP_TRACES_RETRY_MAX_ATTEMPTS ?? DEFAULT_OTLP_RETRY_MAX_ATTEMPTS);
-  const retryMaxAttempts = Math.max(0, Number.isFinite(requestedRetryAttempts) ? Math.floor(requestedRetryAttempts) : DEFAULT_OTLP_RETRY_MAX_ATTEMPTS);
+  const retryMaxAttempts = Number.isFinite(requestedRetryAttempts)
+    ? Math.min(MAX_OTLP_RETRY_MAX_ATTEMPTS, Math.max(0, Math.floor(requestedRetryAttempts)))
+    : DEFAULT_OTLP_RETRY_MAX_ATTEMPTS;
 
   const requestedRetryBase = Number(environment.OPS_CONSOLE_OTLP_TRACES_RETRY_BASE_MS ?? DEFAULT_OTLP_RETRY_BASE_MS);
   const retryBaseMs = Number.isFinite(requestedRetryBase)
@@ -63,7 +74,7 @@ export type OtlpExportResult =
   | { status: "disabled" }
   | { status: "empty" }
   | { status: "sampled_out" }
-  | { status: "failed"; code: "OTLP_HTTP_ERROR" | "OTLP_NETWORK_ERROR" | "OTLP_TIMEOUT" | "OTLP_INVALID"; retryable: boolean };
+  | { status: "failed"; code: "OTLP_HTTP_ERROR" | "OTLP_NETWORK_ERROR" | "OTLP_TIMEOUT" | "OTLP_INVALID" | typeof CANONICAL_EVENT_LIMIT_EXCEEDED; retryable: boolean };
 
 export function createOtlpExporter(dependencies: OtlpExporterDependencies = {}) {
   const environment = dependencies.environment ?? process.env;
@@ -80,24 +91,38 @@ export function createOtlpExporter(dependencies: OtlpExporterDependencies = {}) 
 
       const events: Awaited<ReturnType<typeof readTelemetry>> = [];
       let afterSequence: number | undefined = undefined;
-      while (events.length < DEFAULT_OTLP_BATCH_SIZE * 100) {
-        const readArgs: { teamId: string; runId: string; limit: number; afterSequence?: number } = { teamId: args.teamId, runId: args.runId, limit: DEFAULT_OTLP_BATCH_SIZE };
+      while (events.length <= MAX_CANONICAL_EXPORT_EVENTS) {
+        const remainingForOverflowDetection = MAX_CANONICAL_EXPORT_EVENTS + 1 - events.length;
+        const readLimit = Math.min(DEFAULT_OTLP_BATCH_SIZE, remainingForOverflowDetection);
+        const readArgs: { teamId: string; runId: string; limit: number; afterSequence?: number } = {
+          teamId: args.teamId,
+          runId: args.runId,
+          limit: readLimit,
+        };
         if (afterSequence !== undefined) readArgs.afterSequence = afterSequence;
         const batch = await readTelemetry(readArgs);
         if (!batch.length) break;
         events.push(...batch);
+        if (events.length > MAX_CANONICAL_EXPORT_EVENTS) {
+          return { status: "failed", code: CANONICAL_EVENT_LIMIT_EXCEEDED, retryable: false };
+        }
         const last = batch.at(-1);
         afterSequence = last?.sequence;
-        if (batch.length < DEFAULT_OTLP_BATCH_SIZE) break;
+        if (batch.length < readLimit) break;
       }
 
       if (!events.length) return { status: "empty" };
 
+      let requests: OtlpTraceRequest[];
+      try {
+        requests = prepareContentFreeOtlpProjection(events).requests;
+      } catch {
+        return { status: "failed", code: "OTLP_INVALID", retryable: false };
+      }
+
       let exportedSpans = 0;
       let lastResult: OtlpExportResult | null = null;
-      for (let index = 0; index < events.length; index += DEFAULT_OTLP_BATCH_SIZE) {
-        const batch = events.slice(index, index + DEFAULT_OTLP_BATCH_SIZE);
-        const request = buildOtlpTraceRequest(batch);
+      for (const request of requests) {
         const result = await sendOtlpTraceRequestWithRetry({ fetch: fetchImpl, configuration, request, now, sleep });
         lastResult = result;
         if (result.status === "exported") {
@@ -111,6 +136,84 @@ export function createOtlpExporter(dependencies: OtlpExporterDependencies = {}) 
       return { status: "empty" };
     },
   };
+}
+
+export function prepareContentFreeOtlpProjection(events: readonly CanonicalAiTelemetryEvent[]): {
+  requests: OtlpTraceRequest[];
+  spanCount: number;
+  requestCount: number;
+} {
+  const spans = aggregateCanonicalEventsToContentFreeSpans(events);
+  const requests = buildContentFreeOtlpRequests(spans, {
+    scopeName: "press-tuner-canonical-telemetry",
+    scopeVersion: "1.0.0",
+  });
+  return { requests, spanCount: spans.length, requestCount: requests.length };
+}
+
+function aggregateCanonicalEventsToContentFreeSpans(events: readonly CanonicalAiTelemetryEvent[]): ContentFreeSpanInput[] {
+  const occurrences = new Map<string, {
+    eventKind: CanonicalAiTelemetryEvent["eventKind"];
+    traceId: string;
+    spanId: string;
+    parentSpanId?: string;
+    startMs: number;
+    endMs: number;
+    latestSequence: number;
+    latestStatus: string;
+    isToolSpan: boolean;
+  }>();
+
+  for (const event of events) {
+    const key = `${event.traceId}:${event.spanId}`;
+    const occurredAtMs = new Date(event.occurredAt).getTime();
+    const existing = occurrences.get(key);
+    const parentSpanId = event.parentSpanId ?? undefined;
+    const isToolSpan = event.eventKind === "span.lifecycle" && event.payload.spanKind === "TOOL";
+    if (!existing) {
+      occurrences.set(key, {
+        eventKind: event.eventKind,
+        traceId: event.traceId,
+        spanId: event.spanId,
+        ...(parentSpanId ? { parentSpanId } : {}),
+        startMs: occurredAtMs,
+        endMs: occurredAtMs,
+        latestSequence: event.sequence,
+        latestStatus: event.status,
+        isToolSpan,
+      });
+      continue;
+    }
+    if (existing.eventKind !== event.eventKind || existing.parentSpanId !== parentSpanId) {
+      throw new Error("Canonical span identity has inconsistent lifecycle references");
+    }
+    existing.startMs = Math.min(existing.startMs, occurredAtMs);
+    existing.endMs = Math.max(existing.endMs, occurredAtMs);
+    existing.isToolSpan ||= isToolSpan;
+    if (event.sequence >= existing.latestSequence) {
+      existing.latestSequence = event.sequence;
+      existing.latestStatus = event.status;
+    }
+  }
+
+  return [...occurrences.values()].map((occurrence) => {
+    const failed = ["FAILED", "BLOCK", "BLOCKED", "CANCELLED", "REJECTED"].includes(occurrence.latestStatus);
+    const succeeded = ["COMPLETED", "PASS", "APPROVED", "ACKNOWLEDGED", "RECORDED"].includes(occurrence.latestStatus);
+    return {
+      traceId: occurrence.traceId,
+      spanId: occurrence.spanId,
+      ...(occurrence.parentSpanId ? { parentSpanId: occurrence.parentSpanId } : {}),
+      name: occurrence.eventKind,
+      kind: occurrence.isToolSpan ? 4 : 1,
+      startTimeUnixNano: toUnixNano(occurrence.startMs),
+      endTimeUnixNano: toUnixNano(occurrence.endMs),
+      statusCode: failed ? 2 : succeeded ? 1 : 0,
+    };
+  });
+}
+
+function toUnixNano(timestampMs: number): string {
+  return String(BigInt(timestampMs) * BigInt(1_000_000));
 }
 
 function isRunSampled(teamId: string, runId: string, sampleRate: number): boolean {

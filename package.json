@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@next/third-parties": "^16.0.10",
+    "@nyxxir/ops-producer": "1.0.0",
     "@openai/agents": "^0.13.5",
     "@portone/browser-sdk": "^0.1.1",
     "@portone/server-sdk": "^0.18.0",

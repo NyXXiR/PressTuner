@@ -4,12 +4,15 @@ import { Prisma, type AgentStepStatus } from "@prisma/client";
 import { parsePressAiProcessEvent, type PressAiProcessEvent, type PressAiProcessEventInput } from "@/domain/press-ai-debugger/processEvents";
 import { boundProcessDetail } from "@/domain/press-ai-debugger/processDetails";
 import { getPressAiProcessDefinition, type PressAiProcessId } from "@/domain/press-ai-debugger/processRegistry";
+import { buildPressAiWorkflowManifest } from "@/domain/press-ai-debugger/opsProducerManifest";
 import { prisma } from "@/lib/prisma";
 import { mapPressProcessEvent } from "@/domain/ai-telemetry/pressMapper";
 import { generateCanonicalTraceId } from "@/domain/ai-telemetry/identifiers";
-import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
+import { appendCanonicalEventInTransaction } from "@/lib/services/ai-telemetry/canonicalEventStore";
+import type { CanonicalAiTelemetryEvent } from "@/domain/ai-telemetry/contracts";
 import { exportRunTelemetry } from "@/lib/services/ai-telemetry/otlpExporter";
 import { beginOpsConsoleOperation, completeOpsConsoleOperation, type OpsConsoleOperationResult } from "@/lib/services/operations/opsConsoleOperationClient";
+import { exportRunExecutionFacts } from "@/lib/services/operations/opsConsoleExecutionFactExporter";
 
 export const PRESS_AI_PROCESS_EVENT_TYPE = "PUBLIC_PROCESS_EVENT_V1";
 export const PRESS_AI_DEBUGGER_LAUNCH_SURFACE = "PRESS_AI_PROCESS_DEBUGGER_V1";
@@ -21,13 +24,19 @@ const OPERATION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 type ProcessObservabilityDependencies = {
   beginOperation: typeof beginOpsConsoleOperation;
   completeOperation: typeof completeOpsConsoleOperation;
+  exportExecutionFacts: typeof exportRunExecutionFacts;
   exportTelemetry: typeof exportRunTelemetry;
   generateTraceId: typeof generateCanonicalTraceId;
+};
+
+type ProcessEventPersistenceDependencies = {
+  appendCanonical: (event: CanonicalAiTelemetryEvent) => Promise<unknown>;
 };
 
 const observabilityDefaults: ProcessObservabilityDependencies = {
   beginOperation: beginOpsConsoleOperation,
   completeOperation: completeOpsConsoleOperation,
+  exportExecutionFacts: exportRunExecutionFacts,
   exportTelemetry: exportRunTelemetry,
   generateTraceId: generateCanonicalTraceId,
 };
@@ -38,7 +47,7 @@ export function readProcessOperationId(input: unknown): string | null {
   return typeof operationId === "string" && OPERATION_ID_PATTERN.test(operationId) ? operationId : null;
 }
 
-async function recordObservabilityFailure(args: { teamId: string; runId: string; phase: "BEGIN" | "COMPLETE" | "EXPORT"; code: string }) {
+async function recordObservabilityFailure(args: { teamId: string; runId: string; phase: "BEGIN" | "CANONICAL" | "FACT" | "COMPLETE" | "EXPORT"; code: string }) {
   try {
     await prisma.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: args.runId, eventType: "OBSERVABILITY_DELIVERY_FAILED", details: { phase: args.phase, errorCode: args.code } } });
   } catch {
@@ -61,7 +70,8 @@ export async function createPressProcessRun(args: { teamId: string; userId: stri
   });
   if (args.enableObservability !== true) return run;
   try {
-    const operation = await dependencies.beginOperation({ teamId: args.teamId, userId: args.userId, workflowVersion: process.version, traceId });
+    const workflowManifest = await buildPressAiWorkflowManifest(process.id);
+    const operation = await dependencies.beginOperation({ teamId: args.teamId, userId: args.userId, workflowVersion: process.version, workflowManifest, traceId });
     if (operation.status === "registered") {
       await prisma.agentRun.update({ where: { id: run.id }, data: { input: json({ ...privateInput, operationId: operation.operationId }) } });
     } else if (operation.status === "failed") {
@@ -78,25 +88,45 @@ export async function updateProcessStep(args: { runId: string; nodeId: string; s
   return prisma.agentStep.updateMany({ where: { runId: args.runId, toolName: args.nodeId, kind: "DOMAIN_PROCESS" }, data: { status: args.status, inputSummary: args.input === undefined ? undefined : json(args.input), outputSummary: args.output === undefined ? undefined : json(args.output), errorCode: error ? (error as Error & { code?: string }).code ?? error.message.slice(0, 100) : undefined, errorMessage: error?.message.slice(0, 4_000), startedAt: args.status === "RUNNING" ? new Date() : undefined, completedAt: ["COMPLETED", "FAILED", "SKIPPED"].includes(args.status) ? new Date() : undefined } });
 }
 
-export async function persistProcessEvent(args: { teamId: string; runId: string; processId: PressAiProcessId; event: PressAiProcessEventInput; observer?: (event: PressAiProcessEvent) => void | Promise<void> }): Promise<PressAiProcessEvent> {
+export async function persistProcessEvent(args: { teamId: string; runId: string; processId: PressAiProcessId; event: PressAiProcessEventInput; observer?: (event: PressAiProcessEvent) => void | Promise<void> }, overrides: Partial<ProcessEventPersistenceDependencies> = {}): Promise<PressAiProcessEvent> {
   const process = getPressAiProcessDefinition(args.processId);
-  const persisted = await prisma.$transaction(async (tx) => {
+  const appendCanonical = overrides.appendCanonical ?? appendCanonicalEventInTransaction;
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM agent_run WHERE id = ${args.runId} AND team_id = ${args.teamId} FOR UPDATE`;
     const rows = await tx.agentRuntimeAuditEvent.findMany({ where: { teamId: args.teamId, runId: args.runId, eventType: PRESS_AI_PROCESS_EVENT_TYPE }, select: { details: true } });
     const existing = rows.map((row) => { const value = row.details as Record<string, unknown>; try { return parsePressAiProcessEvent(value.publicEvent); } catch { return null; } }).filter((entry): entry is PressAiProcessEvent => entry !== null);
     const duplicate = existing.find((entry) => entry.dedupeKey === args.event.dedupeKey);
-    if (duplicate) return duplicate;
     const occurredAt = new Date();
-    const event = parsePressAiProcessEvent({ schemaVersion: "press-ai-process-event/v1", processId: process.id, processVersion: process.version, eventId: randomUUID(), runId: args.runId, sequence: Math.max(0, ...existing.map((entry) => entry.sequence)) + 1, occurredAt: occurredAt.toISOString(), ...args.event });
-    await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: args.runId, eventType: PRESS_AI_PROCESS_EVENT_TYPE, occurredAt, details: json({ publicEvent: event }) } });
+    const event = duplicate ?? parsePressAiProcessEvent({ schemaVersion: "press-ai-process-event/v1", processId: process.id, processVersion: process.version, eventId: randomUUID(), runId: args.runId, sequence: Math.max(0, ...existing.map((entry) => entry.sequence)) + 1, occurredAt: occurredAt.toISOString(), ...args.event });
+    if (!duplicate) {
+      await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: args.runId, eventType: PRESS_AI_PROCESS_EVENT_TYPE, occurredAt, details: json({ publicEvent: event }) } });
+    }
     const run = await tx.agentRun.findUnique({ where: { id: args.runId }, select: { traceId: true } });
     const attempt = await tx.pressAiDebugAttempt.findUnique({ where: { agentRunId: args.runId }, select: { id: true, parentAttemptId: true, caseId: true, registryHash: true } });
     const canonicalEvent = mapPressProcessEvent({ teamId: args.teamId, runId: args.runId, traceId: run?.traceId, attemptId: attempt?.id ?? args.runId, parentAttemptId: attempt?.parentAttemptId, caseId: attempt?.caseId, processId: process.id, processVersion: process.version, registryHash: attempt?.registryHash }, event);
-    if (canonicalEvent) await appendCanonicalEvent(tx, canonicalEvent);
-    return event;
+    return { event, canonicalEvent };
   });
+  if (result.canonicalEvent) {
+    try {
+      await appendCanonical(result.canonicalEvent);
+    } catch {
+      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "CANONICAL", code: "CANONICAL_EVENT_APPEND_FAILED" });
+    }
+  }
+  const persisted = result.event;
   await args.observer?.(persisted);
   return persisted;
+}
+
+/** Public, content-free human review event; canonical mapping emits human.review facts. */
+export async function persistProcessHumanReview(args: { teamId: string; runId: string; processId: PressAiProcessId; nodeId: string; gateId: string; decision: "APPROVED" | "REJECTED"; observer?: (event: PressAiProcessEvent) => void | Promise<void> }) {
+  return persistProcessEvent({
+    teamId: args.teamId,
+    runId: args.runId,
+    processId: args.processId,
+    event: { type: "human.reviewed", dedupeKey: `gate:${args.gateId}:review:${args.decision.toLowerCase()}`, node: { id: args.nodeId }, gate: { id: args.gateId }, review: { decision: args.decision } },
+    observer: args.observer,
+  });
 }
 
 export async function setProcessWaiting(args: { teamId: string; runId: string; processId: PressAiProcessId; nodeId: string; gateId: string; output: unknown; articleId?: string; observer?: (event: PressAiProcessEvent) => void | Promise<void> }) {
@@ -118,10 +148,17 @@ export async function finalizeProcessRunObservability(args: { teamId: string; ru
   }
   if (operationId) {
     try {
-      const result: OpsConsoleOperationResult = await dependencies.completeOperation({ operationId });
-      if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: result.code });
+      const factResult = await dependencies.exportExecutionFacts({
+        teamId: args.teamId,
+        runId: args.runId,
+        processId: args.processId,
+        operationId,
+      });
+      if (factResult.status === "failed") {
+        await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "FACT", code: factResult.code });
+      }
     } catch {
-      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: "OPS_CONSOLE_NETWORK_ERROR" });
+      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "FACT", code: "OPS_PRODUCER_FACT_DELIVERY_FAILED" });
     }
   }
   try {
@@ -129,6 +166,14 @@ export async function finalizeProcessRunObservability(args: { teamId: string; ru
     if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "EXPORT", code: result.code });
   } catch {
     await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "EXPORT", code: "OTLP_NETWORK_ERROR" });
+  }
+  if (operationId) {
+    try {
+      const result: OpsConsoleOperationResult = await dependencies.completeOperation({ operationId });
+      if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: result.code });
+    } catch {
+      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: "OPS_CONSOLE_NETWORK_ERROR" });
+    }
   }
 }
 

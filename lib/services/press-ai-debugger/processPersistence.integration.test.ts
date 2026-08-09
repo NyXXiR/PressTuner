@@ -62,3 +62,37 @@ test("process runs keep one trace and operation through waiting and fail-open te
     await prisma.user.deleteMany({ where: { id: user.id } });
   }
 });
+
+test("public process persistence commits when canonical append fails and duplicate replay repairs canonical telemetry", async () => {
+  const suffix = randomUUID();
+  const user = await prisma.user.create({ data: { loginId: `process-canonical-${suffix}`, label: "Process canonical" } });
+  const team = await prisma.team.create({ data: { slug: `process-canonical-${suffix}`, name: "Process canonical", planId: "free_v1", plan: "FREE", planCategory: "STANDARD", nextPaymentAmount: 0 } });
+  try {
+    const run = await createPressProcessRun({ teamId: team.id, userId: user.id, processId: "press-creation", input: {} });
+    await persistProcessEvent({
+      teamId: team.id,
+      runId: run.id,
+      processId: "press-creation",
+      event: { type: "run.started", dedupeKey: "run:started", run: { status: "running" } },
+    }, {
+      appendCanonical: async () => { throw new Error("canonical table unavailable"); },
+    });
+    assert.equal(await prisma.agentRuntimeAuditEvent.count({ where: { teamId: team.id, runId: run.id, eventType: "PUBLIC_PROCESS_EVENT_V1" } }), 1);
+    assert.equal(await prisma.agentRuntimeAuditEvent.count({ where: { teamId: team.id, runId: run.id, eventType: "CANONICAL_AI_TELEMETRY_V1" } }), 0);
+    const failure = await prisma.agentRuntimeAuditEvent.findFirstOrThrow({ where: { teamId: team.id, runId: run.id, eventType: "OBSERVABILITY_DELIVERY_FAILED" } });
+    assert.deepEqual(failure.details, { phase: "CANONICAL", errorCode: "CANONICAL_EVENT_APPEND_FAILED" });
+
+    await persistProcessEvent({
+      teamId: team.id,
+      runId: run.id,
+      processId: "press-creation",
+      event: { type: "run.started", dedupeKey: "run:started", run: { status: "running" } },
+    });
+    assert.equal(await prisma.agentRuntimeAuditEvent.count({ where: { teamId: team.id, runId: run.id, eventType: "PUBLIC_PROCESS_EVENT_V1" } }), 1);
+    assert.equal(await prisma.agentRuntimeAuditEvent.count({ where: { teamId: team.id, runId: run.id, eventType: "CANONICAL_AI_TELEMETRY_V1" } }), 1);
+  } finally {
+    await prisma.agentRuntimeAuditEvent.deleteMany({ where: { teamId: team.id } });
+    await prisma.team.deleteMany({ where: { id: team.id } });
+    await prisma.user.deleteMany({ where: { id: user.id } });
+  }
+});

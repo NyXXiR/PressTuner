@@ -9,7 +9,7 @@ test("the retained URL exposes explicit checkpoint execution without a RAG auto-
   assert.match(page, /Press AI 프로세스 디버거/); assert.match(page, /PressAiProcessDebugger/);
   assert.match(page, /export const dynamic = "force-static"/); assert.doesNotMatch(page, /PressRagLiveDebugger|PressRagTestDemo|controlled-live/);
   assert.match(debuggerSource, /새 시도 만들기 \(AI 실행 없음\)/); assert.doesNotMatch(debuggerSource, /startPressAiProcessRun|RAG 프로세스 실행/);
-  assert.match(graph, /pressCreationProcess\.edges\.map/); assert.match(graph, /markerEnd/); assert.match(graph, /그래프 확대/);
+  assert.match(graph, /pressCreationProcess/); assert.match(graph, /layout\.edges\.map/); assert.match(graph, /markerEnd/); assert.match(graph, /그래프 확대/);
   assert.match(graph, /animateTransform/); assert.match(graph, /RUNNING/);
   assert.match(debuggerSource, /aria-labelledby="press-ai-process-graph-heading"/);
   assert.doesNotMatch(debuggerSource, /<details className="mb-4 min-w-0 rounded-xl border border-border">/);

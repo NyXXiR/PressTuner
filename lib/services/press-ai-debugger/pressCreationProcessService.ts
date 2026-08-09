@@ -8,7 +8,7 @@ import { normalizeBriefUseCase } from "@/lib/services/article/generationUseCases
 import { reviewUseCase, rePolishUseCase } from "@/lib/services/article/reviewUseCases";
 import { prisma } from "@/lib/prisma";
 import type { PressAiDependencyOverrides } from "@/lib/services/article/pressAiDependencies";
-import { createPressProcessRun, failProcessRun, finalizeProcessRunObservability, persistProcessEvent, setProcessWaiting, updateProcessStep } from "./processPersistence";
+import { createPressProcessRun, failProcessRun, finalizeProcessRunObservability, persistProcessEvent, persistProcessHumanReview, setProcessWaiting, updateProcessStep } from "./processPersistence";
 
 export const StartPressCreationProcessSchema = z.object({ processId: z.literal("press-creation"), rawText: z.string().min(1).max(12_000), tone: z.enum(["formal", "neutral", "friendly"]), reviewInstruction: z.string().max(1000).default("사실과 주의 문구가 보존됐는지 검토해 주세요."), rewriteInstruction: z.string().max(1000).default("선택한 리뷰 의견만 반영해 주세요."), acknowledgedQuotaAndArticleCreation: z.literal(true) }).strict();
 export const ContinuePressCreationProcessSchema = z.discriminatedUnion("action", [
@@ -17,8 +17,8 @@ export const ContinuePressCreationProcessSchema = z.discriminatedUnion("action",
   z.object({ action: z.literal("rewrite-selected"), selectedNoteIds: z.array(z.string()).min(1), userInstruction: z.string().max(1000) }).strict(),
 ]);
 
-type Dependencies = { initArticleDraft: typeof initArticleDraft; normalizeBriefUseCase: typeof normalizeBriefUseCase; generateArticleFromBrief: typeof generateArticleFromBrief; reviewUseCase: typeof reviewUseCase; rePolishUseCase: typeof rePolishUseCase; pressAiDependencies?: PressAiDependencyOverrides };
-const defaults: Dependencies = { initArticleDraft, normalizeBriefUseCase, generateArticleFromBrief, reviewUseCase, rePolishUseCase };
+type Dependencies = { initArticleDraft: typeof initArticleDraft; normalizeBriefUseCase: typeof normalizeBriefUseCase; generateArticleFromBrief: typeof generateArticleFromBrief; reviewUseCase: typeof reviewUseCase; rePolishUseCase: typeof rePolishUseCase; persistHumanReview: typeof persistProcessHumanReview; pressAiDependencies?: PressAiDependencyOverrides };
+const defaults: Dependencies = { initArticleDraft, normalizeBriefUseCase, generateArticleFromBrief, reviewUseCase, rePolishUseCase, persistHumanReview: persistProcessHumanReview };
 
 type ProcessObserver = (event: PressAiProcessEvent) => void | Promise<void>;
 
@@ -74,8 +74,22 @@ export async function continuePressCreationProcess(args: { teamId: string; userI
   if (state.gate !== expectedGate) throw Object.assign(new Error("PRESS_AI_PROCESS_CONTINUATION_STALE"), { status: 409, code: "PRESS_AI_PROCESS_CONTINUATION_STALE" });
   const claimed = await prisma.agentRun.updateMany({ where: { id: run.id, status: "WAITING_APPROVAL" }, data: { status: "RUNNING" } });
   if (claimed.count !== 1) throw Object.assign(new Error("PRESS_AI_PROCESS_CONTINUATION_STALE"), { status: 409, code: "PRESS_AI_PROCESS_CONTINUATION_STALE" });
+  const reviewedNodeId = args.input.action === "confirm-brief"
+    ? "brief-normalization"
+    : args.input.action === "start-review"
+      ? "draft-generation"
+      : "draft-review";
   let nodeId = "draft-generation";
   try {
+    await dependencies.persistHumanReview({
+      teamId: args.teamId,
+      runId: run.id,
+      processId: "press-creation",
+      nodeId: reviewedNodeId,
+      gateId: expectedGate,
+      decision: "APPROVED",
+      observer: args.observer,
+    });
     if (args.input.action === "confirm-brief") {
       await updateProcessStep({ runId: run.id, nodeId: "brief-normalization", status: "COMPLETED" });
       nodeId = "draft-generation"; const body = args.input.confirmedBrief;

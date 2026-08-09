@@ -1,7 +1,15 @@
 import { createHash, randomUUID as nodeRandomUUID } from "node:crypto";
 
+import {
+  OpsProducerClient,
+  ProducerClientError,
+  type ExecutionFactBatch,
+  type ProducerCapabilities,
+  type WorkflowManifest,
+} from "@nyxxir/ops-producer";
+
 import type { PressAgentGuardrailVerdictRecord } from "@/domain/evaluation/pressAgentGuardrailSignals";
-import { CANONICAL_TELEMETRY_PRODUCER_ID } from "@/domain/ai-telemetry/opsConsoleProjection";
+import { isSecureCredentialEndpoint } from "./credentialEndpointSecurity";
 
 export const PRESS_AGENT_WORKFLOW_ID = "presstuner.press-agent";
 
@@ -33,6 +41,8 @@ type OperationUnavailable = {
     | "OPS_CONSOLE_DISABLED"
     | "OPS_CONSOLE_INVALID_OPERATION_ID"
     | "OPS_CONSOLE_INVALID_TRACE_ID"
+    | "OPS_CONSOLE_CAPABILITY_UNAVAILABLE"
+    | "OPS_CONSOLE_PROTOCOL_ERROR"
     | "OPS_CONSOLE_HTTP_ERROR"
     | "OPS_CONSOLE_NETWORK_ERROR"
     | "OPS_CONSOLE_TIMEOUT";
@@ -55,6 +65,7 @@ const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/i;
 const ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/i;
 const DEFAULT_TIMEOUT_MS = 3_000;
 const MAX_TIMEOUT_MS = 10_000;
+const CAPABILITY_CACHE_TTL_MS = 30_000;
 
 export function pseudonymizeOperationReference(value: string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -78,7 +89,7 @@ function readConfiguration(
     return null;
   }
   if (
-    !["http:", "https:"].includes(url.protocol) ||
+    !isSecureCredentialEndpoint(url) ||
     url.username ||
     url.password ||
     url.search ||
@@ -110,63 +121,60 @@ function disabled(operationId: string): OperationUnavailable {
   };
 }
 
-async function request(args: {
+function failed(
+  code: OperationUnavailable["code"],
+  operationId: string,
+  environment: string,
+): OperationUnavailable {
+  return { status: "failed", code, operationId, environment };
+}
+
+type TransportFailure = "timeout" | "network" | null;
+
+async function runProducerClient<T>(args: {
   configuration: ClientConfiguration;
   fetch: FetchImplementation;
-  url: string;
-  body: Record<string, unknown>;
   operationId: string;
-}): Promise<OpsConsoleOperationResult> {
-  const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const response = await Promise.race([
-      args.fetch(args.url, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${args.configuration.writeKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(args.body),
-        signal: controller.signal,
-      }),
-      new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => {
-          controller.abort();
-          reject(new DOMException("Timed out", "TimeoutError"));
-        }, args.configuration.timeoutMs);
-      }),
-    ]);
-    if (!response.ok) {
-      return {
-        status: "failed",
-        code: "OPS_CONSOLE_HTTP_ERROR",
-        operationId: args.operationId,
-        environment: args.configuration.environment,
-      };
+  action: (client: OpsProducerClient, transportFailure: () => TransportFailure) => Promise<T>;
+}): Promise<{ ok: true; value: T } | { ok: false; result: OperationUnavailable }> {
+  let transportFailure: TransportFailure = null;
+  const timedFetch: typeof fetch = async (input, init) => {
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        args.fetch(input, { ...init, signal: controller.signal }),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(() => {
+            transportFailure = "timeout";
+            controller.abort();
+            reject(new DOMException("Timed out", "TimeoutError"));
+          }, args.configuration.timeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      if (transportFailure !== "timeout") transportFailure = "network";
+      throw error;
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
-    return {
-      status: args.body.schemaVersion === "ops-console/operation-registration/v1"
-        ? "registered"
-        : args.body.schemaVersion === "ops-console/operation-events-batch/v1"
-          ? "reported"
-          : "completed",
-      operationId: args.operationId,
-      environment: args.configuration.environment,
-    };
+  };
+  const client = new OpsProducerClient({
+    baseUrl: args.configuration.baseUrl,
+    writeKey: args.configuration.writeKey,
+    fetch: timedFetch,
+  });
+  try {
+    return { ok: true, value: await args.action(client, () => transportFailure) };
   } catch (error) {
-    return {
-      status: "failed",
-      code:
-        controller.signal.aborted ||
-        (error instanceof DOMException && error.name === "TimeoutError")
-          ? "OPS_CONSOLE_TIMEOUT"
-          : "OPS_CONSOLE_NETWORK_ERROR",
-      operationId: args.operationId,
-      environment: args.configuration.environment,
-    };
-  } finally {
-    if (timeout) clearTimeout(timeout);
+    const code = transportFailure === "timeout"
+      ? "OPS_CONSOLE_TIMEOUT"
+      : transportFailure === "network"
+        ? "OPS_CONSOLE_NETWORK_ERROR"
+        : error instanceof ProducerClientError && error.status
+          ? "OPS_CONSOLE_HTTP_ERROR"
+          : "OPS_CONSOLE_PROTOCOL_ERROR";
+    return { ok: false, result: failed(code, args.operationId, args.configuration.environment) };
   }
 }
 
@@ -177,6 +185,19 @@ export function createOpsConsoleOperationClient(
   const fetchImpl = dependencies.fetch ?? fetch;
   const now = dependencies.now ?? (() => new Date());
   const randomUUID = dependencies.randomUUID ?? nodeRandomUUID;
+  let capabilityCache:
+    | { expiresAt: number; value: ProducerCapabilities | null }
+    | undefined;
+
+  const getProducerCapabilities = async (client: OpsProducerClient) => {
+    const nowMs = now().getTime();
+    if (capabilityCache && capabilityCache.expiresAt > nowMs) {
+      return capabilityCache.value;
+    }
+    const value = await client.getProducerCapabilities();
+    capabilityCache = { expiresAt: nowMs + CAPABILITY_CACHE_TTL_MS, value };
+    return value;
+  };
 
   return {
     environment(): string | null {
@@ -187,50 +208,87 @@ export function createOpsConsoleOperationClient(
       teamId: string;
       userId: string;
       workflowVersion: string;
+      workflowManifest?: WorkflowManifest;
       traceId: string;
     }): Promise<OpsConsoleOperationResult> {
       const operationId = randomUUID();
       const configuration = readConfiguration(environment);
       if (!configuration) return disabled(operationId);
       if (!TRACE_ID_PATTERN.test(args.traceId)) {
-        return {
-          status: "failed",
-          code: "OPS_CONSOLE_INVALID_TRACE_ID",
-          operationId,
-          environment: configuration.environment,
-        };
+        return failed("OPS_CONSOLE_INVALID_TRACE_ID", operationId, configuration.environment);
       }
       const timestamp = now().toISOString();
-      return request({
+      const outcome = await runProducerClient({
         configuration,
         fetch: fetchImpl,
-        url: `${configuration.baseUrl}/api/ai-operations/v1/operations`,
         operationId,
-        body: {
-          schemaVersion: "ops-console/operation-registration/v1",
-          operationId,
-          traceId: args.traceId,
-          workflow: {
-            id: PRESS_AGENT_WORKFLOW_ID,
-            version: args.workflowVersion,
-          },
-          tenantRef: pseudonymizeOperationReference(args.teamId),
-          environment: configuration.environment,
-          actor: {
-            type: "human",
-            reference: pseudonymizeOperationReference(args.userId),
-          },
-          startedAt: timestamp,
-          registeredAt: timestamp,
+        action: async (client, transportFailure) => {
+          if (args.workflowManifest) {
+            if (
+              args.workflowManifest.workflow.version !== args.workflowVersion ||
+              args.workflowManifest.protocolVersion !== "ops-console/producer-protocol/v1"
+            ) {
+              throw new ProducerClientError("PRODUCER_REQUEST_INVALID");
+            }
+            const capabilities = await getProducerCapabilities(client);
+            if (
+              !capabilities ||
+              transportFailure() ||
+              !capabilities.acceptedProtocolVersions.includes(args.workflowManifest.protocolVersion) ||
+              !args.workflowManifest.capabilities.every((capability) =>
+                capabilities.capabilities.includes(capability)
+              )
+            ) {
+              return { capabilityUnavailable: true } as const;
+            }
+            await client.registerWorkflow(args.workflowManifest);
+          }
+          await client.registerOperation({
+            schemaVersion: "ops-console/operation-registration/v1",
+            operationId,
+            traceId: args.traceId,
+            workflow: args.workflowManifest?.workflow ?? {
+              id: PRESS_AGENT_WORKFLOW_ID,
+              version: args.workflowVersion,
+            },
+            tenantRef: pseudonymizeOperationReference(args.teamId),
+            environment: configuration.environment,
+            actor: {
+              type: "human",
+              reference: pseudonymizeOperationReference(args.userId),
+            },
+            startedAt: timestamp,
+            registeredAt: timestamp,
+          });
+          return { capabilityUnavailable: false } as const;
         },
       });
+      if (outcome.ok === false) return outcome.result;
+      if (outcome.value.capabilityUnavailable) {
+        return failed("OPS_CONSOLE_CAPABILITY_UNAVAILABLE", operationId, configuration.environment);
+      }
+      return { status: "registered", operationId, environment: configuration.environment };
     },
 
-    /**
-     * Reports guardrail verdicts for a finished operation. Ops Console attributes each
-     * verdict to the workflow stage it names, so its report can point at the stage that
-     * broke a rule. Reporting nothing is valid: an absent verdict reads as "not checked".
-     */
+    async appendExecutionFacts(args: {
+      batch: ExecutionFactBatch;
+    }): Promise<OpsConsoleOperationResult> {
+      const operationId = args.batch.facts[0]?.operationId ?? "";
+      const configuration = readConfiguration(environment);
+      if (!configuration) return disabled(operationId);
+      if (!UUID_PATTERN.test(operationId)) {
+        return failed("OPS_CONSOLE_INVALID_OPERATION_ID", operationId, configuration.environment);
+      }
+      const outcome = await runProducerClient({
+        configuration,
+        fetch: fetchImpl,
+        operationId,
+        action: (client) => client.appendExecutionFacts(args.batch),
+      });
+      if (outcome.ok === false) return outcome.result;
+      return { status: "reported", operationId, environment: configuration.environment };
+    },
+
     async reportGuardrails(args: {
       operationId: string;
       verdicts: readonly PressAgentGuardrailVerdictRecord[];
@@ -239,31 +297,24 @@ export function createOpsConsoleOperationClient(
       const configuration = readConfiguration(environment);
       if (!configuration) return disabled(args.operationId);
       if (!UUID_PATTERN.test(args.operationId)) {
-        return {
-          status: "failed",
-          code: "OPS_CONSOLE_INVALID_OPERATION_ID",
-          operationId: args.operationId,
-          environment: configuration.environment,
-        };
+        return failed("OPS_CONSOLE_INVALID_OPERATION_ID", args.operationId, configuration.environment);
       }
       if (!args.verdicts.length) {
         return { status: "reported", operationId: args.operationId, environment: configuration.environment };
       }
-
       const timestamp = (args.occurredAt ?? now()).toISOString();
-      return request({
+      const outcome = await runProducerClient({
         configuration,
         fetch: fetchImpl,
-        url: `${configuration.baseUrl}/api/ai-operations/v1/events`,
         operationId: args.operationId,
-        body: {
+        action: (client) => client.pushOperationEvents({
           schemaVersion: "ops-console/operation-events-batch/v1",
           events: args.verdicts.slice(0, MAX_GUARDRAIL_EVENTS).map((entry) => ({
             eventId: randomUUID(),
             operationId: args.operationId,
             occurredAt: timestamp,
             observedAt: timestamp,
-            providerId: CANONICAL_TELEMETRY_PRODUCER_ID,
+            providerId: "opentelemetry",
             providerRecordId: `guardrail:${entry.stageId}:${entry.guardrailId}`,
             signal: {
               kind: "quality",
@@ -277,8 +328,10 @@ export function createOpsConsoleOperationClient(
               verdict: entry.verdict,
             },
           })),
-        },
+        }),
       });
+      if (outcome.ok === false) return outcome.result;
+      return { status: "reported", operationId: args.operationId, environment: configuration.environment };
     },
 
     async complete(args: {
@@ -288,23 +341,19 @@ export function createOpsConsoleOperationClient(
       const configuration = readConfiguration(environment);
       if (!configuration) return disabled(args.operationId);
       if (!UUID_PATTERN.test(args.operationId)) {
-        return {
-          status: "failed",
-          code: "OPS_CONSOLE_INVALID_OPERATION_ID",
-          operationId: args.operationId,
-          environment: configuration.environment,
-        };
+        return failed("OPS_CONSOLE_INVALID_OPERATION_ID", args.operationId, configuration.environment);
       }
-      return request({
+      const outcome = await runProducerClient({
         configuration,
         fetch: fetchImpl,
-        url: `${configuration.baseUrl}/api/ai-operations/v1/operations/${args.operationId}/complete`,
         operationId: args.operationId,
-        body: {
+        action: (client) => client.completeOperation(args.operationId, {
           schemaVersion: "ops-console/operation-completion/v1",
           completedAt: (args.completedAt ?? now()).toISOString(),
-        },
+        }),
       });
+      if (outcome.ok === false) return outcome.result;
+      return { status: "completed", operationId: args.operationId, environment: configuration.environment };
     },
   };
 }
@@ -312,6 +361,7 @@ export function createOpsConsoleOperationClient(
 const defaultClient = createOpsConsoleOperationClient();
 
 export const beginOpsConsoleOperation = defaultClient.begin;
+export const appendOpsConsoleExecutionFacts = defaultClient.appendExecutionFacts;
 export const completeOpsConsoleOperation = defaultClient.complete;
 export const reportOpsConsoleGuardrails = defaultClient.reportGuardrails;
 export const readOpsConsoleOperationEnvironment = defaultClient.environment;

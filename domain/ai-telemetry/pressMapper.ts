@@ -73,6 +73,7 @@ export function mapPressProcessEvent(context: PressTelemetryContext, event: Pres
   if (event.type === "run.started") return mapRunLifecycle(scoped, "STARTED");
   if (event.type === "run.finished") return mapRunLifecycle(scoped, event.run.status === "succeeded" || event.run.status === "warning" ? "COMPLETED" : event.run.status === "blocked" ? "BLOCKED" : event.run.status === "cancelled" ? "CANCELLED" : "FAILED", event.run.findingCode);
   if (event.type === "run.waiting-input") return mapHumanApproval(scoped, { sourceId: event.eventId, gateId: event.gate.id, phase: "REQUESTED", decision: "PENDING" });
+  if (event.type === "human.reviewed") return mapHumanApproval(scoped, { sourceId: event.eventId, gateId: event.gate.id, phase: "RECORDED", decision: event.review.decision });
   if (event.type === "node.state") return mapNodeLifecycle(scoped, { nodeId: event.node.id, commandId: event.eventId, phase: event.node.state === "running" ? "STARTED" : event.node.state === "failed" || event.node.state === "blocked" ? "FAILED" : "COMPLETED", reasonCode: event.node.findingCode });
   if (event.edge.state !== "taken" && event.edge.state !== "taken-with-violation") return null;
   return mapEdgeTraversed(scoped, { transitionId: event.eventId, edgeId: event.edge.id, sourceNodeId: event.edge.source, targetNodeId: event.edge.target, verdict: event.edge.state === "taken-with-violation" ? "WARN" : "PASS", acknowledged: event.edge.state === "taken-with-violation" });

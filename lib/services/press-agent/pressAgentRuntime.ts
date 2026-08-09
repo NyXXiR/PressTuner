@@ -61,11 +61,12 @@ import {
 import { searchKnowledgeAndPersistAgentCitations } from "@/lib/services/knowledge/agentKnowledgeCitationService";
 import { persistFinalAgentCitations } from "@/lib/services/knowledge/agentKnowledgeEvidenceService";
 import { exportRunTelemetry } from "@/lib/services/ai-telemetry/otlpExporter";
+import { buildPressAiWorkflowManifest } from "@/domain/press-ai-debugger/opsProducerManifest";
+import { exportRunExecutionFacts } from "@/lib/services/operations/opsConsoleExecutionFactExporter";
 import {
   beginOpsConsoleOperation,
   completeOpsConsoleOperation,
   reportOpsConsoleGuardrails,
-  PRESS_AGENT_WORKFLOW_ID,
   readOpsConsoleOperationEnvironment,
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
@@ -98,6 +99,9 @@ async function persistPressAgentWorkflowEvent(args: Parameters<typeof persistDur
   if (!hasPressAgentWorkflowObserver()) return null;
   return persistDurablePressAgentWorkflowEvent(args);
 }
+
+const OPS_PRODUCER_WORKFLOW_ID = "presstuner.rag-query";
+const OPS_PRODUCER_WORKFLOW_VERSION = "1.0.0";
 
 export const PRESS_AGENT_VERSION = "press-agent-v2";
 export const PRESS_AGENT_MODEL =
@@ -185,8 +189,8 @@ export function readPressAgentOperationId(input: unknown): string | null {
 async function recordOperationTelemetryFailure(args: {
   teamId: string;
   runId: string;
-  phase: "BEGIN" | "COMPLETE" | "GUARDRAILS";
-  result: OpsConsoleOperationResult;
+  phase: "BEGIN" | "FACT" | "EXPORT" | "COMPLETE" | "GUARDRAILS";
+  result: OpsConsoleOperationResult | { status: "failed"; code: string };
 }) {
   if (args.result.status !== "failed") return;
   try {
@@ -203,6 +207,47 @@ async function recordOperationTelemetryFailure(args: {
   }
 }
 
+type PressAgentObservabilityBootstrapDependencies = {
+  buildManifest: typeof buildPressAiWorkflowManifest;
+  beginOperation: typeof beginOpsConsoleOperation;
+  recordFailure: typeof recordOperationTelemetryFailure;
+};
+
+export async function beginPressAgentObservability(args: {
+  teamId: string;
+  userId: string;
+  runId: string;
+  traceId: string;
+}, overrides: Partial<PressAgentObservabilityBootstrapDependencies> = {}): Promise<OpsConsoleOperationResult> {
+  const dependencies: PressAgentObservabilityBootstrapDependencies = {
+    buildManifest: buildPressAiWorkflowManifest,
+    beginOperation: beginOpsConsoleOperation,
+    recordFailure: recordOperationTelemetryFailure,
+    ...overrides,
+  };
+  try {
+    const workflowManifest = await dependencies.buildManifest("rag-query");
+    const result = await dependencies.beginOperation({
+      teamId: args.teamId,
+      userId: args.userId,
+      workflowVersion: workflowManifest.workflow.version,
+      workflowManifest,
+      traceId: args.traceId,
+    });
+    await dependencies.recordFailure({ teamId: args.teamId, runId: args.runId, phase: "BEGIN", result });
+    return result;
+  } catch {
+    const result = {
+      status: "failed",
+      code: "OPS_CONSOLE_PROTOCOL_ERROR",
+      operationId: "",
+      environment: null,
+    } as const;
+    await dependencies.recordFailure({ teamId: args.teamId, runId: args.runId, phase: "BEGIN", result });
+    return result;
+  }
+}
+
 async function completePressAgentOperation(args: {
   teamId: string;
   runId: string;
@@ -211,6 +256,49 @@ async function completePressAgentOperation(args: {
   guardrails?: PressAgentGuardrailObservation;
 }) {
   if (!args.operationId) return;
+
+  try {
+    const factResult = await exportRunExecutionFacts({
+      teamId: args.teamId,
+      runId: args.runId,
+      processId: "rag-query",
+      operationId: args.operationId,
+    });
+    if (factResult.status === "failed") {
+      await recordOperationTelemetryFailure({
+        teamId: args.teamId,
+        runId: args.runId,
+        phase: "FACT",
+        result: factResult,
+      });
+    }
+  } catch {
+    await recordOperationTelemetryFailure({
+      teamId: args.teamId,
+      runId: args.runId,
+      phase: "FACT",
+      result: { status: "failed", code: "OPS_PRODUCER_FACT_DELIVERY_FAILED" },
+    });
+  }
+
+  try {
+    const telemetryResult = await exportRunTelemetry({ teamId: args.teamId, runId: args.runId });
+    if (telemetryResult.status === "failed") {
+      await recordOperationTelemetryFailure({
+        teamId: args.teamId,
+        runId: args.runId,
+        phase: "EXPORT",
+        result: { status: "failed", code: telemetryResult.code },
+      });
+    }
+  } catch {
+    await recordOperationTelemetryFailure({
+      teamId: args.teamId,
+      runId: args.runId,
+      phase: "EXPORT",
+      result: { status: "failed", code: "OTLP_NETWORK_ERROR" },
+    });
+  }
 
   // Guardrail verdicts are reported before completion so the operation is never marked
   // finished with its attribution missing. Telemetry never changes the Agent result.
@@ -1193,12 +1281,6 @@ async function persistRunResult(
           : null,
         cannotAnswer: finalOutput?.cannotAnswer ?? null,
       });
-      await completePressAgentOperation({
-        teamId: runRecord.teamId,
-        runId: runRecord.id,
-        operationId,
-        guardrails: guardrailObservation,
-      });
       const verdicts = deriveGuardrailVerdicts(guardrailObservation);
       const warning = verdicts.some((verdict) => verdict.verdict === "violation");
       if (failedToolCount > 0 && readVerificationFallbackMode(previousOutput) === null) {
@@ -1206,17 +1288,15 @@ async function persistRunResult(
       }
       await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:complete", stage: { id: "terminal-evaluation", state: warning ? "warning" : "succeeded", findingCode: warning ? "guardrail-warning" : null, metrics: { failedTools: failedToolCount, citations: finalOutput?.sourceIds.length ?? 0 } } } });
       await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: warning ? "warning" : "succeeded", findingCode: warning ? "guardrail-warning" : null } } });
+      await completePressAgentOperation({
+        teamId: runRecord.teamId,
+        runId: runRecord.id,
+        operationId,
+        guardrails: guardrailObservation,
+      });
     } else {
       await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "stage.state", dedupeKey: "stage:terminal:approval", stage: { id: "terminal-evaluation", state: "blocked", findingCode: "approval-required" } } });
-      await persistPressAgentWorkflowEvent({ teamId: runRecord.teamId, runId: runRecord.id, event: { type: "run.finished", dedupeKey: "run:terminal", run: { status: "blocked", findingCode: "approval-required" } } });
     }
-  }
-  // Export canonical telemetry to Ops Console via OTLP. Fail-open: telemetry delivery
-  // must never alter the Agent result or PressTuner run state.
-  try {
-    await exportRunTelemetry({ teamId: runRecord.teamId, runId: runRecord.id });
-  } catch {
-    // Observability-only export failure is intentionally swallowed.
   }
 }
 
@@ -1280,10 +1360,10 @@ export async function startPressAgentRun(args: {
       ),
     },
   });
-  const operation = await beginOpsConsoleOperation({
+  const operation = await beginPressAgentObservability({
     teamId: args.teamId,
     userId: args.userId,
-    workflowVersion: PRESS_AGENT_VERSION,
+    runId: runRecord.id,
     traceId,
   });
   const operationId =
@@ -1307,12 +1387,6 @@ export async function startPressAgentRun(args: {
       // Operation persistence is observability-only and cannot fail the run.
     }
   }
-  await recordOperationTelemetryFailure({
-    teamId: args.teamId,
-    runId: runRecord.id,
-    phase: "BEGIN",
-    result: operation,
-  });
   await prisma.agentRuntimeAuditEvent.create({
     data: {
       teamId: args.teamId,
@@ -1337,8 +1411,8 @@ export async function startPressAgentRun(args: {
     await traceLangSmithOperation({
       operationId,
       traceId,
-      workflowId: PRESS_AGENT_WORKFLOW_ID,
-      workflowVersion: PRESS_AGENT_VERSION,
+      workflowId: OPS_PRODUCER_WORKFLOW_ID,
+      workflowVersion: OPS_PRODUCER_WORKFLOW_VERSION,
       environment:
         operation.environment ??
         readOpsConsoleOperationEnvironment() ??
@@ -1371,8 +1445,8 @@ export async function startPressAgentRun(args: {
               ...(operationId
                 ? {
                     operation_id: operation.operationId,
-                    workflow_id: PRESS_AGENT_WORKFLOW_ID,
-                    workflow_version: PRESS_AGENT_VERSION,
+                    workflow_id: OPS_PRODUCER_WORKFLOW_ID,
+                    workflow_version: OPS_PRODUCER_WORKFLOW_VERSION,
                     environment:
                       operation.environment ??
                       readOpsConsoleOperationEnvironment() ??
@@ -1538,8 +1612,8 @@ async function continuePressAgentRun(
     await traceLangSmithOperation({
       operationId,
       traceId,
-      workflowId: PRESS_AGENT_WORKFLOW_ID,
-      workflowVersion: PRESS_AGENT_VERSION,
+      workflowId: OPS_PRODUCER_WORKFLOW_ID,
+      workflowVersion: OPS_PRODUCER_WORKFLOW_VERSION,
       environment: readOpsConsoleOperationEnvironment() ?? "unconfigured",
       phase: "continuation",
       execute: async () => {
@@ -1576,8 +1650,8 @@ async function continuePressAgentRun(
               ...(operationId
                 ? {
                     operation_id: operationId,
-                    workflow_id: PRESS_AGENT_WORKFLOW_ID,
-                    workflow_version: PRESS_AGENT_VERSION,
+                    workflow_id: OPS_PRODUCER_WORKFLOW_ID,
+                    workflow_version: OPS_PRODUCER_WORKFLOW_VERSION,
                     environment:
                       readOpsConsoleOperationEnvironment() ?? "unconfigured",
                   }
@@ -1719,13 +1793,13 @@ export async function cancelPressAgentRun(args: {
       },
     });
   });
+  activeRunAbortControllers.get(args.runId)?.abort();
   if (isRagDebuggerRun) {
     await persistPressAgentCancellationWorkflow({ teamId: args.teamId, runId: args.runId });
   }
   if (isProcessDebuggerRun) {
     await finalizeProcessRunObservability({ teamId: args.teamId, runId: args.runId, processId: "press-creation", status: "cancelled", findingCode: "user-cancelled" });
   }
-  activeRunAbortControllers.get(args.runId)?.abort();
   if (!isProcessDebuggerRun) {
     await completePressAgentOperation({ teamId: args.teamId, runId: args.runId, operationId, completedAt: now });
   }

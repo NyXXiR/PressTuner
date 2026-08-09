@@ -20,6 +20,7 @@ test("operation client stays disabled for missing or invalid credentials without
   for (const environment of [
     {},
     { ...validEnvironment, OPS_CONSOLE_AI_OPERATIONS_URL: "javascript:alert(1)" },
+    { ...validEnvironment, OPS_CONSOLE_AI_OPERATIONS_URL: "http://ops.example.test" },
     { ...validEnvironment, OPS_CONSOLE_AI_OPERATIONS_WRITE_KEY: " " },
     { ...validEnvironment, OPS_CONSOLE_AI_OPERATIONS_WRITE_KEY: "key\nheader" },
   ]) {
@@ -46,6 +47,24 @@ test("operation client stays disabled for missing or invalid credentials without
       environment: null,
     });
     assert.equal(requested, false);
+  }
+});
+
+test("operation client permits credential-bearing HTTP only on explicit loopback hosts", async () => {
+  for (const baseUrl of [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://[::1]:3000",
+  ]) {
+    let requested = false;
+    const client = createOpsConsoleOperationClient({
+      environment: { ...validEnvironment, OPS_CONSOLE_AI_OPERATIONS_URL: baseUrl },
+      fetch: async () => { requested = true; return new Response(null, { status: 201 }); },
+      randomUUID: () => operationId,
+      now: () => now,
+    });
+    assert.equal((await client.begin({ teamId: "team", userId: "user", workflowVersion: "press-agent-v2", traceId })).status, "registered");
+    assert.equal(requested, true);
   }
 });
 
@@ -205,13 +224,13 @@ test("guardrail verdicts are pushed as one batch of attributed quality signals",
   });
 
   assert.equal(result.status, "reported");
-  assert.equal(capturedUrl, "https://ops.example.test/api/ai-operations/v1/events");
+  assert.equal(String(capturedUrl), "https://ops.example.test/api/ai-operations/v1/events");
   const body = captured as unknown as { schemaVersion: string; events: Array<Record<string, unknown>> };
   assert.equal(body.schemaVersion, "ops-console/operation-events-batch/v1");
   assert.equal(body.events.length, 2);
 
   const [violation, pass] = body.events;
-  assert.equal(violation!.providerId, "press-tuner-canonical-ai-telemetry");
+  assert.equal(violation!.providerId, "opentelemetry");
   assert.equal(violation!.operationId, operationId);
   assert.equal(violation!.providerRecordId, "guardrail:verification:citation-claim-verification");
   assert.deepEqual(violation!.signal, {

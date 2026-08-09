@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parsePressAiProcessEvent, type PressAiProcessEvent } from "@/domain/press-ai-debugger/processEvents";
+import { ProducerVerificationReportSchema, type ProducerVerificationReport } from "@/domain/press-ai-debugger/producerVerification";
 
 const DocumentSchema = z.object({ id: z.string(), originalName: z.string(), status: z.string(), pageCount: z.number().int().nullable().optional(), chunkCount: z.number().int().nonnegative().optional(), activeGenerationId: z.string().nullable().optional(), hasPendingReplacement: z.boolean().optional() }).passthrough();
 const QuotaSchema = z.object({ activeDocumentCount: z.number().int().nonnegative(), storedBytes: z.number().int().nonnegative(), uploadsInWindow: z.number().int().nonnegative(), limits: z.object({ documents: z.number().int().positive(), storedBytes: z.number().int().positive(), uploads: z.number().int().positive(), windowSeconds: z.number().int().positive() }), retryAfterSeconds: z.number().int().nonnegative() }).passthrough();
@@ -54,6 +55,19 @@ export async function fetchPressAiCheckpointAttemptHistory(fetchImpl: typeof fet
 export async function fetchPressAiCheckpointComparison(attemptId: string, fetchImpl: typeof fetch = fetch) {
   const value = await checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/comparison`, { cache: "no-store" }));
   return (value as { comparisons?: PressAiCheckpointComparison[] }).comparisons ?? [];
+}
+export async function fetchPressAiProducerVerification(attemptId: string, fetchImpl: typeof fetch = fetch): Promise<ProducerVerificationReport> {
+  const response = await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/producer-verification`, { cache: "no-store" });
+  const value = await response.json().catch(() => null);
+  if (!response.ok) {
+    const body = value && typeof value === "object" ? value as Record<string, unknown> : {};
+    const allowedCodes = new Set(["PRESS_AI_PRODUCER_VERIFICATION_UNAUTHENTICATED", "PRESS_AI_PRODUCER_VERIFICATION_FORBIDDEN", "PRESS_AI_PRODUCER_VERIFICATION_NOT_FOUND", "PRESS_AI_PRODUCER_VERIFICATION_FAILED"]);
+    const code = typeof body.code === "string" && allowedCodes.has(body.code) ? body.code : `PRESS_AI_PRODUCER_VERIFICATION_HTTP_${response.status}`;
+    throw new PressAiDebuggerApiError(code, response.status, null);
+  }
+  const envelope = z.object({ verification: ProducerVerificationReportSchema }).strict().safeParse(value);
+  if (!envelope.success) throw new PressAiDebuggerApiError("PRESS_AI_PRODUCER_VERIFICATION_INVALID", 502, null);
+  return envelope.data.verification;
 }
 export async function executePressAiCheckpointNode(attemptId: string, nodeId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/steps/${encodeURIComponent(nodeId)}/execute`, { method: "POST", headers, body: JSON.stringify(input) })); }
 export async function advancePressAiCheckpointEdge(attemptId: string, edgeId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/edges/${encodeURIComponent(edgeId)}/advance`, { method: "POST", headers, body: JSON.stringify(input) })); }
