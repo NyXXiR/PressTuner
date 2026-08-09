@@ -9,8 +9,8 @@ function canonical(value: unknown): string {
 export function getProcessRegistryHash(process: PressAiProcessDefinition): string {
   const identity = {
     id: process.id, version: process.version,
-    nodes: process.nodes.map(({ id, sequence, operationKey, quotaUnits, gate }) => ({ id, sequence, operationKey, quotaUnits: quotaUnits ?? 0, gate: gate ?? null })),
-    edges: process.edges.map(({ id, sequence, source, target, payload, mandatoryGuardrailIds, humanGate }) => ({ id, sequence, source, target, payload, mandatoryGuardrailIds, humanGate: humanGate ?? null })),
+    nodes: process.nodes.map(({ id, sequence, operationKey, quotaUnits, gate, contract }) => ({ id, sequence, operationKey, quotaUnits: quotaUnits ?? 0, gate: gate ?? null, contract: contract ?? null })),
+    edges: process.edges.map(({ id, sequence, source, target, payload, mandatoryGuardrailIds, humanGate, userGateInputFields, kind }) => ({ id, sequence, source, target, payload, mandatoryGuardrailIds, humanGate: humanGate ?? null, userGateInputFields: userGateInputFields ?? [], kind: kind ?? "FORWARD" })),
   };
   let hash = 0x811c9dc5;
   for (const byte of new TextEncoder().encode(canonical(identity))) { hash ^= byte; hash = Math.imul(hash, 0x01000193); }

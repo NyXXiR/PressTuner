@@ -51,7 +51,9 @@ export async function buildPressAiWorkflowManifest(
     id: edge.id,
     sourceStageId: edge.source,
     targetStageId: edge.target,
-    transitionType: edge.humanGate
+    transitionType: edge.kind === "ITERATION"
+      ? "RETRY" as const
+      : edge.humanGate
       ? "GUARD" as const
       : (outgoingCount.get(edge.source) ?? 0) > 1
         ? "BRANCH" as const
@@ -68,7 +70,7 @@ export async function buildPressAiWorkflowManifest(
       id: overrides.workflowId ?? `presstuner.${process.id}`,
       version: overrides.workflowVersion ?? process.version,
     },
-    topology: "DAG",
+    topology: process.id === "press-creation" ? "STATE_MACHINE" : "DAG",
     capabilities: [...PRODUCER_CAPABILITIES],
     stages,
     edges,

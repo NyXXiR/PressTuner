@@ -18,6 +18,7 @@ const COMMAND_LABEL: Record<PressAiNextAction["kind"], string> = {
   rewrite: "선택 수정 실행",
   advance: "다음 노드 활성화",
   retry: "다시 실행",
+  finish_or_review: "결정",
   idle: "대기",
 };
 
@@ -39,13 +40,14 @@ export function PressAiRunActionBar(props: {
     acknowledgeHumanGate: boolean,
   ) => void;
   onRetry: (nodeId: string) => void;
+  onFinish: () => void;
 }) {
   const { action } = props;
   // Keyed by edge so acknowledgements never leak from one transition to the next.
   const [acks, setAcks] = useState<
     Record<string, { warn: boolean; human: boolean }>
   >({});
-  const gateKey = action.kind === "advance" ? action.edgeId : "";
+  const gateKey = action.kind === "advance" || action.kind === "finish_or_review" ? action.edgeId : "";
   const warn = acks[gateKey]?.warn ?? false;
   const human = acks[gateKey]?.human ?? false;
   const setAck = (patch: { warn?: boolean; human?: boolean }) =>
@@ -74,6 +76,7 @@ export function PressAiRunActionBar(props: {
     else if (action.kind === "advance")
       props.onAdvance(action.edgeId, warn, human);
     else if (action.kind === "retry") props.onRetry(action.nodeId);
+    else if (action.kind === "finish_or_review") props.onFinish();
   };
 
   return (
@@ -169,6 +172,16 @@ export function PressAiRunActionBar(props: {
               해당 단계 보기
             </button>
           ) : null}
+          {action.kind === "finish_or_review" && action.canReviewAgain ? (
+            <button
+              type="button"
+              disabled={props.busy}
+              onClick={() => props.onAdvance(action.edgeId, false, true)}
+              className="min-h-11 rounded-lg border border-primary px-4 text-sm font-black text-primary"
+            >
+              다시 리뷰
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={disabled}
@@ -179,7 +192,7 @@ export function PressAiRunActionBar(props: {
                 : "bg-primary text-primary-foreground"
             }`}
           >
-            {COMMAND_LABEL[action.kind]}
+            {action.kind === "finish_or_review" ? "완료" : COMMAND_LABEL[action.kind]}
           </button>
         </div>
       </div>

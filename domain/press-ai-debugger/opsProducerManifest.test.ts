@@ -46,11 +46,14 @@ test("press creation manifest declares existing human gate identities", async ()
     "confirm-normalized-brief",
     "confirm-generated-draft",
     "select-review-notes",
+    "review-rewritten-draft",
   ]);
   assert.deepEqual(manifest.edges.map(({ id, transitionType }) => ({ id, transitionType })), [
     { id: "initialization-brief", transitionType: "SEQUENCE" },
     { id: "brief-draft", transitionType: "GUARD" },
     { id: "draft-review", transitionType: "GUARD" },
     { id: "review-rewrite", transitionType: "GUARD" },
+    { id: "rewrite-review", transitionType: "RETRY" },
   ]);
+  assert.equal(manifest.topology, "STATE_MACHINE");
 });

@@ -8,6 +8,12 @@ export const REQUIRED_TEST_DATABASE_COLUMNS = Object.freeze([
   ["subscription_change", "payment_status"],
   ["subscription_change", "apply_status"],
   ["agent_run", "runtime_policy_snapshot"],
+  ["press_ai_debug_case", "topology_config"],
+  ["press_ai_debug_attempt", "topology_snapshot"],
+  ["press_ai_debug_attempt", "guardrail_snapshot"],
+  ["press_ai_debug_checkpoint", "iteration"],
+  ["press_ai_debug_transition", "evaluation_state"],
+  ["press_ai_debug_guardrail_observation", "evaluation_status"],
 ]);
 
 export function findMissingRequiredColumns(presentColumns) {

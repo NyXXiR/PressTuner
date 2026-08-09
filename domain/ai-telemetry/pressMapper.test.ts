@@ -10,6 +10,7 @@ test("press mapper preserves node, edge, approval and replay topology", () => {
   assert.equal(mapHumanApproval(context, { sourceId: "waiting", gateId: "confirm", phase: "REQUESTED", decision: "PENDING" }).status, "WAITING");
   assert.equal(mapReplayStarted({ ...context, parentAttemptId: "parent" }, { sourceAttemptId: "parent" }).executionMode, "REPLAY");
   const evaluation = mapTransitionEvaluation(context, { transitionId: "t", edgeId: "brief-draft", sourceNodeId: "brief-normalization", evaluator: { id: "grounding", version: "1" }, verdict: "WARN", expected: "raw memo", observed: "generated prose" }); assert.equal(evaluation.eventKind, "transition.evaluation"); assert.equal(evaluation.payload.verdict, "WARN");
+  const reevaluation = mapTransitionEvaluation(context, { transitionId: "t", edgeId: "brief-draft", sourceNodeId: "brief-normalization", evaluator: { id: "grounding", version: "1" }, evaluationRevision: 2, verdict: "PASS" }); assert.notEqual(reevaluation.eventId, evaluation.eventId); assert.equal(reevaluation.attributes["domain.evaluation.revision"], 2);
 });
 
 test("legacy process edges become traversal events only after they are taken", () => {

@@ -4,8 +4,8 @@ import { evaluatePressTransitionDataset } from "@/domain/evaluation/pressTransit
 
 function option(name: string) { const index = process.argv.indexOf(name); return index < 0 ? undefined : process.argv[index + 1]; }
 async function main() {
-  const fixture = resolve(option("--fixture") ?? "evals/press-ai-debugger/v1/dataset.json");
-  const baselinePath = resolve(option("--baseline") ?? "evals/press-ai-debugger/v1/baseline.json");
+  const fixture = resolve(option("--fixture") ?? "evals/press-ai-debugger/v2/dataset.json");
+  const baselinePath = resolve(option("--baseline") ?? "evals/press-ai-debugger/v2/baseline.json");
   const output = option("--output"); const mode = option("--mode") ?? "deterministic"; const spend = process.argv.includes("--allow-spend");
   let artifact: unknown; let exitCode = 0;
   try {

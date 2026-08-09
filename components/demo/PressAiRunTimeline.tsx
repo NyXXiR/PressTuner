@@ -73,6 +73,7 @@ export function PressAiRunTimeline(props: {
   open: Record<string, boolean>;
   onOpenChange: (open: Record<string, boolean>) => void;
   onRetry: (nodeId: string) => void;
+  onReevaluate: (transitionId: string) => void;
 }) {
   const rows = timelineRows(props.attempt, props.busy);
   const open = props.open;
@@ -264,6 +265,7 @@ export function PressAiRunTimeline(props: {
                     edgeId={edge.id}
                     busy={props.busy}
                     onRetry={props.onRetry}
+                    onReevaluate={props.onReevaluate}
                   />
                 </div>
               ) : null}

@@ -11,6 +11,7 @@ import {
   withCanonicalSequence,
 } from "./pressMapper";
 import { buildPressAiWorkflowManifest } from "@/domain/press-ai-debugger/opsProducerManifest";
+import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import {
   OpsProducerFactProjectionError,
   projectCanonicalEventsToExecutionFactBatches,
@@ -22,7 +23,7 @@ const context = {
   runId: "run-private-sentinel",
   attemptId: "attempt-private-sentinel",
   processId: "press-creation",
-  processVersion: "2.0.0",
+  processVersion: pressCreationProcess.version,
   occurredAt: "2026-08-09T10:00:00.000Z",
 } as const;
 

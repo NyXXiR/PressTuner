@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "press-transition-dataset/v1",
+  "version": "v2",
+  "processId": "press-creation",
+  "processVersion": "3.0.0",
+  "registryHash": "fnv1a32:87e56016",
+  "createdAt": "2026-08-09T00:00:00.000Z",
+  "contentHash": "f7cd8d88fc8aa474fe82b54872c91233fed8e3a471bcaddf6199d1d1f847614c",
+  "requiredEdgeIds": ["initialization-brief", "brief-draft", "draft-review", "review-rewrite", "rewrite-review"],
+  "cases": [
+    { "id": "ownership-pass-v2", "edgeId": "initialization-brief", "sourceInput": {}, "sourceOutput": { "articleId": "article-ci" }, "targetPayload": {}, "expectedVerdict": "PASS", "article": { "id": "article-ci", "teamId": "ci", "type": "PRESS_RELEASE" }, "expectations": [], "forbiddenMetadataTokens": [] },
+    { "id": "memo-grounding-v2", "edgeId": "brief-draft", "sourceInput": { "rawText": "8월 20일까지 3곳에서 공개한다.", "tone": "formal", "usage": { "quota": 918273 } }, "sourceOutput": { "announceType": "출시", "oneLiner": "8월 20일까지 3곳에서 공개한다.", "points": [], "tone": "formal", "rawText": "원문" }, "targetPayload": {}, "expectedVerdict": "PASS", "expectations": [], "forbiddenMetadataTokens": ["918273"] },
+    { "id": "draft-grounding-v2", "edgeId": "draft-review", "sourceInput": { "announceType": "성과", "oneLiner": "전환율이 30%다.", "points": ["5개 팀이 참여했다."], "tone": "neutral" }, "sourceOutput": { "articleId": "article-ci", "title": "성과", "plain": "전환율이 30%다. 5개 팀이 참여했다." }, "targetPayload": { "title": "성과", "plain": "전환율이 30%다. 5개 팀이 참여했다." }, "expectedVerdict": "PASS", "expectations": [], "forbiddenMetadataTokens": [] },
+    { "id": "review-selection-v2", "edgeId": "review-rewrite", "sourceInput": { "articleId": "article-ci" }, "sourceOutput": { "notes": [{ "id": "note-1" }] }, "targetPayload": { "articleId": "article-ci", "selectedNoteIds": ["note-1"], "userInstruction": "간결하게 수정" }, "expectedVerdict": "PASS", "expectations": [], "forbiddenMetadataTokens": [] },
+    { "id": "rewrite-review-v2", "edgeId": "rewrite-review", "sourceInput": { "articleId": "article-ci" }, "sourceOutput": { "title": "수정 제목", "plain": "수정 본문" }, "targetPayload": { "articleId": "article-ci", "title": "수정 제목", "plain": "수정 본문", "userInstruction": "다시 검토" }, "expectedVerdict": "PASS", "expectations": [], "forbiddenMetadataTokens": [] }
+  ]
+}

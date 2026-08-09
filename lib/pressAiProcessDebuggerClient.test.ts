@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { File } from "node:buffer";
 import test from "node:test";
 
-import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
+import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, createPressAiDebugCaseGuardrail, deletePressAiDebugCaseGuardrail, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, reevaluatePressAiTransition, rerunPressAiDebugCase, sampleAssetToFile, updatePressAiDebugCaseTopology, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
 
 test("uploads a direct File as multipart without a manual content type", async () => {
   let request: RequestInit | undefined;
@@ -60,4 +60,21 @@ test("checkpoint history and comparisons read persisted server projections", asy
   });
   assert.equal(history[0]?.id, "a1");
   assert.equal(comparisons[0]?.newVerdict, "PASS");
+});
+
+test("transition reevaluation and case mutations use scoped command endpoints", async () => {
+  const requests: string[] = [];
+  const mock = async (url: string | URL | Request, init?: RequestInit) => { requests.push(`${init?.method}:${String(url)}`); return new Response(JSON.stringify({ ok: true }), { status: 200 }); };
+  await reevaluatePressAiTransition("attempt", "transition", { commandId: "command-1", expectedRevision: 1 }, mock);
+  await updatePressAiDebugCaseTopology("case", { commandId: "command-2", expectedRevision: 2, topology: {} }, mock);
+  await createPressAiDebugCaseGuardrail("case", { commandId: "command-3", expectedRevision: 3 }, mock);
+  await deletePressAiDebugCaseGuardrail("case", "guard", { commandId: "command-4", expectedRevision: 4 }, mock);
+  await rerunPressAiDebugCase("case", { commandId: "command-5", expectedRevision: 5 }, mock);
+  assert.deepEqual(requests, [
+    "POST:/api/press/agent/process-debug-attempts/attempt/transitions/transition/reevaluate",
+    "PATCH:/api/press/agent/process-debug-cases/case",
+    "POST:/api/press/agent/process-debug-cases/case/guardrails",
+    "DELETE:/api/press/agent/process-debug-cases/case/guardrails/guard",
+    "POST:/api/press/agent/process-debug-cases/case/rerun",
+  ]);
 });

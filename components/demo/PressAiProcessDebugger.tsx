@@ -7,6 +7,7 @@ import { PressAiProcessGraph } from "./PressAiProcessGraph";
 import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
 import { PressAiProducerVerificationPanel } from "./PressAiProducerVerificationPanel";
 import { PressAiRunActionBar } from "./PressAiRunActionBar";
+import { PressAiIterationTimeline } from "./PressAiIterationTimeline";
 import { PressAiRunTimeline } from "./PressAiRunTimeline";
 import { PressAiSidePanels } from "./PressAiSidePanels";
 import {
@@ -116,14 +117,14 @@ export function PressAiProcessDebugger() {
   const action = useMemo(() => nextAction(attempt), [attempt]);
   // The row the action bar points at starts expanded; an explicit collapse still wins.
   const defaultOpenKey =
-    action.kind === "advance" || action.kind === "retry"
+    action.kind === "advance" || action.kind === "retry" || action.kind === "finish_or_review"
       ? `edge:${action.edgeId}`
       : action.kind === "execute" || action.kind === "rewrite"
         ? `node:${action.nodeId}`
         : null;
-  const reviewCheckpoint = attempt?.checkpoints.find(
-    (item) => item.nodeId === "draft-review",
-  );
+  const reviewCheckpoint = attempt?.checkpoints
+    .filter((item) => item.nodeId === "draft-review")
+    .at(-1);
   const reviewNotes =
     reviewCheckpoint &&
     reviewCheckpoint.output &&
@@ -150,7 +151,7 @@ export function PressAiProcessDebugger() {
           the title and description here only pushed the controls below the fold. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
-          Press creation · checkpoint v2
+          Press creation · checkpoint v3
         </p>
         <span
           title={attempt?.status ?? "NOT_STARTED"}
@@ -310,8 +311,10 @@ export function PressAiProcessDebugger() {
               void debuggerState.advance(edgeId, warn, human)
             }
             onRetry={(nodeId) => void debuggerState.retry(nodeId)}
+            onFinish={() => void debuggerState.finish()}
           />
           <PressAiProducerVerificationPanel attemptId={attempt.id} revision={attempt.revision} />
+          <PressAiIterationTimeline attempt={attempt} />
           {attempt.activeNodeId === "selected-rewrite" ? (
             <section
               id="press-ai-review-selection"
@@ -397,6 +400,7 @@ export function PressAiProcessDebugger() {
               open={openRows}
               onOpenChange={setOpenRows}
               onRetry={(nodeId) => void debuggerState.retry(nodeId)}
+              onReevaluate={(transitionId) => void debuggerState.reevaluate(transitionId)}
             />
             <PressAiSidePanels
               attempt={attempt}

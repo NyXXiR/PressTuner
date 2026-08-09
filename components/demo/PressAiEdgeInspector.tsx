@@ -18,6 +18,7 @@ export function PressAiEdgeInspector(props: {
   edgeId: string;
   busy: boolean;
   onRetry: (nodeId: string) => void;
+  onReevaluate: (transitionId: string) => void;
 }) {
   const edge = pressCreationProcess.edges.find(
     (item) => item.id === props.edgeId,
@@ -29,6 +30,7 @@ export function PressAiEdgeInspector(props: {
     (item) => item.nodeId === edge?.source,
   );
   const [retryNodeId, setRetryNodeId] = useState(edge?.source ?? "");
+  const latestEvaluationRevision = Math.max(0, ...(transition?.observations.map((item) => item.evaluationRevision) ?? []));
   if (!edge) return null;
   const restartable = props.attempt.checkpoints.filter(
     (item) => item.sequence <= (checkpoint?.sequence ?? -1),
@@ -83,6 +85,11 @@ export function PressAiEdgeInspector(props: {
           </li>
         )}
       </ol>
+      {transition?.evaluationState === "COMPLETED" && transition.observations.some((item) => item.origin === "CASE_GUARDRAIL" && item.evaluationRevision === latestEvaluationRevision && item.evaluationStatus === "NOT_EVALUABLE") ? (
+        <button type="button" disabled={props.busy} onClick={() => props.onReevaluate(transition.id)} className="mt-4 min-h-11 rounded-lg border border-violet-500 px-4 font-bold text-violet-700 dark:text-violet-300">
+          의미 가드레일 다시 평가
+        </button>
+      ) : null}
       {transition?.verdict === "BLOCK" ? (
         <div className="mt-4">
           <p className="text-sm font-bold text-rose-700 dark:text-rose-300">

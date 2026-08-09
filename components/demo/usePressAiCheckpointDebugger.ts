@@ -9,7 +9,9 @@ import {
   createPressAiCheckpointAttempt,
   executePressAiCheckpointNode,
   fetchPressAiCheckpointAttempt,
+  finishPressAiCheckpointAttempt,
   retryPressAiCheckpointAttempt,
+  reevaluatePressAiTransition,
   savePressAiDebugCase,
   type PressAiCheckpointAttempt,
 } from "@/lib/pressAiProcessDebuggerClient";
@@ -151,6 +153,8 @@ export function usePressAiCheckpointDebugger() {
       )) as { attemptId: string };
       setAttempt(await fetchPressAiCheckpointAttempt(result.attemptId));
     },
+    finish: () => attempt && act(`finish:${attempt.revision}`, (commandId) => finishPressAiCheckpointAttempt(attempt.id, { commandId, expectedRevision: attempt.revision })),
+    reevaluate: (transitionId: string) => attempt && act(`reevaluate:${transitionId}:${attempt.revision}`, (commandId) => reevaluatePressAiTransition(attempt.id, transitionId, { commandId, expectedRevision: attempt.revision })),
     saveCase: (
       checkpointId: string,
       name: string,

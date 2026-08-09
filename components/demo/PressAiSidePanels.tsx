@@ -88,6 +88,7 @@ export function PressAiSidePanels(props: {
             checkpoints={props.attempt.checkpoints}
             busy={props.busy}
             onSave={props.onSaveCase}
+            onOpenAttempt={props.onOpen}
           />
         ) : null}
         {tab === "comparison" ? (

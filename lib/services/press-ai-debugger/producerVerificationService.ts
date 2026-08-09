@@ -74,7 +74,9 @@ export function createProducerVerificationService(overrides: Partial<ProducerVer
     const attempt = await dependencies.loadAttempt({ teamId, attemptId });
     if (!attempt || !isPressAiProcessId(attempt.processId)) throw notFound();
     const process = getPressAiProcessDefinition(attempt.processId);
-    const manifest = await buildPressAiWorkflowManifest(attempt.processId);
+    // Historical attempts remain projectable with their pinned workflow identity even
+    // when the current registry has advanced; the report still exposes registry mismatch.
+    const manifest = await buildPressAiWorkflowManifest(attempt.processId, { workflowVersion: attempt.processVersion });
     const [canonicalRows, failureRows] = await Promise.all([
       dependencies.loadCanonicalRows({ teamId, runId: attempt.runId }),
       dependencies.loadFailureRows({ teamId, runId: attempt.runId }),

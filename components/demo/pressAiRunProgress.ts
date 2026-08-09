@@ -5,7 +5,7 @@ import {
 } from "@/domain/press-ai-debugger/processRegistry";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 
-export type PressAiVerdict = "PASS" | "WARN" | "BLOCK";
+export type PressAiVerdict = "PASS" | "WARN" | "BLOCK" | "NOT_EVALUABLE";
 export type PressAiNodeState =
   | "RUNNING"
   | "ACTIVE"
@@ -47,6 +47,7 @@ export const VERDICT_LABEL: Record<PressAiVerdict | "PENDING", string> = {
   PASS: "통과",
   WARN: "주의",
   BLOCK: "차단",
+  NOT_EVALUABLE: "평가 불가",
   PENDING: "대기",
 };
 
@@ -110,6 +111,14 @@ export type PressAiNextAction =
       nodeId: string;
       anchorId: string;
     }
+  | {
+      kind: "finish_or_review";
+      label: string;
+      hint: string;
+      edgeId: "rewrite-review";
+      anchorId: string;
+      canReviewAgain: boolean;
+    }
   | { kind: "idle"; label: string; hint: string };
 
 export function nextAction(attempt: Attempt | null): PressAiNextAction {
@@ -125,7 +134,15 @@ export function nextAction(attempt: Attempt | null): PressAiNextAction {
   if (pending) {
     const edge = findEdge(pending.edgeId);
     const target = edge ? findNode(edge.target) : null;
-    if (pending.verdict === "BLOCK")
+    if (pending.edgeId === "rewrite-review") return {
+      kind: "finish_or_review",
+      label: "수정본 검토 결정",
+      hint: `현재 반복 ${attempt.currentIteration}/${attempt.topologySnapshot.maxIterations}`,
+      edgeId: "rewrite-review",
+      anchorId: edgeAnchorId(pending.edgeId),
+      canReviewAgain: attempt.currentIteration < attempt.topologySnapshot.maxIterations,
+    };
+    if (pending.verdict === "BLOCK" || pending.verdict === "NOT_EVALUABLE")
       return {
         kind: "retry",
         label: "차단 지점부터 다시 실행",
@@ -201,7 +218,7 @@ export function timelineRows(
       key: `node:${node.id}`,
       node,
       checkpoint:
-        attempt?.checkpoints.find((item) => item.nodeId === node.id) ?? null,
+        attempt?.checkpoints.filter((item) => item.nodeId === node.id).at(-1) ?? null,
       state: nodeState(attempt, node, busy),
     });
     for (const edge of pressCreationProcess.edges
@@ -212,7 +229,7 @@ export function timelineRows(
         key: `edge:${edge.id}`,
         edge,
         transition:
-          attempt?.transitions.find((item) => item.edgeId === edge.id) ?? null,
+          attempt?.transitions.filter((item) => item.edgeId === edge.id).at(-1) ?? null,
       });
   }
   return rows;

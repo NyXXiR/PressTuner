@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma, type PressAiDebugCommand } from "@prisma/client";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import { getProcessRegistryHash } from "@/domain/press-ai-debugger/processRegistryHash";
 import { derivePressTransitionPayload } from "@/domain/press-ai-debugger/transitionPayload";
@@ -14,13 +14,17 @@ import { createPressDebugArticle, executePressDebugNode, PRESS_AI_DEBUG_EXECUTOR
 import { summarizeCheckpointAttemptHistory } from "./attemptHistorySummary";
 import { findCheckpointAttempt, json, listCheckpointAttempts, publicCheckpointAttempt } from "./checkpointRepository";
 import { hashPressAiDebugCommand, PressAiDebugConflictError, replayOrRunCommand } from "./commandRepository";
+import { DEFAULT_PRESS_AI_CASE_TOPOLOGY, parsePressAiCaseTopology, PressAiGuardrailSnapshotSchema, rebasePressAiArticleReferences } from "@/domain/press-ai-debugger/caseConfiguration";
+import { PRESS_AI_SEMANTIC_EVALUATOR_ID, PRESS_AI_SEMANTIC_EVALUATOR_MODEL, PRESS_AI_SEMANTIC_EVALUATOR_VERSION, type SemanticGuardrailEvaluation } from "./semanticGuardrailEvaluator";
+import { resumeSemanticEvaluationCommand, semanticEvaluationRequestHash } from "./semanticEvaluationService";
 
 export const CommandEnvelopeSchema = z.object({ commandId: z.string().min(8).max(100), expectedRevision: z.number().int().nonnegative() });
 export const CreateCheckpointAttemptSchema = CommandEnvelopeSchema.extend({ rawText: z.string().min(1).max(12_000), tone: z.enum(["formal", "neutral", "friendly"]), reviewInstruction: z.string().max(1000).optional(), rewriteInstruction: z.string().max(1000).optional(), caseId: z.string().optional() }).strict();
 export const ExecuteCheckpointNodeSchema = CommandEnvelopeSchema.extend({ selectedNoteIds: z.array(z.string()).max(100).optional(), rewriteInstruction: z.string().max(1000).optional() }).strict();
 export const AdvanceCheckpointEdgeSchema = CommandEnvelopeSchema.extend({ acknowledgeWarn: z.boolean().default(false), acknowledgeHumanGate: z.boolean().default(false) }).strict();
+export const FinishCheckpointAttemptSchema = CommandEnvelopeSchema.strict();
 const identity = { processVersion: pressCreationProcess.version, registryHash: getProcessRegistryHash(pressCreationProcess), executorVersion: PRESS_AI_DEBUG_EXECUTOR_VERSION };
-const telemetryContext = (args: { teamId: string; runId: string; traceId?: string | null; attemptId: string; parentAttemptId?: string | null; caseId?: string | null }): PressTelemetryContext => ({ ...args, processId: "press-creation", processVersion: identity.processVersion, registryHash: identity.registryHash });
+const telemetryContext = (args: { teamId: string; runId: string; traceId?: string | null; attemptId: string; parentAttemptId?: string | null; caseId?: string | null; processVersion?: string; registryHash?: string }): PressTelemetryContext => ({ ...args, processId: "press-creation", processVersion: args.processVersion ?? identity.processVersion, registryHash: args.registryHash ?? identity.registryHash });
 
 export async function createCheckpointAttempt(args: { teamId: string; userId: string; input: z.infer<typeof CreateCheckpointAttemptSchema> }) {
   const existing = await findCheckpointAttempt(args.teamId, args.input.commandId);
@@ -30,7 +34,11 @@ export async function createCheckpointAttempt(args: { teamId: string; userId: st
   const inputSnapshot = { articleId: article.id, rawText: args.input.rawText, tone: args.input.tone, reviewInstruction: args.input.reviewInstruction ?? "", rewriteInstruction: args.input.rewriteInstruction ?? "" };
   const run = await createPressProcessRun({ teamId: args.teamId, userId: args.userId, processId: "press-creation", input: inputSnapshot });
   await prisma.$transaction(async (tx) => {
-    await tx.pressAiDebugAttempt.create({ data: { id: args.input.commandId, teamId: args.teamId, createdById: args.userId, caseId: args.input.caseId, agentRunId: run.id, articleId: article.id, processId: "press-creation", ...identity, startNodeId: pressCreationProcess.nodes[0].id, activeNodeId: pressCreationProcess.nodes[0].id, inputSnapshot: json(inputSnapshot) } });
+    const debugCase = args.input.caseId ? await tx.pressAiDebugCase.findFirst({ where: { id: args.input.caseId, teamId: args.teamId }, include: { guardrails: { orderBy: { displayOrder: "asc" } }, sourceAttempt: { select: { articleId: true } } } }) : null;
+    if (args.input.caseId && !debugCase) throw Object.assign(new Error("PRESS_AI_DEBUG_CASE_NOT_FOUND"), { status: 404 });
+    const topologySnapshot = debugCase ? parsePressAiCaseTopology(debugCase.topologyConfig) : DEFAULT_PRESS_AI_CASE_TOPOLOGY;
+    const guardrailSnapshot = debugCase ? PressAiGuardrailSnapshotSchema.parse(debugCase.guardrails.map((item) => ({ id: item.guardrailId, edgeId: item.edgeId, instruction: item.instruction, severity: item.severity, evaluatorId: item.evaluatorId, evaluatorVersion: item.evaluatorVersion, displayOrder: item.displayOrder }))) : [];
+    await tx.pressAiDebugAttempt.create({ data: { id: args.input.commandId, teamId: args.teamId, createdById: args.userId, caseId: args.input.caseId, caseRevision: debugCase?.revision, topologySnapshot: json(topologySnapshot), guardrailSnapshot: json(guardrailSnapshot), captureInputSnapshot: debugCase ? json(rebasePressAiArticleReferences(debugCase.inputSnapshot, debugCase.sourceAttempt.articleId, article.id)) : undefined, agentRunId: run.id, articleId: article.id, processId: "press-creation", ...identity, startNodeId: pressCreationProcess.nodes[0].id, activeNodeId: pressCreationProcess.nodes[0].id, inputSnapshot: json(inputSnapshot) } });
     await tx.pressAiDebugCommand.create({ data: { attemptId: args.input.commandId, commandId: args.input.commandId, kind: "CREATE", expectedRevision: 0, requestHash: hashPressAiDebugCommand(args.input), response: json({ attemptId: args.input.commandId, articleId: article.id }) } });
     await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: run.id, eventType: "PRESS_AI_CHECKPOINT_COMMAND_V1", details: json({ attemptId: args.input.commandId, commandId: args.input.commandId, kind: "CREATE", revision: 0, ...identity }) } });
     await appendCanonicalEvent(tx, mapRunLifecycle(telemetryContext({ teamId: args.teamId, runId: run.id, traceId: run.traceId, attemptId: args.input.commandId, caseId: args.input.caseId }), "STARTED"));
@@ -42,50 +50,83 @@ export async function createCheckpointAttempt(args: { teamId: string; userId: st
 export async function getCheckpointAttempt(teamId: string, attemptId: string) { const attempt = await findCheckpointAttempt(teamId, attemptId); if (!attempt) throw Object.assign(new Error("PRESS_AI_DEBUG_ATTEMPT_NOT_FOUND"), { status: 404 }); return publicCheckpointAttempt(attempt); }
 export async function getCheckpointAttemptHistory(teamId: string) { return publicCheckpointAttempt(summarizeCheckpointAttemptHistory(await listCheckpointAttempts(teamId))); }
 
-export async function executeCheckpointNode(args: { teamId: string; userId: string; attemptId: string; nodeId: string; input: z.infer<typeof ExecuteCheckpointNodeSchema>; dependencies?: PressAiDependencyOverrides }) {
-  const before = await prisma.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { agentRun: { select: { traceId: true } } } });
+export async function executeCheckpointNode(args: { teamId: string; userId: string; attemptId: string; nodeId: string; input: z.infer<typeof ExecuteCheckpointNodeSchema>; dependencies?: PressAiDependencyOverrides; semanticEvaluator?: (args: { guardrails: readonly { id: string; instruction: string }[]; sourceOutput: unknown; targetPayload: unknown }) => Promise<SemanticGuardrailEvaluation> }) {
+  const before = await prisma.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { agentRun: { select: { traceId: true } }, transitions: { where: { advancedAt: { not: null } }, orderBy: { sequence: "desc" }, take: 1 }, checkpoints: { orderBy: { sequence: "desc" }, take: 1 } } });
   if (!before) throw Object.assign(new Error("PRESS_AI_DEBUG_ATTEMPT_NOT_FOUND"), { status: 404 });
-  const receipt = await prisma.pressAiDebugCommand.findUnique({ where: { attemptId_commandId: { attemptId: args.attemptId, commandId: args.input.commandId } }, select: { id: true } });
-  if (!receipt && (before.revision !== args.input.expectedRevision || before.activeNodeId !== args.nodeId || before.status !== "ACTIVE")) throw new PressAiDebugConflictError(before.revision !== args.input.expectedRevision ? "PRESS_AI_DEBUG_COMMAND_STALE" : "PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
-  const context = telemetryContext({ teamId: args.teamId, runId: before.agentRunId, traceId: before.agentRun.traceId, attemptId: before.id, parentAttemptId: before.parentAttemptId, caseId: before.caseId });
+  const receipt = await prisma.pressAiDebugCommand.findUnique({ where: { attemptId_commandId: { attemptId: args.attemptId, commandId: args.input.commandId } } });
+  if (receipt) {
+    if (receipt.requestHash !== hashPressAiDebugCommand(args.input) || receipt.kind !== `EXECUTE:${args.nodeId}` || receipt.expectedRevision !== args.input.expectedRevision) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_COMMAND_REUSE_CONFLICT");
+    if (receipt.status === "PENDING") return resumeSemanticEvaluationCommand({ teamId: args.teamId, userId: args.userId, attemptId: args.attemptId, commandId: args.input.commandId, evaluator: args.semanticEvaluator });
+    return { replayed: true, response: receipt.response };
+  }
+  if (before.revision !== args.input.expectedRevision || before.activeNodeId !== args.nodeId || before.status !== "ACTIVE") throw new PressAiDebugConflictError(before.revision !== args.input.expectedRevision ? "PRESS_AI_DEBUG_COMMAND_STALE" : "PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
+  const context = telemetryContext({ teamId: args.teamId, runId: before.agentRunId, traceId: before.agentRun.traceId, attemptId: before.id, parentAttemptId: before.parentAttemptId, caseId: before.caseId, processVersion: before.processVersion, registryHash: before.registryHash });
   await appendCanonicalEventInTransaction(mapNodeLifecycle(context, { nodeId: args.nodeId, commandId: args.input.commandId, phase: "STARTED" }));
-  try { return await prisma.$transaction(async (tx) => replayOrRunCommand({ tx, teamId: args.teamId, attemptId: args.attemptId, commandId: args.input.commandId, kind: `EXECUTE:${args.nodeId}`, expectedRevision: args.input.expectedRevision, request: args.input, mutate: async () => {
-    const attempt = await tx.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { transitions: { where: { advancedAt: { not: null } }, orderBy: { sequence: "desc" }, take: 1 }, checkpoints: { orderBy: { sequence: "desc" }, take: 1 }, case: true } });
-    if (!attempt) throw Object.assign(new Error("PRESS_AI_DEBUG_ATTEMPT_NOT_FOUND"), { status: 404 });
-    if (attempt.activeNodeId !== args.nodeId || attempt.status !== "ACTIVE") throw new PressAiDebugConflictError("PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
-    const node = pressCreationProcess.nodes.find((item) => item.id === args.nodeId); if (!node) throw new Error("PRESS_AI_PROCESS_NODE_INVALID");
-    const initial = attempt.inputSnapshot as Record<string, any>; const prior = attempt.transitions[0]; const restored = attempt.checkpoints[0]; const restoredEdge = restored ? pressCreationProcess.edges.find((edge) => edge.source === restored.nodeId && edge.target === node.id) : undefined;
-    const nodeInput = node.sequence === 0 ? { articleId: attempt.articleId } : prior?.targetPayload as Record<string, any> ?? (restored && restoredEdge ? derivePressTransitionPayload({ edgeId: restoredEdge.id, sourceOutput: restored.output, attemptInput: initial as never }) : undefined);
+  const node = pressCreationProcess.nodes.find((item) => item.id === args.nodeId); if (!node) throw new Error("PRESS_AI_PROCESS_NODE_INVALID");
+  const initial = before.inputSnapshot as Record<string, any>; const prior = before.transitions[0]; const restored = before.checkpoints[0]; const restoredEdge = restored ? pressCreationProcess.edges.find((edge) => edge.source === restored.nodeId && edge.target === node.id) : undefined;
+  const nodeInput = before.startNodeId === node.id && before.captureInputSnapshot ? before.captureInputSnapshot as Record<string, any> : node.sequence === 0 ? { articleId: before.articleId } : prior?.targetPayload as Record<string, any> ?? (restored && restoredEdge ? derivePressTransitionPayload({ edgeId: restoredEdge.id, sourceOutput: restored.output, attemptInput: initial as never }) : undefined);
+  try {
+    // Node/model execution is deliberately outside the staging transaction.
     const output = node.outputSchema.parse(await executePressDebugNode({ teamId: args.teamId, userId: args.userId, nodeId: args.nodeId, input: node.inputSchema.parse(nodeInput) as Record<string, any>, dependencies: args.dependencies })) as Record<string, unknown>;
-    const checkpoint = await tx.pressAiDebugCheckpoint.create({ data: { attemptId: attempt.id, nodeId: node.id, sequence: node.sequence, mode: "EXECUTED", input: json(nodeInput), output: json(output), quotaUnits: node.quotaUnits ?? 0, ...identity } });
-    if (attempt.baselineAttemptId) { const baseline = await tx.pressAiDebugCheckpoint.findFirst({ where: { attemptId: attempt.baselineAttemptId, nodeId: node.id }, include: { attempt: true } }); if (baseline) await tx.pressAiDebugComparison.upsert({ where: { baselineAttemptId_candidateAttemptId_baselineCheckpointId_candidateCheckpointId: { baselineAttemptId: baseline.attemptId, candidateAttemptId: attempt.id, baselineCheckpointId: baseline.id, candidateCheckpointId: checkpoint.id } }, update: {}, create: { baselineAttemptId: baseline.attemptId, candidateAttemptId: attempt.id, baselineCheckpointId: baseline.id, candidateCheckpointId: checkpoint.id, outputComparison: json(compareAttemptOutputs({ baselineOutput: baseline.output, candidateOutput: output, baselineVerdict: null, candidateVerdict: null })), baselineProcessVersion: baseline.processVersion, candidateProcessVersion: attempt.processVersion, baselineRegistryHash: baseline.registryHash, candidateRegistryHash: attempt.registryHash, baselineExecutorVersion: baseline.executorVersion, candidateExecutorVersion: attempt.executorVersion } }); }
-    const outgoing = pressCreationProcess.edges.filter((edge) => edge.source === node.id);
-    let terminalVerdict: "PASS" | "WARN" | "BLOCK" | null = null;
+    const staged = await prisma.$transaction(async (tx) => {
+      const replay = (concurrentReceipt: PressAiDebugCommand) => {
+        if (concurrentReceipt.requestHash !== hashPressAiDebugCommand(args.input) || concurrentReceipt.kind !== `EXECUTE:${args.nodeId}` || concurrentReceipt.expectedRevision !== args.input.expectedRevision) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_COMMAND_REUSE_CONFLICT");
+        return { pending: concurrentReceipt.status === "PENDING", response: concurrentReceipt.response ?? concurrentReceipt.stagedResponse };
+      };
+      // Check the receipt before taking the attempt lock. A semantic finalizer locks
+      // its batch before updating the attempt; taking these locks in the opposite
+      // order for an already-staged replay can deadlock concurrent identical calls.
+      const existingReceipt = await tx.pressAiDebugCommand.findUnique({ where: { attemptId_commandId: { attemptId: args.attemptId, commandId: args.input.commandId } } });
+      if (existingReceipt) return replay(existingReceipt);
+      await tx.$queryRaw`SELECT id FROM press_ai_debug_attempt WHERE id = ${args.attemptId} AND team_id = ${args.teamId} FOR UPDATE`;
+      const concurrentReceipt = await tx.pressAiDebugCommand.findUnique({ where: { attemptId_commandId: { attemptId: args.attemptId, commandId: args.input.commandId } } });
+      if (concurrentReceipt) return replay(concurrentReceipt);
+      const attempt = await tx.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { transitions: { where: { advancedAt: { not: null } }, orderBy: { sequence: "desc" }, take: 1 }, checkpoints: { orderBy: { sequence: "desc" }, take: 1 }, case: true } });
+      if (!attempt) throw Object.assign(new Error("PRESS_AI_DEBUG_ATTEMPT_NOT_FOUND"), { status: 404 });
+      if (attempt.revision !== args.input.expectedRevision) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_COMMAND_STALE");
+      if (attempt.activeNodeId !== args.nodeId || attempt.status !== "ACTIVE") throw new PressAiDebugConflictError("PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
+    const iteration = node.id === "selected-rewrite" ? attempt.currentIteration + 1 : node.id === "draft-review" ? attempt.currentIteration : 0;
+    const checkpoint = await tx.pressAiDebugCheckpoint.create({ data: { attemptId: attempt.id, nodeId: node.id, sequence: (attempt.checkpoints[0]?.sequence ?? -1) + 1, iteration, mode: "EXECUTED", input: json(nodeInput), output: json(output), quotaUnits: node.quotaUnits ?? 0, processVersion: attempt.processVersion, registryHash: attempt.registryHash, executorVersion: attempt.executorVersion } });
+    if (attempt.baselineAttemptId) { const baseline = await tx.pressAiDebugCheckpoint.findFirst({ where: { attemptId: attempt.baselineAttemptId, nodeId: node.id, iteration }, include: { attempt: true } }); if (baseline) await tx.pressAiDebugComparison.upsert({ where: { baselineAttemptId_candidateAttemptId_baselineCheckpointId_candidateCheckpointId: { baselineAttemptId: baseline.attemptId, candidateAttemptId: attempt.id, baselineCheckpointId: baseline.id, candidateCheckpointId: checkpoint.id } }, update: {}, create: { baselineAttemptId: baseline.attemptId, candidateAttemptId: attempt.id, baselineCheckpointId: baseline.id, candidateCheckpointId: checkpoint.id, outputComparison: json(compareAttemptOutputs({ baselineOutput: baseline.output, candidateOutput: output, baselineVerdict: null, candidateVerdict: null })), baselineProcessVersion: baseline.processVersion, candidateProcessVersion: attempt.processVersion, baselineRegistryHash: baseline.registryHash, candidateRegistryHash: attempt.registryHash, baselineExecutorVersion: baseline.executorVersion, candidateExecutorVersion: attempt.executorVersion } }); }
+    const topology = parsePressAiCaseTopology(attempt.topologySnapshot);
+    const snapshottedGuardrails = PressAiGuardrailSnapshotSchema.parse(attempt.guardrailSnapshot);
+    const outgoing = pressCreationProcess.edges.filter((edge) => edge.source === node.id && topology.enabledEdgeIds.includes(edge.id));
+    let terminalVerdict: "PASS" | "WARN" | "BLOCK" | "NOT_EVALUABLE" | null = null; let evaluationBatchId: string | null = null;
     for (const edge of outgoing) {
       const targetPayload = derivePressTransitionPayload({ edgeId: edge.id, sourceOutput: output, attemptInput: initial as never, selections: { selectedNoteIds: args.input.selectedNoteIds, rewriteInstruction: args.input.rewriteInstruction } });
       const article = await tx.article.findFirst({ where: { id: attempt.articleId, teamId: args.teamId }, select: { id: true, teamId: true, type: true, createdAt: true } });
-      const evaluated = evaluatePressTransitionGuardrails({ edgeId: edge.id, sourceInput: nodeInput, sourceOutput: output, targetPayload, attempt: { teamId: args.teamId, articleId: attempt.articleId }, article: article ?? undefined, expectations: Array.isArray((attempt.case?.expectations as any)) ? attempt.case!.expectations as any : [] });
-      terminalVerdict = evaluated.verdict;
-      const transition = await tx.pressAiDebugTransition.create({ data: { attemptId: attempt.id, edgeId: edge.id, sequence: edge.sequence, sourceNodeId: edge.source, targetNodeId: edge.target, sourceCheckpointId: checkpoint.id, targetPayload: json(targetPayload), verdict: evaluated.verdict } });
+      const evaluated = evaluatePressTransitionGuardrails({ edgeId: edge.id, sourceInput: nodeInput, sourceOutput: output, targetPayload, attempt: { teamId: args.teamId, articleId: attempt.articleId }, article: article ?? undefined, expectations: Array.isArray((attempt.case?.expectations as any)) ? attempt.case!.expectations as any : [], guardrails: [] });
+      const customGuardrails = snapshottedGuardrails.filter((guardrail) => guardrail.edgeId === edge.id);
+      terminalVerdict = customGuardrails.length ? "NOT_EVALUABLE" : evaluated.verdict;
+      const transition = await tx.pressAiDebugTransition.create({ data: { attemptId: attempt.id, edgeId: edge.id, sequence: checkpoint.sequence, iteration, sourceNodeId: edge.source, targetNodeId: edge.target, sourceCheckpointId: checkpoint.id, targetPayload: json(targetPayload), verdict: terminalVerdict, evaluationState: customGuardrails.length ? "PENDING" : "COMPLETED" } });
       if (attempt.baselineAttemptId) { const baselineTransition = await tx.pressAiDebugTransition.findFirst({ where: { attemptId: attempt.baselineAttemptId, edgeId: edge.id }, orderBy: { createdAt: "desc" } }); if (baselineTransition) await tx.pressAiDebugComparison.updateMany({ where: { candidateAttemptId: attempt.id, candidateCheckpointId: checkpoint.id }, data: { baselineTransitionId: baselineTransition.id, candidateTransitionId: transition.id, oldVerdict: baselineTransition.verdict, newVerdict: transition.verdict } }); }
-      await tx.pressAiDebugGuardrailObservation.createMany({ data: evaluated.observations.map((item) => ({ transitionId: transition.id, guardrailId: item.guardrailId, origin: item.origin, expected: item.expected.slice(0, 4000), observed: item.observed.slice(0, 4000), reason: item.reason.slice(0, 4000), evidence: json(item.evidence), verdict: item.verdict, displayOrder: item.displayOrder })) });
-      for (const item of evaluated.observations) await appendCanonicalEvent(tx, mapTransitionEvaluation(context, { transitionId: transition.id, edgeId: edge.id, sourceNodeId: edge.source, evaluator: { id: item.guardrailId, version: identity.processVersion }, verdict: item.verdict, expected: item.expected, observed: item.observed, reasonCode: item.origin === "MANDATORY" ? "MANDATORY_GUARDRAIL" : "CASE_EXPECTATION", evidence: item.evidence }));
+      await tx.pressAiDebugGuardrailObservation.createMany({ data: evaluated.observations.map((item) => ({ transitionId: transition.id, guardrailId: item.guardrailId, origin: item.origin, expected: item.expected.slice(0, 4000), observed: item.observed.slice(0, 4000), reason: item.reason.slice(0, 4000), evidence: json(item.evidence), verdict: item.verdict, evaluationStatus: item.evaluationStatus, severity: item.severity, evaluatorId: item.evaluatorId, evaluatorVersion: item.evaluatorVersion, displayOrder: item.displayOrder })) });
+      for (const item of evaluated.observations) await appendCanonicalEvent(tx, mapTransitionEvaluation(context, { transitionId: transition.id, edgeId: edge.id, sourceNodeId: edge.source, evaluator: { id: item.evaluatorId, version: item.evaluatorVersion }, evaluationRevision: 1, verdict: item.verdict, expected: item.expected, observed: item.observed, reasonCode: item.origin === "MANDATORY" ? "MANDATORY_GUARDRAIL" : "CASE_EXPECTATION", evidence: item.evidence }));
       if (edge.humanGate && evaluated.verdict !== "BLOCK") await appendCanonicalEvent(tx, mapHumanApproval(context, { sourceId: transition.id, edgeId: edge.id, gateId: edge.humanGate.id, phase: "REQUESTED", decision: "PENDING" }));
-      if (evaluated.verdict === "BLOCK") {
-        const captured = await tx.pressAiDebugCase.upsert({ where: { sourceCheckpointId_captureKind: { sourceCheckpointId: checkpoint.id, captureKind: "AUTOMATIC_BLOCK" } }, update: {}, create: { teamId: args.teamId, createdById: args.userId, name: null, status: "DRAFT", processId: attempt.processId, processVersion: attempt.processVersion, registryHash: attempt.registryHash, sourceAttemptId: attempt.id, sourceCheckpointId: checkpoint.id, startNodeId: node.id, inputSnapshot: json(nodeInput), expectations: [], captureKind: "AUTOMATIC_BLOCK" } });
+      if (customGuardrails.length) {
+        const batch = await tx.pressAiDebugEvaluationBatch.create({ data: { transitionId: transition.id, evaluationRevision: 1, requestHash: semanticEvaluationRequestHash({ transitionId: transition.id, guardrails: customGuardrails, sourceOutput: output, targetPayload }), evaluatorId: PRESS_AI_SEMANTIC_EVALUATOR_ID, evaluatorVersion: PRESS_AI_SEMANTIC_EVALUATOR_VERSION, model: PRESS_AI_SEMANTIC_EVALUATOR_MODEL } });
+        evaluationBatchId = batch.id;
+      } else if (evaluated.verdict === "BLOCK" || evaluated.verdict === "NOT_EVALUABLE") {
+        const captured = await tx.pressAiDebugCase.upsert({ where: { sourceCheckpointId_captureKind: { sourceCheckpointId: checkpoint.id, captureKind: "AUTOMATIC_BLOCK" } }, update: {}, create: { teamId: args.teamId, createdById: args.userId, name: null, status: "DRAFT", processId: attempt.processId, processVersion: attempt.processVersion, registryHash: attempt.registryHash, sourceAttemptId: attempt.id, sourceCheckpointId: checkpoint.id, startNodeId: node.id, inputSnapshot: json(nodeInput), topologyConfig: json(topology), expectations: [], captureKind: "AUTOMATIC_BLOCK", ...(snapshottedGuardrails.length ? { guardrails: { create: snapshottedGuardrails.map((guardrail) => ({ guardrailId: guardrail.id, edgeId: guardrail.edgeId, instruction: guardrail.instruction, severity: guardrail.severity, evaluatorId: guardrail.evaluatorId, evaluatorVersion: guardrail.evaluatorVersion, displayOrder: guardrail.displayOrder })) } } : {}) } });
         await appendCanonicalEvent(tx, mapDatasetItemCaptured(context, { caseId: captured.id, checkpointId: checkpoint.id, captureKind: "AUTOMATIC_BLOCK" }));
       }
     }
-    const status = outgoing.length === 0 ? "COMPLETED" : terminalVerdict === "BLOCK" ? "BLOCKED" : "INSPECTING";
-    await tx.pressAiDebugAttempt.update({ where: { id: attempt.id }, data: { activeNodeId: null, status, terminalVerdict: outgoing.length === 0 ? "PASS" : null, completedAt: outgoing.length === 0 ? new Date() : null, revision: { increment: 1 } } });
+    const status = outgoing.length === 0 ? "COMPLETED" : evaluationBatchId ? "INSPECTING" : terminalVerdict === "BLOCK" || terminalVerdict === "NOT_EVALUABLE" ? "BLOCKED" : "INSPECTING";
+    const completesImmediately = !evaluationBatchId;
+    await tx.pressAiDebugAttempt.update({ where: { id: attempt.id }, data: { activeNodeId: null, status, currentIteration: node.id === "selected-rewrite" ? iteration : undefined, terminalVerdict: outgoing.length === 0 ? "PASS" : null, completedAt: outgoing.length === 0 ? new Date() : null, revision: completesImmediately ? { increment: 1 } : undefined } });
     await tx.agentStep.updateMany({ where: { runId: attempt.agentRunId, toolName: node.id, kind: "DOMAIN_PROCESS" }, data: { status: "COMPLETED", inputSummary: json(nodeInput), outputSummary: json(output), startedAt: new Date(), completedAt: new Date() } });
     await tx.agentRun.update({ where: { id: attempt.agentRunId }, data: outgoing.length === 0 ? { status: "COMPLETED", completedAt: new Date(), output: json(output) } : { status: "WAITING_APPROVAL", output: json({ attemptId: attempt.id, checkpointId: checkpoint.id, status }) } });
-    await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: attempt.agentRunId, eventType: "PRESS_AI_CHECKPOINT_COMMAND_V1", details: json({ attemptId: attempt.id, checkpointId: checkpoint.id, commandId: args.input.commandId, kind: "EXECUTE", nodeId: node.id, revision: attempt.revision + 1, ...identity }) } });
+    const response = { attemptId: attempt.id, checkpointId: checkpoint.id, revision: attempt.revision + (completesImmediately ? 1 : 0), status };
+    await tx.pressAiDebugCommand.create({ data: { attemptId: attempt.id, commandId: args.input.commandId, kind: `EXECUTE:${args.nodeId}`, expectedRevision: args.input.expectedRevision, requestHash: hashPressAiDebugCommand(args.input), status: evaluationBatchId ? "PENDING" : "COMPLETED", evaluationBatchId, stagedResponse: evaluationBatchId ? json(response) : undefined, response: evaluationBatchId ? undefined : json(response) } });
+    await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: attempt.agentRunId, eventType: "PRESS_AI_CHECKPOINT_COMMAND_V1", details: json({ attemptId: attempt.id, checkpointId: checkpoint.id, commandId: args.input.commandId, kind: "EXECUTE", nodeId: node.id, revision: response.revision, ...identity }) } });
     await appendCanonicalEvent(tx, mapNodeLifecycle(context, { nodeId: node.id, commandId: args.input.commandId, phase: "COMPLETED" }));
     if (status === "COMPLETED") await appendCanonicalEvent(tx, mapRunLifecycle(context, "COMPLETED"));
     if (status === "BLOCKED") await appendCanonicalEvent(tx, mapRunLifecycle(context, "BLOCKED", "TRANSITION_GUARDRAIL_BLOCK"));
-    return { attemptId: attempt.id, checkpointId: checkpoint.id, revision: attempt.revision + 1, status };
-  } }), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 120_000 }); } catch (error) {
+      return { pending: Boolean(evaluationBatchId), response };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+    if (staged.pending) return resumeSemanticEvaluationCommand({ teamId: args.teamId, userId: args.userId, attemptId: args.attemptId, commandId: args.input.commandId, evaluator: args.semanticEvaluator });
+    return { replayed: false, response: staged.response };
+  } catch (error) {
     const reasonCode = error instanceof Error ? ((error as Error & { code?: string }).code ?? error.message).slice(0, 100) : "NODE_EXECUTION_FAILED";
     await appendCanonicalEventInTransaction(mapNodeLifecycle(context, { nodeId: args.nodeId, commandId: args.input.commandId, phase: "FAILED", reasonCode }));
     throw error;
@@ -97,11 +138,15 @@ export async function advanceCheckpointEdge(args: { teamId: string; userId: stri
     const transition = await tx.pressAiDebugTransition.findFirst({ where: { attemptId: args.attemptId, attempt: { teamId: args.teamId }, edgeId: args.edgeId }, orderBy: { createdAt: "desc" }, include: { attempt: { select: { agentRunId: true, parentAttemptId: true, caseId: true }, }, } });
     if (!transition || transition.advancedAt) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
     const edge = pressCreationProcess.edges.find((item) => item.id === args.edgeId); if (!edge) throw new Error("PRESS_AI_PROCESS_EDGE_INVALID");
-    if (transition.verdict === "BLOCK") throw new PressAiDebugConflictError("PRESS_AI_DEBUG_EDGE_BLOCKED");
+    const fullAttempt = await tx.pressAiDebugAttempt.findUnique({ where: { id: args.attemptId }, select: { topologySnapshot: true, currentIteration: true } });
+    const topology = fullAttempt ? parsePressAiCaseTopology(fullAttempt.topologySnapshot) : null;
+    if (!topology?.enabledEdgeIds.includes(edge.id)) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
+    if (edge.id === "rewrite-review" && fullAttempt!.currentIteration >= topology.maxIterations) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_ITERATION_LIMIT_REACHED");
+    if (transition.evaluationState !== "COMPLETED" || transition.verdict === "BLOCK" || transition.verdict === "NOT_EVALUABLE") throw new PressAiDebugConflictError("PRESS_AI_DEBUG_EDGE_BLOCKED");
     if (transition.verdict === "WARN" && !args.input.acknowledgeWarn) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_WARN_ACK_REQUIRED");
     if (edge.humanGate && !args.input.acknowledgeHumanGate) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_HUMAN_ACK_REQUIRED");
     const now = new Date();
-    await tx.pressAiDebugTransition.update({ where: { id: transition.id }, data: { warnAcknowledgedById: transition.verdict === "WARN" ? args.userId : undefined, warnAcknowledgedAt: transition.verdict === "WARN" ? now : undefined, humanGateAcknowledgedById: edge.humanGate ? args.userId : undefined, humanGateAcknowledgedAt: edge.humanGate ? now : undefined, advancedById: args.userId, advancedAt: now } });
+    await tx.pressAiDebugTransition.update({ where: { id: transition.id }, data: { disposition: "ADVANCED", warnAcknowledgedById: transition.verdict === "WARN" ? args.userId : undefined, warnAcknowledgedAt: transition.verdict === "WARN" ? now : undefined, humanGateAcknowledgedById: edge.humanGate ? args.userId : undefined, humanGateAcknowledgedAt: edge.humanGate ? now : undefined, advancedById: args.userId, advancedAt: now } });
     await tx.pressAiDebugAttempt.update({ where: { id: args.attemptId }, data: { status: "ACTIVE", activeNodeId: edge.target, revision: { increment: 1 } } });
     await tx.agentRun.update({ where: { id: transition.attempt.agentRunId }, data: { status: "RUNNING", output: json({ attemptId: args.attemptId, activeNodeId: edge.target }) } });
     await tx.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: transition.attempt.agentRunId, eventType: "PRESS_AI_CHECKPOINT_COMMAND_V1", details: json({ attemptId: args.attemptId, transitionId: transition.id, commandId: args.input.commandId, kind: "ADVANCE", edgeId: edge.id, revision: locked.revision + 1, ...identity }) } });
@@ -110,5 +155,18 @@ export async function advanceCheckpointEdge(args: { teamId: string; userId: stri
     if (edge.humanGate) await appendCanonicalEvent(tx, mapHumanApproval(context, { sourceId: transition.id, edgeId: edge.id, gateId: edge.humanGate.id, phase: "RECORDED", decision: "ACKNOWLEDGED", actorId: args.userId }));
     await appendCanonicalEvent(tx, mapEdgeTraversed(context, { transitionId: transition.id, edgeId: edge.id, sourceNodeId: edge.source, targetNodeId: edge.target, verdict: transition.verdict === "WARN" ? "WARN" : "PASS", acknowledged: transition.verdict === "WARN" || Boolean(edge.humanGate) }));
     return { attemptId: args.attemptId, activeNodeId: edge.target, revision: locked.revision + 1 };
+  } }), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function finishCheckpointAttempt(args: { teamId: string; userId: string; attemptId: string; input: z.infer<typeof FinishCheckpointAttemptSchema> }) {
+  return prisma.$transaction(async (tx) => replayOrRunCommand({ tx, teamId: args.teamId, attemptId: args.attemptId, commandId: args.input.commandId, kind: "FINISH", expectedRevision: args.input.expectedRevision, request: args.input, mutate: async (locked) => {
+    const attempt = await tx.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { transitions: { where: { edgeId: "rewrite-review", disposition: "PENDING" }, orderBy: { createdAt: "desc" }, take: 1 } } });
+    const pending = attempt?.transitions[0];
+    if (!attempt || attempt.status !== "INSPECTING" || !pending) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_NODE_NOT_ACTIVE");
+    const now = new Date();
+    await tx.pressAiDebugTransition.update({ where: { id: pending.id }, data: { disposition: "NOT_TAKEN" } });
+    await tx.pressAiDebugAttempt.update({ where: { id: attempt.id }, data: { status: "COMPLETED", activeNodeId: null, terminalVerdict: pending.verdict, completedAt: now, revision: { increment: 1 } } });
+    await tx.agentRun.update({ where: { id: attempt.agentRunId }, data: { status: "COMPLETED", completedAt: now } });
+    return { attemptId: attempt.id, revision: locked.revision + 1, status: "COMPLETED" as const };
   } }), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

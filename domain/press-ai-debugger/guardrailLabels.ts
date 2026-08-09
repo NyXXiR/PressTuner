@@ -12,6 +12,7 @@ const GUARDRAIL_LABELS_KO: Record<string, string> = {
   "review-note-selection": "리뷰 노트 선택 검증",
   "rewrite-instruction-bounds": "수정 지침 범위",
   "review-checkpoint-lineage": "리뷰 체크포인트 계보",
+  "rewrite-review-lineage": "수정본 리뷰 계보",
 };
 
 export function guardrailLabelKo(guardrailId: string): string {

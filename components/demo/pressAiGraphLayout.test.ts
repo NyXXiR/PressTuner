@@ -19,8 +19,9 @@ test("a linear process lays out as one row of columns", () => {
   assert.equal(ys.size, 1, "linear chain should not stack rows");
   const xs = layout.nodes.map((item) => item.x).sort((a, b) => a - b);
   assert.equal(new Set(xs).size, layout.nodes.length, "each node its own column");
-  // Height hugs a single node row instead of a fixed canvas.
-  assert.ok(layout.height < GRAPH_NODE_HEIGHT * 2);
+  // The registered loop reserves one compact return-connector band.
+  assert.ok(layout.height < GRAPH_NODE_HEIGHT * 3);
+  assert.match(layout.edges.find((item) => item.edge.id === "rewrite-review")?.path ?? "", / C /);
 });
 
 test("a skip edge keeps the merge node past the longer branch", () => {

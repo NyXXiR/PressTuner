@@ -11,3 +11,9 @@ test("derivation ignores browser fields and validates target schema", () => {
 });
 
 test("malformed source output fails closed", () => assert.throws(() => derivePressTransitionPayload({ edgeId: "draft-review", sourceOutput: {}, attemptInput: attempt })));
+
+test("loop payload uses the rewrite occurrence and exact declared target names", () => {
+  assert.deepEqual(derivePressTransitionPayload({ edgeId: "rewrite-review", sourceOutput: { title: "수정 제목", plain: "수정 본문", injected: "no" }, attemptInput: attempt }), {
+    articleId: "article-1", title: "수정 제목", plain: "수정 본문",
+  });
+});

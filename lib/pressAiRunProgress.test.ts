@@ -16,6 +16,7 @@ const checkpoint = (nodeId: string, sequence: number): Checkpoint => ({
   id: `cp-${nodeId}`,
   nodeId,
   sequence,
+  iteration: nodeId === "selected-rewrite" ? 1 : 0,
   mode: "EXECUTED",
   input: { articleId: "art-1" },
   output: { articleId: "art-1" },
@@ -30,10 +31,13 @@ const transition = (
   id: `tr-${edgeId}`,
   edgeId,
   sequence,
+  iteration: 0,
   sourceNodeId: "article-initialization",
   targetNodeId: "brief-normalization",
   targetPayload: {},
   verdict: "PASS",
+  evaluationState: "COMPLETED",
+  disposition: "PENDING",
   warnAcknowledgedAt: null,
   humanGateAcknowledgedAt: null,
   advancedAt: null,
@@ -43,6 +47,8 @@ const transition = (
 
 const attempt = (overrides: Partial<Attempt> = {}): Attempt => ({
   id: "attempt-1",
+  caseId: null,
+  caseRevision: null,
   processId: "press-creation",
   processVersion: "2.0.0",
   registryHash: "hash",
@@ -52,6 +58,9 @@ const attempt = (overrides: Partial<Attempt> = {}): Attempt => ({
   articleId: "art-1",
   activeNodeId: "article-initialization",
   startNodeId: "article-initialization",
+  topologySnapshot: { schemaVersion: "press-ai-case-topology/v1", enabledEdgeIds: ["initialization-brief", "brief-draft", "draft-review", "review-rewrite", "rewrite-review"], maxIterations: 3 },
+  guardrailSnapshot: [],
+  currentIteration: 0,
   checkpoints: [],
   transitions: [],
   ...overrides,
@@ -147,6 +156,7 @@ test("timeline rows interleave every node with its outgoing edges in execution o
       "node:draft-review",
       "edge:review-rewrite",
       "node:selected-rewrite",
+      "edge:rewrite-review",
     ],
   );
   assert.equal(rows[0].kind === "node" && rows[0].state, "ACTIVE");

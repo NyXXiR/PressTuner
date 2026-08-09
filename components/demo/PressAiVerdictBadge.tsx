@@ -6,6 +6,7 @@ const VERDICT_TONE: Record<PressAiVerdict | "PENDING", string> = {
   PASS: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   WARN: "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   BLOCK: "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  NOT_EVALUABLE: "border-violet-500/50 bg-violet-500/10 text-violet-700 dark:text-violet-300",
   PENDING: "border-border bg-muted text-muted-foreground",
 };
 
@@ -13,6 +14,7 @@ const VERDICT_MARK: Record<PressAiVerdict | "PENDING", string> = {
   PASS: "✓",
   WARN: "!",
   BLOCK: "✕",
+  NOT_EVALUABLE: "?",
   PENDING: "·",
 };
 
@@ -45,7 +47,7 @@ export function VerdictBadge(props: {
 export function GuardrailChip(props: {
   guardrailId: string;
   verdict: PressAiVerdict;
-  origin?: "MANDATORY" | "CASE_EXPECTATION";
+  origin?: "MANDATORY" | "CASE_EXPECTATION" | "CASE_GUARDRAIL";
 }) {
   return (
     <span
@@ -54,7 +56,7 @@ export function GuardrailChip(props: {
     >
       <span aria-hidden="true">{VERDICT_MARK[props.verdict]}</span>
       <span className="truncate">{guardrailLabelKo(props.guardrailId)}</span>
-      {props.origin === "CASE_EXPECTATION" ? (
+      {props.origin === "CASE_EXPECTATION" || props.origin === "CASE_GUARDRAIL" ? (
         <span className="font-normal opacity-70">케이스</span>
       ) : null}
     </span>

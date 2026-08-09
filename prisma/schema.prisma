@@ -496,11 +496,41 @@ enum PressAiDebugVerdict {
   PASS
   WARN
   BLOCK
+  NOT_EVALUABLE
 }
 
 enum PressAiDebugGuardrailOrigin {
   MANDATORY
   CASE_EXPECTATION
+  CASE_GUARDRAIL
+}
+
+enum PressAiDebugEvaluationStatus {
+  SATISFIED
+  VIOLATED
+  NOT_EVALUABLE
+}
+
+enum PressAiDebugEvaluationState {
+  PENDING
+  RUNNING
+  COMPLETED
+}
+
+enum PressAiDebugTransitionDisposition {
+  PENDING
+  ADVANCED
+  NOT_TAKEN
+}
+
+enum PressAiDebugGuardrailSeverity {
+  WARN
+  BLOCK
+}
+
+enum PressAiDebugCommandStatus {
+  PENDING
+  COMPLETED
 }
 
 // ---------------------------------------------------------
@@ -2117,16 +2147,21 @@ model PressAiDebugCase {
   sourceCheckpointId String                  @map("source_checkpoint_id")
   startNodeId        String                  @map("start_node_id")
   inputSnapshot      Json                    @map("input_snapshot")
+  revision           Int                     @default(0) @map("revision")
+  topologyConfig     Json                    @map("topology_config")
+  /// Compatibility-only legacy expectation payload; new writes use guardrails.
   expectations       Json                    @map("expectations")
   captureKind        PressAiDebugCaptureKind @map("capture_kind")
   createdAt          DateTime                @default(now()) @map("created_at")
   updatedAt          DateTime                @updatedAt @map("updated_at")
 
-  team             Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdBy        User                   @relation("PressAiDebugCaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  sourceAttempt    PressAiDebugAttempt    @relation("PressAiDebugCaseSourceAttempt", fields: [sourceAttemptId], references: [id], onDelete: Restrict)
-  sourceCheckpoint PressAiDebugCheckpoint @relation("PressAiDebugCaseSourceCheckpoint", fields: [sourceCheckpointId], references: [id], onDelete: Restrict)
-  attempts         PressAiDebugAttempt[]  @relation("PressAiDebugAttemptCase")
+  team             Team                        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy        User                        @relation("PressAiDebugCaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sourceAttempt    PressAiDebugAttempt         @relation("PressAiDebugCaseSourceAttempt", fields: [sourceAttemptId], references: [id], onDelete: Restrict)
+  sourceCheckpoint PressAiDebugCheckpoint      @relation("PressAiDebugCaseSourceCheckpoint", fields: [sourceCheckpointId], references: [id], onDelete: Restrict)
+  attempts         PressAiDebugAttempt[]       @relation("PressAiDebugAttemptCase")
+  guardrails       PressAiDebugCaseGuardrail[]
+  commands         PressAiDebugCaseCommand[]
 
   @@unique([sourceCheckpointId, captureKind])
   @@index([teamId, status, createdAt])
@@ -2135,27 +2170,32 @@ model PressAiDebugCase {
 }
 
 model PressAiDebugAttempt {
-  id                String                    @id @default(cuid()) @map("id")
-  teamId            String                    @map("team_id")
-  createdById       String                    @map("created_by_id")
-  caseId            String?                   @map("case_id")
-  agentRunId        String                    @unique @map("agent_run_id")
-  parentAttemptId   String?                   @map("parent_attempt_id")
-  baselineAttemptId String?                   @map("baseline_attempt_id")
-  processId         String                    @map("process_id")
-  processVersion    String                    @map("process_version")
-  registryHash      String                    @map("registry_hash")
-  executorVersion   String                    @map("executor_version")
-  startNodeId       String                    @map("start_node_id")
-  activeNodeId      String?                   @map("active_node_id")
-  status            PressAiDebugAttemptStatus @default(ACTIVE) @map("status")
-  revision          Int                       @default(0) @map("revision")
-  articleId         String                    @map("article_id")
-  inputSnapshot     Json                      @map("input_snapshot")
-  terminalVerdict   PressAiDebugVerdict?      @map("terminal_verdict")
-  completedAt       DateTime?                 @map("completed_at")
-  createdAt         DateTime                  @default(now()) @map("created_at")
-  updatedAt         DateTime                  @updatedAt @map("updated_at")
+  id                   String                    @id @default(cuid()) @map("id")
+  teamId               String                    @map("team_id")
+  createdById          String                    @map("created_by_id")
+  caseId               String?                   @map("case_id")
+  agentRunId           String                    @unique @map("agent_run_id")
+  parentAttemptId      String?                   @map("parent_attempt_id")
+  baselineAttemptId    String?                   @map("baseline_attempt_id")
+  processId            String                    @map("process_id")
+  processVersion       String                    @map("process_version")
+  registryHash         String                    @map("registry_hash")
+  executorVersion      String                    @map("executor_version")
+  startNodeId          String                    @map("start_node_id")
+  activeNodeId         String?                   @map("active_node_id")
+  status               PressAiDebugAttemptStatus @default(ACTIVE) @map("status")
+  revision             Int                       @default(0) @map("revision")
+  articleId            String                    @map("article_id")
+  inputSnapshot        Json                      @map("input_snapshot")
+  caseRevision         Int?                      @map("case_revision")
+  topologySnapshot     Json                      @map("topology_snapshot")
+  guardrailSnapshot    Json                      @map("guardrail_snapshot")
+  captureInputSnapshot Json?                     @map("capture_input_snapshot")
+  currentIteration     Int                       @default(0) @map("current_iteration")
+  terminalVerdict      PressAiDebugVerdict?      @map("terminal_verdict")
+  completedAt          DateTime?                 @map("completed_at")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
 
   team                 Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdBy            User                     @relation("PressAiDebugAttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -2185,6 +2225,7 @@ model PressAiDebugCheckpoint {
   attemptId                String                     @map("attempt_id")
   nodeId                   String                     @map("node_id")
   sequence                 Int                        @map("sequence")
+  iteration                Int                        @default(0) @map("iteration")
   mode                     PressAiDebugCheckpointMode @map("mode")
   input                    Json                       @map("input")
   output                   Json                       @map("output")
@@ -2203,29 +2244,32 @@ model PressAiDebugCheckpoint {
   baselineComparisons    PressAiDebugComparison[] @relation("PressAiDebugComparisonBaselineCheckpoint")
   candidateComparisons   PressAiDebugComparison[] @relation("PressAiDebugComparisonCandidateCheckpoint")
 
-  @@unique([attemptId, nodeId])
-  @@index([attemptId, sequence])
+  @@unique([attemptId, nodeId, iteration])
+  @@unique([attemptId, sequence])
   @@index([restoredFromCheckpointId])
   @@map("press_ai_debug_checkpoint")
 }
 
 model PressAiDebugTransition {
-  id                        String              @id @default(cuid()) @map("id")
-  attemptId                 String              @map("attempt_id")
-  edgeId                    String              @map("edge_id")
-  sequence                  Int                 @map("sequence")
-  sourceNodeId              String              @map("source_node_id")
-  targetNodeId              String              @map("target_node_id")
-  sourceCheckpointId        String              @map("source_checkpoint_id")
-  targetPayload             Json                @map("target_payload")
-  verdict                   PressAiDebugVerdict @map("verdict")
-  warnAcknowledgedById      String?             @map("warn_acknowledged_by_id")
-  warnAcknowledgedAt        DateTime?           @map("warn_acknowledged_at")
-  humanGateAcknowledgedById String?             @map("human_gate_acknowledged_by_id")
-  humanGateAcknowledgedAt   DateTime?           @map("human_gate_acknowledged_at")
-  advancedById              String?             @map("advanced_by_id")
-  advancedAt                DateTime?           @map("advanced_at")
-  createdAt                 DateTime            @default(now()) @map("created_at")
+  id                        String                            @id @default(cuid()) @map("id")
+  attemptId                 String                            @map("attempt_id")
+  edgeId                    String                            @map("edge_id")
+  sequence                  Int                               @map("sequence")
+  iteration                 Int                               @default(0) @map("iteration")
+  sourceNodeId              String                            @map("source_node_id")
+  targetNodeId              String                            @map("target_node_id")
+  sourceCheckpointId        String                            @map("source_checkpoint_id")
+  targetPayload             Json                              @map("target_payload")
+  verdict                   PressAiDebugVerdict               @map("verdict")
+  evaluationState           PressAiDebugEvaluationState       @default(COMPLETED) @map("evaluation_state")
+  disposition               PressAiDebugTransitionDisposition @default(PENDING) @map("disposition")
+  warnAcknowledgedById      String?                           @map("warn_acknowledged_by_id")
+  warnAcknowledgedAt        DateTime?                         @map("warn_acknowledged_at")
+  humanGateAcknowledgedById String?                           @map("human_gate_acknowledged_by_id")
+  humanGateAcknowledgedAt   DateTime?                         @map("human_gate_acknowledged_at")
+  advancedById              String?                           @map("advanced_by_id")
+  advancedAt                DateTime?                         @map("advanced_at")
+  createdAt                 DateTime                          @default(now()) @map("created_at")
 
   attempt                 PressAiDebugAttempt                @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   sourceCheckpoint        PressAiDebugCheckpoint             @relation(fields: [sourceCheckpointId], references: [id], onDelete: Restrict)
@@ -2233,6 +2277,7 @@ model PressAiDebugTransition {
   humanGateAcknowledgedBy User?                              @relation("PressAiDebugTransitionHumanGateAcknowledgedBy", fields: [humanGateAcknowledgedById], references: [id], onDelete: Restrict)
   advancedBy              User?                              @relation("PressAiDebugTransitionAdvancedBy", fields: [advancedById], references: [id], onDelete: Restrict)
   observations            PressAiDebugGuardrailObservation[]
+  evaluationBatches       PressAiDebugEvaluationBatch[]
   baselineComparisons     PressAiDebugComparison[]           @relation("PressAiDebugComparisonBaselineTransition")
   candidateComparisons    PressAiDebugComparison[]           @relation("PressAiDebugComparisonCandidateTransition")
 
@@ -2242,21 +2287,28 @@ model PressAiDebugTransition {
 }
 
 model PressAiDebugGuardrailObservation {
-  id           String                      @id @default(cuid()) @map("id")
-  transitionId String                      @map("transition_id")
-  guardrailId  String                      @map("guardrail_id")
-  origin       PressAiDebugGuardrailOrigin @map("origin")
-  expected     String                      @map("expected") @db.Text
-  observed     String                      @map("observed") @db.Text
-  reason       String                      @map("reason") @db.Text
-  evidence     Json                        @map("evidence")
-  verdict      PressAiDebugVerdict         @map("verdict")
-  displayOrder Int                         @map("display_order")
-  createdAt    DateTime                    @default(now()) @map("created_at")
+  id                 String                         @id @default(cuid()) @map("id")
+  transitionId       String                         @map("transition_id")
+  guardrailId        String                         @map("guardrail_id")
+  origin             PressAiDebugGuardrailOrigin    @map("origin")
+  expected           String                         @map("expected") @db.Text
+  observed           String                         @map("observed") @db.Text
+  reason             String                         @map("reason") @db.Text
+  evidence           Json                           @map("evidence")
+  verdict            PressAiDebugVerdict            @map("verdict")
+  evaluationStatus   PressAiDebugEvaluationStatus   @map("evaluation_status")
+  severity           PressAiDebugGuardrailSeverity? @map("severity")
+  evaluationRevision Int                            @default(1) @map("evaluation_revision")
+  evaluatorId        String                         @map("evaluator_id")
+  evaluatorVersion   String                         @map("evaluator_version")
+  evaluationBatchId  String?                        @map("evaluation_batch_id")
+  displayOrder       Int                            @map("display_order")
+  createdAt          DateTime                       @default(now()) @map("created_at")
 
-  transition PressAiDebugTransition @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+  transition      PressAiDebugTransition       @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+  evaluationBatch PressAiDebugEvaluationBatch? @relation(fields: [evaluationBatchId], references: [id], onDelete: SetNull)
 
-  @@unique([transitionId, origin, guardrailId])
+  @@unique([transitionId, origin, guardrailId, evaluationRevision])
   @@index([transitionId, displayOrder])
   @@map("press_ai_debug_guardrail_observation")
 }
@@ -2293,20 +2345,87 @@ model PressAiDebugComparison {
 }
 
 model PressAiDebugCommand {
-  id               String   @id @default(cuid()) @map("id")
-  attemptId        String   @map("attempt_id")
-  commandId        String   @map("command_id")
-  kind             String   @map("kind")
-  expectedRevision Int      @map("expected_revision")
-  requestHash      String   @map("request_hash")
-  response         Json     @map("response")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                String                    @id @default(cuid()) @map("id")
+  attemptId         String                    @map("attempt_id")
+  commandId         String                    @map("command_id")
+  kind              String                    @map("kind")
+  expectedRevision  Int                       @map("expected_revision")
+  requestHash       String                    @map("request_hash")
+  status            PressAiDebugCommandStatus @default(COMPLETED) @map("status")
+  response          Json?                     @map("response")
+  evaluationBatchId String?                   @map("evaluation_batch_id")
+  stagedResponse    Json?                     @map("staged_response")
+  createdAt         DateTime                  @default(now()) @map("created_at")
 
   attempt PressAiDebugAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, commandId])
   @@index([attemptId, createdAt])
   @@map("press_ai_debug_command")
+}
+
+model PressAiDebugCaseGuardrail {
+  id               String                        @id @default(cuid()) @map("id")
+  caseId           String                        @map("case_id")
+  guardrailId      String                        @map("guardrail_id")
+  edgeId           String                        @map("edge_id")
+  instruction      String                        @map("instruction") @db.Text
+  severity         PressAiDebugGuardrailSeverity @map("severity")
+  evaluatorId      String                        @map("evaluator_id")
+  evaluatorVersion String                        @map("evaluator_version")
+  displayOrder     Int                           @map("display_order")
+  createdAt        DateTime                      @default(now()) @map("created_at")
+  updatedAt        DateTime                      @updatedAt @map("updated_at")
+
+  case PressAiDebugCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, guardrailId])
+  @@index([caseId, edgeId, displayOrder])
+  @@map("press_ai_debug_case_guardrail")
+}
+
+model PressAiDebugCaseCommand {
+  id               String                    @id @default(cuid()) @map("id")
+  caseId           String                    @map("case_id")
+  commandId        String                    @map("command_id")
+  kind             String                    @map("kind")
+  expectedRevision Int                       @map("expected_revision")
+  requestHash      String                    @map("request_hash")
+  status           PressAiDebugCommandStatus @default(COMPLETED) @map("status")
+  response         Json?                     @map("response")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+
+  case PressAiDebugCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, commandId])
+  @@index([caseId, createdAt])
+  @@map("press_ai_debug_case_command")
+}
+
+model PressAiDebugEvaluationBatch {
+  id                  String                      @id @default(cuid()) @map("id")
+  transitionId        String                      @map("transition_id")
+  evaluationRevision  Int                         @map("evaluation_revision")
+  requestHash         String                      @map("request_hash")
+  state               PressAiDebugEvaluationState @default(PENDING) @map("state")
+  leaseToken          String?                     @map("lease_token")
+  leaseExpiresAt      DateTime?                   @map("lease_expires_at")
+  evaluatorId         String                      @map("evaluator_id")
+  evaluatorVersion    String                      @map("evaluator_version")
+  model               String                      @map("model")
+  parsedResult        Json?                       @map("parsed_result")
+  inputTokens         Int?                        @map("input_tokens")
+  outputTokens        Int?                        @map("output_tokens")
+  estimatedCostMicros Int?                        @map("estimated_cost_micros")
+  createdAt           DateTime                    @default(now()) @map("created_at")
+  updatedAt           DateTime                    @updatedAt @map("updated_at")
+
+  transition   PressAiDebugTransition             @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+  observations PressAiDebugGuardrailObservation[]
+
+  @@unique([transitionId, evaluationRevision])
+  @@index([state, leaseExpiresAt])
+  @@map("press_ai_debug_evaluation_batch")
 }
 
 model AgentConfigurationVersion {

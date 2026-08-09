@@ -33,7 +33,7 @@ export function mapNodeLifecycle(context: PressTelemetryContext, args: { nodeId:
   return parseCanonicalAiTelemetryEvent({ ...base(context, ["node", args.commandId, args.nodeId, args.phase], `node:${args.nodeId}`, "run"), eventKind: "span.lifecycle", status: args.phase, attributes: { "domain.node.id": args.nodeId, "domain.command.id_hash": deriveCanonicalEventId(args.commandId) }, payload: { phase: args.phase, spanKind: "CHAIN", operationName: args.nodeId, nodeId: args.nodeId, reasonCode: args.reasonCode ?? null } });
 }
 
-export function mapTransitionEvaluation(context: PressTelemetryContext, args: { transitionId: string; edgeId: string; sourceNodeId: string; evaluator: { id: string; version: string }; verdict: "PASS" | "WARN" | "BLOCK" | "NOT_EVALUABLE"; expected?: unknown; observed?: unknown; reasonCode?: string; evidence?: unknown }) {
+export function mapTransitionEvaluation(context: PressTelemetryContext, args: { transitionId: string; edgeId: string; sourceNodeId: string; evaluator: { id: string; version: string }; evaluationRevision?: number; verdict: "PASS" | "WARN" | "BLOCK" | "NOT_EVALUABLE"; expected?: unknown; observed?: unknown; reasonCode?: string; evidence?: unknown }) {
   const checkedEvidence = args.evidence && typeof args.evidence === "object" && Array.isArray((args.evidence as { checked?: unknown[] }).checked) ? (args.evidence as { checked: unknown[] }).checked : null;
   const values = Array.isArray(args.evidence) ? args.evidence : checkedEvidence ?? [args.expected, args.observed].filter((value) => value !== undefined);
   const evidence = values.slice(0, 32).map((value, index) => {
@@ -41,7 +41,8 @@ export function mapTransitionEvaluation(context: PressTelemetryContext, args: { 
     return internalEvidence({ sourceField: index === 0 ? "expected" : "observed", factKind: "TEXT", factValue: value, matchStatus: args.verdict === "PASS" ? "MATCHED" : "MISSING", reasonCode: args.reasonCode ?? "GUARDRAIL_RESULT" });
   });
   const scoreValue = args.verdict === "PASS" ? 1 : args.verdict === "WARN" ? 0.5 : 0;
-  return parseCanonicalAiTelemetryEvent({ ...base(context, ["transition", args.transitionId, args.edgeId, args.evaluator.id], `evaluation:${args.transitionId}:${args.evaluator.id}`, `node:${args.sourceNodeId}`), eventKind: "transition.evaluation", status: args.verdict, attributes: { "domain.edge.id": args.edgeId, "domain.node.id": args.sourceNodeId }, payload: { edgeId: args.edgeId, evaluator: args.evaluator, score: { value: scoreValue, label: args.verdict }, verdict: args.verdict, evidence, evidenceOverflow: Math.max(0, values.length - evidence.length), reasonCode: args.reasonCode ?? "GUARDRAIL_RESULT" } });
+  const evaluationRevision = args.evaluationRevision ?? 1;
+  return parseCanonicalAiTelemetryEvent({ ...base(context, ["transition", args.transitionId, args.edgeId, args.evaluator.id, evaluationRevision], `evaluation:${args.transitionId}:${args.evaluator.id}:${evaluationRevision}`, `node:${args.sourceNodeId}`), eventKind: "transition.evaluation", status: args.verdict, attributes: { "domain.edge.id": args.edgeId, "domain.node.id": args.sourceNodeId, "domain.evaluation.revision": evaluationRevision }, payload: { edgeId: args.edgeId, evaluator: args.evaluator, score: { value: scoreValue, label: args.verdict }, verdict: args.verdict, evidence, evidenceOverflow: Math.max(0, values.length - evidence.length), reasonCode: args.reasonCode ?? "GUARDRAIL_RESULT" } });
 }
 
 export function mapHumanApproval(context: PressTelemetryContext, args: { sourceId: string; edgeId?: string; gateId: string; phase: "REQUESTED" | "RECORDED"; decision: "PENDING" | "APPROVED" | "REJECTED" | "ACKNOWLEDGED"; actorId?: string | null }) {

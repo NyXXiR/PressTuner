@@ -45,7 +45,7 @@ export function layoutPressAiGraph(
     (left, right) => left.sequence - right.sequence,
   );
   const incoming = new Map<string, PressAiProcessEdge[]>();
-  for (const edge of process.edges) {
+  for (const edge of process.edges.filter((item) => item.kind !== "ITERATION")) {
     incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
   }
 
@@ -102,6 +102,11 @@ export function layoutPressAiGraph(
     const y1 = source.y + GRAPH_NODE_HEIGHT / 2;
     const x2 = target.x;
     const y2 = target.y + GRAPH_NODE_HEIGHT / 2;
+    if (edge.kind === "ITERATION") {
+      const bottom = PADDING + contentHeight + 40;
+      edges.push({ edge, path: `M ${x1} ${y1} C ${x1 + 40} ${bottom}, ${x2 - 40} ${bottom}, ${x2} ${y2}`, labelX: (x1 + x2) / 2, labelY: bottom });
+      continue;
+    }
     const bend = Math.max(24, (x2 - x1) / 2);
     edges.push({
       edge,
@@ -117,6 +122,6 @@ export function layoutPressAiGraph(
     edges,
     width:
       PADDING * 2 + (maxDepth + 1) * GRAPH_NODE_WIDTH + maxDepth * COLUMN_GAP,
-    height: PADDING * 2 + contentHeight,
+    height: PADDING * 2 + contentHeight + (process.edges.some((edge) => edge.kind === "ITERATION") ? 56 : 0),
   };
 }
