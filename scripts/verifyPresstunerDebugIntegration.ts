@@ -35,8 +35,14 @@ async function main() {
     if (!rows[0]) throw new Error("OPS_SNAPSHOT_NOT_FOUND");
     const serialized = JSON.stringify(rows[0].snapshot); if (serialized.includes(memo)) throw new Error("PRIVACY_MEMO_LEAK");
     for (const name of ["PRESS_QA_TEAM_SENTINEL", "PRESS_QA_USER_SENTINEL"]) { const sentinel = process.env[name]; if (sentinel && serialized.includes(sentinel)) throw new Error(`PRIVACY_${name}_LEAK`); }
-    const snapshot = rows[0].snapshot as { evaluations?: Array<{ id?: string; counts?: { byKind?: Record<string, unknown> } }> }; const evaluation = snapshot.evaluations?.find((item) => item.id === "critical-fact-preservation");
-    if (!evaluation || !["NUMBER", "DATE", "QUOTE", "CONSTRAINT"].every((kind) => evaluation.counts?.byKind?.[kind])) throw new Error("CRITICAL_FACT_COUNTS_MISSING");
+    const snapshot = rows[0].snapshot as { schemaVersion?: string; workflow?: { id?: string; version?: string }; domainObservations?: { requirements?: Array<{ requirementId?: string; details?: { counts?: { byKind?: Record<string, unknown> } } }> } };
+    if (snapshot.schemaVersion !== "presstuner-debug-run/v2" || snapshot.workflow?.id !== "presstuner.press-creation" || snapshot.workflow.version !== "2.0.0") throw new Error("V2_WORKFLOW_IDENTITY_MISSING");
+    const expected = ["article-team-ownership", "fresh-press-release", "memo-brief-grounding", "critical-fact-preservation", "brief-draft-grounding", "press-structure", "review-note-selection", "review-checkpoint-lineage"];
+    const requirements = snapshot.domainObservations?.requirements ?? [];
+    if (requirements.length !== expected.length || expected.some((id) => !requirements.some((item) => item.requirementId === id))) throw new Error("V2_REQUIREMENT_ROSTER_MISSING");
+    const evaluation = requirements.find((item) => item.requirementId === "critical-fact-preservation");
+    if (!evaluation || !["NUMBER", "DATE", "QUOTE", "CONSTRAINT"].every((kind) => evaluation.details?.counts?.byKind?.[kind])) throw new Error("CRITICAL_FACT_COUNTS_MISSING");
+    for (const sentinel of ["PRIVATE_MEMO", "PRIVATE_BRIEF", "PRIVATE_ARTICLE", "PRIVATE_PROMPT", "PRIVATE_PROVIDER", "team-private", "user-private"]) if (serialized.includes(sentinel)) throw new Error("PRIVACY_SENTINEL_LEAK");
     console.log(JSON.stringify({ ok: true, attemptId, pressUrl, opsUrl, privacy: "passed" }, null, 2));
   } finally { await ops.$disconnect(); }
 }

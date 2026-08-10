@@ -2,9 +2,9 @@
 
 ## Checkpoint debugger: one authoritative path
 
-The real `/demo/rag-test` checkpoint-attempt service publishes immutable `presstuner-debug-run/v1` snapshots. The checkpoint attempt UUID is the Ops Console `operationId`; PressTuner owns topology, lifecycle, retry, human-gate, and guardrail meaning. Ops Console independently validates, stores, and visualizes the snapshots but does not import PressTuner code or reevaluate guardrails.
+The real `/demo/rag-test` checkpoint-attempt service publishes immutable `presstuner-debug-run/v2` snapshots. The checkpoint attempt UUID is the Ops Console `operationId`; PressTuner owns topology, lifecycle, retry, human-gate, requirement applicability, reachability, evaluability, and verdict meaning. Ops Console independently validates, stores, counts, and visualizes the snapshots but does not reevaluate requirements.
 
-The boundary is an allowlist. It contains fixed process identity, registry topology, lifecycle timestamps/states, and only the `critical-fact-preservation` evaluation. Fact evidence crosses as NUMBER/DATE/QUOTE/CONSTRAINT counts and SHA-256 hashes. Memo, brief, article, prompt, provider payload, raw evidence values, team ID, and user ID never cross.
+The boundary is an allowlist. It contains fixed workflow/process identity, registry topology, lifecycle timestamps/states, and exactly eight producer-owned requirement observations. Outcomes are `EVALUATED`, `NOT_EVALUABLE`, `NOT_REACHED`, or `NOT_APPLICABLE`; only fixed reason codes cross. Critical-fact evidence crosses only as NUMBER/DATE/QUOTE/CONSTRAINT counts and SHA-256 hashes. Memo, brief, article, evaluator prose, expected/observed values, prompt, provider payload, raw evidence values, team ID, and user ID never cross.
 
 Snapshots are queued in `press_tuner_debug_snapshot_outbox` in the same transaction as each authoritative attempt mutation. Delivery happens after commit with a three-second timeout and never changes command success. Exact state is deduplicated by content hash; `snapshotRevision` is independent from attempt revision so failure-only changes remain observable.
 
@@ -28,6 +28,8 @@ Failure behavior:
 Unset `OPS_CONSOLE_PRESSTUNER_DEBUG_ENABLED` to retain the default enabled behavior. Set it to `false` for rollback; pending rows remain recoverable and checkpoint execution continues.
 
 ## Compatibility behavior
+
+PressTuner and Ops Console retain explicit v1 and v2 parsers. Pending v1 outbox records remain deliverable, and stored v1 snapshots remain visible through the original execution-detail and critical-fact view. A v1-only operation contributes to the new v2 requirement trends as “observation not delivered”; Ops does not invent the seven observations v1 did not carry. Roll out Ops Console v2 support before enabling PressTuner v2 delivery.
 
 Existing Press Agent operation registration, guardrail events, completion, and content-free OTLP export remain internal compatibility behavior. They are unrelated to checkpoint snapshot delivery.
 
