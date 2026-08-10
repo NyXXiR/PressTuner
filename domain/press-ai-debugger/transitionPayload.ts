@@ -21,7 +21,13 @@ export function derivePressTransitionPayload(args: { edgeId: string; sourceOutpu
     case "draft-review": payload = { articleId: String(output.articleId), title: String(output.title), plain: typeof output.plain === "string" && output.plain.trim() ? output.plain : buildGeneratedPlain(output), ...(args.attemptInput.reviewInstruction ? { userInstruction: args.attemptInput.reviewInstruction.slice(0, 1000) } : {}) }; break;
     case "review-rewrite": {
       const notes = Array.isArray(output.notes) ? output.notes.map((note) => object(note)).filter((note): note is JsonObject & { id: string } => typeof note.id === "string") : [];
-      const selectedNoteIds = validateSelectedReviewNotes(args.selections?.selectedNoteIds ?? args.attemptInput.selectedNoteIds ?? notes.map((note) => note.id), notes);
+      const candidateNoteIds = args.selections?.selectedNoteIds ?? args.attemptInput.selectedNoteIds ?? notes.map((note) => note.id);
+      // An AI review with no actionable notes is a valid checkpoint outcome.
+      // Preserve the empty candidate so the transition guardrail can record a
+      // BLOCK verdict; actual entry into selected-rewrite still requires >= 1.
+      const selectedNoteIds = notes.length === 0 && candidateNoteIds.length === 0
+        ? []
+        : validateSelectedReviewNotes(candidateNoteIds, notes);
       const instruction = (args.selections?.rewriteInstruction ?? args.attemptInput.rewriteInstruction ?? "").trim().slice(0, 1000);
       if (!instruction) throw new Error("PRESS_AI_REWRITE_INSTRUCTION_REQUIRED");
       payload = { articleId: args.attemptInput.articleId, selectedNoteIds, userInstruction: instruction };
@@ -29,5 +35,6 @@ export function derivePressTransitionPayload(args: { edgeId: string; sourceOutpu
     }
     default: throw new Error("PRESS_AI_PROCESS_EDGE_INVALID");
   }
+  if (edge.id === "review-rewrite" && Array.isArray(payload.selectedNoteIds) && payload.selectedNoteIds.length === 0) return payload;
   return pressCreationProcess.nodes.find((item) => item.id === edge.target)!.inputSchema.parse(payload) as JsonObject;
 }

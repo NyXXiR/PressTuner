@@ -84,6 +84,21 @@ export async function retryPressAiCheckpointAttempt(attemptId: string, input: Re
 export async function fetchPressAiDebugCase(caseId: string, fetchImpl: typeof fetch = fetch) { const value = await checkpointJson(await fetchImpl(`/api/press/agent/process-debug-cases/${encodeURIComponent(caseId)}`, { cache: "no-store" })); return DebugCaseDetailSchema.parse((value as any).case); }
 export async function savePressAiDebugCase(input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return SaveDebugCaseReceiptSchema.parse(await checkpointJson(await fetchImpl("/api/press/agent/process-debug-cases", { method: "POST", headers, body: JSON.stringify(input) }))); }
 
+const OpsTestProcessReceiptSchema = z.object({
+  status: z.literal("inserted"),
+  operationId: z.string().uuid(),
+  workflowId: z.string(),
+  factCount: z.number().int().positive(),
+});
+
+export async function insertPressAiOpsTestProcess(fetchImpl: typeof fetch = fetch) {
+  return OpsTestProcessReceiptSchema.parse(
+    await checkpointJson(
+      await fetchImpl("/api/press/agent/ops-test-process", { method: "POST", headers }),
+    ),
+  );
+}
+
 export async function uploadPressAiKnowledgePdf(file: File, fetchImpl: typeof fetch = fetch) {
   const body = new FormData();
   body.set("file", file);

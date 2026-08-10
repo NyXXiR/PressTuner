@@ -11,3 +11,18 @@ test("derivation ignores browser fields and validates target schema", () => {
 });
 
 test("malformed source output fails closed", () => assert.throws(() => derivePressTransitionPayload({ edgeId: "draft-review", sourceOutput: {}, attemptInput: attempt })));
+
+test("an empty draft review reaches guardrail evaluation instead of throwing a selection error", () => {
+  assert.deepEqual(
+    derivePressTransitionPayload({
+      edgeId: "review-rewrite",
+      sourceOutput: { notes: [] },
+      attemptInput: { ...attempt, selectedNoteIds: undefined },
+    }),
+    {
+      articleId: "article-1",
+      selectedNoteIds: [],
+      userInstruction: "수정",
+    },
+  );
+});

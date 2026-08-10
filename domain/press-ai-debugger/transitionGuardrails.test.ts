@@ -9,6 +9,17 @@ test("mandatory observations are complete and expectations append deterministica
   assert.equal(result.observations[0].origin, "MANDATORY");
 });
 test("roll-up uses BLOCK then WARN priority", () => { assert.equal(rollUpGuardrailVerdict([{ verdict: "PASS" }, { verdict: "WARN" }]), "WARN"); assert.equal(rollUpGuardrailVerdict([{ verdict: "WARN" }, { verdict: "BLOCK" }]), "BLOCK"); });
+test("an empty review note candidate is recorded as a blocked transition", () => {
+  const result = evaluatePressTransitionGuardrails({
+    edgeId: "review-rewrite",
+    sourceInput: {},
+    sourceOutput: { notes: [] },
+    targetPayload: { articleId: "a", selectedNoteIds: [], userInstruction: "수정" },
+    attempt: { teamId: "t", articleId: "a" },
+  });
+  assert.equal(result.verdict, "BLOCK");
+  assert.equal(result.observations.find((item) => item.guardrailId === "review-note-selection")?.observed, "none");
+});
 test("grounding excludes tone, quota, timestamps, URLs, paths and retrieval metadata", () => {
   const metadata = ["918273", "2099-12-31", "metadata.invalid", "778899", "/api/private", "665544", "0.123456", "formal"];
   const result = evaluatePressTransitionGuardrails({ edgeId: "draft-review", sourceInput: { oneLiner: "반드시 30% 이상 개선한다.", eventAt: "2026-08-20", tone: "formal", usage: { quota: 918273 }, createdAt: "2099-12-31T00:00:00Z", url: "https://metadata.invalid/778899", path: "/api/private/665544", retrievalScore: 0.123456 }, sourceOutput: { title: "성과", plain: "반드시 30% 이상 개선한다. 일정은 2026-08-20이다." }, targetPayload: { title: "성과", plain: "본문" }, attempt: { teamId: "t", articleId: "a" } });

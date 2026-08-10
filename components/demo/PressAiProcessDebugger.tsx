@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
 import { PressAiAttemptWorkspace } from "./PressAiAttemptWorkspace";
 import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
+import { PressAiOpsTestDataControl } from "./PressAiOpsTestDataControl";
 import { DEFAULT_MEMO } from "./pressAiDebuggerDefaults";
 import { usePressAiCheckpointDebugger } from "./usePressAiCheckpointDebugger";
 
@@ -63,6 +64,7 @@ export function PressAiProcessDebugger() {
   const [auth, setAuth] = useState<"checking" | "authenticated" | "anonymous">(
     "checking",
   );
+  const [superAdmin, setSuperAdmin] = useState(false);
   const [rawText, setRawText] = useState(() => readStoredDraft().rawText);
   const [tone, setTone] = useState<"formal" | "neutral" | "friendly">(
     () => readStoredDraft().tone,
@@ -95,8 +97,13 @@ export function PressAiProcessDebugger() {
 
   useEffect(() => {
     void fetch("/api/me", { cache: "no-store" })
-      .then((response) => setAuth(response.ok ? "authenticated" : "anonymous"))
-      .catch(() => setAuth("anonymous"));
+      .then(async (response) => {
+        setAuth(response.ok ? "authenticated" : "anonymous");
+        if (!response.ok) return;
+        const value = await response.json().catch(() => null);
+        setSuperAdmin(Boolean(value && typeof value === "object" && (value as { isSuperAdmin?: unknown }).isSuperAdmin === true));
+      })
+      .catch(() => { setAuth("anonymous"); setSuperAdmin(false); });
   }, []);
   useEffect(() => {
     if (debuggerState.error) errorRef.current?.focus();
@@ -133,6 +140,7 @@ export function PressAiProcessDebugger() {
         </div>
       ) : null}
       <PressAiKnowledgePanel />
+      {auth === "authenticated" && superAdmin ? <PressAiOpsTestDataControl /> : null}
       {debuggerState.loading && !attempt ? (
         <p
           role="status"
