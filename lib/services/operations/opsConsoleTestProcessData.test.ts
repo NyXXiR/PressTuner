@@ -58,6 +58,20 @@ test("inserts a complete, clearly labeled Press AI sample through the OPS produc
   assert.equal(result.status, "inserted");
 });
 
+test("declares lifecycle support under a version reserved for the generated sample definition", async () => {
+  const calls: string[] = [];
+  await createOpsConsoleTestProcessData(
+    { teamId: "team-private", userId: "user-private" },
+    dependencies(calls, {
+      registerWorkflow: async (manifest) => {
+        assert.ok(manifest.capabilities.includes("operation.lifecycle.v1"));
+        assert.equal(manifest.workflow.version, "2.0.0-demo.2");
+        return { status: "registered", operationId, environment: "test" };
+      },
+    }),
+  );
+});
+
 test("sample facts cover stage completion, traversal, evaluation, and human review without private content", async () => {
   let serialized = "";
   const calls: string[] = [];

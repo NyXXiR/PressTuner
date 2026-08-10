@@ -21,6 +21,7 @@ import {
 } from "./opsConsoleOperationClient";
 
 export const OPS_TEST_WORKFLOW_ID = "presstuner.press-creation.demo-test";
+export const OPS_TEST_WORKFLOW_VERSION = "2.0.0-demo.2";
 
 export type OpsConsoleTestProcessDependencies = {
   now: () => Date;
@@ -53,7 +54,17 @@ function buildTestManifest(): OpsConsoleWorkflowManifest {
   const current = buildOpsConsoleWorkflowManifest("press-creation");
   const base = {
     ...current,
-    workflow: { ...current.workflow, id: OPS_TEST_WORKFLOW_ID },
+    workflow: {
+      ...current.workflow,
+      id: OPS_TEST_WORKFLOW_ID,
+      version: OPS_TEST_WORKFLOW_VERSION,
+    },
+    capabilities: [
+      ...current.capabilities,
+      ...(!current.capabilities.includes("operation.lifecycle.v1")
+        ? (["operation.lifecycle.v1"] as const)
+        : []),
+    ],
   };
   return OpsConsoleWorkflowManifestSchema.parse({
     ...base,
