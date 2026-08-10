@@ -41,7 +41,8 @@ export function PressAiRunActionBar(props: {
   onRetry: (nodeId: string) => void;
 }) {
   const { action } = props;
-  // Keyed by edge so acknowledgements never leak from one transition to the next.
+  // The edge key and attempt-keyed parent boundary ensure edge and attempt identity
+  // both isolate acknowledgements.
   const [acks, setAcks] = useState<
     Record<string, { warn: boolean; human: boolean }>
   >({});

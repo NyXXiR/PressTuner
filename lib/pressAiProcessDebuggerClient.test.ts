@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { File } from "node:buffer";
 import test from "node:test";
 
-import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
+import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttempt, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, retryPressAiCheckpointAttempt, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
 
 test("uploads a direct File as multipart without a manual content type", async () => {
   let request: RequestInit | undefined;
@@ -60,4 +60,92 @@ test("checkpoint history and comparisons read persisted server projections", asy
   });
   assert.equal(history[0]?.id, "a1");
   assert.equal(comparisons[0]?.newVerdict, "PASS");
+});
+
+test("attempt detail parsing preserves persisted metadata and saved input", async () => {
+  const attempt = await fetchPressAiCheckpointAttempt(
+    "attempt-parent",
+    async () =>
+      new Response(
+        JSON.stringify({
+          attempt: {
+            id: "attempt-parent",
+            processId: "press-creation",
+            processVersion: "2.0.0",
+            registryHash: "registry",
+            executorVersion: "executor",
+            status: "COMPLETED",
+            revision: 7,
+            articleId: "article-1",
+            activeNodeId: null,
+            startNodeId: "brief-normalization",
+            createdAt: "2026-08-10T01:02:03.000Z",
+            completedAt: "2026-08-10T01:03:04.000Z",
+            parentAttemptId: "attempt-origin",
+            inputSnapshot: {
+              articleId: "article-1",
+              rawText: "저장된 메모",
+              tone: "formal",
+              reviewInstruction: "검토",
+              rewriteInstruction: "수정",
+            },
+            checkpoints: [],
+            transitions: [],
+          },
+        }),
+        { status: 200 },
+      ),
+  );
+
+  assert.equal(attempt.createdAt, "2026-08-10T01:02:03.000Z");
+  assert.equal(attempt.completedAt, "2026-08-10T01:03:04.000Z");
+  assert.equal(attempt.parentAttemptId, "attempt-origin");
+  assert.equal(attempt.startNodeId, "brief-normalization");
+  assert.equal(attempt.revision, 7);
+  assert.equal(attempt.inputSnapshot.rawText, "저장된 메모");
+  assert.equal(attempt.inputSnapshot.tone, "formal");
+});
+
+test("retry sends the exact branch envelope and parses the child receipt", async () => {
+  let requestUrl = "";
+  let requestInit: RequestInit | undefined;
+  const result = await retryPressAiCheckpointAttempt(
+    "attempt-parent",
+    {
+      commandId: "command-123",
+      expectedRevision: 7,
+      retryNodeId: "draft-review",
+    },
+    async (url, init) => {
+      requestUrl = String(url);
+      requestInit = init;
+      return new Response(
+        JSON.stringify({
+          replayed: false,
+          attemptId: "attempt-child",
+          articleId: "article-child",
+          revision: 0,
+        }),
+        { status: 201 },
+      );
+    },
+  );
+
+  assert.equal(
+    requestUrl,
+    "/api/press/agent/process-debug-attempts/attempt-parent/retry",
+  );
+  assert.deepEqual(JSON.parse(String(requestInit?.body)), {
+    commandId: "command-123",
+    expectedRevision: 7,
+    retryNodeId: "draft-review",
+  });
+  assert.equal(result.attemptId, "attempt-child");
+
+  await assert.rejects(
+    retryPressAiCheckpointAttempt("attempt-parent", {}, async () =>
+      new Response(JSON.stringify({ attemptId: 42 }), { status: 200 }),
+    ),
+    /Invalid input/,
+  );
 });

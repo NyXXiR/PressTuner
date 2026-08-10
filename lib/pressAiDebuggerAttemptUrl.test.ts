@@ -32,4 +32,8 @@ test("withAttemptParam sets, replaces, and clears the parameter", () => {
   );
   assert.equal(withAttemptParam("?attempt=old", null), "");
   assert.equal(withAttemptParam("?tab=history&attempt=old", null), "?tab=history");
+  assert.equal(
+    withAttemptParam("?attempt=old&tab=history&filter=blocked", null),
+    "?tab=history&filter=blocked",
+  );
 });

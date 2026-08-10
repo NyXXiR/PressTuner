@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import { GuardrailChip } from "./PressAiVerdictBadge";
@@ -10,14 +9,12 @@ const Json = ({ value }: { value: unknown }) => (
 );
 /**
  * Detail for one transition, rendered inside its timeline row.
- * Advancing lives in the run action bar; this panel explains the judgment and, when the
- * verdict is BLOCK, offers the only remaining move: restarting from an earlier node.
+ * Mutation controls live in the run and experiment action surfaces; this panel only
+ * explains the persisted transition judgment.
  */
 export function PressAiEdgeInspector(props: {
   attempt: PressAiCheckpointAttempt;
   edgeId: string;
-  busy: boolean;
-  onRetry: (nodeId: string) => void;
 }) {
   const edge = pressCreationProcess.edges.find(
     (item) => item.id === props.edgeId,
@@ -25,14 +22,7 @@ export function PressAiEdgeInspector(props: {
   const transition = props.attempt.transitions.find(
     (item) => item.edgeId === props.edgeId,
   );
-  const checkpoint = props.attempt.checkpoints.find(
-    (item) => item.nodeId === edge?.source,
-  );
-  const [retryNodeId, setRetryNodeId] = useState(edge?.source ?? "");
   if (!edge) return null;
-  const restartable = props.attempt.checkpoints.filter(
-    (item) => item.sequence <= (checkpoint?.sequence ?? -1),
-  );
   return (
     <section
       className="min-w-0 rounded-xl border border-border bg-background p-4"
@@ -84,34 +74,9 @@ export function PressAiEdgeInspector(props: {
         )}
       </ol>
       {transition?.verdict === "BLOCK" ? (
-        <div className="mt-4">
-          <p className="text-sm font-bold text-rose-700 dark:text-rose-300">
-            BLOCK은 재정의할 수 없습니다. 초안 케이스가 자동 저장되었습니다.
-          </p>
-          <label className="mt-3 block text-sm font-bold">
-            다시 시작할 노드
-            <select
-              value={retryNodeId}
-              onChange={(event) => setRetryNodeId(event.target.value)}
-              className="mt-1 min-h-11 w-full rounded border bg-background px-3"
-            >
-              {restartable.map((item) => (
-                <option key={item.id} value={item.nodeId}>
-                  {pressCreationProcess.nodes.find((node) => node.id === item.nodeId)?.label ?? item.nodeId}
-                  {item.nodeId === edge.source ? " (권장)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={props.busy || !retryNodeId}
-            onClick={() => props.onRetry(retryNodeId)}
-            className="mt-2 min-h-11 rounded-lg border px-4 font-bold"
-          >
-            새 시도로 다시 실행
-          </button>
-        </div>
+        <p className="mt-4 text-sm font-bold text-rose-700 dark:text-rose-300">
+          BLOCK은 재정의할 수 없습니다. 초안 케이스가 자동 저장되었습니다.
+        </p>
       ) : null}
     </section>
   );

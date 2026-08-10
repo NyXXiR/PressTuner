@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  getBeginningRetryNodeId,
+  isRetryNodeValid,
+} from "@/domain/press-ai-debugger/retryPolicy";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import { prisma } from "@/lib/prisma";
 import { createPressProcessRun } from "./processPersistence";
@@ -16,8 +20,16 @@ export async function retryDebugAttempt(args: { teamId: string; userId: string; 
   const parent = await prisma.pressAiDebugAttempt.findFirst({ where: { id: args.attemptId, teamId: args.teamId }, include: { checkpoints: { orderBy: { sequence: "asc" } }, transitions: { where: { verdict: "BLOCK" }, orderBy: { sequence: "asc" } } } });
   if (!parent) throw Object.assign(new Error("PRESS_AI_DEBUG_ATTEMPT_NOT_FOUND"), { status: 404 });
   if (parent.revision !== args.input.expectedRevision) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_COMMAND_STALE");
-  const defaultNode = parent.transitions[0]?.sourceNodeId ?? parent.checkpoints.at(-1)?.nodeId; const retryNodeId = args.input.retryNodeId ?? defaultNode;
-  const retryNode = pressCreationProcess.nodes.find((item) => item.id === retryNodeId); if (!retryNode || !parent.checkpoints.some((item) => item.nodeId === retryNodeId)) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_RETRY_NODE_INVALID");
+  const defaultNode =
+    parent.transitions[0]?.sourceNodeId ??
+    parent.checkpoints.at(-1)?.nodeId ??
+    getBeginningRetryNodeId(parent);
+  const retryNodeId = args.input.retryNodeId ?? defaultNode;
+  const retryNode = pressCreationProcess.nodes.find(
+    (item) => item.id === retryNodeId,
+  );
+  if (!retryNode || !isRetryNodeValid(parent, retryNode.id))
+    throw new PressAiDebugConflictError("PRESS_AI_DEBUG_RETRY_NODE_INVALID");
   const article = await createPressDebugArticle(args); const rebasedInput = rebase(parent.inputSnapshot, parent.articleId, article.id) as Record<string, unknown>;
   const run = await createPressProcessRun({ teamId: args.teamId, userId: args.userId, processId: "press-creation", input: rebasedInput });
   const child = await prisma.$transaction(async (tx) => {

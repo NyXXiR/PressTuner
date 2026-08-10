@@ -72,7 +72,6 @@ export function PressAiRunTimeline(props: {
   defaultOpenKey?: string | null;
   open: Record<string, boolean>;
   onOpenChange: (open: Record<string, boolean>) => void;
-  onRetry: (nodeId: string) => void;
 }) {
   const rows = timelineRows(props.attempt, props.busy);
   const open = props.open;
@@ -262,8 +261,6 @@ export function PressAiRunTimeline(props: {
                   <PressAiEdgeInspector
                     attempt={props.attempt}
                     edgeId={edge.id}
-                    busy={props.busy}
-                    onRetry={props.onRetry}
                   />
                 </div>
               ) : null}

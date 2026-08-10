@@ -12,8 +12,22 @@ export class PressAiDebuggerApiError extends Error {
 const GuardrailObservationSchema = z.object({ id: z.string(), guardrailId: z.string(), origin: z.enum(["MANDATORY", "CASE_EXPECTATION"]), expected: z.string(), observed: z.string(), reason: z.string(), evidence: z.unknown(), verdict: z.enum(["PASS", "WARN", "BLOCK"]), displayOrder: z.number().int() }).passthrough();
 const CheckpointSchema = z.object({ id: z.string(), nodeId: z.string(), sequence: z.number().int(), mode: z.enum(["EXECUTED", "RESTORED"]), input: z.unknown(), output: z.unknown(), quotaUnits: z.number().int().nonnegative() }).passthrough();
 const TransitionSchema = z.object({ id: z.string(), edgeId: z.string(), sequence: z.number().int(), sourceNodeId: z.string(), targetNodeId: z.string(), targetPayload: z.unknown(), verdict: z.enum(["PASS", "WARN", "BLOCK"]), warnAcknowledgedAt: z.union([z.string(), z.date()]).nullable(), humanGateAcknowledgedAt: z.union([z.string(), z.date()]).nullable(), advancedAt: z.union([z.string(), z.date()]).nullable(), observations: z.array(GuardrailObservationSchema) }).passthrough();
-export const CheckpointAttemptSchema = z.object({ id: z.string(), processId: z.literal("press-creation"), processVersion: z.string(), registryHash: z.string(), executorVersion: z.string(), status: z.enum(["ACTIVE", "INSPECTING", "COMPLETED", "BLOCKED", "FAILED"]), revision: z.number().int().nonnegative(), articleId: z.string(), activeNodeId: z.string().nullable(), startNodeId: z.string(), checkpoints: z.array(CheckpointSchema), transitions: z.array(TransitionSchema) }).passthrough();
+const CheckpointInputSnapshotSchema = z.object({
+  articleId: z.string(),
+  rawText: z.string(),
+  tone: z.enum(["formal", "neutral", "friendly"]),
+  reviewInstruction: z.string(),
+  rewriteInstruction: z.string(),
+}).passthrough();
+export const CheckpointAttemptSchema = z.object({ id: z.string(), processId: z.literal("press-creation"), processVersion: z.string(), registryHash: z.string(), executorVersion: z.string(), status: z.enum(["ACTIVE", "INSPECTING", "COMPLETED", "BLOCKED", "FAILED"]), revision: z.number().int().nonnegative(), articleId: z.string(), activeNodeId: z.string().nullable(), startNodeId: z.string(), createdAt: z.string().datetime(), completedAt: z.string().datetime().nullable(), parentAttemptId: z.string().nullable(), inputSnapshot: CheckpointInputSnapshotSchema, checkpoints: z.array(CheckpointSchema), transitions: z.array(TransitionSchema) }).passthrough();
+export const RetryCheckpointAttemptResponseSchema = z.object({
+  replayed: z.boolean(),
+  attemptId: z.string(),
+  articleId: z.string(),
+  revision: z.number().int().nonnegative(),
+});
 export type PressAiCheckpointAttempt = z.infer<typeof CheckpointAttemptSchema>;
+export type RetryCheckpointAttemptResponse = z.infer<typeof RetryCheckpointAttemptResponseSchema>;
 export type PressAiCheckpointAttemptSummary = {
   id: string;
   processId: string;
@@ -57,7 +71,7 @@ export async function fetchPressAiCheckpointComparison(attemptId: string, fetchI
 }
 export async function executePressAiCheckpointNode(attemptId: string, nodeId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/steps/${encodeURIComponent(nodeId)}/execute`, { method: "POST", headers, body: JSON.stringify(input) })); }
 export async function advancePressAiCheckpointEdge(attemptId: string, edgeId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/edges/${encodeURIComponent(edgeId)}/advance`, { method: "POST", headers, body: JSON.stringify(input) })); }
-export async function retryPressAiCheckpointAttempt(attemptId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/retry`, { method: "POST", headers, body: JSON.stringify(input) })); }
+export async function retryPressAiCheckpointAttempt(attemptId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch): Promise<RetryCheckpointAttemptResponse> { const value = await checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/retry`, { method: "POST", headers, body: JSON.stringify(input) })); return RetryCheckpointAttemptResponseSchema.parse(value); }
 export async function savePressAiDebugCase(input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl("/api/press/agent/process-debug-cases", { method: "POST", headers, body: JSON.stringify(input) })); }
 
 export async function uploadPressAiKnowledgePdf(file: File, fetchImpl: typeof fetch = fetch) {
