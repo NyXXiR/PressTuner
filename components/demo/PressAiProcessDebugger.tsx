@@ -7,7 +7,6 @@ import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
 import { PressAiAttemptWorkspace } from "./PressAiAttemptWorkspace";
 import { PressAiKnowledgePanel } from "./PressAiKnowledgePanel";
 import { DEFAULT_MEMO } from "./pressAiDebuggerDefaults";
-import { attemptStatusLabel } from "./pressAiRunProgress";
 import { usePressAiCheckpointDebugger } from "./usePressAiCheckpointDebugger";
 
 const DRAFT_KEY = "press-ai-debugger-draft";
@@ -106,45 +105,29 @@ export function PressAiProcessDebugger() {
   const attempt = debuggerState.attempt;
   return (
     <section
-      className="pt-overflow-visible min-w-0 rounded-2xl border border-primary/35 bg-card p-4 shadow-sm sm:p-6"
+      className="min-w-0 space-y-4"
       aria-label="Press AI 체크포인트 디버거"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">
-          Press creation · checkpoint v2
-        </p>
-        <span
-          title={attempt?.status ?? "NOT_STARTED"}
-          className="rounded-full border px-3 py-1 text-xs font-bold"
-        >
-          {attemptStatusLabel(attempt?.status ?? "NOT_STARTED")}
-        </span>
-      </div>
+      {/* One quiet line, not a second filled CTA: the form already ends in one. */}
       {auth === "anonymous" ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 p-4">
-          <div className="min-w-0">
-            <p className="text-sm font-bold">
-              로그인하면 실제로 실행해 볼 수 있습니다.
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              지금 작성한 메모와 지침은 로그인 후에도 유지됩니다.
-            </p>
-          </div>
+        <p className="text-sm text-muted-foreground">
           <Link
             href={LOGIN_HREF}
             onClick={goToLogin}
-            className="flex min-h-11 shrink-0 items-center rounded-xl bg-primary px-5 font-black text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="font-bold text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            로그인하고 시작하기
+            로그인
           </Link>
-        </div>
+          하면 실제로 실행해 볼 수 있습니다. 지금 작성한 메모와 지침은 로그인
+          후에도 유지됩니다.
+        </p>
       ) : null}
       {debuggerState.error ? (
         <div
           ref={errorRef}
           tabIndex={-1}
           role="alert"
-          className="mt-4 rounded-xl border border-rose-500 p-4 text-sm text-rose-700 dark:text-rose-300"
+          className="rounded-xl border border-rose-500 p-4 text-sm text-rose-700 dark:text-rose-300"
         >
           {debuggerState.error}
         </div>
@@ -153,12 +136,20 @@ export function PressAiProcessDebugger() {
       {debuggerState.loading && !attempt ? (
         <p
           role="status"
-          className="mt-5 rounded-xl border border-border p-4 text-sm text-muted-foreground"
+          className="rounded-xl border border-border p-4 text-sm text-muted-foreground"
         >
           주소에 저장된 시도를 불러오는 중입니다…
         </p>
       ) : !attempt ? (
-        <div className="mt-5 grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        // The second column only exists for the history rail, so an anonymous
+        // visitor gets the full width instead of a 300px hole.
+        <div
+          className={`grid min-w-0 items-start gap-6 ${
+            auth === "authenticated"
+              ? "lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]"
+              : ""
+          }`}
+        >
           <div className="min-w-0 space-y-4">
             <h2
               ref={newAttemptHeadingRef}
@@ -167,14 +158,16 @@ export function PressAiProcessDebugger() {
             >
               새 Press AI 시도
             </h2>
-            <div className="grid gap-4 lg:grid-cols-2">
+            {/* 3fr/2fr, not 1fr/1fr: the memo is the work, the three short
+                fields beside it are settings and left a hole at equal widths. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <label className="text-sm font-bold">
                 대략적인 메모
                 <textarea
                   value={rawText}
                   onChange={(event) => setRawText(event.target.value)}
-                  rows={7}
-                  className="mt-2 w-full rounded-xl border bg-background p-3"
+                  rows={9}
+                  className="pt-input mt-2 p-3"
                 />
               </label>
               <div className="space-y-3">
@@ -185,7 +178,7 @@ export function PressAiProcessDebugger() {
                     onChange={(event) =>
                       setTone(event.target.value as typeof tone)
                     }
-                    className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+                    className="pt-input mt-2 min-h-11 px-3"
                   >
                     <option value="formal">격식</option>
                     <option value="neutral">중립</option>
@@ -197,7 +190,7 @@ export function PressAiProcessDebugger() {
                   <input
                     value={reviewInstruction}
                     onChange={(event) => setReviewInstruction(event.target.value)}
-                    className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+                    className="pt-input mt-2 min-h-11 px-3"
                   />
                 </label>
                 <label className="block text-sm font-bold">
@@ -205,13 +198,13 @@ export function PressAiProcessDebugger() {
                   <input
                     value={rewriteInstruction}
                     onChange={(event) => setRewriteInstruction(event.target.value)}
-                    className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+                    className="pt-input mt-2 min-h-11 px-3"
                   />
                 </label>
               </div>
             </div>
             {auth === "anonymous" ? (
-              <p className="rounded-xl border border-amber-500/40 p-3 text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 시도를 만들면 새 테스트 Article이 생성되고, 명시적으로 실행한 AI
                 노드만 일반 Press 할당량을 사용합니다.
               </p>

@@ -121,7 +121,7 @@ export function PressAiKnowledgePanel() {
 
   return (
     <section
-      className="mb-4 rounded-xl border border-border"
+      className="rounded-xl border border-border"
       aria-labelledby="press-ai-knowledge-heading"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">

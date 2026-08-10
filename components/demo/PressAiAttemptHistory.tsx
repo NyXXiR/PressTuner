@@ -53,7 +53,7 @@ export function PressAiAttemptHistory(props: {
                 onClick={() => props.onOpen(item.id)}
                 aria-current={item.id === props.attemptId ? "true" : undefined}
                 title={item.id}
-                className="min-h-11 w-full rounded-lg border p-2.5 text-left aria-[current=true]:border-primary aria-[current=true]:bg-primary/5"
+                className="min-h-11 w-full rounded-lg border border-border p-2.5 text-left aria-[current=true]:border-primary aria-[current=true]:bg-primary/5"
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate font-bold">

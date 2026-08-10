@@ -78,7 +78,7 @@ export function PressAiRunActionBar(props: {
   };
 
   return (
-    <div className="sticky top-0 z-20 -mx-4 mb-4 border-y border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:-mx-6 sm:px-6">
+    <div className="sticky top-0 z-20 mb-4 rounded-xl border border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <ol className="flex min-w-0 shrink-0 items-center gap-1" aria-label="진행 단계">
           {pressCreationProcess.nodes.map((node) => {

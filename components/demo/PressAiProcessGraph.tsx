@@ -13,17 +13,13 @@ import {
   nodeState,
 } from "./pressAiRunProgress";
 
-/** Logical canvas; the SVG scales this to whatever width the card gives it. */
-const CANVAS_WIDTH = 1180;
 const CANVAS_PADDING = 32;
 /**
- * Canvas height follows the graph, with slack left over for panning. A fixed
- * height reserved the same band for a five-node chain as for a wide branching
- * graph, and most of it stayed empty.
+ * Narrower than this the canvas scrolls sideways instead of shrinking: a fixed
+ * 1180-unit canvas squeezed into a phone rendered the node labels at a third of
+ * their size, unreadable.
  */
-const CANVAS_SLACK = 90;
-const MIN_CANVAS_HEIGHT = 200;
-const MAX_CANVAS_HEIGHT = 420;
+const MIN_RENDERED_WIDTH = 880;
 const MIN_SCALE = 0.45;
 const MAX_SCALE = 1.8;
 
@@ -51,23 +47,14 @@ export function PressAiProcessGraph(props: {
     () => new Set(layout.edges.map(({ edge }) => edge.source)),
     [layout],
   );
-  const canvasHeight = Math.min(
-    MAX_CANVAS_HEIGHT,
-    Math.max(MIN_CANVAS_HEIGHT, Math.round(layout.height + CANVAS_SLACK)),
+  // The canvas is the drawing plus one padding ring, so "fit" is the natural
+  // size and there is no reserved band of empty grid around a short chain.
+  const canvasWidth = Math.round(layout.width + CANVAS_PADDING * 2);
+  const canvasHeight = Math.round(layout.height + CANVAS_PADDING * 2);
+  const fit = useMemo(
+    () => ({ scale: 1, x: CANVAS_PADDING, y: CANVAS_PADDING }),
+    [],
   );
-  const fit = useMemo(() => {
-    const scale = clampScale(
-      Math.min(
-        (CANVAS_WIDTH - CANVAS_PADDING * 2) / layout.width,
-        (canvasHeight - CANVAS_PADDING * 2) / layout.height,
-      ),
-    );
-    return {
-      scale,
-      x: (CANVAS_WIDTH - layout.width * scale) / 2,
-      y: (canvasHeight - layout.height * scale) / 2,
-    };
-  }, [layout, canvasHeight]);
 
   const [view, setView] = useState(fit);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -91,7 +78,7 @@ export function PressAiProcessGraph(props: {
       const ratio = scale / current.scale;
       return {
         scale,
-        x: CANVAS_WIDTH / 2 - (CANVAS_WIDTH / 2 - current.x) * ratio,
+        x: canvasWidth / 2 - (canvasWidth / 2 - current.x) * ratio,
         y: canvasHeight / 2 - (canvasHeight / 2 - current.y) * ratio,
       };
     });
@@ -109,14 +96,14 @@ export function PressAiProcessGraph(props: {
         const ratio = scale / current.scale;
         return {
           scale,
-          x: CANVAS_WIDTH / 2 - (CANVAS_WIDTH / 2 - current.x) * ratio,
+          x: canvasWidth / 2 - (canvasWidth / 2 - current.x) * ratio,
           y: canvasHeight / 2 - (canvasHeight / 2 - current.y) * ratio,
         };
       });
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [canvasHeight]);
+  }, [canvasWidth, canvasHeight]);
 
   const setEngagement = (value: boolean) => {
     engagedRef.current = value;
@@ -162,13 +149,19 @@ export function PressAiProcessGraph(props: {
         </span>
       </div>
 
+      <div className="overflow-x-auto">
       <svg
         ref={svgRef}
         tabIndex={0}
-        viewBox={`0 0 ${CANVAS_WIDTH} ${canvasHeight}`}
-        // pan-y keeps vertical page scrolling on touch; horizontal drag pans.
-        style={{ height: canvasHeight, touchAction: "pan-y" }}
-        className="w-full cursor-grab bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+        viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+        // The aspect ratio drives the height, so the drawing never sits in a
+        // taller band than it needs. Touch scrolls the wrapper; a mouse drags.
+        style={{
+          minWidth: MIN_RENDERED_WIDTH,
+          aspectRatio: `${canvasWidth} / ${canvasHeight}`,
+          touchAction: "pan-x pan-y",
+        }}
+        className="block w-full cursor-grab bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
         role="group"
         aria-label="보도자료 체크포인트 그래프. 클릭하면 휠과 +/- 키로 확대할 수 있습니다."
         onFocus={() => setEngagement(true)}
@@ -201,7 +194,7 @@ export function PressAiProcessGraph(props: {
           if (!state || state.pointerId !== event.pointerId) return;
           // Client pixels are canvas units scaled by the rendered width.
           const rect = event.currentTarget.getBoundingClientRect();
-          const unit = rect.width ? CANVAS_WIDTH / rect.width : 1;
+          const unit = rect.width ? canvasWidth / rect.width : 1;
           setView((current) => ({
             ...current,
             x: state.ox + (event.clientX - state.x) * unit,
@@ -237,7 +230,7 @@ export function PressAiProcessGraph(props: {
           </pattern>
         </defs>
         <rect
-          width={CANVAS_WIDTH}
+          width={canvasWidth}
           height={canvasHeight}
           fill="url(#checkpoint-grid)"
           pointerEvents="none"
@@ -400,6 +393,7 @@ export function PressAiProcessGraph(props: {
           })}
         </g>
       </svg>
+      </div>
     </div>
   );
 }

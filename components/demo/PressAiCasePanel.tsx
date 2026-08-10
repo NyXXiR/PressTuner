@@ -40,7 +40,7 @@ export function PressAiCasePanel(props: {
         aria-label="완료 체크포인트"
         value={checkpointId}
         onChange={(event) => setCheckpointId(event.target.value)}
-        className="mt-3 min-h-11 w-full rounded border bg-background px-3"
+        className="pt-input mt-3 min-h-11 px-3"
       >
         <option value="">체크포인트 선택</option>
         {props.checkpoints.map((item) => (
@@ -53,12 +53,12 @@ export function PressAiCasePanel(props: {
         aria-label="케이스 이름"
         value={name}
         onChange={(event) => setName(event.target.value)}
-        className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+        className="pt-input mt-2 min-h-11 px-3"
         placeholder="케이스 이름"
       />
       <div className="mt-3 space-y-2">
         {expectations.map((item, index) => (
-          <fieldset key={index} className="rounded-lg border p-3">
+          <fieldset key={index} className="rounded-lg border border-border p-3">
             <legend className="px-1 text-xs font-bold">
               추가 기대값 {index + 1}
             </legend>
@@ -66,7 +66,7 @@ export function PressAiCasePanel(props: {
               aria-label={`기대값 ${index + 1} 이름`}
               value={item.id}
               onChange={(event) => update(index, { id: event.target.value })}
-              className="min-h-11 w-full rounded border bg-background px-3"
+              className="pt-input min-h-11 px-3"
               placeholder="예: caution-preserved"
             />
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -78,7 +78,7 @@ export function PressAiCasePanel(props: {
                     field: event.target.value as Expectation["field"],
                   })
                 }
-                className="min-h-11 rounded border bg-background px-3"
+                className="pt-input min-h-11 px-3"
               >
                 <option value="contains">포함해야 함</option>
                 <option value="notContains">포함하면 안 됨</option>
@@ -91,7 +91,7 @@ export function PressAiCasePanel(props: {
                     verdict: event.target.value as Expectation["verdict"],
                   })
                 }
-                className="min-h-11 rounded border bg-background px-3"
+                className="pt-input min-h-11 px-3"
               >
                 <option value="WARN">실패 시 WARN</option>
                 <option value="BLOCK">실패 시 BLOCK</option>
@@ -101,7 +101,7 @@ export function PressAiCasePanel(props: {
               aria-label={`기대값 ${index + 1} 내용`}
               value={item.value}
               onChange={(event) => update(index, { value: event.target.value })}
-              className="mt-2 min-h-11 w-full rounded border bg-background px-3"
+              className="pt-input mt-2 min-h-11 px-3"
               placeholder="확인할 문구"
             />
             <button
@@ -111,7 +111,7 @@ export function PressAiCasePanel(props: {
                   items.filter((_, itemIndex) => itemIndex !== index),
                 )
               }
-              className="mt-2 min-h-11 rounded border px-3 text-xs font-bold"
+              className="mt-2 min-h-11 rounded border border-border px-3 text-xs font-bold"
             >
               기대값 삭제
             </button>
@@ -126,7 +126,7 @@ export function PressAiCasePanel(props: {
             { id: "", field: "contains", value: "", verdict: "WARN" },
           ])
         }
-        className="mt-2 min-h-11 rounded border px-3 text-xs font-bold"
+        className="mt-2 min-h-11 rounded border border-border px-3 text-xs font-bold"
       >
         기대값 추가
       </button>
@@ -134,7 +134,7 @@ export function PressAiCasePanel(props: {
         type="button"
         disabled={props.busy || !checkpointId || !name.trim() || !valid}
         onClick={() => props.onSave(checkpointId, name, expectations)}
-        className="mt-2 min-h-11 w-full rounded border px-4 font-bold disabled:opacity-50"
+        className="mt-2 min-h-11 w-full rounded border border-border px-4 font-bold disabled:opacity-50"
       >
         이 체크포인트 저장
       </button>

@@ -34,7 +34,7 @@ export function PressAiAttemptComparison(props: {
       ) : (
         <ol className="mt-3 space-y-3">
           {items.map((item) => (
-            <li key={item.id} className="rounded-lg border p-3">
+            <li key={item.id} className="rounded-lg border border-border p-3">
               <div className="flex justify-between gap-2">
                 <strong>
                   {item.oldVerdict ?? "—"} → {item.newVerdict ?? "—"}

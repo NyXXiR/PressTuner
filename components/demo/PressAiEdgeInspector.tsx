@@ -46,19 +46,15 @@ export function PressAiEdgeInspector(props: {
                 origin={item.origin}
               />
             </div>
-            <dl className="mt-2 grid gap-1 text-xs">
-              <div>
-                <dt className="font-bold">기대</dt>
-                <dd>{item.expected}</dd>
-              </div>
-              <div>
-                <dt className="font-bold">관찰</dt>
-                <dd>{item.observed}</dd>
-              </div>
-              <div>
-                <dt className="font-bold">이유</dt>
-                <dd>{item.reason}</dd>
-              </div>
+            {/* Label beside value, not above it: three stacked pairs made one
+                observation twice as tall as the sentence it carries. */}
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+              <dt className="font-bold text-muted-foreground">기대</dt>
+              <dd className="min-w-0">{item.expected}</dd>
+              <dt className="font-bold text-muted-foreground">관찰</dt>
+              <dd className="min-w-0">{item.observed}</dd>
+              <dt className="font-bold text-muted-foreground">이유</dt>
+              <dd className="min-w-0">{item.reason}</dd>
             </dl>
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-bold">
