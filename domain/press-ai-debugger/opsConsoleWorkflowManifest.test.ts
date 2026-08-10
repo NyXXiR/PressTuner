@@ -25,3 +25,15 @@ test("press creation manifest declares registry gates and guardrails at their so
   assert.ok(source.guardrailIds?.includes("memo-brief-grounding"));
   assert.deepEqual(manifest.edges.find((item) => item.id === "brief-draft")?.guardrailIds, ["memo-brief-grounding", "critical-fact-preservation"]);
 });
+
+test("press agent manifest declares the five native monitoring guardrails", () => {
+  const manifest = buildOpsConsoleWorkflowManifest("rag-query");
+  const guardrailIds = new Set(manifest.stages.flatMap((stage) => stage.guardrailIds ?? []));
+  assert.deepEqual([...guardrailIds].sort(), [
+    "citation-claim-verification",
+    "evidence-use",
+    "expected-tool-behavior",
+    "forbidden-source-protection",
+    "safe-fallback",
+  ]);
+});

@@ -9,7 +9,7 @@ import { mapPressProcessEvent } from "@/domain/ai-telemetry/pressMapper";
 import { generateCanonicalTraceId } from "@/domain/ai-telemetry/identifiers";
 import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
 import { exportRunTelemetry } from "@/lib/services/ai-telemetry/otlpExporter";
-import { beginOpsConsoleOperation, completeOpsConsoleOperation, registerOpsConsoleWorkflowManifest, type OpsConsoleOperationResult } from "@/lib/services/operations/opsConsoleOperationClient";
+import { beginOpsConsoleOperation, completeOpsConsoleOperation, registerOpsConsoleWorkflowManifest, reportOpsConsoleGuardrails, type OpsConsoleOperationResult } from "@/lib/services/operations/opsConsoleOperationClient";
 import { buildOpsConsoleWorkflowManifest } from "@/domain/press-ai-debugger/opsConsoleWorkflowManifest";
 import { exportOpsConsoleExecutionFacts } from "@/lib/services/operations/opsConsoleExecutionFactExporter";
 
@@ -24,6 +24,7 @@ type ProcessObservabilityDependencies = {
   beginOperation: typeof beginOpsConsoleOperation;
   registerManifest: typeof registerOpsConsoleWorkflowManifest;
   completeOperation: typeof completeOpsConsoleOperation;
+  reportGuardrails: typeof reportOpsConsoleGuardrails;
   exportFacts: typeof exportOpsConsoleExecutionFacts;
   exportTelemetry: typeof exportRunTelemetry;
   generateTraceId: typeof generateCanonicalTraceId;
@@ -33,6 +34,7 @@ const observabilityDefaults: ProcessObservabilityDependencies = {
   beginOperation: beginOpsConsoleOperation,
   registerManifest: registerOpsConsoleWorkflowManifest,
   completeOperation: completeOpsConsoleOperation,
+  reportGuardrails: reportOpsConsoleGuardrails,
   exportFacts: exportOpsConsoleExecutionFacts,
   exportTelemetry: exportRunTelemetry,
   generateTraceId: generateCanonicalTraceId,
@@ -44,7 +46,7 @@ export function readProcessOperationId(input: unknown): string | null {
   return typeof operationId === "string" && OPERATION_ID_PATTERN.test(operationId) ? operationId : null;
 }
 
-async function recordObservabilityFailure(args: { teamId: string; runId: string; phase: "MANIFEST" | "BEGIN" | "FACTS" | "COMPLETE" | "EXPORT"; code: string }) {
+async function recordObservabilityFailure(args: { teamId: string; runId: string; phase: "MANIFEST" | "BEGIN" | "GUARDRAILS" | "FACTS" | "COMPLETE" | "EXPORT"; code: string }) {
   try {
     await prisma.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: args.runId, eventType: "OBSERVABILITY_DELIVERY_FAILED", details: { phase: args.phase, errorCode: args.code } } });
   } catch {
@@ -129,6 +131,26 @@ export async function finalizeProcessRunObservability(args: { teamId: string; ru
     operationId = readProcessOperationId(run?.input);
   } catch {
     // Terminal process persistence is authoritative; observability lookup is fail-open.
+  }
+  if (operationId) {
+    try {
+      const observations = await prisma.pressAiDebugGuardrailObservation.findMany({
+        where: { transition: { attempt: { teamId: args.teamId, agentRunId: args.runId } } },
+        orderBy: [{ createdAt: "asc" }, { displayOrder: "asc" }],
+        select: { guardrailId: true, verdict: true, transition: { select: { sourceNodeId: true } } },
+      });
+      const result = await dependencies.reportGuardrails({
+        operationId,
+        verdicts: observations.map((item) => ({
+          stageId: item.transition.sourceNodeId,
+          guardrailId: item.guardrailId,
+          verdict: item.verdict === "PASS" ? "pass" as const : "violation" as const,
+        })),
+      });
+      if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "GUARDRAILS", code: result.code });
+    } catch {
+      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "GUARDRAILS", code: "OPS_CONSOLE_PROJECTION_FAILED" });
+    }
   }
   if (operationId) {
     try {

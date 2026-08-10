@@ -1,10 +1,15 @@
 import { createHash, randomUUID as nodeRandomUUID } from "node:crypto";
 
-import type { PressAgentGuardrailVerdictRecord } from "@/domain/evaluation/pressAgentGuardrailSignals";
 import { CANONICAL_TELEMETRY_PRODUCER_ID } from "@/domain/ai-telemetry/opsConsoleProjection";
 import { assertOpsConsoleRequestSize, OpsConsoleExecutionFactBatchSchema, OpsConsoleWorkflowManifestSchema, type OpsConsoleExecutionFactBatch, type OpsConsoleWorkflowManifest } from "@/domain/ai-telemetry/opsConsoleProducerContracts";
 
 export const PRESS_AGENT_WORKFLOW_ID = "presstuner.press-agent";
+
+export type OpsConsoleGuardrailVerdictRecord = Readonly<{
+  stageId: string;
+  guardrailId: string;
+  verdict: "pass" | "violation" | "not_evaluable";
+}>;
 
 /** Ops Console accepts at most 100 events per batch. */
 const MAX_GUARDRAIL_EVENTS = 100;
@@ -264,7 +269,7 @@ export function createOpsConsoleOperationClient(
      */
     async reportGuardrails(args: {
       operationId: string;
-      verdicts: readonly PressAgentGuardrailVerdictRecord[];
+      verdicts: readonly OpsConsoleGuardrailVerdictRecord[];
       occurredAt?: Date;
     }): Promise<OpsConsoleOperationResult> {
       const configuration = readConfiguration(environment);

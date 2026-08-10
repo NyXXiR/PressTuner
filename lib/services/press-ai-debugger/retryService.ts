@@ -31,7 +31,7 @@ export async function retryDebugAttempt(args: { teamId: string; userId: string; 
   if (!retryNode || !isRetryNodeValid(parent, retryNode.id))
     throw new PressAiDebugConflictError("PRESS_AI_DEBUG_RETRY_NODE_INVALID");
   const article = await createPressDebugArticle(args); const rebasedInput = rebase(parent.inputSnapshot, parent.articleId, article.id) as Record<string, unknown>;
-  const run = await createPressProcessRun({ teamId: args.teamId, userId: args.userId, processId: "press-creation", input: rebasedInput });
+  const run = await createPressProcessRun({ teamId: args.teamId, userId: args.userId, processId: "press-creation", input: rebasedInput, enableObservability: true });
   const child = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM press_ai_debug_attempt WHERE id = ${parent.id} AND team_id = ${args.teamId} FOR UPDATE`;
     const current = await tx.pressAiDebugAttempt.findUnique({ where: { id: parent.id }, select: { revision: true } }); if (current?.revision !== args.input.expectedRevision) throw new PressAiDebugConflictError("PRESS_AI_DEBUG_COMMAND_STALE");

@@ -52,6 +52,10 @@ test("process runs keep one trace and operation through waiting and fail-open te
         deliveryOrder.push(`facts:${exportedOperationId}`);
         return { status: "exported", batches: 1, facts: 1 };
       },
+      reportGuardrails: async ({ operationId: reportedOperationId, verdicts }) => {
+        deliveryOrder.push(`guardrails:${reportedOperationId}:${verdicts.length}`);
+        return { status: "reported", operationId: reportedOperationId, environment: "test" };
+      },
       completeOperation: async ({ operationId: completedOperationId }) => {
         deliveryOrder.push(`complete:${completedOperationId}`);
         completedOperations.push(completedOperationId);
@@ -66,7 +70,7 @@ test("process runs keep one trace and operation through waiting and fail-open te
 
     assert.deepEqual(completedOperations, [operationId]);
     assert.deepEqual(exportedRuns, [run.id]);
-    assert.deepEqual(deliveryOrder, [`manifest:presstuner.press-creation`, `begin:presstuner.press-creation`, `facts:${operationId}`, `otlp:${run.id}`, `complete:${operationId}`]);
+    assert.deepEqual(deliveryOrder, [`manifest:presstuner.press-creation`, `begin:presstuner.press-creation`, `guardrails:${operationId}:0`, `facts:${operationId}`, `otlp:${run.id}`, `complete:${operationId}`]);
     const terminal = await prisma.agentRuntimeAuditEvent.findFirstOrThrow({ where: { teamId: team.id, runId: run.id, eventType: "CANONICAL_AI_TELEMETRY_V1", eventKind: "run.lifecycle", details: { path: ["payload", "phase"], equals: "COMPLETED" } } });
     assert.equal(terminal.traceId, traceId);
   } finally {

@@ -6,6 +6,14 @@ const identities = {
   "press-creation": { id: "presstuner.press-creation", version: "2.0.0", topology: "STATE_MACHINE" },
 } as const;
 
+const ragQueryGuardrails: Readonly<Record<string, readonly string[]>> = {
+  "retrieval-execution": ["evidence-use", "expected-tool-behavior", "forbidden-source-protection"],
+  "evidence-decision": ["safe-fallback"],
+  "response-behavior": ["citation-claim-verification"],
+  verification: ["citation-claim-verification"],
+  fallback: ["safe-fallback"],
+};
+
 function stageKind(processId: PressAiProcessId, node: PressAiProcessNode): OpsConsoleWorkflowManifest["stages"][number]["kind"] {
   if (node.id.includes("intake") || node.id.includes("initialization")) return "INTAKE";
   if (node.id.includes("retrieval")) return "TOOL_EXECUTION";
@@ -32,7 +40,10 @@ export function buildOpsConsoleWorkflowManifest(processId: PressAiProcessId): Op
     stages: nodes.map((node) => {
       const outgoing = edges.filter((edge) => edge.source === node.id);
       const gateIds = [...new Set([...(node.gate ? [node.gate.id] : []), ...outgoing.flatMap((edge) => edge.humanGate ? [edge.humanGate.id] : [])])];
-      const guardrailIds = [...new Set(outgoing.flatMap((edge) => edge.mandatoryGuardrailIds))];
+      const guardrailIds = [...new Set([
+        ...outgoing.flatMap((edge) => edge.mandatoryGuardrailIds),
+        ...(processId === "rag-query" ? ragQueryGuardrails[node.id] ?? [] : []),
+      ])];
       return { id: node.id, label: node.label, kind: stageKind(processId, node), description: node.description, ...(gateIds.length ? { gateIds } : {}), ...(guardrailIds.length ? { guardrailIds } : {}) };
     }),
     edges: edges.map((edge) => {
