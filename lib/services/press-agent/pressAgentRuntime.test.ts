@@ -141,8 +141,6 @@ test("the optional debugger observer preserves default callers while workflow pu
   assert.match(source, /if \(args\.workflowObserver\)/);
   assert.doesNotMatch(source, /if \(!hasPressAgentWorkflowObserver\(\)\) return null/);
   assert.match(source, /persistDurablePressAgentWorkflowEvent/);
-  assert.match(source, /registerOpsConsoleWorkflowManifest\(buildOpsConsoleWorkflowManifest\("rag-query"\)\)/);
-  assert.match(source, /exportOpsConsoleExecutionFacts/);
   assert.match(source, /deriveGuardrailVerdicts/);
   assert.match(source, /run: \{ status: warning \? "warning" : "succeeded"/);
 });

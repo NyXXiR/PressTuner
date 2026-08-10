@@ -11,6 +11,7 @@ import { json } from "./checkpointRepository";
 import { hashPressAiDebugCommand, PressAiDebugConflictError } from "./commandRepository";
 import { mapReplayStarted, mapRunLifecycle } from "@/domain/ai-telemetry/pressMapper";
 import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
+import { enqueueDebugRunSnapshot, flushDebugRunSnapshots } from "./debugRunSnapshotOutbox";
 
 export const RetryDebugAttemptSchema = z.object({ commandId: z.string().min(8).max(100), expectedRevision: z.number().int().nonnegative(), retryNodeId: z.string().optional() }).strict();
 function rebase(value: unknown, oldArticleId: string, newArticleId: string): unknown { if (value === oldArticleId) return newArticleId; if (Array.isArray(value)) return value.map((item) => rebase(item, oldArticleId, newArticleId)); if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, rebase(item, oldArticleId, newArticleId)])); return value; }
@@ -41,7 +42,12 @@ export async function retryDebugAttempt(args: { teamId: string; userId: string; 
     const context = { teamId: args.teamId, runId: run.id, traceId: run.traceId, attemptId: created.id, parentAttemptId: parent.id, caseId: parent.caseId, processId: parent.processId, processVersion: parent.processVersion, registryHash: parent.registryHash, executionMode: "REPLAY" as const };
     await appendCanonicalEvent(tx, mapRunLifecycle(context, "STARTED"));
     await appendCanonicalEvent(tx, mapReplayStarted(context, { sourceAttemptId: parent.id, restoredCheckpointId: parent.checkpoints.find((item) => item.nodeId === retryNode.id)?.id ?? null, caseId: parent.caseId }));
-    await tx.pressAiDebugAttempt.update({ where: { id: parent.id }, data: { revision: { increment: 1 } } }); return created;
+    await tx.pressAiDebugAttempt.update({ where: { id: parent.id }, data: { revision: { increment: 1 } } });
+    await enqueueDebugRunSnapshot(tx, parent.id);
+    await enqueueDebugRunSnapshot(tx, created.id);
+    return created;
   });
+  await flushDebugRunSnapshots(parent.id);
+  await flushDebugRunSnapshots(child.id);
   return { replayed: false, attemptId: child.id, articleId: child.articleId, revision: child.revision };
 }

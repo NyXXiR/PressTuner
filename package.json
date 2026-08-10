@@ -36,6 +36,7 @@
     "qa:press-agent-operation": "node --import tsx scripts/run-press-agent-operation-qa.mjs",
     "qa:rag-debugger": "node --import tsx scripts/run-press-ai-debugger-qa.ts",
     "qa:press-ai-debugger": "node --import tsx scripts/run-press-ai-debugger-qa.ts",
+    "verify:presstuner-debug-integration": "node --import tsx scripts/verifyPresstunerDebugIntegration.ts",
     "eval:press-rag": "node --import tsx scripts/evaluatePressRag.ts",
     "eval:press-ai-debugger:ci": "node --import tsx scripts/evaluatePressAiTransitions.ts",
     "eval:press-rag-controlled-live": "node --import tsx scripts/runPressRagControlledLive.ts",

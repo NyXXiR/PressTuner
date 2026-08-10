@@ -65,13 +65,10 @@ import {
   beginOpsConsoleOperation,
   completeOpsConsoleOperation,
   reportOpsConsoleGuardrails,
-  registerOpsConsoleWorkflowManifest,
   PRESS_AGENT_WORKFLOW_ID,
   readOpsConsoleOperationEnvironment,
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
-import { buildOpsConsoleWorkflowManifest } from "@/domain/press-ai-debugger/opsConsoleWorkflowManifest";
-import { exportOpsConsoleExecutionFacts } from "@/lib/services/operations/opsConsoleExecutionFactExporter";
 import { finalizeProcessRunObservability, PRESS_AI_DEBUGGER_LAUNCH_SURFACE } from "@/lib/services/press-ai-debugger/processPersistence";
 import {
   buildPressAgentCompletionObservation,
@@ -186,14 +183,14 @@ export function readPressAgentOperationId(input: unknown): string | null {
 async function recordOperationTelemetryFailure(args: {
   teamId: string;
   runId: string;
-  phase: "MANIFEST" | "BEGIN" | "FACTS" | "COMPLETE" | "GUARDRAILS";
+  phase: "BEGIN" | "COMPLETE" | "GUARDRAILS";
   result: OpsConsoleOperationResult;
 }) {
   if (args.result.status !== "failed") return;
   await recordOperationTelemetryCode({ teamId: args.teamId, runId: args.runId, phase: args.phase, code: args.result.code });
 }
 
-async function recordOperationTelemetryCode(args: { teamId: string; runId: string; phase: "MANIFEST" | "BEGIN" | "FACTS" | "COMPLETE" | "GUARDRAILS"; code: string }) {
+async function recordOperationTelemetryCode(args: { teamId: string; runId: string; phase: "BEGIN" | "COMPLETE" | "GUARDRAILS"; code: string }) {
   try {
     await prisma.agentRuntimeAuditEvent.create({
       data: {
@@ -216,15 +213,6 @@ async function completePressAgentOperation(args: {
   guardrails?: PressAgentGuardrailObservation;
 }) {
   if (!args.operationId) return;
-
-  try {
-    const factResult = await exportOpsConsoleExecutionFacts({ teamId: args.teamId, runId: args.runId, processId: "rag-query", operationId: args.operationId });
-    if (factResult.status === "failed") {
-      await recordOperationTelemetryCode({ teamId: args.teamId, runId: args.runId, phase: "FACTS", code: factResult.code });
-    }
-  } catch {
-    // Fact projection and transport are best-effort.
-  }
 
   // Guardrail verdicts are reported before completion so the operation is never marked
   // finished with its attribution missing. Telemetry never changes the Agent result.
@@ -1289,12 +1277,6 @@ export async function startPressAgentRun(args: {
       ),
     },
   });
-  try {
-    const manifestResult = await registerOpsConsoleWorkflowManifest(buildOpsConsoleWorkflowManifest("rag-query"));
-    await recordOperationTelemetryFailure({ teamId: args.teamId, runId: runRecord.id, phase: "MANIFEST", result: manifestResult });
-  } catch {
-    // Manifest registration is best-effort and must not prevent operation registration.
-  }
   const operation = await beginOpsConsoleOperation({
     teamId: args.teamId,
     userId: args.userId,

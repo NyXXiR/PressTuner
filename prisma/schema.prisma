@@ -503,6 +503,14 @@ enum PressAiDebugGuardrailOrigin {
   CASE_EXPECTATION
 }
 
+enum PressTunerDebugSnapshotDeliveryState {
+  PENDING
+  DELIVERED
+  CONFIGURATION_FAILURE
+  DELIVERY_CONFLICT
+  CONTRACT_FAILURE
+}
+
 // ---------------------------------------------------------
 // [MODELS]
 // ---------------------------------------------------------
@@ -2157,27 +2165,48 @@ model PressAiDebugAttempt {
   createdAt         DateTime                  @default(now()) @map("created_at")
   updatedAt         DateTime                  @updatedAt @map("updated_at")
 
-  team                 Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdBy            User                     @relation("PressAiDebugAttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  case                 PressAiDebugCase?        @relation("PressAiDebugAttemptCase", fields: [caseId], references: [id], onDelete: Restrict)
-  agentRun             AgentRun                 @relation(fields: [agentRunId], references: [id], onDelete: Restrict)
-  article              Article                  @relation(fields: [articleId], references: [id], onDelete: Restrict)
-  parentAttempt        PressAiDebugAttempt?     @relation("PressAiDebugAttemptParent", fields: [parentAttemptId], references: [id], onDelete: Restrict)
-  childAttempts        PressAiDebugAttempt[]    @relation("PressAiDebugAttemptParent")
-  baselineAttempt      PressAiDebugAttempt?     @relation("PressAiDebugAttemptBaseline", fields: [baselineAttemptId], references: [id], onDelete: Restrict)
-  candidateAttempts    PressAiDebugAttempt[]    @relation("PressAiDebugAttemptBaseline")
-  sourceCases          PressAiDebugCase[]       @relation("PressAiDebugCaseSourceAttempt")
+  team                 Team                            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy            User                            @relation("PressAiDebugAttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  case                 PressAiDebugCase?               @relation("PressAiDebugAttemptCase", fields: [caseId], references: [id], onDelete: Restrict)
+  agentRun             AgentRun                        @relation(fields: [agentRunId], references: [id], onDelete: Restrict)
+  article              Article                         @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  parentAttempt        PressAiDebugAttempt?            @relation("PressAiDebugAttemptParent", fields: [parentAttemptId], references: [id], onDelete: Restrict)
+  childAttempts        PressAiDebugAttempt[]           @relation("PressAiDebugAttemptParent")
+  baselineAttempt      PressAiDebugAttempt?            @relation("PressAiDebugAttemptBaseline", fields: [baselineAttemptId], references: [id], onDelete: Restrict)
+  candidateAttempts    PressAiDebugAttempt[]           @relation("PressAiDebugAttemptBaseline")
+  sourceCases          PressAiDebugCase[]              @relation("PressAiDebugCaseSourceAttempt")
   checkpoints          PressAiDebugCheckpoint[]
   transitions          PressAiDebugTransition[]
   commands             PressAiDebugCommand[]
-  baselineComparisons  PressAiDebugComparison[] @relation("PressAiDebugComparisonBaselineAttempt")
-  candidateComparisons PressAiDebugComparison[] @relation("PressAiDebugComparisonCandidateAttempt")
+  baselineComparisons  PressAiDebugComparison[]        @relation("PressAiDebugComparisonBaselineAttempt")
+  candidateComparisons PressAiDebugComparison[]        @relation("PressAiDebugComparisonCandidateAttempt")
+  debugSnapshots       PressTunerDebugSnapshotOutbox[]
 
   @@index([teamId, status, createdAt])
   @@index([teamId, caseId, createdAt])
   @@index([parentAttemptId])
   @@index([baselineAttemptId])
   @@map("press_ai_debug_attempt")
+}
+
+model PressTunerDebugSnapshotOutbox {
+  id               String                               @id @default(cuid())
+  attemptId        String                               @map("attempt_id")
+  snapshotRevision Int                                  @map("snapshot_revision")
+  contentHash      String                               @map("content_hash")
+  payload          Json
+  deliveryState    PressTunerDebugSnapshotDeliveryState @default(PENDING) @map("delivery_state")
+  attemptCount     Int                                  @default(0) @map("attempt_count")
+  safeErrorCode    String?                              @map("safe_error_code")
+  retryAt          DateTime?                            @map("retry_at")
+  deliveredAt      DateTime?                            @map("delivered_at")
+  createdAt        DateTime                             @default(now()) @map("created_at")
+  attempt          PressAiDebugAttempt                  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, snapshotRevision])
+  @@unique([attemptId, contentHash])
+  @@index([deliveryState, retryAt, createdAt])
+  @@map("press_tuner_debug_snapshot_outbox")
 }
 
 model PressAiDebugCheckpoint {
