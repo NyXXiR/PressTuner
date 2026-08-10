@@ -5,6 +5,7 @@ import { requireTeamContext } from "@/lib/auth";
 import { updateArticleFact } from "@/lib/services/article/articleGroundingService";
 import { apiError } from "@/lib/utils/api";
 import { validateBody } from "@/lib/utils/validate";
+import { mapPressDomainConflict } from "@/lib/services/press/pressFinalizationApi";
 
 const BodySchema = z
   .object({
@@ -34,6 +35,8 @@ export async function PATCH(
       })),
     });
   } catch (error: any) {
+    const conflict = mapPressDomainConflict(error);
+    if (conflict) return NextResponse.json(apiError(conflict.code, conflict.message, conflict.status).body, { status: conflict.status });
     const status = error?.message?.includes("NOT_FOUND") ? 404 : 500;
     return NextResponse.json(
       apiError("ARTICLE_FACT_UPDATE_FAILED", error?.message, status).body,

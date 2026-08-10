@@ -4,13 +4,14 @@ import type { Prisma } from "@prisma/client";
 import {
   aggregateVerificationResult,
   classifyVerificationFinding,
-  isVerificationCurrent,
   type VerificationFindingKind,
   type VerificationRiskCategory,
 } from "@/domain/article/verificationPolicy";
 import { hashArticleContent } from "@/domain/article/articleContentHash";
+import { classifyPressVerification, requirePressTransition } from "@/domain/press/pressProcess";
 import { prisma } from "@/lib/prisma";
 import { loadKnowledgeContexts } from "@/lib/services/knowledge/knowledgeContextService";
+import { withLockedPressProcess } from "@/lib/services/press/adapters/pressProcessPrismaAdapter";
 
 export const ARTICLE_VERIFIER_VERSION = "article-verifier-v1";
 const VERIFIER_MODEL = process.env.PT_ARTICLE_VERIFIER_MODEL ?? "gpt-4.1-mini";
@@ -298,7 +299,17 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
   const result = aggregateVerificationResult(
     findings.map((finding) => finding.result),
   );
-  return prisma.articleVerification.create({
+  return withLockedPressProcess(args, async ({ tx, snapshot: processSnapshot }) => {
+    requirePressTransition(processSnapshot.state, {
+      type: "RECORD_VERIFICATION",
+      result,
+      fingerprint: {
+        draftHash: snapshot.draftHash,
+        groundingRevision: snapshot.groundingRevision,
+        corpusVersion: snapshot.corpusVersion,
+      },
+    });
+    return tx.articleVerification.create({
     data: {
       articleId: args.articleId,
       teamId: snapshot.article.teamId,
@@ -320,6 +331,7 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
       },
     },
     include: { findings: true },
+    });
   });
 }
 
@@ -340,14 +352,19 @@ export async function getLatestArticleVerification(args: {
   ]);
   return {
     verification,
-    freshness:
-      verification &&
-      isVerificationCurrent(verification, {
+    freshness: verification
+      ? classifyPressVerification(
+          {
+            kind: "CURRENT",
+            result: verification.result,
+            fingerprint: verification,
+          },
+          {
         draftHash: snapshot.draftHash,
         groundingRevision: snapshot.groundingRevision,
         corpusVersion: snapshot.corpusVersion,
-      })
-        ? "CURRENT"
-        : "STALE",
+          },
+        ).kind
+      : "STALE",
   } as const;
 }

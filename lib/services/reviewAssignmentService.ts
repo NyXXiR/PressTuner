@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { ArticleStatus, ArticleType, ReviewAssignmentStatus } from "@prisma/client";
 import { serviceError } from "@/lib/services/serviceError";
+import {
+  projectArticleStatus,
+} from "@/domain/press/pressProcess";
+import { withLockedPressProcess } from "@/lib/services/press/adapters/pressProcessPrismaAdapter";
+import { requirePressTransition } from "@/domain/press/pressProcess";
 
 export async function listReviewAssignmentsForUser(input: {
   userId: string;
@@ -158,7 +163,13 @@ export async function assignReviewers(input: {
     );
   }
 
-  await prisma.$transaction(async (tx) => {
+  await withLockedPressProcess(
+    { articleId: input.articleId, teamId: input.teamId },
+    async ({ tx, snapshot }) => {
+    const processState = requirePressTransition(snapshot.state, {
+      type: "REQUEST_APPROVAL",
+    });
+
     await tx.articleReviewAssignment.createMany({
       data: validReviewerIds.map((rid) => ({
         articleId: input.articleId,
@@ -171,16 +182,12 @@ export async function assignReviewers(input: {
       skipDuplicates: true,
     });
 
-    if (
-      article.status === ArticleStatus.DRAFT ||
-      article.status === ArticleStatus.DECLINED
-    ) {
-      await tx.article.update({
-        where: { id: input.articleId },
-        data: { status: ArticleStatus.IN_PROGRESS },
-      });
-    }
-  });
+    await tx.article.update({
+      where: { id: input.articleId },
+      data: { status: projectArticleStatus(processState) },
+    });
+    },
+  );
 }
 
 export async function removeReviewer(input: {
@@ -192,7 +199,19 @@ export async function removeReviewer(input: {
     throw serviceError(400, "MISSING_REVIEWER_ID", "reviewerId가 필요합니다.");
   }
 
-  await prisma.articleReviewAssignment.deleteMany({
-    where: { articleId: input.articleId, teamId: input.teamId, reviewerId: input.reviewerId },
-  });
+  await withLockedPressProcess(
+    { articleId: input.articleId, teamId: input.teamId },
+    async ({ tx, snapshot }) => {
+    requirePressTransition(snapshot.state, {
+      type: "REVIEW_ASSIGNMENTS_CHANGED",
+    });
+    await tx.articleReviewAssignment.deleteMany({
+      where: {
+        articleId: input.articleId,
+        teamId: input.teamId,
+        reviewerId: input.reviewerId,
+      },
+    });
+    },
+  );
 }

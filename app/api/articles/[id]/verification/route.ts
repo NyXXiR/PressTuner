@@ -7,6 +7,7 @@ import {
   verifyArticle,
 } from "@/lib/services/article/articleVerificationService";
 import { apiError } from "@/lib/utils/api";
+import { mapPressDomainConflict } from "@/lib/services/press/pressFinalizationApi";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -53,6 +54,10 @@ export async function GET(request: NextRequest, context: Context) {
       })),
     });
   } catch (error: any) {
+    const conflict = mapPressDomainConflict(error);
+    if (conflict) {
+      return NextResponse.json(apiError(conflict.code, conflict.message, conflict.status).body, { status: conflict.status });
+    }
     const status =
       error?.message === "ARTICLE_FORBIDDEN"
         ? 403
@@ -85,6 +90,13 @@ export async function POST(request: NextRequest, context: Context) {
       }),
     });
   } catch (error: any) {
+    const conflict = mapPressDomainConflict(error);
+    if (conflict) {
+      return NextResponse.json(
+        apiError(conflict.code, conflict.message, conflict.status).body,
+        { status: conflict.status },
+      );
+    }
     const status =
       error?.message === "ARTICLE_FORBIDDEN"
         ? 403

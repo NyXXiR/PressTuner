@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { ArticleStatus, ReviewAssignmentStatus } from "@prisma/client";
+import { ReviewAssignmentStatus } from "@prisma/client";
 import { ServiceError } from "@/lib/errors";
+import {
+  projectArticleStatus,
+  type PressApprovalState,
+} from "@/domain/press/pressProcess";
+import { withLockedPressProcess } from "@/lib/services/press/adapters/pressProcessPrismaAdapter";
+import { requirePressTransition } from "@/domain/press/pressProcess";
 
 type Action = "APPROVE" | "CHANGES_REQUESTED" | "DISMISS" | "CANCEL";
 
@@ -47,7 +53,28 @@ export async function processReviewAction(input: {
         ? ReviewAssignmentStatus.CHANGES_REQUESTED
         : ReviewAssignmentStatus.DISMISSED;
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withLockedPressProcess(
+    { articleId: assignment.articleId },
+    async ({ tx, snapshot: processSnapshot }) => {
+    const freshAssignment = await tx.articleReviewAssignment.findUnique({
+      where: { id: input.assignmentId },
+      select: { id: true, status: true, reviewerId: true, assignedById: true, articleId: true },
+    });
+    if (!freshAssignment) {
+      throw new ServiceError("NOT_FOUND", 404, "요청을 찾을 수 없습니다.");
+    }
+    if (freshAssignment.status !== ReviewAssignmentStatus.PENDING) {
+      throw new ServiceError("INVALID_STATUS", 409, "이미 처리된 요청입니다.");
+    }
+    const freshIsReviewer = freshAssignment.reviewerId === input.userId;
+    const freshIsRequester = freshAssignment.assignedById === input.userId;
+    if (input.action === "CANCEL" ? !freshIsRequester : !freshIsReviewer) {
+      throw new ServiceError("FORBIDDEN", 403, input.action === "CANCEL" ? "요청을 회수할 권한이 없습니다." : "검토 권한이 없습니다.");
+    }
+    requirePressTransition(processSnapshot.state, {
+      type: "REVIEW_ASSIGNMENTS_CHANGED",
+    });
+
     const updated = await tx.articleReviewAssignment.update({
       where: { id: input.assignmentId },
       data: {
@@ -86,25 +113,30 @@ export async function processReviewAction(input: {
         }),
       ]);
 
-      let nextArticleStatus: ArticleStatus | null = null;
+      let outcome: PressApprovalState | null = null;
       if (dismissedCount > 0) {
-        nextArticleStatus = ArticleStatus.DECLINED;
+        outcome = "DISMISSED";
       } else if (changesCount > 0) {
-        nextArticleStatus = ArticleStatus.DRAFT;
+        outcome = "CHANGES_REQUESTED";
       } else if (approvedCount > 0) {
-        nextArticleStatus = ArticleStatus.IN_PROGRESS;
+        outcome = "APPROVED";
       }
 
-      if (nextArticleStatus) {
+      if (outcome) {
+        const processState = requirePressTransition(processSnapshot.state, {
+          type: "RECORD_APPROVAL",
+          outcome,
+        });
         await tx.article.update({
           where: { id: assignment.articleId },
-          data: { status: nextArticleStatus },
+          data: { status: projectArticleStatus(processState) },
         });
       }
     }
 
     return updated;
-  });
+    },
+  );
 
   return result;
 }

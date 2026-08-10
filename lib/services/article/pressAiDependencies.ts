@@ -10,6 +10,7 @@ export type PressAiDependencies = {
   searchKnowledge: (input: any) => Promise<any>;
   loadKnowledgeContexts: (input: any) => Promise<any>;
   now: () => Date;
+  createId: () => string;
 };
 
 export type PressAiDependencyOverrides = Partial<PressAiDependencies>;
@@ -17,4 +18,3 @@ export type PressAiDependencyOverrides = Partial<PressAiDependencies>;
 export function resolvePressAiDependencies(overrides: PressAiDependencyOverrides | undefined, production: PressAiDependencies): PressAiDependencies {
   return { ...production, ...overrides };
 }
-

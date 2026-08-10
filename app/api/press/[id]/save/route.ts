@@ -3,8 +3,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCurrentUserId } from "@/lib/auth";
 import { savePressArticle } from "@/lib/services/press/pressService";
 import { apiError } from "@/lib/utils/api";
+import { mapPressDomainConflict } from "@/lib/services/press/pressFinalizationApi";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export function mapSavePressError(e: unknown) {
+  const conflict = mapPressDomainConflict(e);
+  if (conflict) {
+    return NextResponse.json(
+      apiError(conflict.code, conflict.message, conflict.status).body,
+      { status: conflict.status },
+    );
+  }
+  return null;
+}
 
 export async function POST(req: NextRequest, ctx: RouteContext) {
   try {
@@ -43,6 +55,8 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
 
     return NextResponse.json(result);
   } catch (e: any) {
+    const conflictResponse = mapSavePressError(e);
+    if (conflictResponse) return conflictResponse;
     const status = typeof e?.status === "number" ? e.status : 500;
     if (status === 401) {
       return NextResponse.json(

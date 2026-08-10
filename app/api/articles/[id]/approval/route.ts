@@ -3,6 +3,7 @@ import { requireSessionContext } from "@/lib/auth";
 import { requestArticleApproval } from "@/lib/services/article/reviewUseCases";
 import { ServiceError } from "@/lib/errors";
 import { apiError } from "@/lib/utils/api";
+import { mapPressDomainConflict } from "@/lib/services/press/pressFinalizationApi";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    const conflict = mapPressDomainConflict(error);
+    if (conflict) {
+      return NextResponse.json(apiError(conflict.code, conflict.message, conflict.status).body, { status: conflict.status });
+    }
     if (error instanceof ServiceError) {
       return NextResponse.json(
         apiError(error.code, error.message, error.status, {

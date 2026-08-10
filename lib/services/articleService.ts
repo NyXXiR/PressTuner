@@ -54,6 +54,8 @@ import { filterActionableReviewNotes } from "@/domain/article/reviewNotePolicy";
 import { finalizeVerifiedArticle } from "./article/articleFinalizationService";
 import { resolvePressAiDependencies, type PressAiDependencyOverrides } from "./article/pressAiDependencies";
 import { resolvePressQuotaMode } from "@/domain/press/pressFlowContracts";
+import { PressDomainError, projectArticleStatus, requirePressTransition } from "@/domain/press/pressProcess";
+import { loadPressProcessSnapshot, withLockedPressProcess } from "./press/adapters/pressProcessPrismaAdapter";
 export type {
   ArticleUsageSummary,
   UsagePayload,
@@ -84,6 +86,7 @@ function pressAiDependencies(overrides?: PressAiDependencyOverrides) {
     searchKnowledge,
     loadKnowledgeContexts,
     now: () => new Date(),
+    createId: uuidv4,
     completeJson: async (request) => (await openai.chat.completions.create({ model: request.model, messages: request.messages, response_format: request.responseFormat, temperature: request.temperature })).choices[0]?.message?.content ?? "{}",
   });
 }
@@ -195,6 +198,23 @@ function buildPlainFromArticleBody(input: {
     paragraphs,
     closing,
     rawInput: input.rawInput ?? null,
+  });
+}
+
+function hashPressDraft(input: {
+  title: string;
+  bodyJson: unknown;
+  pressExtra?: { lead?: string | null; fact?: string | null } | null;
+}) {
+  const { paragraphs, closing } = readDraftParagraphsAndClosing(input.bodyJson);
+  return hashArticleContent({
+    title: input.title,
+    bodyJson: {
+      lead: input.pressExtra?.lead ?? "",
+      fact: input.pressExtra?.fact ?? "",
+      paragraphs,
+      closing,
+    },
   });
 }
 
@@ -555,6 +575,15 @@ export async function generateArticleIntoExisting(
 ): Promise<ArticleResultWithId> {
   const { teamId, userId, type = "PRESS_RELEASE", rawText } = input;
 
+  const initialProcessSnapshot = await loadPressProcessSnapshot(prisma, {
+    articleId,
+    teamId,
+  });
+  requirePressTransition(
+    initialProcessSnapshot.state,
+    { type: "GENERATE_DRAFT" },
+  );
+
   const team = await loadPressSubscription(teamId);
 
   await syncBriefUserFacts({
@@ -665,8 +694,11 @@ export async function generateArticleIntoExisting(
     generatedAt,
   });
 
-  await prisma.$transaction(async (tx) => {
+  await withLockedPressProcess({ articleId, teamId }, async ({ tx, snapshot: processSnapshot }) => {
     await assertArticleTeamOrThrow(tx, articleId, teamId);
+    const processState = requirePressTransition(processSnapshot.state, {
+      type: "GENERATE_DRAFT",
+    });
 
     await consumeArticleUsageOrThrow(tx, {
       subscription: team,
@@ -681,7 +713,7 @@ export async function generateArticleIntoExisting(
       data: {
         userId,
         type,
-        status: ArticleStatus.DRAFT,
+        status: projectArticleStatus(processState),
         title: llmResult.title || "제목 미정",
         bodyJson: {
           paragraphs: Array.isArray(llmResult.paragraphs)
@@ -764,14 +796,19 @@ export async function normalizeBriefUseCase(input: {
     );
   }
 
-  const usageAfter = await prisma.$transaction(async (tx) => {
+  const usageAfter = await withLockedPressProcess(
+    { articleId, teamId: team.id },
+    async ({ tx, snapshot: processSnapshot }) => {
     await assertArticleTeamOrThrow(tx, articleId, team.id);
+    const processState = requirePressTransition(processSnapshot.state, {
+      type: "NORMALIZE_BRIEF",
+    });
 
     await tx.article.update({
       where: { id: articleId },
       data: {
         rawInput: rawText,
-        status: ArticleStatus.BRIEF,
+        status: projectArticleStatus(processState),
       },
     });
 
@@ -835,6 +872,7 @@ export async function normalizeBriefUseCase(input: {
       hits: knowledge.hits,
     });
   } catch (error) {
+    if (error instanceof PressDomainError) throw error;
     console.warn("[Normalize Brief] knowledge retrieval unavailable", {
       teamId: team.id,
       error: error instanceof Error ? error.message : String(error),
@@ -932,7 +970,9 @@ export async function saveDraftUseCase(input: {
 }) {
   const { teamId, articleId, patch } = input;
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withLockedPressProcess(
+    { articleId, teamId },
+    async ({ tx, snapshot: processSnapshot }) => {
     // 1. 기존 데이터 조회
     const oldArticle = await assertArticleTeamOrThrow(tx, articleId, teamId);
     let oldPressExtra = null;
@@ -942,6 +982,27 @@ export async function saveDraftUseCase(input: {
         select: { lead: true, fact: true },
       });
     }
+
+    const beforeHash = hashPressDraft({
+      title: oldArticle.title,
+      bodyJson: oldArticle.bodyJson,
+      pressExtra: oldPressExtra,
+    });
+    const afterHash = hashPressDraft({
+      title: typeof patch.title === "string" ? patch.title : oldArticle.title,
+      bodyJson:
+        patch.bodyJson !== undefined ? patch.bodyJson : oldArticle.bodyJson,
+      pressExtra: {
+        lead: patch.pressExtra?.lead ?? oldPressExtra?.lead ?? null,
+        fact: patch.pressExtra?.fact ?? oldPressExtra?.fact ?? null,
+      },
+    });
+    const processState = requirePressTransition(
+      processSnapshot.state,
+      patch.harnessAction?.type === "apply_pending_rewrite"
+        ? { type: "APPLY_REWRITE", contentChanged: beforeHash !== afterHash }
+        : { type: "SAVE_CONTENT", contentChanged: beforeHash !== afterHash },
+    );
 
     const nextRefinementQna =
       patch.harnessAction?.type === "apply_pending_rewrite"
@@ -986,6 +1047,7 @@ export async function saveDraftUseCase(input: {
           : {}),
       },
       data: {
+        status: projectArticleStatus(processState),
         ...(typeof patch.title === "string" ? { title: patch.title } : {}),
         ...(patch.bodyJson !== undefined
           ? { bodyJson: patch.bodyJson as any }
@@ -1061,15 +1123,23 @@ export async function updateStatusUseCase(args: {
       status: result.article.status,
     };
   }
-  return prisma.$transaction(async (tx) => {
+  return withLockedPressProcess(
+    { articleId, teamId },
+    async ({ tx, snapshot }) => {
     await assertArticleTeamOrThrow(tx, articleId, teamId);
+    const processState = requirePressTransition(snapshot.state, {
+      type: "SET_COMPATIBILITY_STATUS",
+      status,
+    });
+    const projectedStatus = projectArticleStatus(processState) as ArticleStatus;
     const updated = await tx.article.update({
       where: { id: articleId },
-      data: { status },
+      data: { status: projectedStatus },
       select: { id: true, status: true },
     });
     return { id: updated.id, articleId: updated.id, status: updated.status };
-  });
+    },
+  );
 }
 
 // -------------------------
@@ -1094,7 +1164,8 @@ export async function reviewUseCase(input: {
   );
   const reviewRequirement =
     input.userInstruction?.trim() || "특별 요구사항 없음";
-  const newSessionId = uuidv4();
+  const dependencies = pressAiDependencies(input.dependencies);
+  const newSessionId = dependencies.createId();
 
   const article = await prisma.article.findFirst({
     where: { id: articleId, teamId: team.id },
@@ -1109,6 +1180,14 @@ export async function reviewUseCase(input: {
   });
   if (!article) throwErr("ARTICLE_NOT_FOUND", 404, "문서를 찾을 수 없습니다.");
 
+  const processSnapshot = await loadPressProcessSnapshot(prisma, {
+    articleId,
+    teamId: team.id,
+  });
+  requirePressTransition(processSnapshot.state, {
+    type: "COMPLETE_REVIEW",
+  });
+
   const harness = getOrCreatePressHarness({
     title: article.title,
     bodyJson: article.bodyJson,
@@ -1118,7 +1197,6 @@ export async function reviewUseCase(input: {
     pressExtra: article.pressExtra,
   });
 
-  const dependencies = pressAiDependencies(input.dependencies);
   const [acceptedFacts, knowledgeContexts] = await Promise.all([
     prisma.articleFact.findMany({
       where: { articleId, teamId: team.id, active: true },
@@ -1298,27 +1376,38 @@ ${plain}
     maxRePolishLimit: rewriteLimit,
   };
 
-  const reviewedHarness = mergeReviewIntoHarness(harness, {
-    sessionId: newSessionId,
-    title,
-    plain,
-    notes: finalNotes.map<PressHarnessReviewNote>((note) => ({
-      id: note.id,
-      quote: note.quote,
-      note: note.note,
-      type: note.type,
-      sourceFactIds: note.sourceFactIds ?? [],
-    })),
-    generatedAt: reviewGeneratedAt,
-  });
-
-  await prisma.article.update({
+  await withLockedPressProcess(
+    { articleId, teamId: team.id },
+    async ({ tx, snapshot }) => {
+    const processState = requirePressTransition(snapshot.state, { type: "COMPLETE_REVIEW" });
+    const current = await tx.article.findUniqueOrThrow({
+      where: { id: articleId },
+      select: {
+        title: true, bodyJson: true, rawInput: true, refinementQna: true,
+        updatedAt: true, pressExtra: { select: { lead: true, fact: true } },
+      },
+    });
+    const currentHarness = getOrCreatePressHarness(current);
+    const reviewedHarness = mergeReviewIntoHarness(currentHarness, {
+      sessionId: newSessionId,
+      title,
+      plain,
+      notes: finalNotes.map<PressHarnessReviewNote>((note) => ({
+        id: note.id, quote: note.quote, note: note.note, type: note.type,
+        sourceFactIds: note.sourceFactIds ?? [],
+      })),
+      generatedAt: reviewGeneratedAt,
+    });
+    await tx.article.update({
     where: { id: articleId },
     data: {
+      status: projectArticleStatus(processState),
       lastPolishResult: toPrismaJson(result),
       refinementQna: toPrismaJson(reviewedHarness),
     },
-  });
+    });
+    },
+  );
 
   return { ...result, usage: usageAfter };
 }
@@ -1353,6 +1442,14 @@ export async function rePolishUseCase(input: {
     },
   });
   if (!article) throwErr("ARTICLE_NOT_FOUND", 404, "문서를 찾을 수 없습니다.");
+
+  const processSnapshot = await loadPressProcessSnapshot(prisma, {
+    articleId,
+    teamId,
+  });
+  requirePressTransition(processSnapshot.state, {
+    type: "REQUEST_REWRITE",
+  });
 
   const lastResult = (article?.lastPolishResult || {}) as any;
   const harness = getOrCreatePressHarness({
@@ -1493,7 +1590,10 @@ export async function rePolishUseCase(input: {
     const newPlain = parsed.plain || basePlain;
     const rewrittenAt = formatISO(dependencies.now());
 
-    const txResult = await prisma.$transaction(async (tx) => {
+    const txResult = await withLockedPressProcess(
+      { articleId, teamId },
+      async ({ tx, snapshot }) => {
+      const processState = requirePressTransition(snapshot.state, { type: "REQUEST_REWRITE" });
       const newCount =
         (
           await tx.articleUsageStat.findUnique({
@@ -1502,15 +1602,36 @@ export async function rePolishUseCase(input: {
           })
         )?.rePolishCount ?? 0;
 
-      const remainingNotes = availableNotes.filter(
+      const current = await tx.article.findUniqueOrThrow({
+        where: { id: articleId },
+        select: {
+          title: true, bodyJson: true, rawInput: true, refinementQna: true,
+          lastPolishResult: true, updatedAt: true,
+          pressExtra: { select: { lead: true, fact: true } },
+        },
+      });
+      const currentHarness = getOrCreatePressHarness(current);
+      const currentResult = (current.lastPolishResult || {}) as any;
+      const freshSessionId =
+        typeof currentResult.polishSessionId === "string"
+          ? currentResult.polishSessionId
+          : currentHarness.review?.sessionId;
+      if (freshSessionId !== currentSessionId) {
+        throw new PressDomainError("PRESS_TRANSITION_INVALID");
+      }
+      const currentNotes =
+        Array.isArray(currentResult.notes) && currentResult.notes.length > 0
+          ? (currentResult.notes as PressHarnessReviewNote[])
+          : (currentHarness.review?.notes ?? []);
+      const remainingNotes = currentNotes.filter(
         (note) => !selectedNoteIds.includes(note.id),
       );
       const rewrittenResult: ReviewResult = {
         title:
-          (typeof lastResult.title === "string" && lastResult.title) ||
+          (typeof currentResult.title === "string" && currentResult.title) ||
           baseTitle,
         plain:
-          (typeof lastResult.plain === "string" && lastResult.plain) ||
+          (typeof currentResult.plain === "string" && currentResult.plain) ||
           basePlain,
         notes: remainingNotes,
         spans: [],
@@ -1520,24 +1641,26 @@ export async function rePolishUseCase(input: {
         rePolishCount: newCount,
         maxRePolishLimit: rewriteLimit === null
           ? null
-          : typeof lastResult.maxRePolishLimit === "number"
-            ? lastResult.maxRePolishLimit
+          : typeof currentResult.maxRePolishLimit === "number"
+            ? currentResult.maxRePolishLimit
             : MAX_REPOLISH_LIMIT,
         revisedTitle: newTitle,
         revisedPlain: newPlain,
       };
-      const rewrittenHarness = mergePendingRewriteIntoHarness(harness, {
+      const rewrittenHarness = mergePendingRewriteIntoHarness(
+        currentHarness, {
         basedOnSessionId: currentSessionId,
         userInstruction,
         selectedNoteIds: [...selectedNoteIds],
         title: newTitle,
         plain: newPlain,
         generatedAt: rewrittenAt,
-      });
+        });
 
       await tx.article.update({
         where: { id: articleId },
         data: {
+          status: projectArticleStatus(processState),
           lastPolishResult: toPrismaJson(rewrittenResult),
           refinementQna: toPrismaJson(rewrittenHarness),
         },
@@ -1546,7 +1669,8 @@ export async function rePolishUseCase(input: {
       return {
         rewrittenResult,
       };
-    });
+      },
+    );
 
     return txResult.rewrittenResult;
   } catch (error) {
@@ -1591,7 +1715,13 @@ export async function requestArticleApproval({
       "팀 소속 게시글이 아닙니다.",
     );
 
-  await prisma.$transaction(async (tx) => {
+  await withLockedPressProcess(
+    { articleId: article.id, teamId: article.teamId },
+    async ({ tx, snapshot: processSnapshot }) => {
+    const processState = requirePressTransition(processSnapshot.state, {
+      type: "REQUEST_APPROVAL",
+    });
+
     await tx.articleReviewAssignment.upsert({
       where: {
         articleId_reviewerId: {
@@ -1641,7 +1771,13 @@ export async function requestArticleApproval({
         },
       },
     });
-  });
+
+    await tx.article.update({
+      where: { id: article.id },
+      data: { status: projectArticleStatus(processState) },
+    });
+    },
+  );
 
   return true;
 }

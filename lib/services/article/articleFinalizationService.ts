@@ -1,7 +1,17 @@
 import type { ArticleVerificationResult } from "@prisma/client";
 
-import { isVerificationCurrent } from "@/domain/article/verificationPolicy";
+import {
+  PressDomainError,
+  assertPressFinalizable,
+  classifyPressVerification,
+  requirePressTransition,
+  type PressProcessState,
+} from "@/domain/press/pressProcess";
 import { prisma } from "@/lib/prisma";
+import {
+  loadPressProcessSnapshot,
+  withLockedPressProcess,
+} from "@/lib/services/press/adapters/pressProcessPrismaAdapter";
 import { loadArticleVerificationSnapshot } from "./articleVerificationService";
 
 export function assertFinalizableVerification(
@@ -19,21 +29,56 @@ export function assertFinalizableVerification(
     corpusVersion: number;
   },
 ) {
-  if (!verification) throw new Error("ARTICLE_VERIFICATION_REQUIRED");
-  if (!isVerificationCurrent(verification, current)) {
-    throw new Error("ARTICLE_VERIFICATION_STALE");
-  }
-  if (verification.result === "BLOCK") {
-    throw new Error("ARTICLE_VERIFICATION_BLOCKED");
-  }
+  const state: PressProcessState = {
+    phase: "EDITING",
+    approval: "NOT_REQUESTED",
+    hasReview: false,
+    hasPendingRewrite: false,
+    verification: classifyPressVerification(
+      verification
+        ? {
+            kind: "CURRENT",
+            result: verification.result,
+            fingerprint: verification,
+          }
+        : { kind: "MISSING" },
+      current,
+    ),
+  };
+  assertPressFinalizable(state);
 }
 
 export async function finalizeVerifiedArticle(args: {
   articleId: string;
   teamId?: string | null;
 }) {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`article-finalize:${args.articleId}`}, 0))`;
+  const initialSnapshot = await loadPressProcessSnapshot(prisma, args);
+  return withLockedPressProcess(args, async ({ tx, snapshot: processSnapshot }) => {
+    if (processSnapshot.state.phase === "FINALIZED") {
+      if (initialSnapshot.state.phase !== "FINALIZED") {
+        throw new PressDomainError("PRESS_FINALIZED_IMMUTABLE");
+      }
+
+      // Repeated FINAL requests retain the legacy idempotent response contract.
+      const [article, verification] = await Promise.all([
+        tx.article.findFirstOrThrow({
+          where: {
+            id: args.articleId,
+            ...(args.teamId !== undefined ? { teamId: args.teamId } : {}),
+          },
+          select: { id: true, title: true, status: true, updatedAt: true },
+        }),
+        tx.articleVerification.findFirst({
+          where: { articleId: args.articleId },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        }),
+      ]);
+      return { ok: true, article, verificationId: verification?.id ?? null };
+    }
+
+    requirePressTransition(processSnapshot.state, { type: "FINALIZE" });
+
     const snapshot = await loadArticleVerificationSnapshot(tx, args);
     const verification = await tx.articleVerification.findFirst({
       where: {

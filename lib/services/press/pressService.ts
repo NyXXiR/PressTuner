@@ -13,6 +13,9 @@ import { type ArticleType } from "@prisma/client";
 import { serviceError } from "@/lib/services/serviceError";
 import { normalizeEditedPlainForPersistence } from "@/domain/article/articleCanonicalContent";
 import type { PressAiDependencyOverrides } from "@/lib/services/article/pressAiDependencies";
+import { hashArticleContent } from "@/domain/article/articleContentHash";
+import { projectArticleStatus, requirePressTransition } from "@/domain/press/pressProcess";
+import { loadPressProcessSnapshot, withLockedPressProcess } from "./adapters/pressProcessPrismaAdapter";
 
 async function getArticleAccessForTeamEdit(
   articleId: string,
@@ -197,6 +200,14 @@ export async function generateArticleFromBrief(input: {
     throw serviceError(404, "NOT_FOUND", "문서를 찾을 수 없습니다.");
   }
 
+  const processSnapshot = await loadPressProcessSnapshot(prisma, {
+    articleId: input.articleId,
+    teamId: input.teamId,
+  });
+  requirePressTransition(processSnapshot.state, {
+    type: "GENERATE_DRAFT",
+  });
+
   const currentUsage = await getUsageSummaryForTeam(input.teamId);
   if (!canGeneratePressArticleWithUsage(currentUsage.article)) {
     throw serviceError(403, "USAGE_LIMIT_EXCEEDED", "보도자료 생성 가능한 횟수를 모두 사용했습니다.", {
@@ -260,10 +271,56 @@ export async function savePressArticle(input: {
     "EDIT"
   );
 
-  await prisma.$transaction(async (tx) => {
+  await withLockedPressProcess(
+    { articleId: article.id, teamId: article.teamId },
+    async ({ tx, snapshot }) => {
+    const currentArticle = await tx.article.findUniqueOrThrow({
+      where: { id: article.id },
+      select: {
+        id: true,
+        teamId: true,
+        type: true,
+        title: true,
+        bodyJson: true,
+        pressExtra: { select: { lead: true, fact: true } },
+      },
+    });
+    const currentBody =
+      currentArticle.bodyJson && typeof currentArticle.bodyJson === "object"
+        ? (currentArticle.bodyJson as Record<string, unknown>)
+        : {};
+    const currentParagraphs = Array.isArray(currentBody.paragraphs)
+      ? currentBody.paragraphs
+      : [];
+    const currentClosing =
+      typeof currentBody.closing === "string" ? currentBody.closing : "";
+    const beforeHash = hashArticleContent({
+      title: currentArticle.title,
+      bodyJson: {
+        lead: currentArticle.pressExtra?.lead ?? "",
+        fact: currentArticle.pressExtra?.fact ?? "",
+        paragraphs: currentParagraphs,
+        closing: currentClosing,
+      },
+    });
+    const afterHash = hashArticleContent({
+      title: input.title ?? currentArticle.title,
+      bodyJson: {
+        lead: input.lead ?? currentArticle.pressExtra?.lead ?? "",
+        fact: input.fact ?? currentArticle.pressExtra?.fact ?? "",
+        paragraphs: input.paragraphs ?? currentParagraphs,
+        closing: input.closing ?? currentClosing,
+      },
+    });
+    const processState = requirePressTransition(snapshot.state, {
+      type: "SAVE_CONTENT",
+      contentChanged: beforeHash !== afterHash,
+    });
+
     await tx.article.update({
       where: { id: article.id },
       data: {
+        status: projectArticleStatus(processState),
         title: typeof input.title === "string" ? input.title : undefined,
         bodyJson:
           Array.isArray(input.paragraphs) || typeof input.closing === "string"
@@ -280,7 +337,7 @@ export async function savePressArticle(input: {
     });
 
     if (
-      article.type === "PRESS_RELEASE" &&
+      currentArticle.type === "PRESS_RELEASE" &&
       (typeof input.lead === "string" || typeof input.fact === "string")
     ) {
       await tx.pressExtra.upsert({
@@ -296,7 +353,8 @@ export async function savePressArticle(input: {
         },
       });
     }
-  });
+    },
+  );
 
   return { ok: true, articleId: input.articleId, insertedSignals: 0 };
 }

@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { Prisma } from "@prisma/client";
 
 import { detachRagFactForUserEdit } from "@/domain/article/groundingPolicy";
 import {
@@ -8,6 +7,8 @@ import {
   type BriefUserFactInput,
 } from "@/domain/article/briefUserFacts";
 import { prisma } from "@/lib/prisma";
+import { withLockedPressProcess } from "@/lib/services/press/adapters/pressProcessPrismaAdapter";
+import { requirePressTransition } from "@/domain/press/pressProcess";
 
 type FactHit = {
   chunkId: string;
@@ -17,13 +18,6 @@ type FactHit = {
   content: string;
   score: number;
 };
-
-async function lockArticleGrounding(
-  tx: Prisma.TransactionClient,
-  articleId: string,
-) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`article-grounding:${articleId}`}, 0))`;
-}
 
 export function groundingDiscoveryHash(rawText: string) {
   return createHash("sha256").update(rawText.trim()).digest("hex");
@@ -103,8 +97,8 @@ export async function discoverArticleEvidenceCandidates(args: {
   corpusVersion: number;
   hits: readonly FactHit[];
 }) {
-  return prisma.$transaction(async (tx) => {
-    await lockArticleGrounding(tx, args.articleId);
+  return withLockedPressProcess(args, async ({ tx, snapshot }) => {
+    requirePressTransition(snapshot.state, { type: "GROUNDING_CHANGED" });
     const article = await tx.article.findFirst({
       where: { id: args.articleId, teamId: args.teamId },
       select: { id: true },
@@ -193,8 +187,8 @@ export async function decideArticleEvidenceCandidate(args: {
   candidateId: string;
   decision: "ACCEPTED" | "REJECTED";
 }) {
-  return prisma.$transaction(async (tx) => {
-    await lockArticleGrounding(tx, args.articleId);
+  return withLockedPressProcess(args, async ({ tx, snapshot }) => {
+    requirePressTransition(snapshot.state, { type: "GROUNDING_CHANGED" });
     const candidate = await tx.articleEvidenceCandidate.findFirst({
       where: {
         id: args.candidateId,
@@ -253,8 +247,8 @@ export async function createUserArticleFact(args: {
   articleId: string;
   content: string;
 }) {
-  return prisma.$transaction(async (tx) => {
-    await lockArticleGrounding(tx, args.articleId);
+  return withLockedPressProcess(args, async ({ tx, snapshot }) => {
+    requirePressTransition(snapshot.state, { type: "GROUNDING_CHANGED" });
     const article = await tx.article.findFirst({
       where: { id: args.articleId, teamId: args.teamId },
       select: { id: true },
@@ -283,8 +277,8 @@ export async function syncBriefUserFacts(args: {
   brief: BriefUserFactInput;
 }) {
   const desired = buildBriefUserFactSpecs(args.brief);
-  return prisma.$transaction(async (tx) => {
-    await lockArticleGrounding(tx, args.articleId);
+  return withLockedPressProcess(args, async ({ tx, snapshot }) => {
+    requirePressTransition(snapshot.state, { type: "GROUNDING_CHANGED" });
     const article = await tx.article.findFirst({
       where: { id: args.articleId, teamId: args.teamId },
       select: { id: true },
@@ -361,8 +355,8 @@ export async function updateArticleFact(args: {
   content?: string;
   active?: boolean;
 }) {
-  return prisma.$transaction(async (tx) => {
-    await lockArticleGrounding(tx, args.articleId);
+  return withLockedPressProcess(args, async ({ tx, snapshot }) => {
+    requirePressTransition(snapshot.state, { type: "GROUNDING_CHANGED" });
     const fact = await tx.articleFact.findFirst({
       where: { id: args.factId, articleId: args.articleId, teamId: args.teamId },
     });

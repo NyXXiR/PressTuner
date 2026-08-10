@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PressDomainError } from "@/domain/press/pressProcess";
 import { assertFinalizableVerification } from "./articleFinalizationService";
 
 const current = {
@@ -10,22 +11,20 @@ const current = {
 };
 
 test("FINAL rejects missing, stale, and blocked verification", () => {
-  assert.throws(
-    () => assertFinalizableVerification(null, current),
-    /ARTICLE_VERIFICATION_REQUIRED/,
-  );
+  assert.throws(() => assertFinalizableVerification(null, current), (error: unknown) =>
+    error instanceof PressDomainError && error.code === "ARTICLE_VERIFICATION_REQUIRED");
   assert.throws(
     () =>
       assertFinalizableVerification(
         { ...current, draftHash: "old", result: "PASS" },
         current,
       ),
-    /ARTICLE_VERIFICATION_STALE/,
+    (error: unknown) => error instanceof PressDomainError && error.code === "ARTICLE_VERIFICATION_STALE",
   );
   assert.throws(
     () =>
       assertFinalizableVerification({ ...current, result: "BLOCK" }, current),
-    /ARTICLE_VERIFICATION_BLOCKED/,
+    (error: unknown) => error instanceof PressDomainError && error.code === "ARTICLE_VERIFICATION_BLOCKED",
   );
 });
 

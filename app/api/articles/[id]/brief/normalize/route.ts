@@ -5,6 +5,7 @@ import { extractTeamIdFromRequest } from "@/lib/auth/team";
 import { normalizeBriefUseCase } from "@/lib/services/article/generationUseCases";
 import { apiError } from "@/lib/utils/api";
 import { NormalizeBriefBodySchema } from "@/domain/press/pressFlowContracts";
+import { mapPressDomainConflict } from "@/lib/services/press/pressFinalizationApi";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -70,6 +71,10 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       usage,
     });
   } catch (e: any) {
+    const conflict = mapPressDomainConflict(e);
+    if (conflict) {
+      return NextResponse.json(apiError(conflict.code, conflict.message, conflict.status).body, { status: conflict.status });
+    }
     const status = typeof e?.status === "number" ? e.status : 500;
 
     if (status === 404 && e?.code === "ARTICLE_NOT_FOUND") {
