@@ -41,6 +41,10 @@ export function PressAiAttemptWorkspace(props: {
   ) => void;
   onRetry: (nodeId: string) => void;
   onSaveCase: Parameters<typeof PressAiSidePanels>[0]["onSaveCase"];
+  attachedCase: Parameters<typeof PressAiSidePanels>[0]["attachedCase"];
+  caseLoading: boolean;
+  caseError: string | null;
+  caseSaved: boolean;
 }) {
   const { attempt } = props;
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
@@ -240,6 +244,7 @@ export function PressAiAttemptWorkspace(props: {
               </button>
               <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                 <select
+                  id="press-ai-branch-checkpoint"
                   aria-label="분기 체크포인트"
                   value={selectedBranchNodeId}
                   disabled={controlsDisabled || checkpointChoices.length === 0}
@@ -368,6 +373,10 @@ export function PressAiAttemptWorkspace(props: {
         <div className="min-w-0 lg:sticky lg:top-24">
           <PressAiSidePanels
             attempt={attempt}
+            attachedCase={props.attachedCase}
+            caseLoading={props.caseLoading}
+            caseError={props.caseError}
+            caseSaved={props.caseSaved}
             busy={controlsDisabled}
             refreshKey={refreshKey}
             onOpen={props.onOpen}

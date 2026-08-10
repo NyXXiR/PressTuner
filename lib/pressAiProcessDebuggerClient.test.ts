@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { File } from "node:buffer";
 import test from "node:test";
 
-import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttempt, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, retryPressAiCheckpointAttempt, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
+import { advancePressAiCheckpointEdge, createPressAiCheckpointAttempt, deletePressAiKnowledgeDocument, fetchPressAiCheckpointAttempt, fetchPressAiCheckpointAttemptHistory, fetchPressAiCheckpointComparison, fetchPressAiDebugCase, retryPressAiCheckpointAttempt, savePressAiDebugCase, sampleAssetToFile, uploadPressAiKnowledgePdf, mapKnowledgeDocuments, parsePressAiProcessSse, PressAiDebuggerApiError } from "./pressAiProcessDebuggerClient";
 
 test("uploads a direct File as multipart without a manual content type", async () => {
   let request: RequestInit | undefined;
@@ -148,4 +148,14 @@ test("retry sends the exact branch envelope and parses the child receipt", async
     ),
     /Invalid input/,
   );
+});
+
+test("loads typed matcher-v1 case details and parses save receipts", async () => {
+  const detail = await fetchPressAiDebugCase("case-1", async (url, init) => {
+    assert.equal(String(url), "/api/press/agent/process-debug-cases/case-1"); assert.equal(init?.cache, "no-store");
+    return new Response(JSON.stringify({ case: { caseId: "case-1", name: "검증", sourceCheckpoint: { id: "cp-1", nodeId: "draft-review" }, startNodeId: "draft-review", expectations: [{ id: "rule-1", edgeId: "review-rewrite", matcher: { version: 1, subject: "target_payload_selected_note_count", operator: "number_gte", operand: 1 }, verdict: "BLOCK", fingerprint: "abc", validation: { state: "UNTESTED", lastVerdict: null, lastObservationAt: null } }] } }), { status: 200 });
+  });
+  assert.equal(detail.expectations[0]?.validation.state, "UNTESTED");
+  const receipt = await savePressAiDebugCase({}, async () => new Response(JSON.stringify({ replayed: false, response: { caseId: "case-1", revision: 8 } }), { status: 201 }));
+  assert.equal(receipt.response.revision, 8);
 });

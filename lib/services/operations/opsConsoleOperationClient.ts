@@ -2,6 +2,7 @@ import { createHash, randomUUID as nodeRandomUUID } from "node:crypto";
 
 import type { PressAgentGuardrailVerdictRecord } from "@/domain/evaluation/pressAgentGuardrailSignals";
 import { CANONICAL_TELEMETRY_PRODUCER_ID } from "@/domain/ai-telemetry/opsConsoleProjection";
+import { assertOpsConsoleRequestSize, OpsConsoleExecutionFactBatchSchema, OpsConsoleWorkflowManifestSchema, type OpsConsoleExecutionFactBatch, type OpsConsoleWorkflowManifest } from "@/domain/ai-telemetry/opsConsoleProducerContracts";
 
 export const PRESS_AGENT_WORKFLOW_ID = "presstuner.press-agent";
 
@@ -35,7 +36,9 @@ type OperationUnavailable = {
     | "OPS_CONSOLE_INVALID_TRACE_ID"
     | "OPS_CONSOLE_HTTP_ERROR"
     | "OPS_CONSOLE_NETWORK_ERROR"
-    | "OPS_CONSOLE_TIMEOUT";
+    | "OPS_CONSOLE_TIMEOUT"
+    | "OPS_CONSOLE_INVALID_PAYLOAD"
+    | "OPS_CONSOLE_PAYLOAD_TOO_LARGE";
   operationId: string;
   environment: string | null;
 };
@@ -116,6 +119,7 @@ async function request(args: {
   url: string;
   body: Record<string, unknown>;
   operationId: string;
+  successStatus?: OperationSuccess["status"];
 }): Promise<OpsConsoleOperationResult> {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -146,11 +150,11 @@ async function request(args: {
       };
     }
     return {
-      status: args.body.schemaVersion === "ops-console/operation-registration/v1"
+      status: args.successStatus ?? (args.body.schemaVersion === "ops-console/operation-registration/v1"
         ? "registered"
         : args.body.schemaVersion === "ops-console/operation-events-batch/v1"
           ? "reported"
-          : "completed",
+          : "completed"),
       operationId: args.operationId,
       environment: args.configuration.environment,
     };
@@ -186,6 +190,7 @@ export function createOpsConsoleOperationClient(
     async begin(args: {
       teamId: string;
       userId: string;
+      workflowId?: string;
       workflowVersion: string;
       traceId: string;
     }): Promise<OpsConsoleOperationResult> {
@@ -211,7 +216,7 @@ export function createOpsConsoleOperationClient(
           operationId,
           traceId: args.traceId,
           workflow: {
-            id: PRESS_AGENT_WORKFLOW_ID,
+            id: args.workflowId ?? PRESS_AGENT_WORKFLOW_ID,
             version: args.workflowVersion,
           },
           tenantRef: pseudonymizeOperationReference(args.teamId),
@@ -224,6 +229,32 @@ export function createOpsConsoleOperationClient(
           registeredAt: timestamp,
         },
       });
+    },
+
+    async registerWorkflowManifest(manifest: OpsConsoleWorkflowManifest): Promise<OpsConsoleOperationResult> {
+      const operationId = "00000000-0000-4000-8000-000000000000";
+      const configuration = readConfiguration(environment);
+      if (!configuration) return disabled(operationId);
+      try {
+        const body = OpsConsoleWorkflowManifestSchema.parse(manifest);
+        assertOpsConsoleRequestSize(body);
+        return request({ configuration, fetch: fetchImpl, url: `${configuration.baseUrl}/api/ai-operations/v1/workflows`, operationId, body, successStatus: "registered" });
+      } catch (error) {
+        return { status: "failed", code: error instanceof Error && error.message === "OPS_CONSOLE_PAYLOAD_TOO_LARGE" ? "OPS_CONSOLE_PAYLOAD_TOO_LARGE" : "OPS_CONSOLE_INVALID_PAYLOAD", operationId, environment: configuration.environment };
+      }
+    },
+
+    async appendExecutionFacts(batch: OpsConsoleExecutionFactBatch): Promise<OpsConsoleOperationResult> {
+      const candidateOperationId = batch && typeof batch === "object" && Array.isArray(batch.facts) && typeof batch.facts[0]?.operationId === "string" ? batch.facts[0].operationId : "00000000-0000-4000-8000-000000000000";
+      const configuration = readConfiguration(environment);
+      if (!configuration) return disabled(candidateOperationId);
+      try {
+        const body = OpsConsoleExecutionFactBatchSchema.parse(batch);
+        assertOpsConsoleRequestSize(body);
+        return request({ configuration, fetch: fetchImpl, url: `${configuration.baseUrl}/api/ai-operations/v1/execution-facts`, operationId: body.facts[0]!.operationId, body, successStatus: "reported" });
+      } catch (error) {
+        return { status: "failed", code: error instanceof Error && error.message === "OPS_CONSOLE_PAYLOAD_TOO_LARGE" ? "OPS_CONSOLE_PAYLOAD_TOO_LARGE" : "OPS_CONSOLE_INVALID_PAYLOAD", operationId: candidateOperationId, environment: configuration.environment };
+      }
     },
 
     /**
@@ -314,4 +345,6 @@ const defaultClient = createOpsConsoleOperationClient();
 export const beginOpsConsoleOperation = defaultClient.begin;
 export const completeOpsConsoleOperation = defaultClient.complete;
 export const reportOpsConsoleGuardrails = defaultClient.reportGuardrails;
+export const registerOpsConsoleWorkflowManifest = defaultClient.registerWorkflowManifest;
+export const appendOpsConsoleExecutionFacts = defaultClient.appendExecutionFacts;
 export const readOpsConsoleOperationEnvironment = defaultClient.environment;

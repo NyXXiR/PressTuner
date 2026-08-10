@@ -19,7 +19,13 @@ const CheckpointInputSnapshotSchema = z.object({
   reviewInstruction: z.string(),
   rewriteInstruction: z.string(),
 }).passthrough();
-export const CheckpointAttemptSchema = z.object({ id: z.string(), processId: z.literal("press-creation"), processVersion: z.string(), registryHash: z.string(), executorVersion: z.string(), status: z.enum(["ACTIVE", "INSPECTING", "COMPLETED", "BLOCKED", "FAILED"]), revision: z.number().int().nonnegative(), articleId: z.string(), activeNodeId: z.string().nullable(), startNodeId: z.string(), createdAt: z.string().datetime(), completedAt: z.string().datetime().nullable(), parentAttemptId: z.string().nullable(), inputSnapshot: CheckpointInputSnapshotSchema, checkpoints: z.array(CheckpointSchema), transitions: z.array(TransitionSchema) }).passthrough();
+export const CheckpointAttemptSchema = z.object({ id: z.string(), caseId: z.string().nullable().optional(), processId: z.literal("press-creation"), processVersion: z.string(), registryHash: z.string(), executorVersion: z.string(), status: z.enum(["ACTIVE", "INSPECTING", "COMPLETED", "BLOCKED", "FAILED"]), revision: z.number().int().nonnegative(), articleId: z.string(), activeNodeId: z.string().nullable(), startNodeId: z.string(), createdAt: z.string().datetime(), completedAt: z.string().datetime().nullable(), parentAttemptId: z.string().nullable(), inputSnapshot: CheckpointInputSnapshotSchema, checkpoints: z.array(CheckpointSchema), transitions: z.array(TransitionSchema) }).passthrough();
+const MatcherSubjectSchema = z.enum(["transition_text", "source_input_text", "source_output_text", "target_payload_text", "source_output_review_notes", "target_payload_selected_note_ids", "source_output_review_note_count", "target_payload_selected_note_count"]);
+const MatcherOperatorSchema = z.enum(["contains", "not_contains", "equals", "exists", "not_empty", "count_gte", "count_lte", "number_eq", "number_gte", "number_lte"]);
+const ValidationStateSchema = z.enum(["UNTESTED", "UNPROVEN", "DETECTED", "VERIFIED"]);
+export const DebugCaseExpectationSchema = z.object({ id: z.string(), edgeId: z.string().optional(), matcher: z.object({ version: z.literal(1), subject: MatcherSubjectSchema, operator: MatcherOperatorSchema, operand: z.union([z.string(), z.number()]).optional() }), verdict: z.enum(["WARN", "BLOCK"]), fingerprint: z.string(), validation: z.object({ state: ValidationStateSchema, lastVerdict: z.enum(["PASS", "WARN", "BLOCK"]).nullable(), lastObservationAt: z.string().nullable() }), validationState: ValidationStateSchema.optional(), lastVerdict: z.enum(["PASS", "WARN", "BLOCK"]).nullable().optional(), lastObservationAt: z.string().nullable().optional() });
+export const DebugCaseDetailSchema = z.object({ caseId: z.string(), name: z.string(), sourceCheckpointId: z.string().optional(), sourceCheckpoint: z.object({ id: z.string(), nodeId: z.string() }), startNodeId: z.string(), expectations: z.array(DebugCaseExpectationSchema), observations: z.array(z.unknown()).optional() });
+export const SaveDebugCaseReceiptSchema = z.object({ replayed: z.boolean(), response: z.object({ caseId: z.string(), revision: z.number().int().nonnegative() }) });
 export const RetryCheckpointAttemptResponseSchema = z.object({
   replayed: z.boolean(),
   attemptId: z.string(),
@@ -28,6 +34,9 @@ export const RetryCheckpointAttemptResponseSchema = z.object({
 });
 export type PressAiCheckpointAttempt = z.infer<typeof CheckpointAttemptSchema>;
 export type RetryCheckpointAttemptResponse = z.infer<typeof RetryCheckpointAttemptResponseSchema>;
+export type PressAiDebugCase = z.infer<typeof DebugCaseDetailSchema>;
+export type PressAiDebugCaseExpectation = z.infer<typeof DebugCaseExpectationSchema>;
+export type SaveDebugCaseReceipt = z.infer<typeof SaveDebugCaseReceiptSchema>;
 export type PressAiCheckpointAttemptSummary = {
   id: string;
   processId: string;
@@ -72,7 +81,8 @@ export async function fetchPressAiCheckpointComparison(attemptId: string, fetchI
 export async function executePressAiCheckpointNode(attemptId: string, nodeId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/steps/${encodeURIComponent(nodeId)}/execute`, { method: "POST", headers, body: JSON.stringify(input) })); }
 export async function advancePressAiCheckpointEdge(attemptId: string, edgeId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/edges/${encodeURIComponent(edgeId)}/advance`, { method: "POST", headers, body: JSON.stringify(input) })); }
 export async function retryPressAiCheckpointAttempt(attemptId: string, input: Record<string, unknown>, fetchImpl: typeof fetch = fetch): Promise<RetryCheckpointAttemptResponse> { const value = await checkpointJson(await fetchImpl(`/api/press/agent/process-debug-attempts/${encodeURIComponent(attemptId)}/retry`, { method: "POST", headers, body: JSON.stringify(input) })); return RetryCheckpointAttemptResponseSchema.parse(value); }
-export async function savePressAiDebugCase(input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return checkpointJson(await fetchImpl("/api/press/agent/process-debug-cases", { method: "POST", headers, body: JSON.stringify(input) })); }
+export async function fetchPressAiDebugCase(caseId: string, fetchImpl: typeof fetch = fetch) { const value = await checkpointJson(await fetchImpl(`/api/press/agent/process-debug-cases/${encodeURIComponent(caseId)}`, { cache: "no-store" })); return DebugCaseDetailSchema.parse((value as any).case); }
+export async function savePressAiDebugCase(input: Record<string, unknown>, fetchImpl: typeof fetch = fetch) { return SaveDebugCaseReceiptSchema.parse(await checkpointJson(await fetchImpl("/api/press/agent/process-debug-cases", { method: "POST", headers, body: JSON.stringify(input) }))); }
 
 export async function uploadPressAiKnowledgePdf(file: File, fetchImpl: typeof fetch = fetch) {
   const body = new FormData();

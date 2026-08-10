@@ -12,9 +12,12 @@ test("press mapper preserves node, edge, approval and replay topology", () => {
   const evaluation = mapTransitionEvaluation(context, { transitionId: "t", edgeId: "brief-draft", sourceNodeId: "brief-normalization", evaluator: { id: "grounding", version: "1" }, verdict: "WARN", expected: "raw memo", observed: "generated prose" }); assert.equal(evaluation.eventKind, "transition.evaluation"); assert.equal(evaluation.payload.verdict, "WARN");
 });
 
-test("legacy process edges become traversal events only after they are taken", () => {
+test("process edges preserve taken and explicit not-taken traversal state", () => {
   const common = { schemaVersion: "press-ai-process-event/v1" as const, processId: "press-creation" as const, processVersion: "2.0.0", eventId: "event", dedupeKey: "dedupe", runId: "run", sequence: 1, occurredAt: "2026-08-06T00:00:00.000Z", type: "edge.state" as const };
   const edge = { id: "brief-draft", source: "brief-normalization", target: "draft-generation", findingCode: null };
-  assert.equal(mapPressProcessEvent(context, { ...common, edge: { ...edge, state: "blocked" } }), null);
-  assert.equal(mapPressProcessEvent(context, { ...common, edge: { ...edge, state: "taken" } })?.eventKind, "edge.traversed");
+  const blocked = mapPressProcessEvent(context, { ...common, edge: { ...edge, state: "blocked" } });
+  assert.equal(blocked?.eventKind === "edge.traversed" && blocked.payload.traversalState, "NOT_TAKEN");
+  const taken = mapPressProcessEvent(context, { ...common, edge: { ...edge, state: "taken" } });
+  assert.equal(taken?.eventKind === "edge.traversed" && taken.payload.traversalState, "TAKEN");
+  assert.equal(mapPressProcessEvent(context, { ...common, edge: { ...edge, state: "moving" } }), null);
 });

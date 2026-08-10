@@ -1,14 +1,47 @@
 import { pressCreationProcess } from "./processRegistry";
 import { extractPressDomainFacts, pressDomainContentText } from "./domainFacts";
 import { hashTelemetryValue } from "@/domain/ai-telemetry/privacy";
+import { customExpectationFingerprint, normalizeCustomExpectation, type CustomExpectation } from "./caseExpectations";
 
 export type GuardrailVerdict = "PASS" | "WARN" | "BLOCK";
 export type GuardrailObservation = Readonly<{ guardrailId: string; origin: "MANDATORY" | "CASE_EXPECTATION"; expected: string; observed: string; reason: string; evidence: unknown; verdict: GuardrailVerdict; displayOrder: number }>;
-export type CaseExpectation = Readonly<{ id: string; field: "contains" | "notContains"; value: string; verdict?: "WARN" | "BLOCK" }>;
+export type CaseExpectation = CustomExpectation | Readonly<{ id: string; edgeId?: string; field: "contains" | "notContains"; value: string; verdict?: "WARN" | "BLOCK" }>;
 
 function observation(id: string, verdict: GuardrailVerdict, expected: string, observed: string, reason: string, evidence: unknown, displayOrder: number, origin: GuardrailObservation["origin"] = "MANDATORY"): GuardrailObservation { return { guardrailId: id, origin, expected, observed, reason, evidence, verdict, displayOrder }; }
 
 export function rollUpGuardrailVerdict(items: readonly Pick<GuardrailObservation, "verdict">[]): GuardrailVerdict { return items.some((item) => item.verdict === "BLOCK") ? "BLOCK" : items.some((item) => item.verdict === "WARN") ? "WARN" : "PASS"; }
+
+function text(value: unknown) { return (["raw", "brief", "draft"] as const).map((mode) => pressDomainContentText(value, mode)).filter(Boolean).join("\n"); }
+function stringIds(value: unknown, key: "notes" | "selectedNoteIds") {
+  const candidate = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>)[key] : undefined;
+  if (!Array.isArray(candidate)) return undefined;
+  return candidate.flatMap((item) => typeof item === "string" ? [item] : item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string" ? [(item as { id: string }).id] : []);
+}
+function subjectValue(expectation: CustomExpectation, args: { sourceInput: unknown; sourceOutput: unknown; targetPayload: unknown }) {
+  switch (expectation.matcher.subject) {
+    case "transition_text": return [text(args.sourceOutput), text(args.targetPayload)].filter(Boolean).join("\n");
+    case "source_input_text": return text(args.sourceInput);
+    case "source_output_text": return text(args.sourceOutput);
+    case "target_payload_text": return text(args.targetPayload);
+    case "source_output_review_notes": return stringIds(args.sourceOutput, "notes");
+    case "target_payload_selected_note_ids": return stringIds(args.targetPayload, "selectedNoteIds");
+    case "source_output_review_note_count": return stringIds(args.sourceOutput, "notes")?.length;
+    case "target_payload_selected_note_count": return stringIds(args.targetPayload, "selectedNoteIds")?.length;
+  }
+}
+function matches(expectation: CustomExpectation, value: string | string[] | number | undefined) {
+  const { operator, operand } = expectation.matcher;
+  if (operator === "exists") return value !== undefined;
+  if (operator === "not_empty") return typeof value === "string" ? value.trim().length > 0 : Array.isArray(value) ? value.length > 0 : false;
+  if (operator === "contains") return typeof value === "string" && value.includes(String(operand));
+  if (operator === "not_contains") return typeof value === "string" && !value.includes(String(operand));
+  if (operator === "equals") return typeof value === "string" ? value === operand : Array.isArray(value) ? value.length === operand : value === operand;
+  const numeric = Array.isArray(value) ? value.length : value;
+  if (typeof numeric !== "number" || typeof operand !== "number") return false;
+  if (operator === "count_gte" || operator === "number_gte") return numeric >= operand;
+  if (operator === "count_lte" || operator === "number_lte") return numeric <= operand;
+  return operator === "number_eq" && numeric === operand;
+}
 
 export function evaluatePressTransitionGuardrails(args: { edgeId: string; sourceInput: unknown; sourceOutput: unknown; targetPayload: unknown; attempt: { teamId: string; articleId: string }; article?: { id: string; teamId: string | null; type: string; createdAt?: Date }; expectations?: readonly CaseExpectation[] }): { verdict: GuardrailVerdict; observations: GuardrailObservation[] } {
   const edge = pressCreationProcess.edges.find((item) => item.id === args.edgeId);
@@ -42,10 +75,10 @@ export function evaluatePressTransitionGuardrails(args: { edgeId: string; source
     }
     observations.push(observation(id, verdict, expected, observed, reason, evidence, index));
   });
-  [...(args.expectations ?? [])].sort((a, b) => a.id.localeCompare(b.id)).forEach((item, index) => {
-    const haystack = (["raw", "brief", "draft"] as const).flatMap((mode) => [pressDomainContentText(args.sourceOutput, mode), pressDomainContentText(args.targetPayload, mode)]).join("\n");
-    const pass = item.field === "contains" ? haystack.includes(item.value) : !haystack.includes(item.value);
-    observations.push(observation(item.id, pass ? "PASS" : item.verdict ?? "WARN", `${item.field} ${item.value.slice(0, 240)}`, pass ? "matched" : "not matched", pass ? "케이스 기대값을 충족했습니다." : "케이스 기대값을 충족하지 못했습니다.", { valueHash: hashTelemetryValue(item.value) }, edge.mandatoryGuardrailIds.length + index, "CASE_EXPECTATION"));
+  const custom = (args.expectations ?? []).flatMap((stored) => { try { return [normalizeCustomExpectation(stored)]; } catch { return []; } }).filter((item) => !item.edgeId || item.edgeId === edge.id).sort((a, b) => a.id.localeCompare(b.id));
+  custom.forEach((item, index) => {
+    const value = subjectValue(item, args); const pass = matches(item, value); const operand = item.matcher.operand;
+    observations.push(observation(item.id, pass ? "PASS" : item.verdict, `${item.matcher.subject} ${item.matcher.operator}${operand === undefined ? "" : ` ${String(operand).slice(0, 240)}`}`, pass ? "matched" : "not matched", pass ? "케이스 기대값을 충족했습니다." : "케이스 기대값을 충족하지 못했습니다.", { ruleFingerprint: customExpectationFingerprint(item), ...(operand === undefined ? {} : { operandHash: hashTelemetryValue(String(operand)) }) }, edge.mandatoryGuardrailIds.length + index, "CASE_EXPECTATION"));
   });
   return { verdict: rollUpGuardrailVerdict(observations), observations };
 }

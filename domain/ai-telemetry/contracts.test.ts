@@ -17,3 +17,8 @@ test("lineage, privacy attributes and terminal status fail closed", () => {
   assert.throws(() => parseCanonicalAiTelemetryEvent({ ...valid(), attributes: { prompt: "secret" } }));
   assert.throws(() => parseCanonicalAiTelemetryEvent({ ...valid(), payload: { phase: "COMPLETED", reasonCode: null }, status: "RUNNING" }));
 });
+
+test("legacy edge telemetry defaults to a taken traversal", () => {
+  const event = parseCanonicalAiTelemetryEvent({ ...valid(), eventKind: "edge.traversed", status: "COMPLETED", parentSpanId: "c".repeat(16), payload: { edgeId: "brief-draft", sourceNodeId: "brief-normalization", targetNodeId: "draft-generation", verdict: "PASS", acknowledged: false } });
+  assert.equal(event.eventKind === "edge.traversed" && event.payload.traversalState, "TAKEN");
+});

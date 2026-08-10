@@ -20,11 +20,17 @@ test("process runs keep one trace and operation through waiting and fail-open te
   let beginCalls = 0;
   const completedOperations: Array<string> = [];
   const exportedRuns: Array<string> = [];
+  const deliveryOrder: string[] = [];
 
   try {
     const run = await createPressProcessRun({ teamId: team.id, userId: user.id, processId: "press-creation", input: { rawText: "private prompt" }, enableObservability: true }, {
       generateTraceId: () => traceId,
+      registerManifest: async (manifest) => {
+        deliveryOrder.push(`manifest:${manifest.workflow.id}`);
+        return { status: "registered", operationId: "00000000-0000-4000-8000-000000000000", environment: "test" };
+      },
       beginOperation: async (args) => {
+        deliveryOrder.push(`begin:${args.workflowId}`);
         beginCalls += 1;
         assert.equal(args.traceId, traceId);
         return { status: "registered", operationId, environment: "test" };
@@ -42,11 +48,17 @@ test("process runs keep one trace and operation through waiting and fail-open te
     assert.equal(exportedRuns.length, 0);
 
     await finalizeProcessRunObservability({ teamId: team.id, runId: run.id, processId: "press-creation", status: "succeeded" }, {
+      exportFacts: async ({ operationId: exportedOperationId }) => {
+        deliveryOrder.push(`facts:${exportedOperationId}`);
+        return { status: "exported", batches: 1, facts: 1 };
+      },
       completeOperation: async ({ operationId: completedOperationId }) => {
+        deliveryOrder.push(`complete:${completedOperationId}`);
         completedOperations.push(completedOperationId);
         throw new Error("ops console unavailable");
       },
       exportTelemetry: async ({ runId }) => {
+        deliveryOrder.push(`otlp:${runId}`);
         exportedRuns.push(runId);
         throw new Error("otlp unavailable");
       },
@@ -54,6 +66,7 @@ test("process runs keep one trace and operation through waiting and fail-open te
 
     assert.deepEqual(completedOperations, [operationId]);
     assert.deepEqual(exportedRuns, [run.id]);
+    assert.deepEqual(deliveryOrder, [`manifest:presstuner.press-creation`, `begin:presstuner.press-creation`, `facts:${operationId}`, `otlp:${run.id}`, `complete:${operationId}`]);
     const terminal = await prisma.agentRuntimeAuditEvent.findFirstOrThrow({ where: { teamId: team.id, runId: run.id, eventType: "CANONICAL_AI_TELEMETRY_V1", eventKind: "run.lifecycle", details: { path: ["payload", "phase"], equals: "COMPLETED" } } });
     assert.equal(terminal.traceId, traceId);
   } finally {

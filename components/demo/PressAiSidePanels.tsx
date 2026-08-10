@@ -18,6 +18,10 @@ type TabId = (typeof TABS)[number]["id"];
 export function PressAiSidePanels(props: {
   attempt: PressAiCheckpointAttempt;
   busy: boolean;
+  attachedCase: Parameters<typeof PressAiCasePanel>[0]["attachedCase"];
+  caseLoading: boolean;
+  caseError: string | null;
+  caseSaved: boolean;
   refreshKey: string;
   onOpen: (attemptId: string) => void;
   onSaveCase: Parameters<typeof PressAiCasePanel>[0]["onSave"];
@@ -85,7 +89,12 @@ export function PressAiSidePanels(props: {
         ) : null}
         {tab === "cases" ? (
           <PressAiCasePanel
+            key={`${props.attachedCase?.caseId ?? "new"}:${props.attachedCase?.expectations.map((item) => item.fingerprint).join(",") ?? ""}`}
             checkpoints={props.attempt.checkpoints}
+            attachedCase={props.attachedCase}
+            loading={props.caseLoading}
+            error={props.caseError}
+            saved={props.caseSaved}
             busy={props.busy}
             onSave={props.onSaveCase}
           />

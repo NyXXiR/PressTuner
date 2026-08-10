@@ -5,6 +5,8 @@ import {
   createOpsConsoleOperationClient,
   pseudonymizeOperationReference,
 } from "./opsConsoleOperationClient";
+import { buildOpsConsoleWorkflowManifest } from "@/domain/press-ai-debugger/opsConsoleWorkflowManifest";
+import { OPS_CONSOLE_EXECUTION_FACTS_BATCH_VERSION, OPS_CONSOLE_EXECUTION_FACT_VERSION, OPS_CONSOLE_PRODUCER, OPS_CONSOLE_PROTOCOL_VERSION } from "@/domain/ai-telemetry/opsConsoleProducerContracts";
 
 const operationId = "10000000-0000-4000-8000-000000000001";
 const traceId = "123e4567e89b12d3a456426614174000";
@@ -251,4 +253,20 @@ test("guardrail reporting rejects a malformed operation ID and never reports a t
   const serverError = await client.reportGuardrails({ operationId, verdicts });
   assert.equal(serverError.status, "failed");
   assert.equal("code" in serverError && serverError.code, "OPS_CONSOLE_HTTP_ERROR");
+});
+
+test("workflow manifests and execution facts use the authenticated v2 endpoints", async () => {
+  const requests: Array<{ url: string; body: unknown }> = [];
+  const client = createOpsConsoleOperationClient({ environment: validEnvironment, fetch: async (url, init) => { requests.push({ url: String(url), body: JSON.parse(String(init?.body)) }); return new Response(null, { status: 202 }); } });
+  const manifest = buildOpsConsoleWorkflowManifest("press-creation");
+  const registered = await client.registerWorkflowManifest(manifest);
+  assert.equal(registered.status, "registered");
+  const batch = {
+    schemaVersion: OPS_CONSOLE_EXECUTION_FACTS_BATCH_VERSION, producer: OPS_CONSOLE_PRODUCER,
+    facts: [{ schemaVersion: OPS_CONSOLE_EXECUTION_FACT_VERSION, protocolVersion: OPS_CONSOLE_PROTOCOL_VERSION, factId: "20000000-0000-4000-8000-000000000001", operationId, workflow: { ...manifest.workflow, definitionHash: manifest.definitionHash }, sequence: 1, occurredAt: now.toISOString(), kind: "node.lifecycle" as const, occurrenceId: "30000000-0000-4000-8000-000000000001", stageId: "article-initialization", state: "STARTED" as const, reasonCode: null }],
+  };
+  const appended = await client.appendExecutionFacts(batch);
+  assert.equal(appended.status, "reported");
+  assert.deepEqual(requests.map((item) => item.url), ["https://ops.example.test/api/ai-operations/v1/workflows", "https://ops.example.test/api/ai-operations/v1/execution-facts"]);
+  assert.deepEqual(requests.map((item) => (item.body as { schemaVersion: string }).schemaVersion), ["ops-console/workflow-manifest/v2", "ops-console/execution-facts-batch/v2"]);
 });

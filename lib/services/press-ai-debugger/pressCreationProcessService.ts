@@ -74,6 +74,12 @@ export async function continuePressCreationProcess(args: { teamId: string; userI
   if (state.gate !== expectedGate) throw Object.assign(new Error("PRESS_AI_PROCESS_CONTINUATION_STALE"), { status: 409, code: "PRESS_AI_PROCESS_CONTINUATION_STALE" });
   const claimed = await prisma.agentRun.updateMany({ where: { id: run.id, status: "WAITING_APPROVAL" }, data: { status: "RUNNING" } });
   if (claimed.count !== 1) throw Object.assign(new Error("PRESS_AI_PROCESS_CONTINUATION_STALE"), { status: 409, code: "PRESS_AI_PROCESS_CONTINUATION_STALE" });
+  const reviewedNodeId = expectedGate === "confirm-normalized-brief" ? "brief-normalization" : expectedGate === "confirm-generated-draft" ? "draft-generation" : "draft-review";
+  try {
+    await persistProcessEvent({ teamId: args.teamId, runId: run.id, processId: "press-creation", event: { type: "human.reviewed", dedupeKey: `gate:${expectedGate}:approved`, gate: { id: expectedGate, nodeId: reviewedNodeId }, decision: "APPROVED" }, observer: args.observer });
+  } catch {
+    // Review telemetry must not invalidate a successfully claimed continuation.
+  }
   let nodeId = "draft-generation";
   try {
     if (args.input.action === "confirm-brief") {

@@ -7,6 +7,22 @@ the same UUID into LangSmith, and emits matching terminal browser outcomes to
 PostHog and GA4. The workflow identity is `presstuner.press-agent` with the
 runtime's existing `PRESS_AGENT_VERSION`.
 
+PressTuner also publishes registry-derived workflow manifests and finalized-run
+execution facts through the additive producer v2 endpoints:
+
+- `presstuner.press-agent@press-agent-v2` (`rag-query`, DAG)
+- `presstuner.press-creation@2.0.0` (`press-creation`, state machine)
+- `POST /api/ai-operations/v1/workflows`
+- `POST /api/ai-operations/v1/execution-facts`
+
+The v2 allowlist contains only the fixed producer/workflow identity, definition
+hash, registry stage/edge/gate/guardrail identifiers, privacy-safe registry
+labels and descriptions, canonical timestamps and sequences, deterministic
+UUIDs, lifecycle/traversal/review states, and sanitized reason codes. It never
+copies canonical scope or attributes, prompts, memos, generated answers or
+articles, source/evidence values, provider payloads, credentials, or raw team
+and user IDs.
+
 ## Server configuration
 
 Configure these variables only in the server deployment environment:
@@ -116,6 +132,19 @@ Console. Waiting-for-approval runs remain open. Cancellation also closes the
 operation. Continuation and retry reuse the stored UUID. Provider failures are
 reduced to safe codes and never replace the user-visible Agent result.
 
+Manifest registration is attempted before operation registration, but its
+failure cannot prevent the operation request. At terminal finalization,
+PressTuner persists the canonical terminal observation, sends execution facts,
+preserves the existing OTLP export, sends guardrail observations where
+applicable, and then completes the operation. Waiting runs are neither exported
+nor completed.
+
+Each execution-fact request contains at most 100 facts and 128 KiB. A run is
+bounded to 1,000 canonical events and 10 fact batches, with a 15-second exporter
+deadline in addition to the existing per-request timeout (bounded to 10
+seconds). Delivery is best-effort and stops at the first disabled or failed
+batch. No producer-side Prisma migration, outbox, or retry table is introduced.
+
 When the browser first observes a terminal run in a session:
 
 - `COMPLETED` emits PostHog `accepted` and GA4 `conversion` with the same
@@ -151,3 +180,10 @@ To roll back without a database change, unset either server URL or write key.
 New runs will not persist or emit an operation UUID, while Press Agent remains
 available. Removing the client/helper imports and calls fully removes the
 instrumentation.
+
+## Remaining rollout work
+
+The current finalized-run exporter intentionally has no durable retry. A future
+rollout should add a durable outbox, a bounded retry worker, historical backfill
+for already-finalized runs, and alerting for accumulated
+`OBSERVABILITY_DELIVERY_FAILED` audits.

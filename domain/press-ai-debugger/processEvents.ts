@@ -16,6 +16,7 @@ const RawEventSchema = z.discriminatedUnion("type", [
   z.object({ ...common, type: z.literal("node.state"), node: z.object({ id: z.string(), state: NodeStateSchema, findingCode: z.string().nullable(), metrics: z.record(z.string(), z.number().int().nonnegative()).optional() }).strict() }).strict(),
   z.object({ ...common, type: z.literal("edge.state"), edge: z.object({ id: z.string(), source: z.string(), target: z.string(), state: EdgeStateSchema, findingCode: z.string().nullable() }).strict() }).strict(),
   z.object({ ...common, type: z.literal("run.waiting-input"), gate: z.object({ id: z.string(), nodeId: z.string() }).strict() }).strict(),
+  z.object({ ...common, type: z.literal("human.reviewed"), gate: z.object({ id: z.string(), nodeId: z.string() }).strict(), decision: z.enum(["APPROVED", "REJECTED", "ACKNOWLEDGED"]) }).strict(),
   z.object({ ...common, type: z.literal("run.finished"), run: z.object({ status: z.enum(["succeeded", "warning", "failed", "cancelled", "blocked"]), findingCode: z.string().nullable() }).strict() }).strict(),
 ]);
 
@@ -38,7 +39,7 @@ function assertIdentity(event: z.infer<typeof RawEventSchema>) {
     const edge = process.edges.find((entry) => entry.id === event.edge.id);
     if (!edge || edge.source !== event.edge.source || edge.target !== event.edge.target) throw new Error("PRESS_AI_PROCESS_EDGE_TOPOLOGY_INVALID");
   }
-  if (event.type === "run.waiting-input") {
+  if (event.type === "run.waiting-input" || event.type === "human.reviewed") {
     const node = process.nodes.find((entry) => entry.id === event.gate.nodeId);
     if (!node?.gate || node.gate.id !== event.gate.id) throw new Error("PRESS_AI_PROCESS_GATE_INVALID");
   }
@@ -71,6 +72,7 @@ export function projectPressAiProcessEvents(processId: PressAiProcessId, input: 
     if (event.type === "node.state") nodes[event.node.id] = { ...event.node };
     if (event.type === "edge.state") edges[event.edge.id] = { ...event.edge };
     if (event.type === "run.waiting-input") { runStatus = "waiting-input"; waitingGate = event.gate; }
+    if (event.type === "human.reviewed") { runStatus = "running"; waitingGate = null; }
     if (event.type === "run.finished") { runStatus = event.run.status; waitingGate = null; }
     lastSequence = event.sequence;
   }

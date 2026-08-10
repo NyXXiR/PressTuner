@@ -27,8 +27,16 @@ test("waiting input is projected as a real gate", () => {
   assert.equal(projection.waitingGate?.id, "confirm-normalized-brief");
 });
 
+test("content-free human review clears the waiting gate and remains dedupe-safe", () => {
+  const waiting = parsePressAiProcessEvent({ ...base, type: "run.waiting-input", gate: { id: "confirm-normalized-brief", nodeId: "brief-normalization" } });
+  const reviewed = parsePressAiProcessEvent({ ...base, eventId: "e2", dedupeKey: "gate:confirmed", sequence: 2, type: "human.reviewed", gate: { id: "confirm-normalized-brief", nodeId: "brief-normalization" }, decision: "APPROVED" });
+  const projection = projectPressAiProcessEvents("press-creation", [waiting, reviewed, reviewed]);
+  assert.equal(projection.runStatus, "running");
+  assert.equal(projection.waitingGate, null);
+  assert.doesNotMatch(JSON.stringify(reviewed), /user|actor|memo|content/i);
+});
+
 test("legacy RAG v1 remains parseable", () => {
   const event = parsePressAiProcessEvent({ schemaVersion: "press-agent-workflow-event/v1", eventId: "legacy", dedupeKey: "legacy", runId: "r1", sequence: 1, occurredAt: "2026-08-06T00:00:00.000Z", type: "run.started", run: { status: "running" } });
   assert.equal(event.processId, "rag-query");
 });
-

@@ -90,6 +90,17 @@ test("checkpoint UI exposes review selection, immutable retry navigation, histor
   assert.match(comparison, /fetchPressAiCheckpointComparison/);
   assert.match(cases, /필수 가드레일은 그대로 두고/);
   assert.match(cases, /기대값 추가/);
+  for (const state of ["UNTESTED", "UNPROVEN", "DETECTED", "VERIFIED"]) assert.match(cases, new RegExp(state));
+  assert.match(cases, /필수 가드레일 · 읽기 전용/);
+  assert.match(cases, /guardrailLabelKo/);
+  assert.match(cases, /formIdentity/);
+  assert.match(cases, /PressAiCasePanelForm key=\{formIdentity\}/);
+  assert.match(cases, /sameExpectationDefinition/);
+  assert.match(cases, /createCaseExpectationRow\(edgeId\)/);
+  assert.doesNotMatch(cases, /필수 가드레일[\s\S]{0,200}삭제/);
+  assert.match(hook, /fetchPressAiDebugCase/);
+  assert.match(hook, /nextAttempt\.caseId/);
+  assert.match(workspace, /id="press-ai-branch-checkpoint"/);
   assert.doesNotMatch(edge, /다시 시작할 노드|새 시도로 다시 실행|onRetry/);
   assert.doesNotMatch(timeline, /onRetry/);
 });

@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 
 import { prisma } from "@/lib/prisma";
+import { customExpectationFingerprint, normalizeCustomExpectation } from "@/domain/press-ai-debugger/caseExpectations";
 import { createCheckpointAttempt } from "./checkpointDebuggerService";
 import { json } from "./checkpointRepository";
 import { retryDebugAttempt } from "./retryService";
+import { getDebugCase } from "./caseService";
 
 async function createFixture() {
   const suffix = randomUUID();
@@ -77,7 +79,9 @@ test("retry creates an immutable child and restores only earlier checkpoints", a
         }),
       );
     }
-    await prisma.pressAiDebugTransition.create({
+    const attachedCase = await prisma.pressAiDebugCase.create({ data: { teamId: team.id, createdById: user.id, name: "shared matcher", status: "SAVED", processId: parent.processId, processVersion: parent.processVersion, registryHash: parent.registryHash, sourceAttemptId: parent.id, sourceCheckpointId: checkpoints[0]!.id, startNodeId: checkpoints[0]!.nodeId, inputSnapshot: json(checkpoints[0]!.input), expectations: json([{ id: "rule", matcher: { version: 1, subject: "transition_text", operator: "contains", operand: "원본" }, verdict: "WARN" }]), captureKind: "MANUAL" } });
+    await prisma.pressAiDebugAttempt.update({ where: { id: parent.id }, data: { caseId: attachedCase.id } });
+    const transition = await prisma.pressAiDebugTransition.create({
       data: {
         attemptId: parent.id,
         edgeId: "initialization-brief",
@@ -89,6 +93,8 @@ test("retry creates an immutable child and restores only earlier checkpoints", a
         verdict: "PASS",
       },
     });
+    const originalRule = normalizeCustomExpectation({ id: "rule", matcher: { version: 1, subject: "transition_text", operator: "contains", operand: "원본" }, verdict: "WARN" });
+    await prisma.pressAiDebugGuardrailObservation.create({ data: { transitionId: transition.id, guardrailId: "rule", origin: "CASE_EXPECTATION", expected: "original", observed: "missing", reason: "detected", evidence: json({ ruleFingerprint: customExpectationFingerprint(originalRule) }), verdict: "WARN", displayOrder: 10 } });
     const parentBefore = await prisma.pressAiDebugAttempt.findUniqueOrThrow({
       where: { id: parent.id },
       include: { checkpoints: { orderBy: { sequence: "asc" } }, transitions: true },
@@ -138,6 +144,7 @@ test("retry creates an immutable child and restores only earlier checkpoints", a
     assert.notEqual(child.id, parent.id);
     assert.notEqual(child.articleId, parent.articleId);
     assert.equal(child.parentAttemptId, parent.id);
+    assert.equal(child.caseId, attachedCase.id);
     assert.equal(child.baselineAttemptId, parent.id);
     assert.equal(child.startNodeId, "draft-generation");
     assert.equal(child.activeNodeId, "draft-generation");
@@ -148,6 +155,10 @@ test("retry creates an immutable child and restores only earlier checkpoints", a
         { nodeId: "brief-normalization", mode: "RESTORED" },
       ],
     );
+    await prisma.pressAiDebugCase.update({ where: { id: attachedCase.id }, data: { expectations: json([{ id: "rule", matcher: { version: 1, subject: "transition_text", operator: "contains", operand: "편집됨" }, verdict: "WARN" }]) } });
+    const childWithEditedCase = await prisma.pressAiDebugAttempt.findUniqueOrThrow({ where: { id: child.id }, include: { case: true } });
+    assert.equal(((childWithEditedCase.case?.expectations as Array<{ matcher: { operand: string } }>)[0]?.matcher.operand), "편집됨");
+    assert.equal((await getDebugCase({ teamId: team.id, caseId: attachedCase.id })).expectations[0]?.validation.state, "UNTESTED");
     for (const item of child.checkpoints) {
       assert.equal((item.input as { articleId: string }).articleId, child.articleId);
       assert.equal((item.output as { articleId: string }).articleId, child.articleId);

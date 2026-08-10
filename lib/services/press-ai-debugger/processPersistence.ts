@@ -9,7 +9,9 @@ import { mapPressProcessEvent } from "@/domain/ai-telemetry/pressMapper";
 import { generateCanonicalTraceId } from "@/domain/ai-telemetry/identifiers";
 import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
 import { exportRunTelemetry } from "@/lib/services/ai-telemetry/otlpExporter";
-import { beginOpsConsoleOperation, completeOpsConsoleOperation, type OpsConsoleOperationResult } from "@/lib/services/operations/opsConsoleOperationClient";
+import { beginOpsConsoleOperation, completeOpsConsoleOperation, registerOpsConsoleWorkflowManifest, type OpsConsoleOperationResult } from "@/lib/services/operations/opsConsoleOperationClient";
+import { buildOpsConsoleWorkflowManifest } from "@/domain/press-ai-debugger/opsConsoleWorkflowManifest";
+import { exportOpsConsoleExecutionFacts } from "@/lib/services/operations/opsConsoleExecutionFactExporter";
 
 export const PRESS_AI_PROCESS_EVENT_TYPE = "PUBLIC_PROCESS_EVENT_V1";
 export const PRESS_AI_DEBUGGER_LAUNCH_SURFACE = "PRESS_AI_PROCESS_DEBUGGER_V1";
@@ -20,14 +22,18 @@ const OPERATION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 
 type ProcessObservabilityDependencies = {
   beginOperation: typeof beginOpsConsoleOperation;
+  registerManifest: typeof registerOpsConsoleWorkflowManifest;
   completeOperation: typeof completeOpsConsoleOperation;
+  exportFacts: typeof exportOpsConsoleExecutionFacts;
   exportTelemetry: typeof exportRunTelemetry;
   generateTraceId: typeof generateCanonicalTraceId;
 };
 
 const observabilityDefaults: ProcessObservabilityDependencies = {
   beginOperation: beginOpsConsoleOperation,
+  registerManifest: registerOpsConsoleWorkflowManifest,
   completeOperation: completeOpsConsoleOperation,
+  exportFacts: exportOpsConsoleExecutionFacts,
   exportTelemetry: exportRunTelemetry,
   generateTraceId: generateCanonicalTraceId,
 };
@@ -38,7 +44,7 @@ export function readProcessOperationId(input: unknown): string | null {
   return typeof operationId === "string" && OPERATION_ID_PATTERN.test(operationId) ? operationId : null;
 }
 
-async function recordObservabilityFailure(args: { teamId: string; runId: string; phase: "BEGIN" | "COMPLETE" | "EXPORT"; code: string }) {
+async function recordObservabilityFailure(args: { teamId: string; runId: string; phase: "MANIFEST" | "BEGIN" | "FACTS" | "COMPLETE" | "EXPORT"; code: string }) {
   try {
     await prisma.agentRuntimeAuditEvent.create({ data: { teamId: args.teamId, runId: args.runId, eventType: "OBSERVABILITY_DELIVERY_FAILED", details: { phase: args.phase, errorCode: args.code } } });
   } catch {
@@ -61,7 +67,15 @@ export async function createPressProcessRun(args: { teamId: string; userId: stri
   });
   if (args.enableObservability !== true) return run;
   try {
-    const operation = await dependencies.beginOperation({ teamId: args.teamId, userId: args.userId, workflowVersion: process.version, traceId });
+    const manifestResult = await dependencies.registerManifest(buildOpsConsoleWorkflowManifest(args.processId));
+    if (manifestResult.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: run.id, phase: "MANIFEST", code: manifestResult.code });
+  } catch {
+    await recordObservabilityFailure({ teamId: args.teamId, runId: run.id, phase: "MANIFEST", code: "OPS_CONSOLE_NETWORK_ERROR" });
+  }
+  try {
+    const workflowId = args.processId === "press-creation" ? "presstuner.press-creation" : "presstuner.press-agent";
+    const workflowVersion = args.processId === "press-creation" ? "2.0.0" : "press-agent-v2";
+    const operation = await dependencies.beginOperation({ teamId: args.teamId, userId: args.userId, workflowId, workflowVersion, traceId });
     if (operation.status === "registered") {
       await prisma.agentRun.update({ where: { id: run.id }, data: { input: json({ ...privateInput, operationId: operation.operationId }) } });
     } else if (operation.status === "failed") {
@@ -118,10 +132,10 @@ export async function finalizeProcessRunObservability(args: { teamId: string; ru
   }
   if (operationId) {
     try {
-      const result: OpsConsoleOperationResult = await dependencies.completeOperation({ operationId });
-      if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: result.code });
+      const result = await dependencies.exportFacts({ teamId: args.teamId, runId: args.runId, processId: args.processId, operationId });
+      if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "FACTS", code: result.code });
     } catch {
-      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: "OPS_CONSOLE_NETWORK_ERROR" });
+      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "FACTS", code: "OPS_CONSOLE_PROJECTION_FAILED" });
     }
   }
   try {
@@ -129,6 +143,14 @@ export async function finalizeProcessRunObservability(args: { teamId: string; ru
     if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "EXPORT", code: result.code });
   } catch {
     await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "EXPORT", code: "OTLP_NETWORK_ERROR" });
+  }
+  if (operationId) {
+    try {
+      const result: OpsConsoleOperationResult = await dependencies.completeOperation({ operationId });
+      if (result.status === "failed") await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: result.code });
+    } catch {
+      await recordObservabilityFailure({ teamId: args.teamId, runId: args.runId, phase: "COMPLETE", code: "OPS_CONSOLE_NETWORK_ERROR" });
+    }
   }
 }
 

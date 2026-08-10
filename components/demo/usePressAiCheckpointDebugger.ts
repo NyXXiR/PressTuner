@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { CustomExpectation } from "@/domain/press-ai-debugger/caseExpectations";
 
 import {
   readAttemptIdFromSearch,
@@ -10,10 +11,12 @@ import {
   advancePressAiCheckpointEdge,
   createPressAiCheckpointAttempt,
   executePressAiCheckpointNode,
+  fetchPressAiDebugCase,
   fetchPressAiCheckpointAttempt,
   retryPressAiCheckpointAttempt,
   savePressAiDebugCase,
   type PressAiCheckpointAttempt,
+  type PressAiDebugCase,
 } from "@/lib/pressAiProcessDebuggerClient";
 
 const errorCode = (reason: unknown, fallback: string) =>
@@ -24,9 +27,21 @@ export function usePressAiCheckpointDebugger() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attachedCase, setAttachedCase] = useState<PressAiDebugCase | null>(null);
+  const [caseLoading, setCaseLoading] = useState(false);
+  const [caseError, setCaseError] = useState<string | null>(null);
+  const [caseSaved, setCaseSaved] = useState(false);
   const commands = useRef(new Map<string, string>());
   const loadToken = useRef(0);
   const selectedAttemptId = useRef<string | null>(null);
+  const caseLoadToken = useRef(0);
+
+  const loadCase = useCallback(async (caseId: string) => {
+    const token = ++caseLoadToken.current; setCaseLoading(true); setCaseError(null);
+    try { const loaded = await fetchPressAiDebugCase(caseId); if (token === caseLoadToken.current) setAttachedCase(loaded); }
+    catch (reason) { if (token === caseLoadToken.current) { setAttachedCase(null); setCaseError(errorCode(reason, "PRESS_AI_DEBUG_CASE_LOAD_FAILED")); } }
+    finally { if (token === caseLoadToken.current) setCaseLoading(false); }
+  }, []);
 
   const replaceAttemptUrl = useCallback((attemptId: string | null) => {
     window.history.replaceState(
@@ -39,12 +54,14 @@ export function usePressAiCheckpointDebugger() {
   const selectAttempt = useCallback(
     (nextAttempt: PressAiCheckpointAttempt, invalidatePendingLoads = true) => {
       if (invalidatePendingLoads) loadToken.current += 1;
-      if (selectedAttemptId.current !== nextAttempt.id) commands.current.clear();
+      if (selectedAttemptId.current !== nextAttempt.id) { commands.current.clear(); setCaseSaved(false); }
       selectedAttemptId.current = nextAttempt.id;
       setAttempt(nextAttempt);
+      if (nextAttempt.caseId) void loadCase(nextAttempt.caseId);
+      else { caseLoadToken.current += 1; setAttachedCase(null); setCaseLoading(false); setCaseError(null); }
       replaceAttemptUrl(nextAttempt.id);
     },
-    [replaceAttemptUrl],
+    [loadCase, replaceAttemptUrl],
   );
 
   const loadAttempt = useCallback(
@@ -75,7 +92,6 @@ export function usePressAiCheckpointDebugger() {
       loadToken.current += 1;
     };
   }, [loadAttempt]);
-
   const clear = useCallback(() => {
     loadToken.current += 1;
     commands.current.clear();
@@ -83,6 +99,11 @@ export function usePressAiCheckpointDebugger() {
     setAttempt(null);
     setLoading(false);
     setError(null);
+    caseLoadToken.current += 1;
+    setAttachedCase(null);
+    setCaseLoading(false);
+    setCaseError(null);
+    setCaseSaved(false);
     replaceAttemptUrl(null);
   }, [replaceAttemptUrl]);
 
@@ -205,24 +226,21 @@ export function usePressAiCheckpointDebugger() {
   const saveCase = (
     checkpointId: string,
     name: string,
-    expectations: Array<{
-      id: string;
-      field: "contains" | "notContains";
-      value: string;
-      verdict: "WARN" | "BLOCK";
-    }>,
+    expectations: CustomExpectation[],
   ) => {
     if (!attempt) return;
-    void act(`case:${checkpointId}:${attempt.revision}`, (commandId) =>
-      savePressAiDebugCase({
+    setCaseSaved(false);
+    void (async () => {
+      const receipt = await act(`case:${checkpointId}:${attempt.revision}`, (commandId) => savePressAiDebugCase({
         attemptId: attempt.id,
         checkpointId,
         name,
         expectations,
         commandId,
         expectedRevision: attempt.revision,
-      }),
-    );
+      }));
+      if (receipt) { setCaseSaved(true); await loadCase(receipt.response.caseId); }
+    })();
   };
 
   return {
@@ -230,6 +248,10 @@ export function usePressAiCheckpointDebugger() {
     busy,
     loading,
     error,
+    attachedCase,
+    caseLoading,
+    caseError,
+    caseSaved,
     clear,
     create,
     open,

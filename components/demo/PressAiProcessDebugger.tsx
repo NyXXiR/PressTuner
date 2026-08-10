@@ -263,6 +263,10 @@ export function PressAiProcessDebugger() {
         <PressAiAttemptWorkspace
           key={attempt.id}
           attempt={attempt}
+          attachedCase={debuggerState.attachedCase}
+          caseLoading={debuggerState.caseLoading}
+          caseError={debuggerState.caseError}
+          caseSaved={debuggerState.caseSaved}
           busy={debuggerState.busy}
           loading={debuggerState.loading}
           onClear={startNewInput}

@@ -14,3 +14,29 @@ test("grounding excludes tone, quota, timestamps, URLs, paths and retrieval meta
   const result = evaluatePressTransitionGuardrails({ edgeId: "draft-review", sourceInput: { oneLiner: "반드시 30% 이상 개선한다.", eventAt: "2026-08-20", tone: "formal", usage: { quota: 918273 }, createdAt: "2099-12-31T00:00:00Z", url: "https://metadata.invalid/778899", path: "/api/private/665544", retrievalScore: 0.123456 }, sourceOutput: { title: "성과", plain: "반드시 30% 이상 개선한다. 일정은 2026-08-20이다." }, targetPayload: { title: "성과", plain: "본문" }, attempt: { teamId: "t", articleId: "a" } });
   const serialized = JSON.stringify(result.observations); for (const token of metadata) assert.doesNotMatch(serialized, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
+test("typed custom rules are edge scoped and carry fingerprints", () => {
+  const expectation = { id: "typed", edgeId: "draft-review", matcher: { version: 1 as const, subject: "source_output_text" as const, operator: "contains" as const, operand: "성과" }, verdict: "BLOCK" as const };
+  const common = { sourceInput: {}, sourceOutput: { title: "성과", plain: "본문" }, targetPayload: { plain: "본문" }, attempt: { teamId: "t", articleId: "a" } };
+  assert.equal(evaluatePressTransitionGuardrails({ ...common, edgeId: "brief-draft", expectations: [expectation] }).observations.some((item) => item.guardrailId === "typed"), false);
+  const result = evaluatePressTransitionGuardrails({ ...common, edgeId: "draft-review", expectations: [expectation] });
+  const custom = result.observations.find((item) => item.guardrailId === "typed");
+  assert.equal(custom?.verdict, "PASS");
+  assert.match(String((custom?.evidence as { ruleFingerprint: string }).ruleFingerprint), /^[a-f0-9]{64}$/);
+});
+
+test("legacy global rules run on every edge and invalid stored data is ignored", () => {
+  const result = evaluatePressTransitionGuardrails({ edgeId: "initialization-brief", sourceInput: {}, sourceOutput: {}, targetPayload: {}, attempt: { teamId: "t", articleId: "a" }, expectations: [{ id: "legacy", field: "notContains", value: "secret" }, { id: "bad", field: "contains", value: "" } as never] });
+  assert.equal(result.observations.some((item) => item.guardrailId === "legacy"), true);
+  assert.equal(result.observations.some((item) => item.guardrailId === "bad"), false);
+});
+
+test("all matcher-v1 operators evaluate deterministic typed subjects", () => {
+  const definitions = [
+    ["source_output_text", "contains", "Alpha"], ["target_payload_text", "not_contains", "secret"], ["source_input_text", "equals", "input"], ["target_payload_text", "exists"], ["transition_text", "not_empty"],
+    ["source_output_review_notes", "equals", 2], ["source_output_review_notes", "exists"], ["source_output_review_notes", "not_empty"], ["source_output_review_notes", "count_gte", 2], ["source_output_review_notes", "count_lte", 2],
+    ["source_output_review_note_count", "equals", 2], ["source_output_review_note_count", "exists"], ["source_output_review_note_count", "number_eq", 2], ["source_output_review_note_count", "number_gte", 2], ["source_output_review_note_count", "number_lte", 2],
+  ] as const;
+  const expectations = definitions.map(([subject, operator, operand], index) => ({ id: `operator-${index}`, edgeId: "draft-review", matcher: { version: 1 as const, subject, operator, ...(operand === undefined ? {} : { operand }) }, verdict: "BLOCK" as const }));
+  const result = evaluatePressTransitionGuardrails({ edgeId: "draft-review", sourceInput: { rawText: "input" }, sourceOutput: { title: "Alpha", plain: "Beta", notes: [{ id: "n1" }, { id: "n2" }] }, targetPayload: { plain: "Gamma", selectedNoteIds: ["n1", "n2"] }, attempt: { teamId: "t", articleId: "a" }, expectations });
+  assert.deepEqual(result.observations.filter((item) => item.origin === "CASE_EXPECTATION").map((item) => item.verdict), expectations.map(() => "PASS"));
+});

@@ -48,8 +48,8 @@ export function mapHumanApproval(context: PressTelemetryContext, args: { sourceI
   return parseCanonicalAiTelemetryEvent({ ...base(context, ["approval", args.sourceId, args.gateId, args.phase], `approval:${args.sourceId}:${args.gateId}`, "run"), eventKind: "human.approval", status: args.phase === "REQUESTED" ? "WAITING" : "RECORDED", attributes: args.edgeId ? { "domain.edge.id": args.edgeId } : {}, payload: { gateId: args.gateId, phase: args.phase, decision: args.decision, actorRef: args.actorId ? pseudonymousActorReference(args.actorId) : null } });
 }
 
-export function mapEdgeTraversed(context: PressTelemetryContext, args: { transitionId: string; edgeId: string; sourceNodeId: string; targetNodeId: string; verdict: "PASS" | "WARN"; acknowledged: boolean }) {
-  return parseCanonicalAiTelemetryEvent({ ...base(context, ["edge", args.transitionId, args.edgeId], `edge:${args.transitionId}:${args.edgeId}`, `node:${args.sourceNodeId}`), eventKind: "edge.traversed", status: "COMPLETED", attributes: { "domain.edge.id": args.edgeId, "domain.node.source": args.sourceNodeId, "domain.node.target": args.targetNodeId }, payload: { edgeId: args.edgeId, sourceNodeId: args.sourceNodeId, targetNodeId: args.targetNodeId, verdict: args.verdict, acknowledged: args.acknowledged } });
+export function mapEdgeTraversed(context: PressTelemetryContext, args: { transitionId: string; edgeId: string; sourceNodeId: string; targetNodeId: string; verdict: "PASS" | "WARN"; acknowledged: boolean; traversalState?: "TAKEN" | "NOT_TAKEN" | "UNKNOWN"; reasonCode?: string | null }) {
+  return parseCanonicalAiTelemetryEvent({ ...base(context, ["edge", args.transitionId, args.edgeId], `edge:${args.transitionId}:${args.edgeId}`, `node:${args.sourceNodeId}`), eventKind: "edge.traversed", status: "COMPLETED", attributes: { "domain.edge.id": args.edgeId, "domain.node.source": args.sourceNodeId, "domain.node.target": args.targetNodeId }, payload: { edgeId: args.edgeId, sourceNodeId: args.sourceNodeId, targetNodeId: args.targetNodeId, verdict: args.verdict, acknowledged: args.acknowledged, traversalState: args.traversalState ?? "TAKEN", reasonCode: args.reasonCode ?? null } });
 }
 
 export function mapDatasetItemCaptured(context: PressTelemetryContext, args: { caseId: string; checkpointId: string; captureKind: string }) {
@@ -73,9 +73,14 @@ export function mapPressProcessEvent(context: PressTelemetryContext, event: Pres
   if (event.type === "run.started") return mapRunLifecycle(scoped, "STARTED");
   if (event.type === "run.finished") return mapRunLifecycle(scoped, event.run.status === "succeeded" || event.run.status === "warning" ? "COMPLETED" : event.run.status === "blocked" ? "BLOCKED" : event.run.status === "cancelled" ? "CANCELLED" : "FAILED", event.run.findingCode);
   if (event.type === "run.waiting-input") return mapHumanApproval(scoped, { sourceId: event.eventId, gateId: event.gate.id, phase: "REQUESTED", decision: "PENDING" });
-  if (event.type === "node.state") return mapNodeLifecycle(scoped, { nodeId: event.node.id, commandId: event.eventId, phase: event.node.state === "running" ? "STARTED" : event.node.state === "failed" || event.node.state === "blocked" ? "FAILED" : "COMPLETED", reasonCode: event.node.findingCode });
-  if (event.edge.state !== "taken" && event.edge.state !== "taken-with-violation") return null;
-  return mapEdgeTraversed(scoped, { transitionId: event.eventId, edgeId: event.edge.id, sourceNodeId: event.edge.source, targetNodeId: event.edge.target, verdict: event.edge.state === "taken-with-violation" ? "WARN" : "PASS", acknowledged: event.edge.state === "taken-with-violation" });
+  if (event.type === "human.reviewed") return mapHumanApproval(scoped, { sourceId: event.eventId, gateId: event.gate.id, phase: "RECORDED", decision: event.decision });
+  if (event.type === "node.state") {
+    if (event.node.state === "waiting" || event.node.state === "skipped") return null;
+    return mapNodeLifecycle(scoped, { nodeId: event.node.id, commandId: event.eventId, phase: event.node.state === "running" ? "STARTED" : event.node.state === "failed" || event.node.state === "blocked" ? "FAILED" : "COMPLETED", reasonCode: event.node.findingCode });
+  }
+  if (event.edge.state === "pending" || event.edge.state === "moving") return null;
+  const taken = event.edge.state === "taken" || event.edge.state === "taken-with-violation";
+  return mapEdgeTraversed(scoped, { transitionId: event.eventId, edgeId: event.edge.id, sourceNodeId: event.edge.source, targetNodeId: event.edge.target, verdict: event.edge.state === "taken-with-violation" ? "WARN" : "PASS", acknowledged: event.edge.state === "taken-with-violation", traversalState: taken ? "TAKEN" : "NOT_TAKEN", reasonCode: event.edge.findingCode });
 }
 
 export function withCanonicalSequence(event: CanonicalAiTelemetryEventInput, sequence: number) {
