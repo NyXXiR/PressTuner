@@ -4,10 +4,10 @@ import test from "node:test";
 
 import { prisma } from "@/lib/prisma";
 import { customExpectationFingerprint, normalizeCustomExpectation } from "@/domain/press-ai-debugger/caseExpectations";
-import { createCheckpointAttempt } from "./checkpointDebuggerService";
+import { createCheckpointAttempt, executeCheckpointNode } from "./checkpointDebuggerService";
 import { json } from "./checkpointRepository";
 import { retryDebugAttempt } from "./retryService";
-import { getDebugCase } from "./caseService";
+import { getDebugCase, SaveDebugCaseSchema, saveManualDebugCase } from "./caseService";
 
 async function createFixture() {
   const suffix = randomUUID();
@@ -48,6 +48,18 @@ async function createParent(teamId: string, userId: string) {
 
 async function cleanup(teamId: string, userId: string) {
   await prisma.agentRuntimeAuditEvent.deleteMany({ where: { teamId } });
+  const attemptIds = (await prisma.pressAiDebugAttempt.findMany({
+    where: { teamId },
+    select: { id: true },
+  })).map((item) => item.id);
+  await prisma.pressAiDebugComparison.deleteMany({
+    where: {
+      OR: [
+        { baselineAttemptId: { in: attemptIds } },
+        { candidateAttemptId: { in: attemptIds } },
+      ],
+    },
+  });
   await prisma.team.deleteMany({ where: { id: teamId } });
   await prisma.user.deleteMany({ where: { id: userId } });
 }
@@ -211,6 +223,45 @@ test("a zero-checkpoint attempt can restart only from the registry first node", 
     assert.equal(child.startNodeId, "article-initialization");
     assert.equal(child.activeNodeId, "article-initialization");
     assert.deepEqual(child.checkpoints, []);
+  } finally {
+    await cleanup(team.id, user.id);
+  }
+});
+
+test("save then branch evaluates current rules while deleted rules remain only in older observations", async () => {
+  const { team, user } = await createFixture();
+  try {
+    const parent = await createParent(team.id, user.id);
+    await executeCheckpointNode({ teamId: team.id, userId: user.id, attemptId: parent.id, nodeId: "article-initialization", input: { commandId: randomUUID(), expectedRevision: 0 } });
+    const parentExecuted = await prisma.pressAiDebugAttempt.findUniqueOrThrow({ where: { id: parent.id }, include: { checkpoints: true, transitions: true } });
+    const sourceCheckpoint = parentExecuted.checkpoints.find((item) => item.nodeId === "article-initialization")!;
+    const currentRule = { id: "current-rule", edgeId: "initialization-brief", matcher: { version: 1 as const, subject: "target_payload_text" as const, operator: "contains" as const, operand: "never-present-918273" }, verdict: "BLOCK" as const };
+    const saved = await saveManualDebugCase({ teamId: team.id, userId: user.id, attemptId: parent.id, input: SaveDebugCaseSchema.parse({ commandId: randomUUID(), expectedRevision: parentExecuted.revision, checkpointId: sourceCheckpoint.id, name: "current rules", expectations: [currentRule] }) });
+
+    const branched = await retryDebugAttempt({ teamId: team.id, userId: user.id, attemptId: parent.id, input: { commandId: randomUUID(), expectedRevision: saved.response.revision, retryNodeId: "article-initialization" } });
+    const childBeforeExecution = await prisma.pressAiDebugAttempt.findUniqueOrThrow({ where: { id: branched.attemptId }, include: { checkpoints: true } });
+    assert.equal(childBeforeExecution.parentAttemptId, parent.id);
+    assert.equal(childBeforeExecution.caseId, saved.response.caseId);
+    assert.deepEqual(childBeforeExecution.checkpoints, []);
+
+    await executeCheckpointNode({ teamId: team.id, userId: user.id, attemptId: childBeforeExecution.id, nodeId: "article-initialization", input: { commandId: randomUUID(), expectedRevision: 0 } });
+    const child = await prisma.pressAiDebugAttempt.findUniqueOrThrow({ where: { id: childBeforeExecution.id }, include: { checkpoints: true, transitions: { include: { observations: { orderBy: { displayOrder: "asc" } } } } } });
+    const childTransition = child.transitions.find((item) => item.edgeId === "initialization-brief")!;
+    assert.equal(childTransition.verdict, "BLOCK");
+    assert.deepEqual(childTransition.observations.slice(0, 2).map((item) => item.origin), ["MANDATORY", "MANDATORY"]);
+    assert.equal(childTransition.observations.some((item) => item.origin === "CASE_EXPECTATION" && item.guardrailId === "current-rule" && item.verdict === "BLOCK"), true);
+
+    const childCheckpoint = child.checkpoints.find((item) => item.nodeId === "article-initialization")!;
+    const deleted = await saveManualDebugCase({ teamId: team.id, userId: user.id, attemptId: child.id, input: SaveDebugCaseSchema.parse({ commandId: randomUUID(), expectedRevision: child.revision, checkpointId: childCheckpoint.id, name: "rule deleted", expectations: [] }) });
+    const branchedAgain = await retryDebugAttempt({ teamId: team.id, userId: user.id, attemptId: child.id, input: { commandId: randomUUID(), expectedRevision: deleted.response.revision, retryNodeId: "article-initialization" } });
+    await executeCheckpointNode({ teamId: team.id, userId: user.id, attemptId: branchedAgain.attemptId, nodeId: "article-initialization", input: { commandId: randomUUID(), expectedRevision: 0 } });
+    const grandchild = await prisma.pressAiDebugAttempt.findUniqueOrThrow({ where: { id: branchedAgain.attemptId }, include: { transitions: { include: { observations: true } } } });
+    assert.equal(grandchild.transitions[0]?.observations.some((item) => item.guardrailId === "current-rule"), false);
+    assert.equal(await prisma.pressAiDebugGuardrailObservation.count({ where: { transitionId: childTransition.id, guardrailId: "current-rule", origin: "CASE_EXPECTATION" } }), 1);
+
+    const parentAfter = await prisma.pressAiDebugAttempt.findUniqueOrThrow({ where: { id: parent.id }, include: { checkpoints: true, transitions: true } });
+    assert.deepEqual(parentAfter.checkpoints, parentExecuted.checkpoints);
+    assert.deepEqual(parentAfter.transitions, parentExecuted.transitions);
   } finally {
     await cleanup(team.id, user.id);
   }

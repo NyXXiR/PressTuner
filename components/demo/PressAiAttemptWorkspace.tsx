@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getBeginningRetryNodeId,
@@ -10,16 +10,21 @@ import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry
 import { formatRelativeTimeKo } from "@/lib/formatRelativeTimeKo";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import { PressAiProcessGraph } from "./PressAiProcessGraph";
+import type { PressAiCaseActionPhase } from "./PressAiCasePanel";
 import { PressAiRunActionBar } from "./PressAiRunActionBar";
 import { PressAiRunTimeline } from "./PressAiRunTimeline";
 import { PressAiSidePanels } from "./PressAiSidePanels";
+import { PressAiStateIoPanel } from "./PressAiStateIoPanel";
 import {
   attemptStatusLabel,
-  edgeAnchorId,
   focusAnchor,
   nextAction,
-  nodeAnchorId,
 } from "./pressAiRunProgress";
+import {
+  defaultWorkbenchSelection,
+  reconcileWorkbenchSelection,
+  type PressAiWorkbenchSelection,
+} from "./pressAiStateIo";
 
 const absoluteKoreanTime = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "long",
@@ -40,18 +45,21 @@ export function PressAiAttemptWorkspace(props: {
     acknowledgeHumanGate: boolean,
   ) => void;
   onRetry: (nodeId: string) => void;
-  onSaveCase: Parameters<typeof PressAiSidePanels>[0]["onSaveCase"];
-  attachedCase: Parameters<typeof PressAiSidePanels>[0]["attachedCase"];
+  onSaveCase: Parameters<typeof PressAiStateIoPanel>[0]["onSaveCase"];
+  onSaveAndBranch: Parameters<typeof PressAiStateIoPanel>[0]["onSaveAndBranch"];
+  attachedCase: Parameters<typeof PressAiStateIoPanel>[0]["attachedCase"];
   caseLoading: boolean;
   caseError: string | null;
   caseSaved: boolean;
+  caseActionStatus: PressAiCaseActionPhase;
 }) {
   const { attempt } = props;
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [rewriteInstruction, setRewriteInstruction] = useState(
     attempt.inputSnapshot.rewriteInstruction,
   );
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selection, setSelection] = useState<PressAiWorkbenchSelection | null>(() => defaultWorkbenchSelection(attempt));
+  const previousAttempt = useRef(attempt);
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   /** Bookkeeping, not a command: collapsed until the operator asks for it. */
   const [metaOpen, setMetaOpen] = useState(false);
@@ -99,11 +107,16 @@ export function PressAiAttemptWorkspace(props: {
     (node) => node.id === attempt.startNodeId,
   );
   const createdAt = new Date(attempt.createdAt);
+  useEffect(() => {
+    setSelection((current) => reconcileWorkbenchSelection(current, previousAttempt.current, attempt));
+    previousAttempt.current = attempt;
+  }, [attempt]);
 
-  const revealRow = (key: string, anchorId: string) => {
-    setSelectedKey(key);
+  const revealEdge = (edgeId: string) => {
+    const key = `edge:${edgeId}`;
+    setSelection({ kind: "edge", edgeId });
     setOpenRows((state) => ({ ...state, [key]: true }));
-    focusAnchor(anchorId);
+    focusAnchor("press-ai-state-io");
   };
 
   return (
@@ -124,6 +137,10 @@ export function PressAiAttemptWorkspace(props: {
         }
         onAdvance={props.onAdvance}
         onRetry={props.onRetry}
+        onInspectNode={(nodeId) => {
+          setSelection({ kind: "node", nodeId });
+          focusAnchor("press-ai-state-io");
+        }}
       />
       <section
         className="mb-4 rounded-xl border border-border"
@@ -349,41 +366,53 @@ export function PressAiAttemptWorkspace(props: {
             attempt={attempt}
             busy={props.busy}
             selectedNodeId={
-              selectedKey?.startsWith("node:") ? selectedKey.slice(5) : null
+              selection?.kind === "node" ? selection.nodeId : null
             }
             selectedEdgeId={
-              selectedKey?.startsWith("edge:") ? selectedKey.slice(5) : null
+              selection?.kind === "edge" ? selection.edgeId : null
             }
-            onNode={(id) => revealRow(`node:${id}`, nodeAnchorId(id))}
-            onEdge={(id) => revealRow(`edge:${id}`, edgeAnchorId(id))}
+            onNode={(id) => {
+              setSelection({ kind: "node", nodeId: id });
+              focusAnchor("press-ai-state-io");
+            }}
+            onEdge={revealEdge}
           />
         </div>
       </section>
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-        <PressAiRunTimeline
-          attempt={attempt}
-          busy={props.busy}
-          defaultOpenKey={defaultOpenKey}
-          open={openRows}
-          onOpenChange={setOpenRows}
-        />
-        {/* The timeline runs far past the side panels; sticking them keeps the
-            rail useful instead of leaving a column of empty page beside it.
-            top-24 clears the sticky action bar, matching the rows' scroll-mt-24. */}
-        <div className="min-w-0 lg:sticky lg:top-24">
-          <PressAiSidePanels
+      <PressAiStateIoPanel
+        attempt={attempt}
+        busy={props.busy}
+        selection={selection}
+        onSelectionChange={setSelection}
+        attachedCase={props.attachedCase}
+        caseLoading={props.caseLoading}
+        caseError={props.caseError}
+        caseSaved={props.caseSaved}
+        caseActionStatus={props.caseActionStatus}
+        onSaveCase={props.onSaveCase}
+        onSaveAndBranch={props.onSaveAndBranch}
+      />
+      <details className="min-w-0 rounded-xl border border-border">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          보조 진단 보기 · 실행 타임라인 / 시도 기록 / 이전 시도 비교
+        </summary>
+        <div className="grid min-w-0 items-start gap-4 border-t border-border p-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <PressAiRunTimeline
             attempt={attempt}
-            attachedCase={props.attachedCase}
-            caseLoading={props.caseLoading}
-            caseError={props.caseError}
-            caseSaved={props.caseSaved}
-            busy={controlsDisabled}
-            refreshKey={refreshKey}
-            onOpen={props.onOpen}
-            onSaveCase={props.onSaveCase}
+            busy={props.busy}
+            defaultOpenKey={defaultOpenKey}
+            open={openRows}
+            onOpenChange={setOpenRows}
           />
+          <div className="min-w-0">
+            <PressAiSidePanels
+              attempt={attempt}
+              refreshKey={refreshKey}
+              onOpen={props.onOpen}
+            />
+          </div>
         </div>
-      </div>
+      </details>
     </div>
   );
 }

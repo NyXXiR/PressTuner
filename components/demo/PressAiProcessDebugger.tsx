@@ -267,6 +267,7 @@ export function PressAiProcessDebugger() {
           caseLoading={debuggerState.caseLoading}
           caseError={debuggerState.caseError}
           caseSaved={debuggerState.caseSaved}
+          caseActionStatus={debuggerState.caseActionStatus}
           busy={debuggerState.busy}
           loading={debuggerState.loading}
           onClear={startNewInput}
@@ -275,6 +276,7 @@ export function PressAiProcessDebugger() {
           onAdvance={debuggerState.advance}
           onRetry={debuggerState.retry}
           onSaveCase={debuggerState.saveCase}
+          onSaveAndBranch={debuggerState.saveCaseAndBranch}
         />
       )}
       <p aria-live="polite" className="sr-only">

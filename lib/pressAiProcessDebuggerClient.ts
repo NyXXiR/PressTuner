@@ -11,7 +11,7 @@ export class PressAiDebuggerApiError extends Error {
 
 const GuardrailObservationSchema = z.object({ id: z.string(), guardrailId: z.string(), origin: z.enum(["MANDATORY", "CASE_EXPECTATION"]), expected: z.string(), observed: z.string(), reason: z.string(), evidence: z.unknown(), verdict: z.enum(["PASS", "WARN", "BLOCK"]), displayOrder: z.number().int() }).passthrough();
 const CheckpointSchema = z.object({ id: z.string(), nodeId: z.string(), sequence: z.number().int(), mode: z.enum(["EXECUTED", "RESTORED"]), input: z.unknown(), output: z.unknown(), quotaUnits: z.number().int().nonnegative() }).passthrough();
-const TransitionSchema = z.object({ id: z.string(), edgeId: z.string(), sequence: z.number().int(), sourceNodeId: z.string(), targetNodeId: z.string(), targetPayload: z.unknown(), verdict: z.enum(["PASS", "WARN", "BLOCK"]), warnAcknowledgedAt: z.union([z.string(), z.date()]).nullable(), humanGateAcknowledgedAt: z.union([z.string(), z.date()]).nullable(), advancedAt: z.union([z.string(), z.date()]).nullable(), observations: z.array(GuardrailObservationSchema) }).passthrough();
+const TransitionSchema = z.object({ id: z.string(), edgeId: z.string(), sequence: z.number().int(), sourceNodeId: z.string(), sourceCheckpointId: z.string().optional(), targetNodeId: z.string(), targetPayload: z.unknown(), verdict: z.enum(["PASS", "WARN", "BLOCK"]), warnAcknowledgedAt: z.union([z.string(), z.date()]).nullable(), humanGateAcknowledgedAt: z.union([z.string(), z.date()]).nullable(), advancedAt: z.union([z.string(), z.date()]).nullable(), observations: z.array(GuardrailObservationSchema) }).passthrough();
 const CheckpointInputSnapshotSchema = z.object({
   articleId: z.string(),
   rawText: z.string(),

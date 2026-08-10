@@ -25,9 +25,43 @@ test("typed custom rules are edge scoped and carry fingerprints", () => {
 });
 
 test("legacy global rules run on every edge and invalid stored data is ignored", () => {
-  const result = evaluatePressTransitionGuardrails({ edgeId: "initialization-brief", sourceInput: {}, sourceOutput: {}, targetPayload: {}, attempt: { teamId: "t", articleId: "a" }, expectations: [{ id: "legacy", field: "notContains", value: "secret" }, { id: "bad", field: "contains", value: "" } as never] });
-  assert.equal(result.observations.some((item) => item.guardrailId === "legacy"), true);
-  assert.equal(result.observations.some((item) => item.guardrailId === "bad"), false);
+  const expectations = [{ id: "legacy", field: "notContains", value: "secret" } as const, { id: "bad", field: "contains", value: "" } as never];
+  for (const edgeId of ["initialization-brief", "draft-review"]) {
+    const result = evaluatePressTransitionGuardrails({ edgeId, sourceInput: {}, sourceOutput: {}, targetPayload: {}, attempt: { teamId: "t", articleId: "a" }, expectations });
+    assert.equal(result.observations.some((item) => item.guardrailId === "legacy"), true);
+    assert.equal(result.observations.some((item) => item.guardrailId === "bad"), false);
+  }
+});
+
+test("a custom rule sharing a mandatory ID cannot suppress or replace the mandatory observation", () => {
+  const result = evaluatePressTransitionGuardrails({
+    edgeId: "initialization-brief",
+    sourceInput: {},
+    sourceOutput: { articleId: "a" },
+    targetPayload: {},
+    attempt: { teamId: "t", articleId: "a" },
+    article: { id: "a", teamId: "t", type: "PRESS_RELEASE" },
+    expectations: [{ id: "article-team-ownership", matcher: { version: 1, subject: "transition_text", operator: "exists" }, verdict: "BLOCK" }],
+  });
+  const collisions = result.observations.filter((item) => item.guardrailId === "article-team-ownership");
+  assert.deepEqual(collisions.map((item) => item.origin), ["MANDATORY", "CASE_EXPECTATION"]);
+  assert.ok(result.observations.findIndex((item) => item.origin === "MANDATORY") < result.observations.findIndex((item) => item.origin === "CASE_EXPECTATION"));
+});
+
+test("custom evidence fingerprints definitions without leaking the raw operand", () => {
+  const secretOperand = "private-operand-918273";
+  const result = evaluatePressTransitionGuardrails({
+    edgeId: "draft-review",
+    sourceInput: {},
+    sourceOutput: { title: "safe", plain: "copy" },
+    targetPayload: {},
+    attempt: { teamId: "t", articleId: "a" },
+    expectations: [{ id: "redacted", edgeId: "draft-review", matcher: { version: 1, subject: "source_output_text", operator: "contains", operand: secretOperand }, verdict: "WARN" }],
+  });
+  const evidence = result.observations.find((item) => item.guardrailId === "redacted")?.evidence;
+  assert.match(JSON.stringify(evidence), /ruleFingerprint/);
+  assert.match(JSON.stringify(evidence), /operandHash/);
+  assert.doesNotMatch(JSON.stringify(evidence), new RegExp(secretOperand));
 });
 
 test("all matcher-v1 operators evaluate deterministic typed subjects", () => {

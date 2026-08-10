@@ -5,11 +5,9 @@ import { useRef, useState } from "react";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import { PressAiAttemptComparison } from "./PressAiAttemptComparison";
 import { PressAiAttemptHistory } from "./PressAiAttemptHistory";
-import { PressAiCasePanel } from "./PressAiCasePanel";
 
 const TABS = [
   { id: "history", label: "시도 기록" },
-  { id: "cases", label: "테스트 케이스" },
   { id: "comparison", label: "이전 시도 비교" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -17,14 +15,8 @@ type TabId = (typeof TABS)[number]["id"];
 /** Secondary tools collapsed into one tab strip so they stop stretching the page. */
 export function PressAiSidePanels(props: {
   attempt: PressAiCheckpointAttempt;
-  busy: boolean;
-  attachedCase: Parameters<typeof PressAiCasePanel>[0]["attachedCase"];
-  caseLoading: boolean;
-  caseError: string | null;
-  caseSaved: boolean;
   refreshKey: string;
   onOpen: (attemptId: string) => void;
-  onSaveCase: Parameters<typeof PressAiCasePanel>[0]["onSave"];
 }) {
   const [tab, setTab] = useState<TabId>("history");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -85,18 +77,6 @@ export function PressAiSidePanels(props: {
             attemptId={props.attempt.id}
             refreshKey={props.refreshKey}
             onOpen={props.onOpen}
-          />
-        ) : null}
-        {tab === "cases" ? (
-          <PressAiCasePanel
-            key={`${props.attachedCase?.caseId ?? "new"}:${props.attachedCase?.expectations.map((item) => item.fingerprint).join(",") ?? ""}`}
-            checkpoints={props.attempt.checkpoints}
-            attachedCase={props.attachedCase}
-            loading={props.caseLoading}
-            error={props.caseError}
-            saved={props.caseSaved}
-            busy={props.busy}
-            onSave={props.onSaveCase}
           />
         ) : null}
         {tab === "comparison" ? (

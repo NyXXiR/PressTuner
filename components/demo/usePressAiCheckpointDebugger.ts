@@ -2,6 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { CustomExpectation } from "@/domain/press-ai-debugger/caseExpectations";
+import type { PressAiCaseActionPhase } from "./PressAiCasePanel";
 
 import {
   readAttemptIdFromSearch,
@@ -31,10 +32,20 @@ export function usePressAiCheckpointDebugger() {
   const [caseLoading, setCaseLoading] = useState(false);
   const [caseError, setCaseError] = useState<string | null>(null);
   const [caseSaved, setCaseSaved] = useState(false);
+  const [caseActionStatus, setCaseActionStatus] = useState<PressAiCaseActionPhase>("IDLE");
   const commands = useRef(new Map<string, string>());
   const loadToken = useRef(0);
   const selectedAttemptId = useRef<string | null>(null);
   const caseLoadToken = useRef(0);
+  const pendingBranch = useRef<null | {
+    parentAttemptId: string;
+    checkpointId: string;
+    name: string;
+    expectations: CustomExpectation[];
+    retryNodeId: string;
+    savedRevision: number;
+    caseId: string;
+  }>(null);
 
   const loadCase = useCallback(async (caseId: string) => {
     const token = ++caseLoadToken.current; setCaseLoading(true); setCaseError(null);
@@ -104,6 +115,8 @@ export function usePressAiCheckpointDebugger() {
     setCaseLoading(false);
     setCaseError(null);
     setCaseSaved(false);
+    setCaseActionStatus("IDLE");
+    pendingBranch.current = null;
     replaceAttemptUrl(null);
   }, [replaceAttemptUrl]);
 
@@ -230,6 +243,7 @@ export function usePressAiCheckpointDebugger() {
   ) => {
     if (!attempt) return;
     setCaseSaved(false);
+    setCaseActionStatus("SAVING");
     void (async () => {
       const receipt = await act(`case:${checkpointId}:${attempt.revision}`, (commandId) => savePressAiDebugCase({
         attemptId: attempt.id,
@@ -239,7 +253,96 @@ export function usePressAiCheckpointDebugger() {
         commandId,
         expectedRevision: attempt.revision,
       }));
-      if (receipt) { setCaseSaved(true); await loadCase(receipt.response.caseId); }
+      if (receipt) { setCaseSaved(true); setCaseActionStatus("SAVED"); await loadCase(receipt.response.caseId); }
+      else setCaseActionStatus("IDLE");
+    })();
+  };
+
+  const saveCaseAndBranch = (
+    checkpointId: string,
+    name: string,
+    expectations: CustomExpectation[],
+    retryNodeId: string,
+  ) => {
+    if (!attempt) return;
+    const parent = attempt;
+    const recoverable = pendingBranch.current;
+    const canRetryBranchOnly = caseActionStatus === "PARTIAL_FAILURE"
+      && recoverable?.parentAttemptId === parent.id
+      && recoverable.checkpointId === checkpointId
+      && recoverable.name === name
+      && recoverable.retryNodeId === retryNodeId
+      && JSON.stringify(recoverable.expectations) === JSON.stringify(expectations);
+    const token = loadToken.current;
+    setBusy(true);
+    setError(null);
+    setCaseError(null);
+    setCaseSaved(false);
+    void (async () => {
+      let saved = canRetryBranchOnly ? recoverable : null;
+      try {
+        if (!saved) {
+          setCaseActionStatus("SAVING");
+          const saveKey = `case-branch-save:${checkpointId}:${parent.revision}`;
+          const receipt = await savePressAiDebugCase({
+            attemptId: parent.id,
+            checkpointId,
+            name,
+            expectations,
+            commandId: command(saveKey),
+            expectedRevision: parent.revision,
+          });
+          commands.current.delete(saveKey);
+          saved = {
+            parentAttemptId: parent.id,
+            checkpointId,
+            name,
+            expectations: [...expectations],
+            retryNodeId,
+            savedRevision: receipt.response.revision,
+            caseId: receipt.response.caseId,
+          };
+          pendingBranch.current = saved;
+          setCaseSaved(true);
+          setCaseActionStatus("SAVED");
+          await loadCase(saved.caseId);
+        }
+
+        setCaseActionStatus("BRANCHING");
+        const retryKey = `case-branch-retry:${retryNodeId}:${saved.savedRevision}`;
+        const child = await retryPressAiCheckpointAttempt(parent.id, {
+          commandId: command(retryKey),
+          expectedRevision: saved.savedRevision,
+          retryNodeId,
+        });
+        if (token !== loadToken.current) return;
+        const childAttempt = await fetchPressAiCheckpointAttempt(child.attemptId);
+        if (token !== loadToken.current) return;
+        commands.current.delete(retryKey);
+        pendingBranch.current = null;
+        selectAttempt(childAttempt);
+        setCaseSaved(true);
+        setCaseActionStatus("BRANCHED");
+      } catch (reason) {
+        if (token !== loadToken.current) return;
+        const message = errorCode(reason, "PRESS_AI_DEBUG_SAVE_AND_BRANCH_FAILED");
+        setError(message);
+        if (saved) {
+          setCaseSaved(true);
+          setCaseActionStatus("PARTIAL_FAILURE");
+          setCaseError("규칙 저장은 완료되었지만 분기 또는 자식 시도 열기에 실패했습니다. 분기만 다시 시도하세요.");
+          try {
+            const reloaded = await fetchPressAiCheckpointAttempt(parent.id);
+            if (token === loadToken.current) selectAttempt(reloaded, false);
+          } catch {
+            // The saved receipt remains authoritative even if refreshing the parent fails.
+          }
+        } else {
+          setCaseActionStatus("IDLE");
+        }
+      } finally {
+        setBusy(false);
+      }
     })();
   };
 
@@ -252,6 +355,7 @@ export function usePressAiCheckpointDebugger() {
     caseLoading,
     caseError,
     caseSaved,
+    caseActionStatus,
     clear,
     create,
     open,
@@ -259,5 +363,6 @@ export function usePressAiCheckpointDebugger() {
     advance,
     retry,
     saveCase,
+    saveCaseAndBranch,
   };
 }

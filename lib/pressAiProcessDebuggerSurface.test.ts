@@ -27,7 +27,7 @@ test("the run action bar is the single home for the next command", async () => {
     source("components/demo/PressAiRunTimeline.tsx"),
     source("components/demo/PressAiEdgeInspector.tsx"),
   ]);
-  assert.match(bar, /sticky/); assert.match(bar, /다음 단계/);
+  assert.match(bar, /sticky/); assert.match(bar, /지금 해야 할 작업/);
   assert.match(progress, /export function nextAction/);
   for (const kind of ["execute", "rewrite", "advance", "retry"]) assert.match(bar, new RegExp(`"${kind}"`));
   // Advancing, executing and acknowledging gates must not reappear outside the bar.
@@ -55,14 +55,16 @@ test("legacy generic route remains available for RAG-v1 replay", async () => {
   assert.match(route, /startProcessDebugRun/); assert.match(route, /requireTeamContext/); assert.doesNotMatch(route, /prisma\./); assert.match(route, /no-store/);
 });
 
-test("checkpoint UI exposes review selection, immutable retry navigation, history, comparison, and additive expectations", async () => {
-  const [debuggerSource, workspace, hook, history, comparison, cases, edge, timeline] = await Promise.all([
+test("checkpoint UI exposes a primary transition workbench, custom-rule CRUD, and save-and-branch", async () => {
+  const [debuggerSource, workspace, hook, history, comparison, cases, stateIo, sidePanels, edge, timeline] = await Promise.all([
     source("components/demo/PressAiProcessDebugger.tsx"),
     source("components/demo/PressAiAttemptWorkspace.tsx"),
     source("components/demo/usePressAiCheckpointDebugger.ts"),
     source("components/demo/PressAiAttemptHistory.tsx"),
     source("components/demo/PressAiAttemptComparison.tsx"),
     source("components/demo/PressAiCasePanel.tsx"),
+    source("components/demo/PressAiStateIoPanel.tsx"),
+    source("components/demo/PressAiSidePanels.tsx"),
     source("components/demo/PressAiEdgeInspector.tsx"),
     source("components/demo/PressAiRunTimeline.tsx"),
   ]);
@@ -88,18 +90,29 @@ test("checkpoint UI exposes review selection, immutable retry navigation, histor
   assert.match(hook, /if \(token === loadToken\.current\)[\s\S]*setError/);
   assert.match(history, /fetchPressAiCheckpointAttemptHistory/);
   assert.match(comparison, /fetchPressAiCheckpointComparison/);
-  assert.match(cases, /필수 가드레일은 그대로 두고/);
-  assert.match(cases, /기대값 추가/);
+  assert.match(cases, /사용자 정의 규칙 추가/);
+  assert.match(cases, /사용자 정의 규칙 삭제/);
+  assert.match(cases, /사용자 정의 규칙 저장/);
+  assert.match(cases, /저장 후 분기/);
   for (const state of ["UNTESTED", "UNPROVEN", "DETECTED", "VERIFIED"]) assert.match(cases, new RegExp(state));
-  assert.match(cases, /필수 가드레일 · 읽기 전용/);
-  assert.match(cases, /guardrailLabelKo/);
+  assert.doesNotMatch(cases, /pressCreationProcess\.edges\.flatMap/);
   assert.match(cases, /formIdentity/);
   assert.match(cases, /PressAiCasePanelForm key=\{formIdentity\}/);
-  assert.match(cases, /sameExpectationDefinition/);
-  assert.match(cases, /createCaseExpectationRow\(edgeId\)/);
-  assert.doesNotMatch(cases, /필수 가드레일[\s\S]{0,200}삭제/);
+  assert.match(cases, /expectationValidationForDraft/);
+  assert.match(cases, /addCaseExpectation\(items, props\.selectedEdgeId\)/);
+  assert.match(cases, /모든 전이에 적용 \(레거시\/전역 계약\)/);
+  assert.match(stateIo, /전이 워크벤치/);
+  for (const label of ["Source Input JSON", "Source Output JSON", "Target Payload JSON"]) assert.match(stateIo, new RegExp(label));
+  assert.match(stateIo, /필수 가드레일 · 변경 불가/);
+  assert.match(stateIo, /item\.origin === "MANDATORY" && item\.guardrailId === guardrailId/);
+  assert.match(stateIo, /CASE_EXPECTATION:/);
+  assert.doesNotMatch(sidePanels, /PressAiCasePanel|테스트 케이스/);
   assert.match(hook, /fetchPressAiDebugCase/);
   assert.match(hook, /nextAttempt\.caseId/);
+  assert.match(hook, /savePressAiDebugCase[\s\S]*receipt\.response\.revision[\s\S]*retryPressAiCheckpointAttempt/);
+  assert.match(hook, /expectedRevision: saved\.savedRevision/);
+  assert.match(hook, /PARTIAL_FAILURE/);
+  assert.match(hook, /분기만 다시 시도/);
   assert.match(workspace, /id="press-ai-branch-checkpoint"/);
   assert.doesNotMatch(edge, /다시 시작할 노드|새 시도로 다시 실행|onRetry/);
   assert.doesNotMatch(timeline, /onRetry/);
@@ -112,7 +125,7 @@ test("the attempt key contains all attempt-local interactive descendants", async
     source("components/demo/PressAiRunActionBar.tsx"),
   ]);
   assert.match(debuggerSource, /<PressAiAttemptWorkspace[\s\S]*key=\{attempt\.id\}/);
-  for (const state of ["selectedNoteIds", "rewriteInstruction", "selectedKey", "openRows", "branchNodeId"]) {
+  for (const state of ["selectedNoteIds", "rewriteInstruction", "selection", "openRows", "branchNodeId"]) {
     assert.match(workspace, new RegExp(`\\[${state},`));
   }
   for (const descendant of ["PressAiRunActionBar", "PressAiProcessGraph", "PressAiRunTimeline", "PressAiSidePanels"]) {

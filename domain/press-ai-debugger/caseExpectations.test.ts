@@ -38,9 +38,22 @@ test("rejects executable, unknown, malformed, and duplicate rules", () => {
     { id: "a", matcher: { version: 1, subject: "transition_text", operator: "exists", operand: "extra" }, verdict: "WARN" },
     { id: "a", matcher: { version: 1, subject: "source_output_review_note_count", operator: "number_eq", operand: Number.POSITIVE_INFINITY }, verdict: "WARN" },
     { id: "a", edgeId: "unknown-edge", matcher: { version: 1, subject: "transition_text", operator: "exists" }, verdict: "WARN" },
+    { id: "a", matcher: { version: 1, subject: "transition_text", operator: "number_gte", operand: 1 }, verdict: "WARN" },
+    { id: "a", matcher: { version: 1, subject: "transition_text", operator: "contains", operand: "x", executable: "return true" }, verdict: "WARN" },
+    { id: "a", matcher: { version: 1, subject: "transition_text", operator: "contains", operand: "x", predicate: { jsonPath: "$.title" } }, verdict: "WARN" },
   ];
   for (const value of invalid) assert.throws(() => normalizeCustomExpectations([value]));
   assert.throws(() => normalizeCustomExpectations([{ id: "same", field: "contains", value: "a" }, { id: "same", field: "contains", value: "b" }]));
+  assert.throws(() => normalizeCustomExpectations(Array.from({ length: 51 }, (_, index) => ({ id: `rule-${index}`, field: "contains", value: "x" }))));
+});
+
+test("edge-less scope remains global while an explicit edge is preserved", () => {
+  const [global, scoped] = normalizeCustomExpectations([
+    { id: "global", matcher: { version: 1, subject: "transition_text", operator: "exists" }, verdict: "WARN" },
+    { id: "scoped", edgeId: "draft-review", matcher: { version: 1, subject: "transition_text", operator: "exists" }, verdict: "BLOCK" },
+  ]);
+  assert.equal(global?.edgeId, undefined);
+  assert.equal(scoped?.edgeId, "draft-review");
 });
 
 test("fingerprints are canonical and exclude display identity", () => {

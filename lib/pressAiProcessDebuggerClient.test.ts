@@ -156,6 +156,12 @@ test("loads typed matcher-v1 case details and parses save receipts", async () =>
     return new Response(JSON.stringify({ case: { caseId: "case-1", name: "검증", sourceCheckpoint: { id: "cp-1", nodeId: "draft-review" }, startNodeId: "draft-review", expectations: [{ id: "rule-1", edgeId: "review-rewrite", matcher: { version: 1, subject: "target_payload_selected_note_count", operator: "number_gte", operand: 1 }, verdict: "BLOCK", fingerprint: "abc", validation: { state: "UNTESTED", lastVerdict: null, lastObservationAt: null } }] } }), { status: 200 });
   });
   assert.equal(detail.expectations[0]?.validation.state, "UNTESTED");
-  const receipt = await savePressAiDebugCase({}, async () => new Response(JSON.stringify({ replayed: false, response: { caseId: "case-1", revision: 8 } }), { status: 201 }));
+  let saveBody: Record<string, unknown> | undefined;
+  const expectation = { id: "rule-1", edgeId: "review-rewrite", matcher: { version: 1, subject: "target_payload_selected_note_count", operator: "number_gte", operand: 1 }, verdict: "BLOCK" };
+  const receipt = await savePressAiDebugCase({ attemptId: "attempt-1", checkpointId: "cp-1", name: "검증", expectations: [expectation], commandId: "save-command", expectedRevision: 7 }, async (_url, init) => {
+    saveBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ replayed: false, response: { caseId: "case-1", revision: 8 } }), { status: 201 });
+  });
+  assert.deepEqual((saveBody?.expectations as unknown[])[0], expectation);
   assert.equal(receipt.response.revision, 8);
 });
