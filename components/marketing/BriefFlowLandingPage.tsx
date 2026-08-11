@@ -15,7 +15,7 @@ const TRACKS = [
     description:
       "출시·제휴·행사 소식을 팀 톤에 맞는 보도자료 초안으로. 자유롭게 메모만 입력하면 됩니다.",
     href: "/press",
-    startHref: "/login?next=/press/new",
+    startHref: "/press",
     startLabel: "바로 작성 시작",
     icon: Newspaper,
     accentClass: "text-primary",
@@ -29,7 +29,7 @@ const TRACKS = [
     description:
       "이력서와 경험을 재사용 가능한 브릭으로 정리하고, 회사별 문항에 맞춰 초안을 조립합니다.",
     href: "/resume",
-    startHref: "/login?next=/resume/write",
+    startHref: "/resume",
     startLabel: "바로 작성 시작",
     icon: Briefcase,
     accentClass: "text-violet-500",
@@ -70,20 +70,20 @@ function MarketingHome() {
 
           <div className="flex flex-col sm:flex-row sm:flex-wrap justify-center gap-3">
             <TrackedMarketingLink
-              href="/login?next=/press/new"
+              href="/press"
               className="inline-flex h-12 items-center justify-center gap-2 bg-primary text-primary-foreground px-7 text-sm font-bold hover:opacity-90 transition-all hover:scale-[1.02]"
               eventName="primary_cta_clicked"
-              eventParams={{ cta_name: "hero_press_start", source: "landing_hero", target_path: "/login?next=/press/new" }}
+              eventParams={{ cta_name: "hero_press_start", source: "landing_hero", target_path: "/press" }}
             >
               <Newspaper className="w-4 h-4" />
               보도자료 작성
               <ArrowRight className="w-4 h-4" />
             </TrackedMarketingLink>
             <TrackedMarketingLink
-              href="/login?next=/resume/write"
+              href="/resume"
               className="inline-flex h-12 items-center justify-center gap-2 border border-border bg-background px-7 text-sm font-bold text-foreground hover:bg-muted/40 transition-colors"
               eventName="primary_cta_clicked"
-              eventParams={{ cta_name: "hero_resume_start", source: "landing_hero", target_path: "/login?next=/resume/write" }}
+              eventParams={{ cta_name: "hero_resume_start", source: "landing_hero", target_path: "/resume" }}
             >
               <Briefcase className="w-4 h-4 text-violet-500" />
               자기소개서 작성

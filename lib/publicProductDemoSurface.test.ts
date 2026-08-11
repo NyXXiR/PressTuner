@@ -59,6 +59,33 @@ test("landing and demo navigation use tracked links with exact destinations", ()
   assert.match(demo, /track:\s*["']press["']/);
 });
 
+test("all four root landing start actions use the public product routes", () => {
+  const landing = read("components/marketing/BriefFlowLandingPage.tsx");
+
+  assert.match(
+    landing,
+    /id:\s*["']press["'][\s\S]*?startHref:\s*["']\/press["']/,
+  );
+  assert.match(
+    landing,
+    /href=["']\/press["'][\s\S]*?cta_name:\s*["']hero_press_start["'][\s\S]*?target_path:\s*["']\/press["']/,
+  );
+  assert.match(
+    landing,
+    /id:\s*["']resume["'][\s\S]*?startHref:\s*["']\/resume["']/,
+  );
+  assert.match(
+    landing,
+    /href=["']\/resume["'][\s\S]*?cta_name:\s*["']hero_resume_start["'][\s\S]*?target_path:\s*["']\/resume["']/,
+  );
+  assert.match(
+    landing,
+    /href=\{track\.startHref\}[\s\S]*?target_path:\s*track\.startHref/,
+  );
+  assert.doesNotMatch(landing, /\/login\?next=\/press\/new/);
+  assert.doesNotMatch(landing, /\/login\?next=\/resume\/write/);
+});
+
 test("demo surfaces required domain and accessibility language", () => {
   const source =
     read("components/demo/BriefFlowProductDemo.tsx") +
