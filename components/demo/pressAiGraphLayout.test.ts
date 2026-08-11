@@ -10,6 +10,7 @@ import {
   pressCreationProcess,
   ragQueryProcess,
 } from "@/domain/press-ai-debugger/processRegistry";
+import { publicPressRagScenarioProcess } from "@/domain/demo/pressRagScenarioContract";
 
 test("a linear process lays out as one row of columns", () => {
   const layout = layoutPressAiGraph(pressCreationProcess);
@@ -93,4 +94,15 @@ test("no two nodes occupy the same slot", () => {
       assert.ok(item.y + GRAPH_NODE_HEIGHT <= layout.height);
     }
   }
+});
+
+test("the public review self-loop has finite visible geometry without changing canonical layout", () => {
+  const canonical = layoutPressAiGraph(pressCreationProcess);
+  const layout = layoutPressAiGraph(publicPressRagScenarioProcess);
+  const loop = layout.edges.find((item) => item.edge.id === "review-repeat");
+  assert.ok(loop);
+  assert.match(loop.path, /^M [\d.]+ [\d.]+ C [\d.]+ [\d.]+, -?[\d.]+ [\d.]+, [\d.]+ [\d.]+$/);
+  assert.ok(Number.isFinite(loop.labelX) && Number.isFinite(loop.labelY));
+  assert.equal(canonical.nodes.length, pressCreationProcess.nodes.length);
+  assert.ok(layout.height > canonical.height);
 });

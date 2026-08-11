@@ -1,5 +1,5 @@
 "use client";
-import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+import { pressCreationProcess, type PressAiProcessDefinition } from "@/domain/press-ai-debugger/processRegistry";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import { GuardrailChip } from "./PressAiVerdictBadge";
 const Json = ({ value }: { value: unknown }) => (
@@ -15,13 +15,15 @@ const Json = ({ value }: { value: unknown }) => (
 export function PressAiEdgeInspector(props: {
   attempt: PressAiCheckpointAttempt;
   edgeId: string;
+  process?: PressAiProcessDefinition;
 }) {
-  const edge = pressCreationProcess.edges.find(
+  const process = props.process ?? pressCreationProcess;
+  const edge = process.edges.find(
     (item) => item.id === props.edgeId,
   );
-  const transition = props.attempt.transitions.find(
-    (item) => item.edgeId === props.edgeId,
-  );
+  const transition = [...props.attempt.transitions]
+    .filter((item) => item.edgeId === props.edgeId)
+    .sort((left, right) => right.sequence - left.sequence)[0];
   if (!edge) return null;
   return (
     <section

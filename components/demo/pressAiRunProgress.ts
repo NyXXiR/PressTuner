@@ -1,5 +1,6 @@
 import {
   pressCreationProcess,
+  type PressAiProcessDefinition,
   type PressAiProcessEdge,
   type PressAiProcessNode,
 } from "@/domain/press-ai-debugger/processRegistry";
@@ -36,10 +37,9 @@ export function nodeState(
   const active = attempt?.activeNodeId === node.id;
   if (active && busy) return "RUNNING";
   if (active) return "ACTIVE";
-  return (
-    attempt?.checkpoints.find((item) => item.nodeId === node.id)?.mode ??
-    "WAITING"
-  );
+  return [...(attempt?.checkpoints ?? [])]
+    .filter((item) => item.nodeId === node.id)
+    .sort((left, right) => right.sequence - left.sequence)[0]?.mode ?? "WAITING";
 }
 
 /** One vocabulary for verdicts across the graph, the timeline and the action bar. */
@@ -112,7 +112,10 @@ export type PressAiNextAction =
     }
   | { kind: "idle"; label: string; hint: string };
 
-export function nextAction(attempt: Attempt | null): PressAiNextAction {
+export function nextAction(
+  attempt: Attempt | null,
+  process: PressAiProcessDefinition = pressCreationProcess,
+): PressAiNextAction {
   if (!attempt)
     return {
       kind: "idle",
@@ -123,8 +126,8 @@ export function nextAction(attempt: Attempt | null): PressAiNextAction {
     .filter((item) => !item.advancedAt)
     .sort((left, right) => left.sequence - right.sequence)[0];
   if (pending) {
-    const edge = findEdge(pending.edgeId);
-    const target = edge ? findNode(edge.target) : null;
+    const edge = findEdge(pending.edgeId, process);
+    const target = edge ? findNode(edge.target, process) : null;
     if (pending.verdict === "BLOCK")
       return {
         kind: "retry",
@@ -150,7 +153,7 @@ export function nextAction(attempt: Attempt | null): PressAiNextAction {
           : null,
     };
   }
-  const active = attempt.activeNodeId ? findNode(attempt.activeNodeId) : null;
+  const active = attempt.activeNodeId ? findNode(attempt.activeNodeId, process) : null;
   if (active)
     return {
       kind: active.id === "selected-rewrite" ? "rewrite" : "execute",
@@ -191,38 +194,52 @@ export type PressAiTimelineRow =
 export function timelineRows(
   attempt: Attempt | null,
   busy: boolean,
+  process: PressAiProcessDefinition = pressCreationProcess,
 ): PressAiTimelineRow[] {
   const rows: PressAiTimelineRow[] = [];
-  for (const node of [...pressCreationProcess.nodes].sort(
+  for (const node of [...process.nodes].sort(
     (left, right) => left.sequence - right.sequence,
   )) {
-    rows.push({
+    const checkpoints = [...(attempt?.checkpoints ?? [])]
+      .filter((item) => item.nodeId === node.id)
+      .sort((left, right) => left.sequence - right.sequence);
+    const visibleCheckpoints = checkpoints.length ? checkpoints : [null];
+    visibleCheckpoints.forEach((checkpoint, index) => rows.push({
       kind: "node",
-      key: `node:${node.id}`,
+      key: index === 0 ? `node:${node.id}` : `node:${node.id}:${checkpoint?.sequence ?? index}`,
       node,
-      checkpoint:
-        attempt?.checkpoints.find((item) => item.nodeId === node.id) ?? null,
+      checkpoint,
       state: nodeState(attempt, node, busy),
-    });
-    for (const edge of pressCreationProcess.edges
+    }));
+    for (const edge of process.edges
       .filter((item) => item.source === node.id)
-      .sort((left, right) => left.sequence - right.sequence))
-      rows.push({
+      .sort((left, right) => left.sequence - right.sequence)) {
+      const transitions = [...(attempt?.transitions ?? [])]
+        .filter((item) => item.edgeId === edge.id)
+        .sort((left, right) => left.sequence - right.sequence);
+      const visibleTransitions = transitions.length ? transitions : [null];
+      visibleTransitions.forEach((transition, index) => rows.push({
         kind: "edge",
-        key: `edge:${edge.id}`,
+        key: index === 0 ? `edge:${edge.id}` : `edge:${edge.id}:${transition?.sequence ?? index}`,
         edge,
-        transition:
-          attempt?.transitions.find((item) => item.edgeId === edge.id) ?? null,
-      });
+        transition,
+      }));
+    }
   }
   return rows;
 }
 
-export function findNode(nodeId: string) {
-  return pressCreationProcess.nodes.find((item) => item.id === nodeId) ?? null;
+export function findNode(
+  nodeId: string,
+  process: PressAiProcessDefinition = pressCreationProcess,
+) {
+  return process.nodes.find((item) => item.id === nodeId) ?? null;
 }
-export function findEdge(edgeId: string) {
-  return pressCreationProcess.edges.find((item) => item.id === edgeId) ?? null;
+export function findEdge(
+  edgeId: string,
+  process: PressAiProcessDefinition = pressCreationProcess,
+) {
+  return process.edges.find((item) => item.id === edgeId) ?? null;
 }
 
 /** Field-level preview of a checkpoint payload, so lineage is readable without opening raw JSON. */

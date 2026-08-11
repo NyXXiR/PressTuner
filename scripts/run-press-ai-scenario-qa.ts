@@ -1,294 +1,138 @@
-import { chromium, type Page, type Request } from "playwright";
+import { chromium, type BrowserContext, type Page } from "playwright";
 
-import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+import {
+  PUBLIC_PRESS_RAG_EVIDENCE,
+  PUBLIC_PRESS_RAG_LIMITS,
+  type PublicPressRagAttempt,
+} from "@/domain/demo/pressRagScenarioContract";
+import {
+  advancePublicPressRagEdge,
+  createPublicPressRagAttempt,
+  executePublicPressRagNode,
+  retryPublicPressRagFromBlock,
+} from "@/domain/demo/pressRagScenarioMachine";
 
-const baseUrlArgument = process.argv.find((value) =>
-  value.startsWith("--base-url="),
-);
-const separatedBaseUrlIndex = process.argv.indexOf("--base-url");
-const baseUrl = (
-  baseUrlArgument?.slice("--base-url=".length) ??
-  (separatedBaseUrlIndex >= 0
-    ? process.argv[separatedBaseUrlIndex + 1]
-    : undefined) ??
-  "http://127.0.0.1:3003"
-).replace(/\/$/, "");
-const baseOrigin = new URL(baseUrl).origin;
+const argument = (name: string, fallback: string) => {
+  const inline = process.argv.find((value) => value.startsWith(`${name}=`));
+  const index = process.argv.indexOf(name);
+  return inline?.slice(name.length + 1) ?? (index >= 0 ? process.argv[index + 1] : undefined) ?? fallback;
+};
+const baseUrl = argument("--base-url", "http://127.0.0.1:3003").replace(/\/$/u, "");
+const mode = argument("--mode", "mock");
+if (mode !== "mock" && mode !== "live") throw new Error("--mode must be mock or live");
 
-const viewports = [
-  { name: "desktop", width: 1440, height: 1000 },
-  { name: "mobile", width: 390, height: 844 },
-] as const;
+const citation = (index: number) => ({ sourceDocumentId: PUBLIC_PRESS_RAG_EVIDENCE.id, factId: PUBLIC_PRESS_RAG_EVIDENCE.facts[index].id, evidenceExcerpt: PUBLIC_PRESS_RAG_EVIDENCE.facts[index].excerpt });
 
-function check(condition: boolean, message: string): asserts condition {
-  if (!condition) throw new Error(message);
-}
-
-function node(page: Page, nodeId: string) {
-  return page.locator(`[data-node-id="${nodeId}"]`);
-}
-
-async function expectNodeState(
-  page: Page,
-  viewportName: string,
-  nodeId: string,
-  expectedState: string,
-) {
-  const actual = await node(page, nodeId).getAttribute("data-node-state");
-  check(
-    actual === expectedState,
-    `${viewportName}: ${nodeId} expected ${expectedState}, received ${actual}`,
-  );
-}
-
-async function expectNoOverflow(
-  page: Page,
-  viewportName: string,
-  checkpoint: string,
-) {
-  const dimensions = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  check(
-    dimensions.scrollWidth <= dimensions.clientWidth,
-    `${viewportName}: horizontal overflow at ${checkpoint} (${dimensions.scrollWidth} > ${dimensions.clientWidth})`,
-  );
-  return { checkpoint, ...dimensions };
-}
-
-function watchScenarioRequests(page: Page) {
-  const violations: string[] = [];
-  const readMethods = new Set(["GET", "HEAD", "OPTIONS"]);
-
-  function inspect(request: Request) {
-    const requestUrl = new URL(request.url());
-    const isLocal = requestUrl.origin === baseOrigin;
-    const isLocalApi = isLocal && requestUrl.pathname.startsWith("/api/");
-    const isMutation = !readMethods.has(request.method());
-    if (isLocalApi || isMutation) {
-      violations.push(`${request.method()} ${request.url()}`);
+async function installMock(context: BrowserContext) {
+  let attempt: PublicPressRagAttempt | null = null;
+  let ancestors: PublicPressRagAttempt[] = [];
+  let id = 0;
+  const scenario = () => ({ runId: "qa-run", attempt, attempts: [...ancestors, attempt], capability: `mock-${attempt?.revision ?? 0}`, evidence: PUBLIC_PRESS_RAG_EVIDENCE, quota: { remainingStarts: 5, retryAfterSeconds: 0 }, limits: PUBLIC_PRESS_RAG_LIMITS, commandsRemaining: 20 - (attempt?.revision ?? 0) });
+  await context.route("**/api/demo/press-rag-scenario/**", async (route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    if (route.request().url().endsWith("/start")) {
+      attempt = createPublicPressRagAttempt({ runId: "qa-run", memo: String(body.memo), tone: "formal", now: Date.now() });
+      ancestors = [];
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(scenario()) });
+      return;
     }
-  }
-
-  page.on("request", inspect);
-  return {
-    violations,
-    stop: () => page.off("request", inspect),
-  };
+    if (!attempt) throw new Error("mock command before start");
+    const contextValue = { now: Date.now() + id, revision: attempt.revision + 1, id: () => `qa-${++id}` };
+    if (body.type === "advance_edge") attempt = advancePublicPressRagEdge(attempt, contextValue);
+    else if (body.type === "retry_from_block") {
+      ancestors.push(attempt);
+      attempt = retryPublicPressRagFromBlock({ attempt, correctedMemo: String(body.correctedMemo), context: contextValue });
+    } else {
+      const nodeId = attempt.activeNodeId;
+      const input = nodeId === "article-initialization" ? { type: "PRESS_RELEASE" } : nodeId === "brief-normalization" ? { rawText: attempt.inputSnapshot.rawText } : { articleId: attempt.articleId };
+      const output = nodeId === "article-initialization"
+        ? { articleId: attempt.articleId, type: "PRESS_RELEASE" }
+        : nodeId === "brief-normalization"
+          ? { serviceName: "Bridge", announceType: "출시", oneLiner: "Bridge 출시", points: ["근거"], tone: "formal", rawText: attempt.inputSnapshot.rawText, claims: attempt.parentAttemptId ? [
+              { claim: "MonoLab은 팀 협업 서비스 Bridge를 2026-09-18에 출시합니다.", citation: citation(0) },
+              { claim: "Bridge 베타 설문은 참여자 120명 대상이며 만족도는 92%입니다.", citation: citation(1) },
+              { claim: "실시간 공동 편집과 승인 워크플로를 제공합니다.", citation: citation(2) },
+            ] : [
+              { claim: "MonoLab은 팀 협업 서비스 Bridge를 2026-09-18에 출시합니다.", citation: citation(0) },
+              { claim: "국내 협업툴 시장 점유율 1위입니다.", citation: null },
+            ] }
+          : nodeId === "draft-generation"
+            ? { title: "MonoLab, Bridge 출시", plain: "MonoLab이 Bridge를 출시한다." }
+            : nodeId === "draft-review"
+              ? { notes: [{ id: `note-${attempt.checkpoints.filter((item) => item.nodeId === "draft-review").length + 1}`, message: "제목과 리드를 명확히 하세요." }] }
+              : { title: "MonoLab, Bridge 9월 18일 출시", plain: "수정된 최종 본문" };
+      attempt = executePublicPressRagNode({ attempt, input, output, context: contextValue });
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(scenario()) });
+  });
 }
 
-async function verifyScenario(page: Page, viewportName: string) {
+async function noOverflow(page: Page, label: string) {
+  const size = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+  if (size.scroll > size.client) throw new Error(`${label}: horizontal overflow ${size.scroll} > ${size.client}`);
+  return { label, ...size };
+}
+
+async function clickAction(page: Page, name: RegExp) {
+  const button = page.getByRole("button", { name }).last();
+  await button.waitFor({ state: "visible" });
+  await button.click();
+  await page.waitForFunction(() => !document.body.textContent?.includes("서버에서 실행 중입니다…"));
+  const alertMessages = (await page.getByRole("alert").allTextContents())
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (alertMessages.length) throw new Error(`scenario error: ${alertMessages.join(" | ")}`);
+}
+
+async function runScenario(page: Page, label: string) {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  const overflowChecks: Array<{
-    checkpoint: string;
-    scrollWidth: number;
-    clientWidth: number;
-  }> = [];
-
-  await page.goto(`${baseUrl}/demo/rag-test/scenario`, {
-    waitUntil: "networkidle",
-  });
-  await page
-    .getByRole("heading", {
-      level: 1,
-      name: "실패와 재시도까지 직접 실행하는 Press AI 시나리오",
-    })
-    .waitFor();
-
-  // The shared app shell emits page-view telemetry while the route loads.
-  // Start here so this guard covers requests caused by scenario interactions.
-  const requestWatch = watchScenarioRequests(page);
-
-  const workflow = page.getByRole("list", {
-    name: "보도자료 작성 시나리오 순서",
-  });
-  const items = workflow.getByRole("listitem");
-  check(
-    (await items.count()) === pressCreationProcess.nodes.length,
-    `${viewportName}: expected five canonical nodes`,
-  );
-  const renderedLabels = await items.locator("h2").allTextContents();
-  check(
-    JSON.stringify(renderedLabels) ===
-      JSON.stringify(pressCreationProcess.nodes.map((item) => item.label)),
-    `${viewportName}: canonical node order mismatch`,
-  );
-  overflowChecks.push(await expectNoOverflow(page, viewportName, "initial"));
-
-  await page
-    .getByRole("button", { name: "문서 초기화 실행", exact: true })
-    .click();
-  await expectNodeState(
-    page,
-    viewportName,
-    "article-initialization",
-    "completed",
-  );
-
-  await page
-    .getByRole("button", { name: "메모 정규화 실행", exact: true })
-    .click();
-  await expectNodeState(
-    page,
-    viewportName,
-    "brief-normalization",
-    "completed",
-  );
-
-  await page
-    .getByRole("button", { name: "초안 생성 실행", exact: true })
-    .click();
-  await expectNodeState(page, viewportName, "draft-generation", "failed");
-  await page.getByText("출시일이 비어 있어 초안을 생성할 수 없습니다.").first().waitFor();
-  overflowChecks.push(await expectNoOverflow(page, viewportName, "failure"));
-
-  await page
-    .getByRole("button", { name: "실패 내용 열기", exact: true })
-    .click();
-  const dateInput = page.getByLabel("출시일", { exact: true });
-  await dateInput.waitFor();
-  const retry = page.getByRole("button", {
-    name: "수정한 메모로 다시 시도",
-    exact: true,
-  });
-  check(
-    await retry.isDisabled(),
-    `${viewportName}: retry must be disabled before a valid date`,
-  );
-
-  await dateInput.fill("2026-09-18");
-  check(
-    !(await retry.isDisabled()),
-    `${viewportName}: retry must enable after a valid date`,
-  );
-  overflowChecks.push(await expectNoOverflow(page, viewportName, "correction"));
-
-  await retry.click();
-  await expectNodeState(page, viewportName, "draft-generation", "completed");
-  await expectNodeState(page, viewportName, "draft-review", "active");
-  await page
-    .getByText("수정한 메모로 초안 생성에 성공했습니다.", { exact: false })
-    .waitFor();
-
-  await page
-    .getByRole("button", { name: "초안 리뷰 실행", exact: true })
-    .click();
-  await expectNodeState(page, viewportName, "draft-review", "active");
-  await page.getByText("초안 리뷰를 1회 실행했습니다.", { exact: false }).waitFor();
-
-  await page
-    .getByRole("button", { name: "초안 리뷰 반복 실행", exact: true })
-    .click();
-  await expectNodeState(page, viewportName, "draft-review", "completed");
-  await expectNodeState(page, viewportName, "selected-rewrite", "active");
-  await node(page, "draft-review").getByText("2회 실행 · 반복 이력 보존").waitFor();
-  await node(page, "draft-review")
-    .getByRole("img", { name: "초안 리뷰 반복 self-loop" })
-    .waitFor();
-  overflowChecks.push(await expectNoOverflow(page, viewportName, "loop"));
-
-  await page
-    .getByRole("button", { name: "선택 수정 실행", exact: true })
-    .click();
-  await expectNodeState(page, viewportName, "selected-rewrite", "completed");
-  await page.getByText("시나리오 완료 ·", { exact: false }).waitFor();
-  overflowChecks.push(await expectNoOverflow(page, viewportName, "completion"));
-
-  await page
-    .getByRole("button", { name: "처음부터 다시 재생", exact: true })
-    .click();
-  await expectNodeState(
-    page,
-    viewportName,
-    "article-initialization",
-    "active",
-  );
-  for (const registryNode of pressCreationProcess.nodes.slice(1)) {
-    await expectNodeState(page, viewportName, registryNode.id, "waiting");
-  }
-  check(
-    (await page.locator("#scenario-launch-date").count()) === 0,
-    `${viewportName}: reset must close and clear the repair form`,
-  );
-  await node(page, "draft-review")
-    .getByText("리뷰 반복 경로 · 아직 실행 전")
-    .waitFor();
-  overflowChecks.push(await expectNoOverflow(page, viewportName, "reset"));
-
-  requestWatch.stop();
-  check(
-    requestWatch.violations.length === 0,
-    `${viewportName}: scenario emitted forbidden requests: ${requestWatch.violations.join(", ")}`,
-  );
-  check(
-    pageErrors.length === 0,
-    `${viewportName}: page errors: ${pageErrors.join(" | ")}`,
-  );
-
-  return overflowChecks;
-}
-
-async function verifyLandingLinks(page: Page, viewportName: string) {
-  await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { level: 1 }).waitFor();
-
-  const pressCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: "보도자료 AI" }) });
-  const resumeCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: "자기소개서 AI" }) });
-  const startLinks = [
-    page.getByRole("link", { name: "보도자료 작성", exact: true }),
-    page.getByRole("link", { name: "자기소개서 작성", exact: true }),
-    pressCard.getByRole("link", { name: "바로 작성 시작", exact: true }),
-    resumeCard.getByRole("link", { name: "바로 작성 시작", exact: true }),
-  ];
-  const startTargets = await Promise.all(
-    startLinks.map(async (link) => {
-      check(
-        (await link.count()) === 1,
-        `${viewportName}: each landing start action must render exactly once`,
-      );
-      return link.getAttribute("href");
-    }),
-  );
-  check(
-    JSON.stringify(startTargets) ===
-      JSON.stringify(["/press", "/resume", "/press", "/resume"]),
-    `${viewportName}: landing start actions have incorrect targets: ${startTargets.join(", ")}`,
-  );
+  await page.goto(`${baseUrl}/demo/rag-test/scenario`, { waitUntil: "networkidle" });
+  await page.getByRole("heading", { level: 1, name: /근거 차단과 재시도/ }).waitFor();
+  const checks = [await noOverflow(page, `${label}:initial`)];
+  await clickAction(page, /^시나리오 시작$/);
+  await clickAction(page, /문서 초기화 실행/);
+  await clickAction(page, /initialization-brief 전이 승인/);
+  await clickAction(page, /메모 정규화 실행/);
+  await page.getByRole("heading", { name: "근거 없는 주장을 수정하세요" }).waitFor();
+  checks.push(await noOverflow(page, `${label}:blocked`));
+  await clickAction(page, /수정한 메모로 차단 지점부터 재시도/);
+  await clickAction(page, /메모 정규화 실행/);
+  await clickAction(page, /brief-draft 전이 승인/);
+  await clickAction(page, /초안 생성 실행/);
+  await clickAction(page, /draft-review 전이 승인/);
+  await clickAction(page, /초안 리뷰 실행/);
+  await clickAction(page, /review-repeat 전이 승인/);
+  await clickAction(page, /초안 리뷰 실행/);
+  await clickAction(page, /review-rewrite 전이 승인/);
+  await page.getByRole("checkbox").first().check();
+  await clickAction(page, /선택 수정 실행/);
+  await page.getByRole("heading", { name: "시나리오 완료" }).waitFor();
+  checks.push(await noOverflow(page, `${label}:complete`));
+  if (pageErrors.length) throw new Error(`${label}: ${pageErrors.join(" | ")}`);
+  return checks;
 }
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
+    const viewports = mode === "live"
+      ? [{ name: "desktop-live", width: 1440, height: 1000 }]
+      : [{ name: "desktop-mock", width: 1440, height: 1000 }, { name: "mobile-mock", width: 390, height: 844 }];
     const results = [];
     for (const viewport of viewports) {
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
       });
-      const scenarioPage = await context.newPage();
-      const overflowChecks = await verifyScenario(scenarioPage, viewport.name);
-      await scenarioPage.close();
-
-      const landingPage = await context.newPage();
-      await verifyLandingLinks(landingPage, viewport.name);
-      await landingPage.close();
+      if (mode === "mock") await installMock(context);
+      const page = await context.newPage();
+      results.push({ viewport: viewport.name, checks: await runScenario(page, viewport.name) });
       await context.close();
-
-      results.push({ viewport: viewport.name, overflowChecks });
     }
-
-    console.log(JSON.stringify({ ok: true, baseUrl, results }, null, 2));
+    console.log(JSON.stringify({ ok: true, mode, baseUrl, logicalScenarios: results.length, results }, null, 2));
   } finally {
     await browser.close();
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().catch((error) => { console.error(error); process.exitCode = 1; });

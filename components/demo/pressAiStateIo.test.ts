@@ -111,6 +111,18 @@ test("a stored checkpoint wins over prospective transition payload", () => {
   );
 });
 
+test("the latest repeated checkpoint drives the main JSON panes", () => {
+  const payload = resolveStateIoPayload({
+    activeNodeId: null,
+    checkpoints: [
+      { id: "review-1", nodeId: "draft-review", sequence: 3, input: { run: 1 }, output: { notes: [1] } },
+      { id: "review-2", nodeId: "draft-review", sequence: 4, input: { run: 2 }, output: { notes: [2] } },
+    ],
+  }, "draft-review");
+  assert.deepEqual(payload.input, { run: 2 });
+  assert.deepEqual(payload.output, { notes: [2] });
+});
+
 test("blocked and inspecting attempts default to their latest persisted transition", () => {
   const attempt = {
     status: "BLOCKED",

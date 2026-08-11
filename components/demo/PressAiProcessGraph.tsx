@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+import { pressCreationProcess, type PressAiProcessDefinition } from "@/domain/press-ai-debugger/processRegistry";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
 import {
   GRAPH_NODE_HEIGHT,
@@ -40,8 +40,10 @@ export function PressAiProcessGraph(props: {
   selectedEdgeId: string | null;
   onNode: (id: string) => void;
   onEdge: (id: string) => void;
+  process?: PressAiProcessDefinition;
 }) {
-  const layout = useMemo(() => layoutPressAiGraph(pressCreationProcess), []);
+  const process = props.process ?? pressCreationProcess;
+  const layout = useMemo(() => layoutPressAiGraph(process), [process]);
   /** A terminal node has nothing to wire onward, so it gets no output port. */
   const hasOutgoing = useMemo(
     () => new Set(layout.edges.map(({ edge }) => edge.source)),
@@ -238,9 +240,9 @@ export function PressAiProcessGraph(props: {
 
         <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
           {layout.edges.map(({ edge, path, labelX, labelY }) => {
-            const transition = props.attempt?.transitions.find(
-              (item) => item.edgeId === edge.id,
-            );
+            const transition = [...(props.attempt?.transitions ?? [])]
+              .filter((item) => item.edgeId === edge.id)
+              .sort((left, right) => right.sequence - left.sequence).at(0);
             const verdict = transition?.verdict ?? "PENDING";
             const selected = props.selectedEdgeId === edge.id;
             const tone =

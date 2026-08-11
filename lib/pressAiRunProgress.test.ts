@@ -7,6 +7,7 @@ import {
   timelineRows,
 } from "@/components/demo/pressAiRunProgress";
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
+import { publicPressRagScenarioProcess } from "@/domain/demo/pressRagScenarioContract";
 
 type Attempt = PressAiCheckpointAttempt;
 type Transition = Attempt["transitions"][number];
@@ -179,4 +180,17 @@ test("payload previews stay short enough to read inline", () => {
   assert.equal(fields[2].preview, "1개 필드");
   assert.equal(fields[3].preview, "—");
   assert.deepEqual(payloadFields(null), []);
+});
+
+test("injected public topology exposes the review loop and both review executions", () => {
+  const run = attempt({
+    activeNodeId: null,
+    checkpoints: [
+      checkpoint("draft-review", 3),
+      { ...checkpoint("draft-review", 4), id: "cp-review-2", output: { notes: [2] } },
+    ],
+  });
+  const rows = timelineRows(run, false, publicPressRagScenarioProcess);
+  assert.equal(rows.filter((row) => row.kind === "node" && row.node.id === "draft-review").length, 2);
+  assert.ok(rows.some((row) => row.kind === "edge" && row.edge.id === "review-repeat"));
 });

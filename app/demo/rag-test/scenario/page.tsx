@@ -7,7 +7,7 @@ import { MarketingFooter } from "@/components/layout/MarketingFooter";
 export const dynamic = "force-static";
 
 const description =
-  "보도자료 작성의 다섯 노드를 실패, 입력 수정, 재시도, 리뷰 반복까지 로그인 없이 직접 실행하는 결정론적 Press AI 시나리오입니다.";
+  "고정 근거 문서와 실제 서버측 AI 호출로 보도자료 작성의 차단, 입력 수정, 재시도, 리뷰 반복을 로그인 없이 실행하는 Press AI 시나리오입니다.";
 
 export const metadata: Metadata = {
   title: { absolute: "Press AI 실행 시나리오 | brieFFlow" },
@@ -39,7 +39,7 @@ export default function PressAiScenarioPage() {
             brieFFlow
           </Link>
           <p className="break-words text-xs font-semibold leading-5 text-muted-foreground sm:text-right">
-            로그인 없음 · API/AI/저장/할당량 사용 없음
+            로그인 없음 · 서버측 AI 사용 · 고객 저장/제품 할당량 사용 없음
           </p>
         </div>
       </header>

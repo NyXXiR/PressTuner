@@ -92,6 +92,7 @@ export function layoutPressAiGraph(
   }
 
   const edges: GraphEdgePlacement[] = [];
+  const hasSelfLoop = process.edges.some((edge) => edge.source === edge.target);
   for (const edge of [...process.edges].sort(
     (left, right) => left.sequence - right.sequence,
   )) {
@@ -102,6 +103,16 @@ export function layoutPressAiGraph(
     const y1 = source.y + GRAPH_NODE_HEIGHT / 2;
     const x2 = target.x;
     const y2 = target.y + GRAPH_NODE_HEIGHT / 2;
+    if (edge.source === edge.target) {
+      const loopY = source.y + GRAPH_NODE_HEIGHT + 48;
+      edges.push({
+        edge,
+        path: `M ${x1} ${y1} C ${x1 + 36} ${loopY}, ${source.x - 36} ${loopY}, ${source.x} ${y1}`,
+        labelX: source.x + GRAPH_NODE_WIDTH / 2,
+        labelY: loopY,
+      });
+      continue;
+    }
     const bend = Math.max(24, (x2 - x1) / 2);
     edges.push({
       edge,
@@ -117,6 +128,6 @@ export function layoutPressAiGraph(
     edges,
     width:
       PADDING * 2 + (maxDepth + 1) * GRAPH_NODE_WIDTH + maxDepth * COLUMN_GAP,
-    height: PADDING * 2 + contentHeight,
+    height: PADDING * 2 + contentHeight + (hasSelfLoop ? 56 : 0),
   };
 }

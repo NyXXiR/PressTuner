@@ -1,4 +1,4 @@
-import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+import { pressCreationProcess, type PressAiProcessDefinition } from "@/domain/press-ai-debugger/processRegistry";
 
 export type PressAiWorkbenchSelection =
   | { kind: "node"; nodeId: string }
@@ -41,8 +41,9 @@ export function defaultWorkbenchSelection(
 export function sourceCheckpointForEdge<T extends StateIoAttempt>(
   attempt: T,
   edgeId: string,
+  process: PressAiProcessDefinition = pressCreationProcess,
 ) {
-  const edge = pressCreationProcess.edges.find((item) => item.id === edgeId);
+  const edge = process.edges.find((item) => item.id === edgeId);
   if (!edge) return null;
   const transition = [...(attempt.transitions ?? [])]
     .filter((item) => item.edgeId === edgeId)
@@ -61,8 +62,9 @@ export function sourceCheckpointForEdge<T extends StateIoAttempt>(
 export function projectSelectedTransition<T extends StateIoAttempt>(
   attempt: T,
   edgeId: string,
+  process: PressAiProcessDefinition = pressCreationProcess,
 ) {
-  const edge = pressCreationProcess.edges.find((item) => item.id === edgeId);
+  const edge = process.edges.find((item) => item.id === edgeId);
   if (!edge) return null;
   const transitions = (attempt.transitions ?? []) as NonNullable<T["transitions"]>;
   const transition = [...transitions]
@@ -71,7 +73,7 @@ export function projectSelectedTransition<T extends StateIoAttempt>(
   return {
     edge,
     transition,
-    sourceCheckpoint: sourceCheckpointForEdge(attempt, edgeId),
+    sourceCheckpoint: sourceCheckpointForEdge(attempt, edgeId, process),
   };
 }
 
@@ -114,7 +116,9 @@ export function resolveStateIoPayload(
   attempt: StateIoAttempt,
   nodeId: string,
 ) {
-  const checkpoint = attempt.checkpoints.find((item) => item.nodeId === nodeId);
+  const checkpoint = [...attempt.checkpoints]
+    .filter((item) => item.nodeId === nodeId)
+    .sort((left, right) => right.sequence - left.sequence)[0];
   if (checkpoint) {
     return {
       input: checkpoint.input ?? null,

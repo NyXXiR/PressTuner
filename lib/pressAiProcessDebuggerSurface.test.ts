@@ -47,7 +47,23 @@ test("the debugger UI reads its topology from the registry, never a local copy",
     assert.doesNotMatch(file, /const\s+(?:STAGES|STEPS|NODES|EDGES)\s*=/);
     assert.doesNotMatch(file, /nodes\.length\s*[=!]==?\s*\d/);
   }
-  assert.match(sources[2], /pressCreationProcess\.nodes/); assert.match(sources[2], /pressCreationProcess\.edges/);
+  assert.match(sources[2], /process:\s*PressAiProcessDefinition = pressCreationProcess/);
+  assert.match(sources[2], /process\.nodes/); assert.match(sources[2], /process\.edges/);
+});
+
+test("shared debugger views retain canonical defaults while accepting public presentation input", async () => {
+  const [graph, timeline, edge, stateIo] = await Promise.all([
+    source("components/demo/PressAiProcessGraph.tsx"),
+    source("components/demo/PressAiRunTimeline.tsx"),
+    source("components/demo/PressAiEdgeInspector.tsx"),
+    source("components/demo/PressAiStateIoPanel.tsx"),
+  ]);
+  for (const view of [graph, timeline, edge, stateIo]) {
+    assert.match(view, /process\??: PressAiProcessDefinition/);
+    assert.match(view, /props\.process \?\? pressCreationProcess/);
+  }
+  assert.match(stateIo, /showCasePanel\??: boolean/);
+  assert.match(stateIo, /props\.showCasePanel === false/);
 });
 
 test("legacy generic route remains available for RAG-v1 replay", async () => {

@@ -11,6 +11,7 @@ const labels = {
     "review-note-selection": { ko: "리뷰 노트 선택 검증", en: "Review note selection" },
     "rewrite-instruction-bounds": { ko: "수정 지침 범위", en: "Rewrite instruction bounds" },
     "review-checkpoint-lineage": { ko: "리뷰 체크포인트 계보", en: "Review checkpoint lineage" },
+    "fixed-evidence-claim-support-v1": { ko: "고정 문서 주장 근거", en: "Fixed-document claim support" },
   },
   stage: {
     "article-initialization": { ko: "문서 초기화", en: "Article initialization" },

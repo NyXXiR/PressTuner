@@ -1,6 +1,7 @@
 "use client";
 
 import type { PressAiCheckpointAttempt } from "@/lib/pressAiProcessDebuggerClient";
+import { pressCreationProcess, type PressAiProcessDefinition } from "@/domain/press-ai-debugger/processRegistry";
 import { PressAiEdgeInspector } from "./PressAiEdgeInspector";
 import {
   GuardrailChip,
@@ -72,8 +73,10 @@ export function PressAiRunTimeline(props: {
   defaultOpenKey?: string | null;
   open: Record<string, boolean>;
   onOpenChange: (open: Record<string, boolean>) => void;
+  process?: PressAiProcessDefinition;
 }) {
-  const rows = timelineRows(props.attempt, props.busy);
+  const process = props.process ?? pressCreationProcess;
+  const rows = timelineRows(props.attempt, props.busy, process);
   const open = props.open;
   const isOpen = (key: string) => open[key] ?? key === props.defaultOpenKey;
   const toggle = (key: string) =>
@@ -203,8 +206,8 @@ export function PressAiRunTimeline(props: {
                   ↓
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-bold">
-                  {findNode(edge.source)?.label ?? edge.source} →{" "}
-                  {findNode(edge.target)?.label ?? edge.target}
+                  {findNode(edge.source, process)?.label ?? edge.source} →{" "}
+                  {findNode(edge.target, process)?.label ?? edge.target}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     {edge.id}
                   </span>
@@ -261,6 +264,7 @@ export function PressAiRunTimeline(props: {
                   <PressAiEdgeInspector
                     attempt={props.attempt}
                     edgeId={edge.id}
+                    process={process}
                   />
                 </div>
               ) : null}
