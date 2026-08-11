@@ -7,4 +7,6 @@ test("checkpoint mutations enqueue snapshots transactionally and flush only afte
   assert.match(checkpoint, /await enqueueDebugRunSnapshot\(tx, args\.attemptId\)/);
   assert.match(retry, /enqueueDebugRunSnapshot\(tx, parent\.id\)[\s\S]*enqueueDebugRunSnapshot\(tx, created\.id\)/);
   assert.match(outbox, /attemptId_contentHash/); assert.match(outbox, /snapshotRevision: \(latest\?\.snapshotRevision \?\? 0\) \+ 1/); assert.match(outbox, /catch \{ \/\* fail-open/);
+  assert.match(outbox, /buildPressTunerDebugRunSnapshot/);
+  assert.match(outbox, /PressTunerDebugRunSnapshotSchema\.safeParse/);
 });

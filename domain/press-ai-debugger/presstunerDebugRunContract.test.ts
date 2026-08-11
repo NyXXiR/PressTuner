@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildPressTunerDebugRunSnapshot, hashPressTunerDebugRunSnapshot, PRESSTUNER_DEBUG_RUN_V1_SCHEMA_VERSION, PRESSTUNER_DOMAIN_REQUIREMENTS, PRESSTUNER_PRESS_CREATION_WORKFLOW, PressTunerDebugRunSnapshotSchema, PressTunerDebugRunV1SnapshotSchema } from "./presstunerDebugRunContract";
+import { buildPressTunerDebugRunSnapshot, hashPressTunerDebugRunSnapshot, PRESSTUNER_DEBUG_RUN_V1_SCHEMA_VERSION, PRESSTUNER_DEBUG_RUN_V2_SCHEMA_VERSION, PRESSTUNER_DOMAIN_REQUIREMENTS, PRESSTUNER_PRESS_CREATION_WORKFLOW, PRESSTUNER_REQUIREMENT_SCOPE, PressTunerDebugRunSnapshotSchema, PressTunerDebugRunV1SnapshotSchema, PressTunerDebugRunV2SnapshotSchema } from "./presstunerDebugRunContract";
 
 const privateValues = ["PRIVATE_MEMO_SENTINEL", "PRIVATE_BRIEF_SENTINEL", "PRIVATE_ARTICLE_SENTINEL", "PRIVATE_PROMPT_SENTINEL", "PRIVATE_PROVIDER_SENTINEL", "team-private", "user-private"];
 const hash = (letter: string) => letter.repeat(64);
@@ -29,9 +29,10 @@ function source() {
 
 test("builds a deterministic strict content-free snapshot with all fact kinds", () => {
   const snapshot = buildPressTunerDebugRunSnapshot(source(), { environment: "qa", snapshotRevision: 1 });
-  assert.equal(snapshot.schemaVersion, "presstuner-debug-run/v2");
+  assert.equal(snapshot.schemaVersion, "presstuner-debug-run/v3");
   assert.deepEqual(snapshot.workflow, PRESSTUNER_PRESS_CREATION_WORKFLOW);
-  assert.deepEqual(snapshot.domainObservations.requirements.map(({ requirementId, stageId, edgeId, display }) => ({ requirementId, stageId, edgeId, display })), PRESSTUNER_DOMAIN_REQUIREMENTS);
+  assert.deepEqual(snapshot.domainObservations.requirements.map(({ requirementId, stageId, edgeId, display, scope }) => ({ requirementId, stageId, edgeId, display, scope })), PRESSTUNER_DOMAIN_REQUIREMENTS.map((item) => ({ ...item, scope: PRESSTUNER_REQUIREMENT_SCOPE })));
+  assert.equal(snapshot.domainObservations.requirements.length, 8);
   const critical = snapshot.domainObservations.requirements.find((item) => item.requirementId === "critical-fact-preservation");
   assert.deepEqual(critical?.details?.counts.byKind, { NUMBER: { checked: 1, matched: 1, missing: 0 }, DATE: { checked: 1, matched: 1, missing: 0 }, QUOTE: { checked: 1, matched: 0, missing: 1 }, CONSTRAINT: { checked: 1, matched: 1, missing: 0 } });
   assert.deepEqual(critical?.details?.missingFactHashes, [`sha256:${hash("c")}`]);
@@ -52,7 +53,7 @@ test("projects missing mandatory observations and unreached edges without Ops in
   const notApplicable = structuredClone(snapshot);
   const item = notApplicable.domainObservations.requirements.find((row) => row.requirementId === "review-note-selection")!;
   item.outcome = { state: "NOT_APPLICABLE", reasonCode: "PRODUCER_DEFINED_INAPPLICABLE" };
-  assert.equal(PressTunerDebugRunSnapshotSchema.parse(notApplicable).schemaVersion, "presstuner-debug-run/v2");
+  assert.equal(PressTunerDebugRunSnapshotSchema.parse(notApplicable).schemaVersion, "presstuner-debug-run/v3");
 });
 
 function expectState(snapshot: ReturnType<typeof buildPressTunerDebugRunSnapshot>, requirementId: string, state: string) {
@@ -65,6 +66,31 @@ test("rejects unknown data, custom evaluations, and dangling topology", () => {
   assert.throws(() => PressTunerDebugRunSnapshotSchema.parse({ ...snapshot, domainObservations: { requirements: snapshot.domainObservations.requirements.slice(1) } }));
   assert.throws(() => PressTunerDebugRunSnapshotSchema.parse({ ...snapshot, workflow: { ...snapshot.workflow, id: "custom" } }));
   assert.throws(() => PressTunerDebugRunSnapshotSchema.parse({ ...snapshot, topology: { ...snapshot.topology, edges: [{ ...snapshot.topology.edges[0], sourceNodeId: "missing-node" }] } }));
+  for (const mutate of [
+    (value: typeof snapshot) => { value.domainObservations.requirements[0]!.scope = { ...PRESSTUNER_REQUIREMENT_SCOPE, kind: "STANDARD" as "WORKFLOW" }; },
+    (value: typeof snapshot) => { value.domainObservations.requirements[0]!.scope = { ...PRESSTUNER_REQUIREMENT_SCOPE, workflowId: "spoofed" as typeof PRESSTUNER_REQUIREMENT_SCOPE.workflowId }; },
+    (value: typeof snapshot) => { value.domainObservations.requirements[0]!.stageId = "spoofed"; },
+    (value: typeof snapshot) => { value.domainObservations.requirements[0]!.edgeId = "spoofed"; },
+    (value: typeof snapshot) => { value.domainObservations.requirements[0]!.display.label.en = "Spoofed"; },
+    (value: typeof snapshot) => { value.domainObservations.requirements[1] = value.domainObservations.requirements[0]!; },
+    (value: typeof snapshot) => { Object.assign(value.domainObservations.requirements[0]!, { raw: "forbidden" }); },
+  ]) {
+    const altered = structuredClone(snapshot);
+    mutate(altered);
+    assert.throws(() => PressTunerDebugRunSnapshotSchema.parse(altered));
+  }
+});
+
+test("keeps strict v2 parsing while the union accepts all three versions", () => {
+  const current = buildPressTunerDebugRunSnapshot(source(), { environment: "qa", snapshotRevision: 7 });
+  const v2 = {
+    ...current,
+    schemaVersion: PRESSTUNER_DEBUG_RUN_V2_SCHEMA_VERSION,
+    domainObservations: { requirements: current.domainObservations.requirements.map(({ requirementId, stageId, edgeId, display, outcome, details }) => ({ requirementId, stageId, edgeId, display, outcome, details })) },
+  };
+  assert.equal(PressTunerDebugRunV2SnapshotSchema.parse(v2).schemaVersion, "presstuner-debug-run/v2");
+  assert.equal(PressTunerDebugRunSnapshotSchema.parse(v2).schemaVersion, "presstuner-debug-run/v2");
+  assert.throws(() => PressTunerDebugRunV2SnapshotSchema.parse({ ...v2, domainObservations: current.domainObservations }));
 });
 
 test("keeps explicit v1 parsing for pending outbox payloads", () => {

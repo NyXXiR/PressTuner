@@ -1,23 +1,96 @@
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+
 import { PrismaClient } from "@prisma/client";
 import { chromium } from "playwright";
 
-function option(name: string, fallback: string) { const inline = process.argv.find((value) => value.startsWith(`${name}=`)); const index = process.argv.indexOf(name); return inline?.slice(name.length + 1) ?? (index >= 0 ? process.argv[index + 1] : undefined) ?? fallback; }
-function requireEnvironment(name: string) { const value = process.env[name]?.trim(); if (!value) throw new Error(`${name}_REQUIRED`); return value; }
-const pressUrl = option("--press-url", "http://127.0.0.1:3003"); const opsUrl = option("--ops-url", "http://127.0.0.1:3012");
-const memo = `QA-${randomUUID()} 수치 42, 날짜 2026-08-10, 인용 “검증 인용문”, 제약: 외부 공개 금지.`;
+import {
+  PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION,
+  PRESSTUNER_DOMAIN_REQUIREMENTS,
+  PressTunerDebugRunSnapshotSchema,
+} from "../domain/press-ai-debugger/presstunerDebugRunContract";
+
+export const OPS_AI_OPERATIONS_ROUTE = "/ops/ai-operations" as const;
+
+export type PressTunerDebugVerificationEvidence = {
+  ok: true;
+  schemaVersion: typeof PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION;
+  requirementCount: number;
+  canonicalScope: true;
+  route: typeof OPS_AI_OPERATIONS_ROUTE;
+  privacy: "passed";
+};
+
+class PressTunerDebugVerificationError extends Error {
+  constructor(readonly code: string) { super(code); }
+}
+
+function fail(code: string): never {
+  throw new PressTunerDebugVerificationError(code);
+}
+
+function option(name: string, fallback: string) {
+  const inline = process.argv.find((value) => value.startsWith(`${name}=`));
+  const index = process.argv.indexOf(name);
+  return inline?.slice(name.length + 1) ?? (index >= 0 ? process.argv[index + 1] : undefined) ?? fallback;
+}
+
+function requireEnvironment(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) fail(`${name}_REQUIRED`);
+  return value;
+}
+
+export function verifyStoredSnapshot(snapshotInput: unknown, privateSentinels: readonly string[]): PressTunerDebugVerificationEvidence {
+  const serialized = JSON.stringify(snapshotInput);
+  for (const sentinel of privateSentinels.filter(Boolean)) {
+    if (serialized.includes(sentinel)) fail("OPS_SNAPSHOT_PRIVACY_VIOLATION");
+  }
+
+  const parsed = PressTunerDebugRunSnapshotSchema.safeParse(JSON.parse(serialized));
+  if (!parsed.success) fail("OPS_SNAPSHOT_CONTRACT_INVALID");
+  if (parsed.data.schemaVersion !== PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION) fail("OPS_SNAPSHOT_V3_REQUIRED");
+
+  const requirements = parsed.data.domainObservations.requirements;
+  if (requirements.length !== PRESSTUNER_DOMAIN_REQUIREMENTS.length) fail("OPS_SNAPSHOT_REQUIREMENT_ROSTER_INVALID");
+  const critical = requirements.find((item) => item.requirementId === "critical-fact-preservation");
+  if (!critical || critical.outcome.state !== "EVALUATED" || !critical.details
+    || !["NUMBER", "DATE", "QUOTE", "CONSTRAINT"].every((kind) => critical.details?.counts.byKind[kind as keyof typeof critical.details.counts.byKind])) {
+    fail("OPS_SNAPSHOT_CRITICAL_FACT_COUNTS_MISSING");
+  }
+
+  return {
+    ok: true,
+    schemaVersion: parsed.data.schemaVersion,
+    requirementCount: requirements.length,
+    canonicalScope: true,
+    route: OPS_AI_OPERATIONS_ROUTE,
+    privacy: "passed",
+  };
+}
 
 async function main() {
-  const storageState = requireEnvironment("PRESS_QA_STORAGE_STATE"); const opsDatabaseUrl = requireEnvironment("OPS_DATABASE_URL");
-  const browser = await chromium.launch({ headless: true }); let attemptId = "";
+  const pressUrl = option("--press-url", "http://127.0.0.1:3003");
+  const opsUrl = option("--ops-url", "http://127.0.0.1:3012");
+  const storageState = requireEnvironment("PRESS_QA_STORAGE_STATE");
+  const opsDatabaseUrl = requireEnvironment("OPS_DATABASE_URL");
+  const memo = `QA-${randomUUID()} 수치 42, 날짜 2026-08-10, 인용 “검증 인용문”, 제약: 외부 공개 금지.`;
+
+  const browser = await chromium.launch({ headless: true });
+  let attemptId = "";
   try {
-    const context = await browser.newContext({ storageState }); const page = await context.newPage();
+    const context = await browser.newContext({ storageState });
+    const page = await context.newPage();
     await page.goto(`${pressUrl}/demo/rag-test`, { waitUntil: "networkidle" });
     await page.getByLabel("대략적인 메모").fill(memo);
-    const consent = page.getByText("새 테스트 Article이 생성"); if (await consent.count()) await consent.click();
+    const consent = page.getByText("새 테스트 Article이 생성");
+    if (await consent.count()) await consent.click();
     const creation = page.waitForResponse((response) => response.url().endsWith("/api/press/agent/process-debug-attempts") && response.request().method() === "POST");
     await page.getByRole("button", { name: /새 시도 만들기/ }).click();
-    const created = await (await creation).json() as { attempt?: { id?: string } }; attemptId = created.attempt?.id ?? ""; if (!attemptId) throw new Error("REAL_ATTEMPT_NOT_CREATED");
+    const created = await (await creation).json() as { attempt?: { id?: string } };
+    attemptId = created.attempt?.id ?? "";
+    if (!attemptId) fail("REAL_ATTEMPT_NOT_CREATED");
     await page.getByRole("button", { name: "이 노드만 실행" }).click();
     await page.getByRole("button", { name: "initialization-brief: PASS", exact: true }).click();
     await page.getByRole("button", { name: "다음 노드 활성화" }).click();
@@ -25,25 +98,42 @@ async function main() {
     await page.getByRole("button", { name: "이 노드만 실행" }).click();
     await page.getByRole("button", { name: "brief-draft: PASS", exact: false }).waitFor();
     await page.getByText(/confirm-normalized-brief|정규화 브리프 확인/).waitFor();
-    await page.goto(`${opsUrl}/ai-operations`, { waitUntil: "domcontentloaded" }).catch(() => undefined);
+    await page.goto(`${opsUrl}${OPS_AI_OPERATIONS_ROUTE}`, { waitUntil: "domcontentloaded" }).catch(() => undefined);
     await context.close();
-  } finally { await browser.close(); }
+  } finally {
+    await browser.close();
+  }
 
   const ops = new PrismaClient({ datasources: { db: { url: opsDatabaseUrl } } });
   try {
-    const rows = await ops.$queryRawUnsafe<Array<{ snapshot: unknown }>>(`SELECT snapshot FROM presstuner_debug_snapshots WHERE operation_id = $1 ORDER BY snapshot_revision DESC LIMIT 1`, attemptId);
-    if (!rows[0]) throw new Error("OPS_SNAPSHOT_NOT_FOUND");
-    const serialized = JSON.stringify(rows[0].snapshot); if (serialized.includes(memo)) throw new Error("PRIVACY_MEMO_LEAK");
-    for (const name of ["PRESS_QA_TEAM_SENTINEL", "PRESS_QA_USER_SENTINEL"]) { const sentinel = process.env[name]; if (sentinel && serialized.includes(sentinel)) throw new Error(`PRIVACY_${name}_LEAK`); }
-    const snapshot = rows[0].snapshot as { schemaVersion?: string; workflow?: { id?: string; version?: string }; domainObservations?: { requirements?: Array<{ requirementId?: string; details?: { counts?: { byKind?: Record<string, unknown> } } }> } };
-    if (snapshot.schemaVersion !== "presstuner-debug-run/v2" || snapshot.workflow?.id !== "presstuner.press-creation" || snapshot.workflow.version !== "2.0.0") throw new Error("V2_WORKFLOW_IDENTITY_MISSING");
-    const expected = ["article-team-ownership", "fresh-press-release", "memo-brief-grounding", "critical-fact-preservation", "brief-draft-grounding", "press-structure", "review-note-selection", "review-checkpoint-lineage"];
-    const requirements = snapshot.domainObservations?.requirements ?? [];
-    if (requirements.length !== expected.length || expected.some((id) => !requirements.some((item) => item.requirementId === id))) throw new Error("V2_REQUIREMENT_ROSTER_MISSING");
-    const evaluation = requirements.find((item) => item.requirementId === "critical-fact-preservation");
-    if (!evaluation || !["NUMBER", "DATE", "QUOTE", "CONSTRAINT"].every((kind) => evaluation.details?.counts?.byKind?.[kind])) throw new Error("CRITICAL_FACT_COUNTS_MISSING");
-    for (const sentinel of ["PRIVATE_MEMO", "PRIVATE_BRIEF", "PRIVATE_ARTICLE", "PRIVATE_PROMPT", "PRIVATE_PROVIDER", "team-private", "user-private"]) if (serialized.includes(sentinel)) throw new Error("PRIVACY_SENTINEL_LEAK");
-    console.log(JSON.stringify({ ok: true, attemptId, pressUrl, opsUrl, privacy: "passed" }, null, 2));
-  } finally { await ops.$disconnect(); }
+    const rows = await ops.$queryRawUnsafe<Array<{ snapshot: unknown }>>(
+      "SELECT snapshot FROM presstuner_debug_snapshots WHERE operation_id = $1 ORDER BY snapshot_revision DESC LIMIT 1",
+      attemptId,
+    );
+    if (!rows[0]) fail("OPS_SNAPSHOT_NOT_FOUND");
+    const evidence = verifyStoredSnapshot(rows[0].snapshot, [
+      memo,
+      process.env.PRESS_QA_TEAM_SENTINEL ?? "",
+      process.env.PRESS_QA_USER_SENTINEL ?? "",
+      "PRIVATE_MEMO",
+      "PRIVATE_BRIEF",
+      "PRIVATE_ARTICLE",
+      "PRIVATE_PROMPT",
+      "PRIVATE_PROVIDER",
+      "team-private",
+      "user-private",
+    ]);
+    console.log(JSON.stringify(evidence, null, 2));
+  } finally {
+    await ops.$disconnect();
+  }
 }
-main().catch((error) => { console.error(error instanceof Error ? error.message : "PRESSTUNER_DEBUG_VERIFICATION_FAILED"); process.exitCode = 1; });
+
+const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
+if (invokedPath === fileURLToPath(import.meta.url)) {
+  main().catch((error: unknown) => {
+    const code = error instanceof PressTunerDebugVerificationError ? error.code : "PRESSTUNER_DEBUG_VERIFICATION_FAILED";
+    console.error(JSON.stringify({ status: "failed", code, ok: false }));
+    process.exitCode = 1;
+  });
+}
