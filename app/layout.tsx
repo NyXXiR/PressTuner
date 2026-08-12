@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { GlobalLoadingOverlay } from "@/components/ui/GlobalLoadingOverlay";
@@ -8,16 +7,6 @@ import Toaster from "@/components/ui/Toaster";
 import { ClientPageTitle } from "@/components/common/ClientPageTitle";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import { getPostHogClientConfig } from "@/lib/server/posthog-config";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.briefflow.com";
 
@@ -90,7 +79,7 @@ export default function RootLayout({
 
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="antialiased">
         <PostHogProvider
           apiKey={posthogConfig.apiKey}
           apiHost={posthogConfig.apiHost}

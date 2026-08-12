@@ -14,6 +14,13 @@
 
 /* 1) 라이트 / 다크 테마 색 변수 정의 (HSL 토큰) */
 :root {
+  --font-geist-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-geist-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+
   /* light theme */
   --background: 210 40% 98%;
   --foreground: 222.2 47.4% 11.2%;
@@ -121,7 +128,7 @@
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-geist-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

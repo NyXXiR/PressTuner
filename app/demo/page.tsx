@@ -5,7 +5,7 @@ import { BriefFlowProductDemo } from "@/components/demo/BriefFlowProductDemo";
 import { MarketingFooter } from "@/components/layout/MarketingFooter";
 
 const description =
-  "거친 제품 메모가 메시지 브리프와 보도자료 초안으로 완성되는 brieFFlow의 로그인 없는 인터랙티브 데모입니다.";
+  "거친 제품 메모가 메시지 브리프와 초안 검토를 거쳐 보도자료 생성 완료에 이르는 brieFFlow의 로그인 없는 인터랙티브 튜토리얼입니다.";
 
 export const metadata: Metadata = {
   title: {
@@ -45,7 +45,7 @@ export default function DemoPage() {
           </Link>
           <div className="flex items-center gap-3">
             <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">
-              로그인 없는 보도자료 데모
+              로그인 없는 보도자료 완성 튜토리얼
             </span>
             <Link
               href="/login"

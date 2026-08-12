@@ -45,12 +45,19 @@ const stages: readonly {
     label: "보도자료 초안",
     description: "검토 가능한 문서",
   },
+  {
+    id: "complete",
+    number: "04",
+    label: "보도자료 생성 완료",
+    description: "배포 준비가 끝난 문서",
+  },
 ] as const;
 
 const stageIndex: Record<DemoStage, number> = {
   notes: 0,
   brief: 1,
   draft: 2,
+  complete: 3,
 };
 
 const buttonFocus =
@@ -68,10 +75,13 @@ export function BriefFlowProductDemo() {
     const next = advanceDemoStage(stage);
     setStage(next);
     if (stageIndex[next] > furthestIndex) setFurthestStage(next);
-    trackGaEvent(
-      next === "brief" ? "demo_brief_generated" : "demo_draft_viewed",
-      { source: "public_product_demo" },
-    );
+    const eventName =
+      next === "brief"
+        ? "demo_brief_generated"
+        : next === "draft"
+          ? "demo_draft_viewed"
+          : "demo_press_release_completed";
+    trackGaEvent(eventName, { source: "public_product_demo" });
   }
 
   function reset() {
@@ -93,8 +103,8 @@ export function BriefFlowProductDemo() {
             배포 가능한 보도자료로.
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
-            제품 소식의 거친 재료가 메시지 브리프를 거쳐 검토 가능한
-            보도자료 초안이 되는 흐름을 직접 확인해 보세요.
+            제품 소식의 거친 재료가 메시지 브리프와 검토 단계를 거쳐
+            보도자료 생성 완료에 이르는 흐름을 직접 확인해 보세요.
           </p>
           <div className="mt-7 flex flex-wrap gap-2 text-xs font-semibold">
             <span className="border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
@@ -112,7 +122,7 @@ export function BriefFlowProductDemo() {
 
       <section className="px-4 py-10 sm:px-6 sm:py-14" aria-label="보도자료 데모">
         <div className="mx-auto max-w-6xl">
-          <ol className="grid border border-border bg-card sm:grid-cols-3">
+          <ol className="grid border border-border bg-card sm:grid-cols-4">
             {stages.map((item, index) => {
               const isCurrent = item.id === stage;
               const isAvailable = index <= furthestIndex;
@@ -153,12 +163,13 @@ export function BriefFlowProductDemo() {
               {stage === "notes" ? <NotesStage /> : null}
               {stage === "brief" ? <BriefStage /> : null}
               {stage === "draft" ? <DraftStage /> : null}
+              {stage === "complete" ? <CompleteStage /> : null}
 
               <div className="flex flex-col gap-3 border-t border-border bg-muted/25 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <p className="text-xs leading-5 text-muted-foreground">
                   모든 회사·인물·수치는 데모를 위해 만든 가상 샘플입니다.
                 </p>
-                {stage !== "draft" ? (
+                {stage !== "complete" ? (
                   <button
                     type="button"
                     onClick={advance}
@@ -166,7 +177,9 @@ export function BriefFlowProductDemo() {
                   >
                     {stage === "notes"
                       ? "메시지 브리프 만들기"
-                      : "보도자료 초안 만들기"}
+                      : stage === "brief"
+                        ? "보도자료 초안 만들기"
+                        : "보도자료 생성 완료하기"}
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </button>
                 ) : (
@@ -224,6 +237,25 @@ export function BriefFlowProductDemo() {
                   className={`${buttonFocus} mt-4 inline-flex items-center gap-2 text-sm font-bold text-primary underline decoration-primary/30 underline-offset-4`}
                 >
                   워크스페이스에서 시작
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </TrackedMarketingLink>
+              </div>
+              <div className="mt-6 border border-border bg-muted/25 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                  별도의 Live AI demo
+                </p>
+                <h3 className="mt-2 text-base font-bold">AI 프로세스 디버거</h3>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  이 페이지는 결정론적 튜토리얼입니다. 서버측 AI가 근거를
+                  수집하고 수정하는 실제 흐름은 별도 시나리오에서 확인하세요.
+                </p>
+                <TrackedMarketingLink
+                  href="/demo/rag-test/scenario"
+                  eventName="demo_ai_debugger_opened"
+                  eventParams={{ source: "public_product_demo" }}
+                  className={`${buttonFocus} mt-3 inline-flex items-center gap-2 text-sm font-bold text-primary underline decoration-primary/30 underline-offset-4`}
+                >
+                  AI 프로세스 디버거 열기
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </TrackedMarketingLink>
               </div>
@@ -358,10 +390,38 @@ function DraftStage() {
     <div>
       <StageHeading
         eyebrow="03 · Draft"
-        title="배포 전 검토 가능한 보도자료"
-        description="브리프의 사실과 메시지를 보도자료 구조에 맞춰 연결했습니다."
+        title="배포 전 검토 중인 보도자료 초안"
+        description="브리프의 사실과 메시지를 보도자료 구조에 맞춰 연결했습니다. 아직 생성 완료 전 검토 단계입니다."
         icon={FileText}
       />
+      <PressReleaseDocument />
+    </div>
+  );
+}
+
+function CompleteStage() {
+  return (
+    <div>
+      <StageHeading
+        eyebrow="04 · Complete"
+        title="보도자료 생성 완료"
+        description="핵심 사실과 메시지 검토를 마치고 배포 준비 상태로 전환했습니다."
+        icon={Check}
+      />
+      <div className="mx-5 mt-5 border border-primary/30 bg-primary/10 p-5 sm:mx-8 sm:mt-8">
+        <p className="text-sm font-black text-primary">생성이 완료되었습니다</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          실제 워크스페이스에서는 이 문서를 팀과 최종 검토한 뒤 배포 채널에
+          맞게 내보내는 다음 단계로 이어집니다.
+        </p>
+      </div>
+      <PressReleaseDocument />
+    </div>
+  );
+}
+
+function PressReleaseDocument() {
+  return (
       <article className="mx-auto max-w-3xl p-5 sm:p-8 lg:p-10">
         <p className="font-mono text-xs font-bold text-primary">
           {demoPressRelease.eyebrow}
@@ -392,6 +452,5 @@ function DraftStage() {
           </p>
         </div>
       </article>
-    </div>
   );
 }

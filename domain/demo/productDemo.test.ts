@@ -21,9 +21,10 @@ test("demo fixtures preserve the same launch facts through every stage", () => {
   );
 });
 
-test("the portfolio flow advances deterministically and stops at the draft", () => {
+test("the portfolio flow advances deterministically through generation completion", () => {
   assert.equal(initialDemoStage, "notes");
   assert.equal(advanceDemoStage("notes"), "brief");
   assert.equal(advanceDemoStage("brief"), "draft");
-  assert.equal(advanceDemoStage("draft"), "draft");
+  assert.equal(advanceDemoStage("draft"), "complete");
+  assert.equal(advanceDemoStage("complete"), "complete");
 });

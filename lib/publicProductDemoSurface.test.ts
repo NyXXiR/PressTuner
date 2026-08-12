@@ -24,7 +24,8 @@ test("/demo has route metadata and an explicit public proxy contract", () => {
   assert.match(page, /follow:\s*true/);
   assert.doesNotMatch(page, /AuthRedirectIfAuthed/);
   assert.doesNotMatch(page, /components\/layout\/Header/);
-  assert.match(page, /로그인 없는 보도자료 데모/);
+  assert.match(page, /로그인 없는 보도자료 완성 튜토리얼/);
+  assert.match(page, /보도자료 생성 완료에 이르는/);
   assert.match(
     proxy,
     /publicPaths\s*=\s*\[[\s\S]*?["']\/demo["'][\s\S]*?\]/,
@@ -95,6 +96,7 @@ test("demo surfaces required domain and accessibility language", () => {
     "거친 메모",
     "메시지 브리프",
     "보도자료 초안",
+    "보도자료 생성 완료",
     "32%",
     "결정론적 샘플 데이터",
     "AI/API 호출 · 저장 없음",
@@ -107,6 +109,31 @@ test("demo surfaces required domain and accessibility language", () => {
   assert.match(source, /aria-live=["']polite["']/);
   assert.match(source, /focus-visible:/);
   assert.doesNotMatch(source, /role=["']tab(list)?["']/);
+});
+
+test("demo exposes four distinct stages and resets only after completion", () => {
+  const source = read("components/demo/BriefFlowProductDemo.tsx");
+
+  assert.match(source, /id:\s*["']notes["'][\s\S]*?id:\s*["']brief["'][\s\S]*?id:\s*["']draft["'][\s\S]*?id:\s*["']complete["']/);
+  assert.match(source, /sm:grid-cols-4/);
+  assert.match(source, /보도자료 초안/);
+  assert.match(source, /보도자료 생성 완료/);
+  assert.match(source, /stage === ["']draft["'][\s\S]*?보도자료 생성 완료하기/);
+  assert.match(source, /stage === ["']complete["'][\s\S]*?처음부터 다시/);
+  assert.match(source, /demo_press_release_completed/);
+});
+
+test("demo offers the live AI process debugger as a separate secondary choice", () => {
+  const source = read("components/demo/BriefFlowProductDemo.tsx");
+
+  assert.match(source, /href=["']\/demo\/rag-test\/scenario["']/);
+  assert.match(source, /AI 프로세스 디버거/);
+  assert.match(source, /결정론적 튜토리얼/);
+  assert.match(source, /서버측 AI/);
+  assert.doesNotMatch(
+    source,
+    /id:\s*["'](?:rag-test|scenario|debugger)["']/,
+  );
 });
 
 test("demo import and interaction surface has no network or server dependency", () => {

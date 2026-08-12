@@ -13,6 +13,12 @@ test("the public scenario route stays static while disclosing its live isolated 
   assert.match(page, /PressAiScenarioDemo/);
 });
 
+test("the public scenario route is discoverable in the sitemap", async () => {
+  const sitemap = await source("app/sitemap.ts");
+  assert.match(sitemap, /url:\s*`\$\{baseUrl\}\/demo\/rag-test\/scenario`/);
+  assert.match(sitemap, /changeFrequency:\s*["']weekly["']/);
+});
+
 test("the guided surface exposes evidence, quota, live status, repair, lineage and debugger views", async () => {
   const component = await source("components/demo/PressAiScenarioDemo.tsx");
   for (const contract of [

@@ -1,4 +1,4 @@
-export type DemoStage = "notes" | "brief" | "draft";
+export type DemoStage = "notes" | "brief" | "draft" | "complete";
 
 export type RoughNote = Readonly<{
   id: string;
@@ -91,5 +91,6 @@ export const demoPressRelease: DemoPressRelease = {
 export function advanceDemoStage(stage: DemoStage): DemoStage {
   if (stage === "notes") return "brief";
   if (stage === "brief") return "draft";
-  return "draft";
+  if (stage === "draft") return "complete";
+  return "complete";
 }
