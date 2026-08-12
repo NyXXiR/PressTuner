@@ -91,3 +91,35 @@ test("fake completions drive all four AI node types through retry, two reviews a
   assert.equal(scenario.attempt.checkpoints.filter((item) => item.nodeId === "draft-review").length, 2);
   assert.equal(scenario.attempt.checkpoints.at(-1)?.input && (scenario.attempt.checkpoints.at(-1)?.input as { selectedNoteIds: string[] }).selectedNoteIds[0], "note-1");
 });
+
+test("service auto-mounts PDF evidence and deterministically demonstrates draft BLOCK to child PASS", async () => {
+  let id = 0;
+  const controlledMemo = "Bridge는 2026년 매출 360억원을 기록했습니다.";
+  const started = startPublicPressRagScenario({ memo: controlledMemo, tone: "formal" }, { secret, now: 3_000, id: () => `controlled-${++id}` });
+  assert.equal(started.scenario.evidence.assetUrl, "/samples/press-ai-debugger/evidence-fact-consistency.pdf#page=1");
+  let scenario = started.scenario;
+  let session = started.session;
+  const completeJson = async (request: { kind: PressRagCompletionKind; input: unknown }) => request.kind === "normalization"
+    ? { serviceName: "Bridge", announceType: "실적", oneLiner: "Bridge 실적", points: [controlledMemo], tone: "formal", rawText: controlledMemo, claims: [{ claim: controlledMemo, citation: null }] }
+    : request.kind === "draft"
+      ? { title: "Bridge 실적", plain: "동일한 통제 문장" }
+      : outputs[request.kind];
+  const run = async (command: Record<string, unknown>) => {
+    const result = await commandPublicPressRagScenario({ ...command, capability: scenario.capability, expectedRevision: scenario.attempt.revision }, { secret, cookie: writePressRagSession(session, secret), now: 3_000 + id, id: () => `controlled-${++id}`, completeJson });
+    scenario = result.scenario;
+    session = result.session;
+  };
+  await run({ type: "execute_node" });
+  await run({ type: "advance_edge" });
+  await run({ type: "execute_node" });
+  await run({ type: "advance_edge" });
+  await run({ type: "execute_node" });
+  assert.equal(scenario.attempt.status, "BLOCKED");
+  assert.equal(scenario.attempt.transitions.at(-1)?.edgeId, "draft-review");
+  const parent = scenario.attempt;
+  await run({ type: "retry_from_block", correctedMemo: "Bridge는 2026년 매출 200억원을 기록했습니다." });
+  await run({ type: "execute_node" });
+  assert.equal(scenario.attempt.transitions.at(-1)?.verdict, "PASS");
+  assert.equal(scenario.attempts[0]?.id, parent.id);
+  assert.equal(scenario.attempts[0]?.transitions.at(-1)?.verdict, "BLOCK");
+});

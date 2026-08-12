@@ -1,7 +1,7 @@
 {
   "schemaVersion": "press-transition-baseline/v1",
   "datasetVersion": "v1",
-  "datasetHash": "ddc0fe14cbdd2039b1e3086327ae4c814930f951e76a0508b92b185f6309d23d",
+  "datasetHash": "7cb95697b23dab540c0f0cff6460b171ac0bb59377672b9448613c5ebb777c14",
   "metrics": { "expectedVerdictAccuracy": 1, "metadataExclusionRate": 1, "evidenceBoundCompliance": 1, "requiredEdgeCoverage": 1 },
   "thresholds": { "expectedVerdictAccuracy": 1, "metadataExclusionRate": 1, "evidenceBoundCompliance": 1, "requiredEdgeCoverage": 1 }
 }

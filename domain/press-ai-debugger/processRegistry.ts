@@ -84,7 +84,7 @@ export const pressBriefSchema = z.object({
 
 const pressNode = (node: PressAiProcessNode) => node;
 export const pressCreationProcess = Object.freeze({
-  id: "press-creation", version: "2.0.0", label: "보도자료 작성", description: "체크포인트를 실행하고 전이를 별도로 검사하는 보도자료 작성 흐름입니다.",
+  id: "press-creation", version: "2.1.0", label: "보도자료 작성", description: "체크포인트를 실행하고 전이를 별도로 검사하는 보도자료 작성 흐름입니다.",
   nodes: Object.freeze([
     pressNode({ id: "article-initialization", sequence: 0, label: "문서 초기화", operation: "initArticleDraft", operationKey: "article.initialize", description: "새 PRESS_RELEASE 테스트 문서를 확인합니다.", troubleshooting: "문서 ID와 팀 소유권을 확인하세요.", inputSchema: z.union([z.object({ articleId: z.string().min(1) }), z.object({ type: z.literal("PRESS_RELEASE") })]), outputSchema: z.object({ articleId: z.string().min(1), teamId: z.string().optional(), type: z.literal("PRESS_RELEASE").optional() }), metricIds: [], findingIds: [], client: { stepId: "init", method: "POST", path: "/api/articles/init", hasBody: true } }),
     pressNode({ id: "brief-normalization", sequence: 1, label: "메모 정규화", operation: "normalizeBriefUseCase", operationKey: "press.normalize-brief", description: "메모를 편집 가능한 브리프로 정리합니다.", troubleshooting: "사실, 날짜, 인용과 제한 조건을 확인하세요.", inputSchema: z.object({ articleId: z.string(), rawText: z.string().min(1), tone: z.enum(["formal", "neutral", "friendly"]) }), outputSchema: pressBriefSchema, gate: { id: "confirm-normalized-brief", label: "정규화 브리프 확인" }, metricIds: ["factCandidates"], findingIds: ["quality-warning"], quotaUnits: getAiQuotaActionDefinition("press_brief_normalize").units, client: { stepId: "normalize", method: "POST", path: "/api/articles/{articleId}/brief/normalize", hasBody: true, needsArticle: true } }),
@@ -95,7 +95,7 @@ export const pressCreationProcess = Object.freeze({
   edges: Object.freeze([
     { id: "initialization-brief", sequence: 0, source: "article-initialization", target: "brief-normalization", payload: ["articleId", "rawText", "tone"], mandatoryGuardrailIds: ["article-team-ownership", "fresh-press-release"] },
     { id: "brief-draft", sequence: 1, source: "brief-normalization", target: "draft-generation", payload: ["articleId", "confirmedBrief"], mandatoryGuardrailIds: ["memo-brief-grounding", "critical-fact-preservation"], humanGate: { id: "confirm-normalized-brief", label: "정규화 브리프 확인" } },
-    { id: "draft-review", sequence: 2, source: "draft-generation", target: "draft-review", payload: ["articleId", "title", "plain", "reviewInstruction"], mandatoryGuardrailIds: ["brief-draft-grounding", "press-structure"], humanGate: { id: "confirm-generated-draft", label: "생성 초안 확인" } },
+    { id: "draft-review", sequence: 2, source: "draft-generation", target: "draft-review", payload: ["articleId", "title", "plain", "reviewInstruction"], mandatoryGuardrailIds: ["brief-draft-grounding", "press-structure", "evidence-fact-consistency"], humanGate: { id: "confirm-generated-draft", label: "생성 초안 확인" } },
     { id: "review-rewrite", sequence: 3, source: "draft-review", target: "selected-rewrite", payload: ["articleId", "selectedNoteIds", "rewriteInstruction"], mandatoryGuardrailIds: ["review-note-selection", "rewrite-instruction-bounds", "review-checkpoint-lineage"], humanGate: { id: "select-review-notes", label: "리뷰 노트 선택" } },
   ]),
 } satisfies PressAiProcessDefinition);

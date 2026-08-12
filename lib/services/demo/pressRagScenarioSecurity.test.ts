@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PUBLIC_PRESS_RAG_LIMITS } from "@/domain/demo/pressRagScenarioContract";
+import { PUBLIC_PRESS_RAG_EVIDENCE, PUBLIC_PRESS_RAG_LIMITS } from "@/domain/demo/pressRagScenarioContract";
 import { createPublicPressRagAttempt } from "@/domain/demo/pressRagScenarioMachine";
 import {
   PressRagSecurityError,
@@ -64,7 +64,7 @@ test("capabilities bind session, TTL, revision, size and command budget", () => 
   const now = 10_000;
   const attempt = createPublicPressRagAttempt({ runId: "run", memo: "memo", tone: "formal", now });
   let session = registerPressRagRun(createPressRagSession(), "run");
-  const state = { v: 1 as const, sid: session.sid, runId: "run", issuedAt: now, expiresAt: now + 1000, commandsUsed: 0, attempt, ancestors: [] };
+  const state = { v: 1 as const, sid: session.sid, runId: "run", issuedAt: now, expiresAt: now + 1000, commandsUsed: 0, evidence: PUBLIC_PRESS_RAG_EVIDENCE, attempt, ancestors: [] };
   const token = encodePressRagCapability(state, secret);
   assert.equal(decodePressRagCapability(token, session, secret, now).runId, "run");
   const otherSession = registerPressRagRun(createPressRagSession(), "run");

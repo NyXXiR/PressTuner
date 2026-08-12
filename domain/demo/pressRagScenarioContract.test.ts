@@ -31,6 +31,7 @@ const output = (claims: PressRagNormalizationOutput["claims"]): PressRagNormaliz
 
 test("public schemas are strict and commands are bounded discriminated inputs", () => {
   assert.equal(PressRagStartRequestSchema.safeParse({ memo: "x", tone: "formal", extra: true }).success, false);
+  assert.equal(PressRagStartRequestSchema.safeParse({ memo: "x", tone: "formal", evidence: PUBLIC_PRESS_RAG_EVIDENCE }).success, false);
   assert.equal(PressRagCommandRequestSchema.safeParse({ type: "advance_edge", capability: "c", expectedRevision: 0, extra: true }).success, false);
   assert.equal(PressRagCommandRequestSchema.safeParse({ type: "execute_node", capability: "c", expectedRevision: 0, reviewInstruction: "x".repeat(1001) }).success, false);
 });
@@ -56,7 +57,8 @@ test("fixed evidence passes supported atomic claims and blocks market-share clai
   ]));
   assert.equal(blocked.verdict, "BLOCK");
   assert.match(blocked.observed, /점유율 1위/);
-  assert.match(PUBLIC_PRESS_RAG_GUIDED_MEMO, /점유율 1위/);
+  assert.match(PUBLIC_PRESS_RAG_GUIDED_MEMO, /360억원/);
+  assert.equal(PUBLIC_PRESS_RAG_EVIDENCE.assetUrl, "/samples/press-ai-debugger/evidence-fact-consistency.pdf#page=1");
 });
 
 test("invalid IDs, non-verbatim excerpts and fabricated numeric or rank tokens block", () => {

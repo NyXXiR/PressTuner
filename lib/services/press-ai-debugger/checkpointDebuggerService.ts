@@ -16,6 +16,8 @@ import { findCheckpointAttempt, json, listCheckpointAttempts, publicCheckpointAt
 import { hashPressAiDebugCommand, PressAiDebugConflictError, replayOrRunCommand } from "./commandRepository";
 import { normalizeCustomExpectations, type CustomExpectation } from "@/domain/press-ai-debugger/caseExpectations";
 import { enqueueAndFlushFailedDebugRun, enqueueDebugRunSnapshot, flushDebugRunSnapshots } from "./debugRunSnapshotOutbox";
+import { loadEligibleEvidenceFactSources } from "@/lib/services/article/evidenceFactConsistencyService";
+import { evaluateEvidenceFactConsistency, evidenceFactText } from "@/domain/article/evidenceFactConsistency";
 
 export const CommandEnvelopeSchema = z.object({ commandId: z.string().min(8).max(100), expectedRevision: z.number().int().nonnegative() });
 export const CreateCheckpointAttemptSchema = CommandEnvelopeSchema.extend({ rawText: z.string().min(1).max(12_000), tone: z.enum(["formal", "neutral", "friendly"]), reviewInstruction: z.string().max(1000).optional(), rewriteInstruction: z.string().max(1000).optional(), caseId: z.string().optional() }).strict();
@@ -70,7 +72,13 @@ export async function executeCheckpointNode(args: { teamId: string; userId: stri
       const article = await tx.article.findFirst({ where: { id: attempt.articleId, teamId: args.teamId }, select: { id: true, teamId: true, type: true, createdAt: true } });
       let expectations: CustomExpectation[] = [];
       try { expectations = normalizeCustomExpectations(attempt.case?.expectations ?? []); } catch { expectations = []; }
-      const evaluated = evaluatePressTransitionGuardrails({ edgeId: edge.id, sourceInput: nodeInput, sourceOutput: output, targetPayload, attempt: { teamId: args.teamId, articleId: attempt.articleId }, article: article ?? undefined, expectations });
+      const evidenceFactConsistency = edge.id === "draft-review"
+        ? evaluateEvidenceFactConsistency({
+            draftText: evidenceFactText(output),
+            sources: await loadEligibleEvidenceFactSources(args.teamId, tx),
+          })
+        : undefined;
+      const evaluated = evaluatePressTransitionGuardrails({ edgeId: edge.id, sourceInput: nodeInput, sourceOutput: output, targetPayload, attempt: { teamId: args.teamId, articleId: attempt.articleId }, article: article ?? undefined, expectations, evidenceFactConsistency });
       terminalVerdict = evaluated.verdict;
       const transition = await tx.pressAiDebugTransition.create({ data: { attemptId: attempt.id, edgeId: edge.id, sequence: edge.sequence, sourceNodeId: edge.source, targetNodeId: edge.target, sourceCheckpointId: checkpoint.id, targetPayload: json(targetPayload), verdict: evaluated.verdict } });
       if (attempt.baselineAttemptId) { const baselineTransition = await tx.pressAiDebugTransition.findFirst({ where: { attemptId: attempt.baselineAttemptId, edgeId: edge.id }, orderBy: { createdAt: "desc" } }); if (baselineTransition) await tx.pressAiDebugComparison.updateMany({ where: { candidateAttemptId: attempt.id, candidateCheckpointId: checkpoint.id }, data: { baselineTransitionId: baselineTransition.id, candidateTransitionId: transition.id, oldVerdict: baselineTransition.verdict, newVerdict: transition.verdict } }); }

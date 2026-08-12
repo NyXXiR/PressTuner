@@ -1,0 +1,23 @@
+%PDF-1.4
+% Controlled assertion: Bridge는 2026년 매출 200억원을 기록했다.
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 153 >>
+stream
+BT /F1 12 Tf 50 740 Td (CONTROLLED SYNTHETIC EVIDENCE - BRIDGE) Tj 0 -24 Td (2026 revenue: KRW 20,000,000,000 - equivalent to 200 eok won.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+trailer
+<< /Root 1 0 R >>
+%%EOF

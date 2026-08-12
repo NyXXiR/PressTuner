@@ -94,7 +94,7 @@ export function PressAiScenarioDemo() {
           <PressAiScenarioEvidencePanel />
           <section className="min-w-0 rounded-xl border border-border bg-card p-5" aria-labelledby="scenario-input-heading">
             <h2 id="scenario-input-heading" className="text-xl font-black">시나리오 메모</h2>
-            <p className="mt-1 text-sm text-muted-foreground">마지막 시장 점유율 주장은 문서에 없으므로 첫 정규화에서 BLOCK되어야 합니다.</p>
+            <p className="mt-1 text-sm text-muted-foreground">통제 값 360억원은 PDF의 200억원과 달라 초안→리뷰 전이에서 BLOCK되어야 합니다.</p>
             <label className="mt-4 block text-sm font-bold" htmlFor="scenario-memo">메모</label>
             <textarea id="scenario-memo" value={memo} onChange={(event) => setMemo(event.target.value)} disabled={Boolean(scenario)} rows={8} className="pt-input mt-1 min-h-44 resize-y px-3 py-2 disabled:opacity-70" />
             <label className="mt-3 block text-sm font-bold" htmlFor="scenario-tone">톤</label>
@@ -118,7 +118,7 @@ export function PressAiScenarioDemo() {
         {scenario && attempt ? <div className="mt-7 min-w-0 space-y-5">
           <PressAiScenarioLineage attempts={scenario.attempts} activeAttemptId={inspected?.id ?? attempt.id} onSelect={(item) => { setInspectedAttemptId(item.id); setSelection(defaultWorkbenchSelection(item)); }} />
 
-          {pending?.verdict === "BLOCK" ? <section className="rounded-xl border-2 border-rose-400 bg-rose-50 p-5 dark:bg-rose-950/20" aria-labelledby="scenario-repair-heading"><h2 id="scenario-repair-heading" className="text-xl font-black">근거 없는 주장을 수정하세요</h2><p className="mt-1 text-sm">부모 시도의 BLOCK 관찰은 계보에 남고, 수정한 메모는 자식 시도에서 다시 정규화됩니다.</p><label className="mt-4 block text-sm font-bold" htmlFor="scenario-repair-memo">수정 메모</label><textarea ref={repairRef} id="scenario-repair-memo" value={repairMemo} onChange={(event) => setRepairMemo(event.target.value)} rows={6} className="pt-input mt-1 min-h-36 resize-y px-3 py-2" /></section> : null}
+          {pending?.verdict === "BLOCK" ? <section className="rounded-xl border-2 border-rose-400 bg-rose-50 p-5 dark:bg-rose-950/20" aria-labelledby="scenario-repair-heading"><h2 id="scenario-repair-heading" className="text-xl font-black">근거와 다른 수치를 수정하세요</h2><p className="mt-1 text-sm">부모 시도의 BLOCK 관찰은 계보에 남고, 360억원만 200억원으로 교정한 자식 시도가 같은 정책을 다시 실행합니다.</p><label className="mt-4 block text-sm font-bold" htmlFor="scenario-repair-memo">수정 메모</label><textarea ref={repairRef} id="scenario-repair-memo" value={repairMemo} onChange={(event) => setRepairMemo(event.target.value)} rows={6} className="pt-input mt-1 min-h-36 resize-y px-3 py-2" /></section> : null}
 
           {attempt.activeNodeId === "draft-review" ? <label className="block rounded-xl border border-border bg-card p-4 text-sm font-bold">리뷰 지침<input value={reviewInstruction} onChange={(event) => setReviewInstruction(event.target.value)} maxLength={1000} className="pt-input mt-2 min-h-11 px-3" /></label> : null}
 

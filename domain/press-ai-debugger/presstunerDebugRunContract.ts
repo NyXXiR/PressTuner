@@ -6,15 +6,22 @@ import { pressCreationProcess } from "./processRegistry";
 
 export const PRESSTUNER_DEBUG_RUN_V1_SCHEMA_VERSION = "presstuner-debug-run/v1" as const;
 export const PRESSTUNER_DEBUG_RUN_V2_SCHEMA_VERSION = "presstuner-debug-run/v2" as const;
-export const PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION = "presstuner-debug-run/v3" as const;
-export const PRESSTUNER_PRESS_CREATION_WORKFLOW = { id: "presstuner.press-creation", version: "2.0.0" } as const;
+export const PRESSTUNER_DEBUG_RUN_V3_SCHEMA_VERSION = "presstuner-debug-run/v3" as const;
+export const PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION = "presstuner-debug-run/v4" as const;
+export const PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW = { id: "presstuner.press-creation", version: "2.0.0" } as const;
+export const PRESSTUNER_PRESS_CREATION_WORKFLOW = { id: "presstuner.press-creation", version: "2.1.0" } as const;
 export const PRESSTUNER_REQUIREMENT_SCOPE = Object.freeze({
   kind: "WORKFLOW",
   workflowId: PRESSTUNER_PRESS_CREATION_WORKFLOW.id,
   workflowVersion: PRESSTUNER_PRESS_CREATION_WORKFLOW.version,
 } as const);
+export const PRESSTUNER_LEGACY_REQUIREMENT_SCOPE = Object.freeze({
+  kind: "WORKFLOW",
+  workflowId: PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW.id,
+  workflowVersion: PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW.version,
+} as const);
 
-const exportedRequirementIds = new Set([
+const legacyExportedRequirementIds = new Set([
   "article-team-ownership",
   "fresh-press-release",
   "memo-brief-grounding",
@@ -24,9 +31,13 @@ const exportedRequirementIds = new Set([
   "review-note-selection",
   "review-checkpoint-lineage",
 ] as const);
+const exportedRequirementIds = new Set([
+  ...legacyExportedRequirementIds,
+  "evidence-fact-consistency",
+] as const);
 
 type RequirementId = (typeof exportedRequirementIds extends Set<infer Value> ? Value : never);
-type StageId = "article-initialization" | "brief-normalization" | "draft-generation" | "draft-review";
+type StageId = "article-initialization" | "brief-normalization" | "draft-generation" | "draft-review" | "verification";
 type EdgeId = "initialization-brief" | "brief-draft" | "draft-review" | "review-rewrite";
 
 export const PRESSTUNER_DOMAIN_REQUIREMENTS = pressCreationProcess.edges.flatMap((edge) =>
@@ -35,15 +46,21 @@ export const PRESSTUNER_DOMAIN_REQUIREMENTS = pressCreationProcess.edges.flatMap
     .map((requirementId) => {
       const identity = {
         requirementId: requirementId as RequirementId,
-        stageId: edge.source as StageId,
+        stageId: (requirementId === "evidence-fact-consistency" ? "verification" : edge.source) as StageId,
         edgeId: edge.id as EdgeId,
       };
       return { ...identity, display: requirementDisplayLabels(identity) };
     }),
 );
 
+export const PRESSTUNER_LEGACY_DOMAIN_REQUIREMENTS = PRESSTUNER_DOMAIN_REQUIREMENTS
+  .filter((item) => legacyExportedRequirementIds.has(item.requirementId as never));
+
 if (PRESSTUNER_DOMAIN_REQUIREMENTS.length !== exportedRequirementIds.size) {
   throw new Error("PRESSTUNER_DOMAIN_REQUIREMENT_REGISTRY_MISMATCH");
+}
+if (PRESSTUNER_LEGACY_DOMAIN_REQUIREMENTS.length !== 8) {
+  throw new Error("PRESSTUNER_LEGACY_DOMAIN_REQUIREMENT_REGISTRY_MISMATCH");
 }
 
 const safeIdentifier = z.string().min(1).max(200).regex(/^[A-Za-z0-9._:@/+~-]+$/);
@@ -91,6 +108,27 @@ const criticalFactDetails = z.object({
   if (details.missingFactHashes.length > details.counts.missing) context.addIssue({ code: "custom", path: ["missingFactHashes"], message: "too many missing hashes" });
 });
 
+const hashRef = z.string().regex(/^sha256:[0-9a-f]{64}$/);
+const sortedUniqueHashRefs = z.array(hashRef).max(32).superRefine((refs, context) => {
+  if (new Set(refs).size !== refs.length || refs.some((ref, index) => index > 0 && refs[index - 1]! >= ref)) {
+    context.addIssue({ code: "custom", message: "hash references must be unique and sorted" });
+  }
+});
+const evidenceRiskCounts = z.object({ NUMBER: count, PERIOD: count, DATE: count, PERSON: count, TITLE: count, DIRECT_QUOTE: count, OTHER: count }).strict();
+const evidenceFactConsistencyDetails = z.object({
+  kind: z.literal("EVIDENCE_FACT_CONSISTENCY"),
+  counts: z.object({ checked: count, matched: count, draftConflict: count, sourceConflict: count, notEvaluable: count }).strict(),
+  riskCategoryCounts: evidenceRiskCounts,
+  documentRefs: sortedUniqueHashRefs,
+  factRefs: sortedUniqueHashRefs,
+  claimRefs: sortedUniqueHashRefs,
+}).strict().superRefine((details, context) => {
+  const outcomes = details.counts.matched + details.counts.draftConflict + details.counts.sourceConflict + details.counts.notEvaluable;
+  if (details.counts.checked !== outcomes) context.addIssue({ code: "custom", path: ["counts"], message: "invalid evidence outcome counts" });
+  const risks = Object.values(details.riskCategoryCounts).reduce((sum, value) => sum + value, 0);
+  if (risks !== details.counts.checked) context.addIssue({ code: "custom", path: ["riskCategoryCounts"], message: "invalid evidence risk counts" });
+});
+
 const outcome = z.discriminatedUnion("state", [
   z.object({ state: z.literal("EVALUATED"), verdict: z.enum(["PASS", "WARN", "BLOCK"]), evaluatedAt: timestamp }).strict(),
   z.object({ state: z.literal("NOT_EVALUABLE"), reasonCode: z.enum(["MANDATORY_OBSERVATION_MISSING", "SAFE_AGGREGATE_UNAVAILABLE"]) }).strict(),
@@ -113,12 +151,25 @@ const v3RequirementObservation = z.object({
   edgeId: safeIdentifier,
   display: requirementDisplay,
   scope: z.object({
+    kind: z.literal(PRESSTUNER_LEGACY_REQUIREMENT_SCOPE.kind),
+    workflowId: z.literal(PRESSTUNER_LEGACY_REQUIREMENT_SCOPE.workflowId),
+    workflowVersion: z.literal(PRESSTUNER_LEGACY_REQUIREMENT_SCOPE.workflowVersion),
+  }).strict(),
+  outcome,
+  details: criticalFactDetails.optional(),
+}).strict();
+const v4RequirementObservation = z.object({
+  requirementId: safeIdentifier,
+  stageId: safeIdentifier,
+  edgeId: safeIdentifier,
+  display: requirementDisplay,
+  scope: z.object({
     kind: z.literal(PRESSTUNER_REQUIREMENT_SCOPE.kind),
     workflowId: z.literal(PRESSTUNER_REQUIREMENT_SCOPE.workflowId),
     workflowVersion: z.literal(PRESSTUNER_REQUIREMENT_SCOPE.workflowVersion),
   }).strict(),
   outcome,
-  details: criticalFactDetails.optional(),
+  details: z.union([criticalFactDetails, evidenceFactConsistencyDetails]).optional(),
 }).strict();
 
 function validateTopology(snapshot: { topology: z.infer<typeof executionFields.topology>; nodes: Array<{ nodeId: string }>; checkpoints: Array<{ nodeId: string }>; transitions: Array<{ edgeId: string }>; humanGates: Array<{ edgeId: string; gateId: string }> }, context: z.RefinementCtx) {
@@ -148,11 +199,11 @@ export const PressTunerDebugRunV1SnapshotSchema = z.object({
 export const PressTunerDebugRunV2SnapshotSchema = z.object({
   schemaVersion: z.literal(PRESSTUNER_DEBUG_RUN_V2_SCHEMA_VERSION),
   ...executionFields,
-  workflow: z.object({ id: z.literal(PRESSTUNER_PRESS_CREATION_WORKFLOW.id), version: z.literal(PRESSTUNER_PRESS_CREATION_WORKFLOW.version) }).strict(),
-  domainObservations: z.object({ requirements: z.array(v2RequirementObservation).length(PRESSTUNER_DOMAIN_REQUIREMENTS.length) }).strict(),
+  workflow: z.object({ id: z.literal(PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW.id), version: z.literal(PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW.version) }).strict(),
+  domainObservations: z.object({ requirements: z.array(v2RequirementObservation).length(PRESSTUNER_LEGACY_DOMAIN_REQUIREMENTS.length) }).strict(),
 }).strict().superRefine((snapshot, context) => {
   validateTopology(snapshot, context);
-  const expected = new Map<string, (typeof PRESSTUNER_DOMAIN_REQUIREMENTS)[number]>(PRESSTUNER_DOMAIN_REQUIREMENTS.map((item) => [item.requirementId, item]));
+  const expected = new Map<string, (typeof PRESSTUNER_DOMAIN_REQUIREMENTS)[number]>(PRESSTUNER_LEGACY_DOMAIN_REQUIREMENTS.map((item) => [item.requirementId, item]));
   const seen = new Set<string>();
   for (const [index, item] of snapshot.domainObservations.requirements.entries()) {
     const definition = expected.get(item.requirementId);
@@ -167,13 +218,13 @@ export const PressTunerDebugRunV2SnapshotSchema = z.object({
 });
 
 export const PressTunerDebugRunV3SnapshotSchema = z.object({
-  schemaVersion: z.literal(PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION),
+  schemaVersion: z.literal(PRESSTUNER_DEBUG_RUN_V3_SCHEMA_VERSION),
   ...executionFields,
-  workflow: z.object({ id: z.literal(PRESSTUNER_PRESS_CREATION_WORKFLOW.id), version: z.literal(PRESSTUNER_PRESS_CREATION_WORKFLOW.version) }).strict(),
-  domainObservations: z.object({ requirements: z.array(v3RequirementObservation).length(PRESSTUNER_DOMAIN_REQUIREMENTS.length) }).strict(),
+  workflow: z.object({ id: z.literal(PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW.id), version: z.literal(PRESSTUNER_LEGACY_PRESS_CREATION_WORKFLOW.version) }).strict(),
+  domainObservations: z.object({ requirements: z.array(v3RequirementObservation).length(PRESSTUNER_LEGACY_DOMAIN_REQUIREMENTS.length) }).strict(),
 }).strict().superRefine((snapshot, context) => {
   validateTopology(snapshot, context);
-  const expected = new Map<string, (typeof PRESSTUNER_DOMAIN_REQUIREMENTS)[number]>(PRESSTUNER_DOMAIN_REQUIREMENTS.map((item) => [item.requirementId, item]));
+  const expected = new Map<string, (typeof PRESSTUNER_DOMAIN_REQUIREMENTS)[number]>(PRESSTUNER_LEGACY_DOMAIN_REQUIREMENTS.map((item) => [item.requirementId, item]));
   const seen = new Set<string>();
   for (const [index, item] of snapshot.domainObservations.requirements.entries()) {
     const definition = expected.get(item.requirementId);
@@ -181,7 +232,7 @@ export const PressTunerDebugRunV3SnapshotSchema = z.object({
     else if (item.stageId !== definition.stageId
       || item.edgeId !== definition.edgeId
       || JSON.stringify(item.display) !== JSON.stringify(definition.display)
-      || JSON.stringify(item.scope) !== JSON.stringify(PRESSTUNER_REQUIREMENT_SCOPE)) {
+      || JSON.stringify(item.scope) !== JSON.stringify(PRESSTUNER_LEGACY_REQUIREMENT_SCOPE)) {
       context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index], message: "noncanonical requirement metadata" });
     }
     if (item.requirementId === "critical-fact-preservation") {
@@ -192,11 +243,40 @@ export const PressTunerDebugRunV3SnapshotSchema = z.object({
   }
 });
 
-export const PressTunerDebugRunSnapshotSchema = z.discriminatedUnion("schemaVersion", [PressTunerDebugRunV1SnapshotSchema, PressTunerDebugRunV2SnapshotSchema, PressTunerDebugRunV3SnapshotSchema]);
+export const PressTunerDebugRunV4SnapshotSchema = z.object({
+  schemaVersion: z.literal(PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION),
+  ...executionFields,
+  workflow: z.object({ id: z.literal(PRESSTUNER_PRESS_CREATION_WORKFLOW.id), version: z.literal(PRESSTUNER_PRESS_CREATION_WORKFLOW.version) }).strict(),
+  domainObservations: z.object({ requirements: z.array(v4RequirementObservation).max(200) }).strict(),
+}).strict().superRefine((snapshot, context) => {
+  validateTopology(snapshot, context);
+  const topologyEdgeIds = new Set(snapshot.topology.edges.map((edge) => edge.id));
+  const expected = new Map<string, (typeof PRESSTUNER_DOMAIN_REQUIREMENTS)[number]>(PRESSTUNER_DOMAIN_REQUIREMENTS.map((item) => [item.requirementId, item]));
+  const seen = new Set<string>();
+  for (const [index, item] of snapshot.domainObservations.requirements.entries()) {
+    if (seen.has(item.requirementId)) context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index], message: "duplicate requirement" });
+    if (!topologyEdgeIds.has(item.edgeId)) context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index, "edgeId"], message: "dangling requirement edge" });
+    const definition = expected.get(item.requirementId);
+    if (definition && (item.stageId !== definition.stageId || item.edgeId !== definition.edgeId || JSON.stringify(item.display) !== JSON.stringify(definition.display))) {
+      context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index], message: "noncanonical known requirement metadata" });
+    }
+    if (item.requirementId === "critical-fact-preservation" && item.outcome.state === "EVALUATED" && item.details?.kind !== "CRITICAL_FACT_PRESERVATION") {
+      context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index, "details"], message: "missing critical fact details" });
+    }
+    if (item.requirementId === "evidence-fact-consistency" && item.outcome.state === "EVALUATED" && item.details?.kind !== "EVIDENCE_FACT_CONSISTENCY") {
+      context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index, "details"], message: "missing evidence fact details" });
+    }
+    if (item.outcome.state !== "EVALUATED" && item.details) context.addIssue({ code: "custom", path: ["domainObservations", "requirements", index, "details"], message: "details require an evaluated outcome" });
+    seen.add(item.requirementId);
+  }
+});
+
+export const PressTunerDebugRunSnapshotSchema = z.discriminatedUnion("schemaVersion", [PressTunerDebugRunV1SnapshotSchema, PressTunerDebugRunV2SnapshotSchema, PressTunerDebugRunV3SnapshotSchema, PressTunerDebugRunV4SnapshotSchema]);
 export type PressTunerDebugRunV1Snapshot = z.infer<typeof PressTunerDebugRunV1SnapshotSchema>;
 export type PressTunerDebugRunSnapshot = z.infer<typeof PressTunerDebugRunSnapshotSchema>;
 export type PressTunerDebugRunV2Snapshot = z.infer<typeof PressTunerDebugRunV2SnapshotSchema>;
 export type PressTunerDebugRunV3Snapshot = z.infer<typeof PressTunerDebugRunV3SnapshotSchema>;
+export type PressTunerDebugRunV4Snapshot = z.infer<typeof PressTunerDebugRunV4SnapshotSchema>;
 
 type StoredEvidence = { checked?: unknown; evidenceOverflow?: unknown; missingCount?: unknown };
 export type DebugRunProjectionSource = {
@@ -231,6 +311,11 @@ function projectCriticalFactDetails(evidenceValue: unknown) {
   return criticalFactDetails.parse({ kind: "CRITICAL_FACT_PRESERVATION", counts: { checked, matched: checked - evidence.missingCount, missing: evidence.missingCount, overflow: evidence.evidenceOverflow, byKind }, missingFactHashes: facts.filter((fact) => fact.matchStatus === "MISSING").map((fact) => `sha256:${fact.factHash}`).sort().slice(0, 32) });
 }
 
+function projectEvidenceFactConsistencyDetails(evidenceValue: unknown) {
+  const parsed = evidenceFactConsistencyDetails.safeParse(evidenceValue);
+  return parsed.success ? parsed.data : null;
+}
+
 function projectDomainObservations(source: DebugRunProjectionSource) {
   const transitions = new Map(source.transitions.map((transition) => [transition.edgeId, transition]));
   return PRESSTUNER_DOMAIN_REQUIREMENTS.map((definition) => {
@@ -244,11 +329,18 @@ function projectDomainObservations(source: DebugRunProjectionSource) {
       if (!details) return { ...base, outcome: { state: "NOT_EVALUABLE" as const, reasonCode: "SAFE_AGGREGATE_UNAVAILABLE" as const } };
       return { ...base, outcome: { state: "EVALUATED" as const, verdict: observation.verdict, evaluatedAt: iso(transition.createdAt) }, details };
     }
+    if (definition.requirementId === "evidence-fact-consistency") {
+      const details = projectEvidenceFactConsistencyDetails(observation.evidence);
+      if (!details) return { ...base, outcome: { state: "NOT_EVALUABLE" as const, reasonCode: "SAFE_AGGREGATE_UNAVAILABLE" as const } };
+      const comparable = details.counts.matched + details.counts.draftConflict + details.counts.sourceConflict;
+      if (comparable === 0) return { ...base, outcome: { state: "NOT_EVALUABLE" as const, reasonCode: "SAFE_AGGREGATE_UNAVAILABLE" as const } };
+      return { ...base, outcome: { state: "EVALUATED" as const, verdict: observation.verdict, evaluatedAt: iso(transition.createdAt) }, details };
+    }
     return { ...base, outcome: { state: "EVALUATED" as const, verdict: observation.verdict, evaluatedAt: iso(transition.createdAt) } };
   });
 }
 
-export function buildPressTunerDebugRunSnapshot(source: DebugRunProjectionSource, args: { environment: string; snapshotRevision: number; capturedAt?: Date }): PressTunerDebugRunV3Snapshot {
+export function buildPressTunerDebugRunSnapshot(source: DebugRunProjectionSource, args: { environment: string; snapshotRevision: number; capturedAt?: Date }): PressTunerDebugRunV4Snapshot {
   const topologyNodes = [...pressCreationProcess.nodes].sort((a, b) => a.sequence - b.sequence).map((node) => ({ id: node.id, sequence: node.sequence, label: node.label }));
   const topologyEdges = [...pressCreationProcess.edges].sort((a, b) => a.sequence - b.sequence).map((edge) => ({ id: edge.id, sequence: edge.sequence, sourceNodeId: edge.source, targetNodeId: edge.target, humanGateId: edge.humanGate?.id ?? null }));
   const checkpoints = [...source.checkpoints].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.nodeId.localeCompare(b.nodeId));
@@ -263,7 +355,7 @@ export function buildPressTunerDebugRunSnapshot(source: DebugRunProjectionSource
   const transitions = [...source.transitions].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.edgeId.localeCompare(b.edgeId)).map((transition) => ({ edgeId: transition.edgeId, verdict: transition.verdict, state: transition.verdict === "BLOCK" ? "BLOCKED" as const : transition.advancedAt ? "ADVANCED" as const : edgeById.get(transition.edgeId)?.humanGateId ? "AWAITING_HUMAN" as const : "EVALUATED" as const, evaluatedAt: iso(transition.createdAt), advancedAt: optionalIso(transition.advancedAt) }));
   const transitionByEdge = new Map(source.transitions.map((transition) => [transition.edgeId, transition]));
   const humanGates = topologyEdges.flatMap((edge) => { const transition = transitionByEdge.get(edge.id); if (!edge.humanGateId || !transition) return []; return [{ gateId: edge.humanGateId, edgeId: edge.id, state: transition.verdict === "BLOCK" ? "BLOCKED" as const : transition.humanGateAcknowledgedAt ? "ACKNOWLEDGED" as const : "REQUESTED" as const, requestedAt: iso(transition.createdAt), resolvedAt: optionalIso(transition.humanGateAcknowledgedAt) }]; });
-  return PressTunerDebugRunV3SnapshotSchema.parse({ schemaVersion: PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION, snapshotRevision: args.snapshotRevision, capturedAt: iso(args.capturedAt ?? source.attempt.updatedAt), environment: args.environment, run: { id: source.attempt.id, attemptRevision: source.attempt.revision, processId: source.attempt.processId, processVersion: source.attempt.processVersion, registryHash: source.attempt.registryHash, status: source.attempt.status, startedAt: iso(source.attempt.createdAt), completedAt: optionalIso(source.attempt.completedAt) }, topology: { kind: "STATE_MACHINE", nodes: topologyNodes, edges: topologyEdges }, nodes, checkpoints: checkpoints.map((checkpoint) => ({ nodeId: checkpoint.nodeId, mode: checkpoint.mode, createdAt: iso(checkpoint.createdAt) })), transitions, humanGates, retry: { kind: source.attempt.parentAttemptId ? "RETRY" : "ORIGINAL", parentRunId: source.attempt.parentAttemptId, baselineRunId: source.attempt.baselineAttemptId, restoredNodeIds: checkpoints.filter((checkpoint) => checkpoint.mode === "RESTORED").map((checkpoint) => checkpoint.nodeId).sort() }, privacy: { contentExcluded: true }, workflow: PRESSTUNER_PRESS_CREATION_WORKFLOW, domainObservations: { requirements: projectDomainObservations(source) } });
+  return PressTunerDebugRunV4SnapshotSchema.parse({ schemaVersion: PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION, snapshotRevision: args.snapshotRevision, capturedAt: iso(args.capturedAt ?? source.attempt.updatedAt), environment: args.environment, run: { id: source.attempt.id, attemptRevision: source.attempt.revision, processId: source.attempt.processId, processVersion: source.attempt.processVersion, registryHash: source.attempt.registryHash, status: source.attempt.status, startedAt: iso(source.attempt.createdAt), completedAt: optionalIso(source.attempt.completedAt) }, topology: { kind: "STATE_MACHINE", nodes: topologyNodes, edges: topologyEdges }, nodes, checkpoints: checkpoints.map((checkpoint) => ({ nodeId: checkpoint.nodeId, mode: checkpoint.mode, createdAt: iso(checkpoint.createdAt) })), transitions, humanGates, retry: { kind: source.attempt.parentAttemptId ? "RETRY" : "ORIGINAL", parentRunId: source.attempt.parentAttemptId, baselineRunId: source.attempt.baselineAttemptId, restoredNodeIds: checkpoints.filter((checkpoint) => checkpoint.mode === "RESTORED").map((checkpoint) => checkpoint.nodeId).sort() }, privacy: { contentExcluded: true }, workflow: PRESSTUNER_PRESS_CREATION_WORKFLOW, domainObservations: { requirements: projectDomainObservations(source) } });
 }
 
 export function hashPressTunerDebugRunSnapshot(snapshot: PressTunerDebugRunSnapshot): string {

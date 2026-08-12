@@ -22,10 +22,16 @@ const evidenceText = [
   "MonoLab은 팀 협업 서비스 Bridge를 2026-09-18에 출시한다.",
   "Bridge 베타 설문은 참여자 120명을 대상으로 진행됐고 만족도는 92%였다.",
   "Bridge는 실시간 공동 편집과 승인 워크플로 기능을 제공한다.",
+  "Bridge는 2026년 매출 200억원을 기록했다.",
 ].join("\n");
 
 export const PUBLIC_PRESS_RAG_EVIDENCE = Object.freeze({
   id: "DOC-MONOLAB-BRIDGE-001",
+  sourceVersion: 1,
+  chunkId: "CHUNK-MONOLAB-BRIDGE-REVENUE-001",
+  pageStart: 1,
+  pageEnd: 1,
+  assetUrl: "/samples/press-ai-debugger/evidence-fact-consistency.pdf#page=1",
   title: "MonoLab Bridge 출시 팩트시트",
   text: evidenceText,
   facts: Object.freeze([
@@ -41,11 +47,15 @@ export const PUBLIC_PRESS_RAG_EVIDENCE = Object.freeze({
       id: "FACT-BRIDGE-FEATURES",
       excerpt: "Bridge는 실시간 공동 편집과 승인 워크플로 기능을 제공한다.",
     }),
+    Object.freeze({
+      id: "FACT-BRIDGE-REVENUE-2026",
+      excerpt: "Bridge는 2026년 매출 200억원을 기록했다.",
+    }),
   ]),
 });
 
 export const PUBLIC_PRESS_RAG_GUIDED_MEMO =
-  "MonoLab은 팀 협업 서비스 Bridge를 2026-09-18에 출시합니다. Bridge 베타 설문은 참여자 120명 대상이며 만족도는 92%입니다. 실시간 공동 편집과 승인 워크플로를 제공합니다. 국내 협업툴 시장 점유율 1위입니다.";
+  "MonoLab은 팀 협업 서비스 Bridge를 2026-09-18에 출시합니다. Bridge 베타 설문은 참여자 120명 대상이며 만족도는 92%입니다. 실시간 공동 편집과 승인 워크플로를 제공합니다. Bridge는 2026년 매출 360억원을 기록했습니다.";
 
 const canonicalNodes = pressCreationProcess.nodes.map((node) => ({ ...node }));
 const canonicalEdges = pressCreationProcess.edges.map((edge) =>
@@ -62,7 +72,7 @@ const canonicalEdges = pressCreationProcess.edges.map((edge) =>
 
 export const publicPressRagScenarioProcess = Object.freeze({
   ...pressCreationProcess,
-  version: "2.0.0-public-rag-demo",
+  version: "2.1.0-public-rag-demo",
   label: "공개 RAG 보도자료 시나리오",
   nodes: Object.freeze(canonicalNodes),
   edges: Object.freeze([
@@ -232,6 +242,11 @@ export type PublicPressRagScenario = {
 
 const PublicEvidenceSchema = z.object({
   id: z.literal(PUBLIC_PRESS_RAG_EVIDENCE.id),
+  sourceVersion: z.literal(PUBLIC_PRESS_RAG_EVIDENCE.sourceVersion),
+  chunkId: z.literal(PUBLIC_PRESS_RAG_EVIDENCE.chunkId),
+  pageStart: z.literal(PUBLIC_PRESS_RAG_EVIDENCE.pageStart),
+  pageEnd: z.literal(PUBLIC_PRESS_RAG_EVIDENCE.pageEnd),
+  assetUrl: z.literal(PUBLIC_PRESS_RAG_EVIDENCE.assetUrl),
   title: z.string(),
   text: z.string(),
   facts: z.array(z.object({ id: z.string(), excerpt: z.string() }).strict()),
@@ -283,6 +298,10 @@ export function verifyNormalizedClaims(output: PressRagNormalizationOutput) {
       continue;
     }
     checkedFactIds.add(fact.id);
+    if (fact.id === "FACT-BRIDGE-REVENUE-2026" && /2026\s*년\s*매출/u.test(item.claim)) {
+      // This controlled value is intentionally delegated to the shared draft guardrail.
+      continue;
+    }
     const tokens = item.claim.match(semanticTokenPattern) ?? [];
     const missing = tokens.filter((token) => !fact.excerpt.includes(token));
     if (missing.length) {
@@ -305,6 +324,18 @@ export function verifyNormalizedClaims(output: PressRagNormalizationOutput) {
       unsupportedClaims: unsupported,
       checkedFactIds: [...checkedFactIds],
     },
+  };
+}
+
+export function mountControlledRevenueCitation(
+  output: PressRagNormalizationOutput,
+): PressRagNormalizationOutput {
+  const fact = PUBLIC_PRESS_RAG_EVIDENCE.facts.find((item) => item.id === "FACT-BRIDGE-REVENUE-2026")!;
+  return {
+    ...output,
+    claims: output.claims.map((item) => /2026\s*년\s*매출/u.test(item.claim)
+      ? { ...item, citation: { sourceDocumentId: PUBLIC_PRESS_RAG_EVIDENCE.id, factId: fact.id, evidenceExcerpt: fact.excerpt } }
+      : item),
   };
 }
 

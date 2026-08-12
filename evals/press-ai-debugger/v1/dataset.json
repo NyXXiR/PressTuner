@@ -2,10 +2,10 @@
   "schemaVersion": "press-transition-dataset/v1",
   "version": "v1",
   "processId": "press-creation",
-  "processVersion": "2.0.0",
-  "registryHash": "fnv1a32:8f0d6630",
+  "processVersion": "2.1.0",
+  "registryHash": "fnv1a32:117c1712",
   "createdAt": "2026-08-06T00:00:00.000Z",
-  "contentHash": "ddc0fe14cbdd2039b1e3086327ae4c814930f951e76a0508b92b185f6309d23d",
+  "contentHash": "7cb95697b23dab540c0f0cff6460b171ac0bb59377672b9448613c5ebb777c14",
   "requiredEdgeIds": ["initialization-brief", "brief-draft", "draft-review", "review-rewrite"],
   "cases": [
     {

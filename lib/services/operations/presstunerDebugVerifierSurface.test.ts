@@ -47,8 +47,8 @@ test("verifier uses the authenticated Ops route and returns aggregate contract/p
   const result = verifyStoredSnapshot(snapshot, ["PRIVATE_MEMO", "team-private", "user-private"]);
   assert.deepEqual(result, {
     ok: true,
-    schemaVersion: "presstuner-debug-run/v3",
-    requirementCount: 8,
+    schemaVersion: "presstuner-debug-run/v4",
+    requirementCount: 9,
     canonicalScope: true,
     route: "/ops/ai-operations",
     privacy: "passed",
@@ -56,21 +56,24 @@ test("verifier uses the authenticated Ops route and returns aggregate contract/p
   assert.doesNotMatch(JSON.stringify(result), /10000000|attemptId|team|user|memo|snapshot|pressUrl|opsUrl/i);
 });
 
-test("verifier parses the strict snapshot union and requires v3 for a newly created run", () => {
+test("verifier parses the strict snapshot union and requires v4 for a newly created run", () => {
   assert.throws(() => verifyStoredSnapshot({ ...snapshot, prompt: "forbidden" }, []), /OPS_SNAPSHOT_CONTRACT_INVALID/);
-  const v2 = {
+  const v3 = {
     ...snapshot,
-    schemaVersion: "presstuner-debug-run/v2",
+    schemaVersion: "presstuner-debug-run/v3",
+    workflow: { id: "presstuner.press-creation", version: "2.0.0" },
     domainObservations: {
-      requirements: snapshot.domainObservations.requirements.map((item) => ({
-        requirementId: item.requirementId,
-        stageId: item.stageId,
-        edgeId: item.edgeId,
-        display: item.display,
-        outcome: item.outcome,
-        details: item.details,
-      })),
+      requirements: snapshot.domainObservations.requirements
+        .filter((item) => item.requirementId !== "evidence-fact-consistency")
+        .map((item) => ({
+          ...item,
+          scope: {
+            kind: "WORKFLOW",
+            workflowId: "presstuner.press-creation",
+            workflowVersion: "2.0.0",
+          },
+        })),
     },
   };
-  assert.throws(() => verifyStoredSnapshot(v2, []), /OPS_SNAPSHOT_V3_REQUIRED/);
+  assert.throws(() => verifyStoredSnapshot(v3, []), /OPS_SNAPSHOT_V4_REQUIRED/);
 });

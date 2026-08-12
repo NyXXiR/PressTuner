@@ -24,3 +24,12 @@ test("exports safe bilingual requirement, stage, and edge labels", () => {
     edgeLabel: { ko: "브리프에서 초안으로", en: "Brief to draft" },
   });
 });
+
+test("evidence consistency uses the logical verification stage without a topology node", () => {
+  assert.deepEqual(requirementDisplayLabels({ requirementId: "evidence-fact-consistency", stageId: "verification", edgeId: "draft-review" }), {
+    label: { ko: "근거 사실 일치", en: "Evidence fact consistency" },
+    stageLabel: { ko: "검증", en: "Verification" },
+    edgeLabel: { ko: "초안에서 리뷰로", en: "Draft to review" },
+  });
+  assert.equal(pressCreationProcess.nodes.some((node) => node.id === "verification"), false);
+});

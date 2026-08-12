@@ -2,6 +2,7 @@ import { pressCreationProcess } from "./processRegistry";
 import { extractPressDomainFacts, pressDomainContentText } from "./domainFacts";
 import { hashTelemetryValue } from "@/domain/ai-telemetry/privacy";
 import { customExpectationFingerprint, normalizeCustomExpectation, type CustomExpectation } from "./caseExpectations";
+import type { EvidenceFactConsistencyEvaluation } from "@/domain/article/evidenceFactConsistency";
 
 export type GuardrailVerdict = "PASS" | "WARN" | "BLOCK";
 export type GuardrailObservation = Readonly<{ guardrailId: string; origin: "MANDATORY" | "CASE_EXPECTATION"; expected: string; observed: string; reason: string; evidence: unknown; verdict: GuardrailVerdict; displayOrder: number }>;
@@ -43,7 +44,7 @@ function matches(expectation: CustomExpectation, value: string | string[] | numb
   return operator === "number_eq" && numeric === operand;
 }
 
-export function evaluatePressTransitionGuardrails(args: { edgeId: string; sourceInput: unknown; sourceOutput: unknown; targetPayload: unknown; attempt: { teamId: string; articleId: string }; article?: { id: string; teamId: string | null; type: string; createdAt?: Date }; expectations?: readonly CaseExpectation[] }): { verdict: GuardrailVerdict; observations: GuardrailObservation[] } {
+export function evaluatePressTransitionGuardrails(args: { edgeId: string; sourceInput: unknown; sourceOutput: unknown; targetPayload: unknown; attempt: { teamId: string; articleId: string }; article?: { id: string; teamId: string | null; type: string; createdAt?: Date }; expectations?: readonly CaseExpectation[]; evidenceFactConsistency?: EvidenceFactConsistencyEvaluation }): { verdict: GuardrailVerdict; observations: GuardrailObservation[] } {
   const edge = pressCreationProcess.edges.find((item) => item.id === args.edgeId);
   if (!edge) throw new Error("PRESS_AI_PROCESS_EDGE_INVALID");
   const target = typeof args.targetPayload === "string" ? args.targetPayload : JSON.stringify(args.targetPayload ?? "");
@@ -65,6 +66,19 @@ export function evaluatePressTransitionGuardrails(args: { edgeId: string; source
     } else if (id === "press-structure") {
       const value = args.sourceOutput as Record<string, unknown>; const valid = Boolean(value && typeof value.title === "string" && value.title.trim() && target.includes("plain") && /\S/.test(target));
       verdict = valid ? "PASS" : "WARN"; expected = "비어 있지 않은 제목과 본문 구조"; observed = valid ? "title/plain present" : "title 또는 plain 부족"; reason = valid ? reason : "복구 가능한 보도자료 구조 결함입니다."; evidence = { title: value?.title ?? null };
+    } else if (id === "evidence-fact-consistency") {
+      const assessment = args.evidenceFactConsistency;
+      verdict = assessment?.verdict === "BLOCK" ? "BLOCK" : "PASS";
+      expected = "현재 사실 근거와 비교 가능한 원고 주장";
+      observed = assessment ? assessment.verdict.toLocaleLowerCase("en-US") : "not_evaluable";
+      reason = assessment?.verdict === "BLOCK"
+        ? "현재 사실 근거와 원고 주장 또는 근거 권위 사이에 충돌이 있습니다."
+        : assessment?.verdict === "PASS"
+          ? reason
+          : "안전하게 평가할 수 있는 비교 근거가 없습니다.";
+      evidence = assessment?.verdict === "PASS" || assessment?.verdict === "BLOCK"
+        ? assessment.details
+        : null;
     } else if (id === "review-note-selection") {
       const selected = (args.targetPayload as Record<string, unknown>)?.selectedNoteIds; const ids = Array.isArray(selected) ? selected.filter((item): item is string => typeof item === "string") : []; const notes = (args.sourceOutput as Record<string, unknown>)?.notes; const available = new Set(Array.isArray(notes) ? notes.map((item) => (item as { id?: unknown })?.id).filter((item): item is string => typeof item === "string") : []); const valid = ids.length > 0 && ids.length === new Set(ids).size && ids.every((item) => available.has(item));
       verdict = valid ? "PASS" : "BLOCK"; expected = "저장된 리뷰 출력에 존재하는 고유 노트 ID"; observed = ids.join(", ") || "none"; reason = valid ? reason : "선택이 비었거나 오래되었거나 중복되었습니다."; evidence = { selected: ids, available: [...available] };

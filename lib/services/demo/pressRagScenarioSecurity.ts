@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import {
   PUBLIC_PRESS_RAG_COOKIE,
+  PUBLIC_PRESS_RAG_EVIDENCE,
   PUBLIC_PRESS_RAG_LIMITS,
   type PublicPressRagAttempt,
 } from "@/domain/demo/pressRagScenarioContract";
@@ -19,6 +20,7 @@ export type PublicPressRagCapabilityState = {
   issuedAt: number;
   expiresAt: number;
   commandsUsed: number;
+  evidence: typeof PUBLIC_PRESS_RAG_EVIDENCE;
   attempt: PublicPressRagAttempt;
   ancestors: PublicPressRagAttempt[];
 };
@@ -220,7 +222,7 @@ export function decodePressRagCapability(
   if (
     !value ||
     typeof value !== "object" ||
-    Object.keys(value).sort().join(",") !== "ancestors,attempt,commandsUsed,expiresAt,issuedAt,runId,sid,v"
+    Object.keys(value).sort().join(",") !== "ancestors,attempt,commandsUsed,evidence,expiresAt,issuedAt,runId,sid,v"
   ) throw new PressRagSecurityError("PRESS_RAG_CAPABILITY_INVALID", 401);
   const validAttempt = (attempt: unknown) => {
     if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) return false;
@@ -236,6 +238,7 @@ export function decodePressRagCapability(
     !Number.isSafeInteger(state.issuedAt) ||
     !Number.isSafeInteger(state.expiresAt) ||
     !Number.isSafeInteger(state.commandsUsed) || Number(state.commandsUsed) < 0 || Number(state.commandsUsed) > PUBLIC_PRESS_RAG_LIMITS.commandBudget ||
+    JSON.stringify(state.evidence) !== JSON.stringify(PUBLIC_PRESS_RAG_EVIDENCE) ||
     !validAttempt(state.attempt) ||
     !Array.isArray(state.ancestors) || state.ancestors.length > PUBLIC_PRESS_RAG_LIMITS.starts || !state.ancestors.every(validAttempt) ||
     Number(state.expiresAt) - Number(state.issuedAt) > PUBLIC_PRESS_RAG_LIMITS.capabilityTtlSeconds * 1000 ||

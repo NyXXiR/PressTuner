@@ -8,12 +8,20 @@ import {
   type VerificationRiskCategory,
 } from "@/domain/article/verificationPolicy";
 import { hashArticleContent } from "@/domain/article/articleContentHash";
+import {
+  EVIDENCE_FACT_CONSISTENCY_SOURCE_PREFIX,
+  evidenceFactText,
+  type EvidenceFactConsistencyEvaluation,
+  type NormalizedEvidenceAssertion,
+} from "@/domain/article/evidenceFactConsistency";
 import { classifyPressVerification, requirePressTransition } from "@/domain/press/pressProcess";
 import { prisma } from "@/lib/prisma";
 import { loadKnowledgeContexts } from "@/lib/services/knowledge/knowledgeContextService";
 import { withLockedPressProcess } from "@/lib/services/press/adapters/pressProcessPrismaAdapter";
+import { evaluateTeamEvidenceFactConsistency } from "./evidenceFactConsistencyService";
+import { emitArticleVerificationObservability } from "./articleVerificationObservability";
 
-export const ARTICLE_VERIFIER_VERSION = "article-verifier-v1";
+export const ARTICLE_VERIFIER_VERSION = "article-verifier-v2-evidence-fact-consistency";
 const VERIFIER_MODEL = process.env.PT_ARTICLE_VERIFIER_MODEL ?? "gpt-4.1-mini";
 
 type SnapshotClient = Pick<
@@ -135,6 +143,33 @@ export function validateVerifierFindings(
   });
 }
 
+export function selectAutomaticEvidenceAssertions(
+  evaluation: EvidenceFactConsistencyEvaluation,
+): NormalizedEvidenceAssertion[] {
+  const selectedIds = new Set([
+    ...evaluation.matchedAssertions.map((item) => item.assertionId),
+    ...evaluation.findings.flatMap((item) => item.evidenceAssertionIds),
+  ]);
+  return evaluation.assertions
+    .filter((item) => selectedIds.has(item.assertionId) && item.lineage)
+    .sort((a, b) => a.assertionId.localeCompare(b.assertionId));
+}
+
+export function buildAutomaticVerificationFindings(
+  evaluation: EvidenceFactConsistencyEvaluation,
+) {
+  return evaluation.findings.map((finding) => ({
+    type: "CONTRADICTION" as const,
+    riskCategory: "NUMBER" as const,
+    result: "BLOCK" as const,
+    claim: finding.reasonCode,
+    explanation: finding.reasonCode === "SOURCE_CONFLICT"
+      ? "현재 팀 지식의 독립된 사실 근거가 서로 충돌합니다. 팀 지식에서 근거 권위를 정리해 주세요."
+      : "현재 원고의 수치 주장이 팀 지식의 사실 근거와 일치하지 않습니다.",
+    evidenceFactIds: [...finding.evidenceAssertionIds],
+  }));
+}
+
 export function buildArticleVerifierResponseFormat(
   acceptedFactIds: readonly string[],
 ) {
@@ -238,13 +273,28 @@ export async function verifyArticle(args: {
     user: string,
     acceptedFactIds?: readonly string[],
   ) => Promise<string>;
+  relatedOperationId?: string;
+  loadContexts?: typeof loadKnowledgeContexts;
 }) {
   const snapshot = await loadArticleVerificationSnapshot(prisma, args);
+  const automaticEvaluation = args.teamId
+    ? await evaluateTeamEvidenceFactConsistency({
+        teamId: args.teamId,
+        draftText: evidenceFactText({
+          title: snapshot.article.title,
+          ...snapshot.canonicalBody,
+        }),
+      })
+    : null;
+  const automaticAssertions = automaticEvaluation
+    ? selectAutomaticEvidenceAssertions(automaticEvaluation)
+    : [];
   const facts = await prisma.articleFact.findMany({
     where: {
       articleId: args.articleId,
       ...(args.teamId ? { teamId: args.teamId } : {}),
       active: true,
+      NOT: { sourceKey: { startsWith: EVIDENCE_FACT_CONSISTENCY_SOURCE_PREFIX } },
     },
     select: {
       id: true,
@@ -253,8 +303,17 @@ export async function verifyArticle(args: {
       excerpt: true,
     },
   });
+  const acceptedFacts = [
+    ...facts,
+    ...automaticAssertions.map((assertion) => ({
+      id: assertion.assertionId,
+      origin: "RAG" as const,
+      content: assertion.lineage!.excerpt,
+      excerpt: assertion.lineage!.excerpt,
+    })),
+  ];
   const contexts = args.teamId
-    ? await loadKnowledgeContexts({
+    ? await (args.loadContexts ?? loadKnowledgeContexts)({
         teamId: args.teamId,
         query: [snapshot.article.title, JSON.stringify(snapshot.canonicalBody)].join(
           "\n",
@@ -276,7 +335,7 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
       title: snapshot.article.title,
       ...snapshot.canonicalBody,
     },
-    acceptedFacts: facts,
+    acceptedFacts,
     stylePolicy: contexts.stylePolicy,
     styleExamples: contexts.styleExamples,
   });
@@ -286,7 +345,7 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
       await (args.complete ?? defaultComplete)(
         system,
         user,
-        facts.map(({ id }) => id),
+        acceptedFacts.map(({ id }) => id),
       ),
     ) as { findings?: unknown };
   } catch {
@@ -294,12 +353,26 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
   }
   const findings = validateVerifierFindings(
     parsed.findings ?? [],
-    new Set(facts.map(({ id }) => id)),
+    new Set(acceptedFacts.map(({ id }) => id)),
   );
+  const mergedFindings = [
+    ...(automaticEvaluation
+      ? buildAutomaticVerificationFindings(automaticEvaluation)
+      : []),
+    ...findings,
+  ];
   const result = aggregateVerificationResult(
-    findings.map((finding) => finding.result),
+    mergedFindings.map((finding) => finding.result),
   );
-  return withLockedPressProcess(args, async ({ tx, snapshot: processSnapshot }) => {
+  const verification = await withLockedPressProcess(args, async ({ tx, snapshot: processSnapshot }) => {
+    const current = await loadArticleVerificationSnapshot(tx, args);
+    if (
+      current.draftHash !== snapshot.draftHash ||
+      current.groundingRevision !== snapshot.groundingRevision ||
+      current.corpusVersion !== snapshot.corpusVersion
+    ) {
+      throw new Error("ARTICLE_VERIFICATION_SNAPSHOT_STALE");
+    }
     requirePressTransition(processSnapshot.state, {
       type: "RECORD_VERIFICATION",
       result,
@@ -309,6 +382,75 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
         corpusVersion: snapshot.corpusVersion,
       },
     });
+    const automaticFactIds = new Map<string, string>();
+    if (args.teamId && automaticEvaluation) {
+      const activeSourceKeys: string[] = [];
+      for (const assertion of automaticAssertions) {
+        const lineage = assertion.lineage!;
+        const sourceKey = `${EVIDENCE_FACT_CONSISTENCY_SOURCE_PREFIX}${assertion.assertionId.slice(4)}`;
+        activeSourceKeys.push(sourceKey);
+        const fact = await tx.articleFact.upsert({
+          where: {
+            articleId_sourceKey: { articleId: args.articleId, sourceKey },
+          },
+          update: {
+            active: true,
+            content: lineage.excerpt,
+            documentId: lineage.documentId,
+            chunkId: lineage.chunkId,
+            pageStart: lineage.pageStart,
+            pageEnd: lineage.pageEnd,
+            excerpt: lineage.excerpt,
+          },
+          create: {
+            articleId: args.articleId,
+            teamId: args.teamId,
+            origin: "RAG",
+            sourceKey,
+            content: lineage.excerpt,
+            active: true,
+            documentId: lineage.documentId,
+            chunkId: lineage.chunkId,
+            pageStart: lineage.pageStart,
+            pageEnd: lineage.pageEnd,
+            excerpt: lineage.excerpt,
+          },
+          select: { id: true },
+        });
+        automaticFactIds.set(assertion.assertionId, fact.id);
+      }
+      await tx.articleFact.updateMany({
+        where: {
+          articleId: args.articleId,
+          sourceKey: { startsWith: EVIDENCE_FACT_CONSISTENCY_SOURCE_PREFIX },
+          ...(activeSourceKeys.length > 0
+            ? { NOT: { sourceKey: { in: activeSourceKeys } } }
+            : {}),
+          active: true,
+        },
+        data: { active: false },
+      });
+      const matchedFactIds = automaticEvaluation.matchedAssertions.flatMap((item) => {
+        const id = automaticFactIds.get(item.assertionId);
+        return id ? [id] : [];
+      });
+      if (matchedFactIds.length > 0) {
+        await tx.articleDraftEvidence.createMany({
+          data: [...new Set(matchedFactIds)].map((factId) => ({
+            articleId: args.articleId,
+            factId,
+            draftHash: snapshot.draftHash,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+    const persistedFindings = mergedFindings.map((finding) => ({
+      ...finding,
+      evidenceFactIds: finding.evidenceFactIds.map(
+        (id) => automaticFactIds.get(id) ?? id,
+      ),
+    }));
     return tx.articleVerification.create({
     data: {
       articleId: args.articleId,
@@ -320,7 +462,7 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
       modelVersion: VERIFIER_MODEL,
       result,
       findings: {
-        create: findings.map((finding) => ({
+        create: persistedFindings.map((finding) => ({
           type: finding.type,
           riskCategory: finding.riskCategory,
           result: finding.result,
@@ -333,6 +475,14 @@ BLOCK 심각도는 선택하지 말고 결정적 정책이 적용하도록 한�
     include: { findings: true },
     });
   });
+  if (args.teamId && automaticEvaluation) {
+    await emitArticleVerificationObservability({
+      teamId: args.teamId,
+      verdict: automaticEvaluation.verdict,
+      relatedOperationId: args.relatedOperationId,
+    });
+  }
+  return verification;
 }
 
 export async function getLatestArticleVerification(args: {

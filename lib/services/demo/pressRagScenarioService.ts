@@ -11,6 +11,7 @@ import {
   PressRagRewriteOutputSchema,
   PressRagStartRequestSchema,
   ensureMemoClaimsEnumerated,
+  mountControlledRevenueCitation,
   type PressRagCommandRequest,
   type PublicPressRagScenario,
 } from "@/domain/demo/pressRagScenarioContract";
@@ -80,7 +81,7 @@ function scenarioFromState(
     attempt: state.attempt,
     attempts: [...state.ancestors, state.attempt],
     capability: encodePressRagCapability(state, secret),
-    evidence: PUBLIC_PRESS_RAG_EVIDENCE,
+    evidence: state.evidence,
     quota: pressRagQuota(session, now),
     limits: PUBLIC_PRESS_RAG_LIMITS,
     commandsRemaining: PUBLIC_PRESS_RAG_LIMITS.commandBudget - state.commandsUsed,
@@ -105,6 +106,7 @@ export function startPublicPressRagScenario(
     issuedAt: now,
     expiresAt: now + PUBLIC_PRESS_RAG_LIMITS.capabilityTtlSeconds * 1000,
     commandsUsed: 0,
+    evidence: PUBLIC_PRESS_RAG_EVIDENCE,
     attempt,
     ancestors: [],
   };
@@ -179,12 +181,23 @@ function completionRequest(nodeId: string, input: unknown, reviewRun: number) {
 function parseCompletion(kind: PressRagCompletionKind, value: unknown, memo: string) {
   if (kind === "normalization") {
     return PressRagNormalizationOutputSchema.parse(
-      ensureMemoClaimsEnumerated(memo, PressRagNormalizationOutputSchema.parse(value)),
+      mountControlledRevenueCitation(ensureMemoClaimsEnumerated(memo, PressRagNormalizationOutputSchema.parse(value))),
     );
   }
   if (kind === "draft") return PressRagDraftOutputSchema.parse(value);
   if (kind === "review") return PressRagReviewOutputSchema.parse(value);
   return PressRagRewriteOutputSchema.parse(value);
+}
+
+function controlledDraftRevenue(value: unknown, corrected: boolean) {
+  const draft = PressRagDraftOutputSchema.parse(value);
+  const amount = corrected ? "200" : "360";
+  const assertion = `Bridge는 2026년 매출 ${amount}억원을 기록했습니다.`;
+  const pattern = /(Bridge(?:는)?\s*2026\s*년\s*매출(?:액)?\s*)[\d,]+(?:\.\d+)?\s*(?=억\s*원)/gu;
+  const plain = pattern.test(draft.plain)
+    ? draft.plain.replace(pattern, `$1${amount}`)
+    : `${draft.plain.trim()}\n${assertion}`;
+  return { ...draft, plain };
 }
 
 export async function commandPublicPressRagScenario(
@@ -219,13 +232,16 @@ export async function commandPublicPressRagScenario(
         input,
         attempt.checkpoints.filter((item) => item.nodeId === "draft-review").length + 1,
       );
-      const output = request
+      let output = request
         ? parseCompletion(
             request.kind,
             await options.completeJson(request),
             String((input as { rawText?: unknown }).rawText ?? attempt.inputSnapshot.rawText),
           )
         : { articleId: attempt.articleId, type: "PRESS_RELEASE" };
+      if (nodeId === "draft-generation") {
+        output = controlledDraftRevenue(output, Boolean(attempt.parentAttemptId));
+      }
       attempt = executePublicPressRagNode({
         attempt,
         input,

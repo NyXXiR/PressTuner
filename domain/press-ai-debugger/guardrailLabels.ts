@@ -8,6 +8,7 @@ const labels = {
     "critical-fact-preservation": { ko: "핵심 사실 보존", en: "Critical fact preservation" },
     "brief-draft-grounding": { ko: "브리프-초안 근거 일치", en: "Brief-to-draft grounding" },
     "press-structure": { ko: "보도자료 구조", en: "Press release structure" },
+    "evidence-fact-consistency": { ko: "근거 사실 일치", en: "Evidence fact consistency" },
     "review-note-selection": { ko: "리뷰 노트 선택 검증", en: "Review note selection" },
     "rewrite-instruction-bounds": { ko: "수정 지침 범위", en: "Rewrite instruction bounds" },
     "review-checkpoint-lineage": { ko: "리뷰 체크포인트 계보", en: "Review checkpoint lineage" },
@@ -18,6 +19,7 @@ const labels = {
     "brief-normalization": { ko: "브리프 정규화", en: "Brief normalization" },
     "draft-generation": { ko: "초안 생성", en: "Draft generation" },
     "draft-review": { ko: "초안 리뷰", en: "Draft review" },
+    "verification": { ko: "검증", en: "Verification" },
   },
   edge: {
     "initialization-brief": { ko: "초기화에서 브리프로", en: "Initialization to brief" },

@@ -50,15 +50,18 @@ export function verifyStoredSnapshot(snapshotInput: unknown, privateSentinels: r
 
   const parsed = PressTunerDebugRunSnapshotSchema.safeParse(JSON.parse(serialized));
   if (!parsed.success) fail("OPS_SNAPSHOT_CONTRACT_INVALID");
-  if (parsed.data.schemaVersion !== PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION) fail("OPS_SNAPSHOT_V3_REQUIRED");
+  if (parsed.data.schemaVersion !== PRESSTUNER_DEBUG_RUN_SCHEMA_VERSION) fail("OPS_SNAPSHOT_V4_REQUIRED");
 
   const requirements = parsed.data.domainObservations.requirements;
   if (requirements.length !== PRESSTUNER_DOMAIN_REQUIREMENTS.length) fail("OPS_SNAPSHOT_REQUIREMENT_ROSTER_INVALID");
   const critical = requirements.find((item) => item.requirementId === "critical-fact-preservation");
-  if (!critical || critical.outcome.state !== "EVALUATED" || !critical.details
-    || !["NUMBER", "DATE", "QUOTE", "CONSTRAINT"].every((kind) => critical.details?.counts.byKind[kind as keyof typeof critical.details.counts.byKind])) {
+  const criticalDetails = critical?.details?.kind === "CRITICAL_FACT_PRESERVATION" ? critical.details : null;
+  if (!critical || critical.outcome.state !== "EVALUATED" || !criticalDetails
+    || !(["NUMBER", "DATE", "QUOTE", "CONSTRAINT"] as const).every((kind) => Boolean(criticalDetails.counts.byKind[kind]))) {
     fail("OPS_SNAPSHOT_CRITICAL_FACT_COUNTS_MISSING");
   }
+  const evidenceConsistency = requirements.find((item) => item.requirementId === "evidence-fact-consistency");
+  if (!evidenceConsistency) fail("OPS_SNAPSHOT_EVIDENCE_FACT_CONSISTENCY_MISSING");
 
   return {
     ok: true,

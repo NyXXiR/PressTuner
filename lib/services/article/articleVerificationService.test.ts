@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildAutomaticVerificationFindings,
   buildArticleVerifierResponseFormat,
+  selectAutomaticEvidenceAssertions,
   validateVerifierFindings,
 } from "./articleVerificationService";
+import { evaluateEvidenceFactConsistency } from "@/domain/article/evidenceFactConsistency";
 
 test("verifier schema constrains cited evidence to accepted fact IDs", () => {
   const responseFormat = buildArticleVerifierResponseFormat([
@@ -82,4 +85,31 @@ test("deterministic verifier policy blocks RAG-backed high-risk contradictions",
     new Set(["accepted"]),
   );
   assert.equal(finding.result, "BLOCK");
+});
+
+test("automatic evidence findings are safe, blocking, and retain transient lineage IDs", () => {
+  const evaluation = evaluateEvidenceFactConsistency({
+    draftText: "2026년 매출 360억원",
+    sources: [{ documentId: "document", sourceVersion: 2, chunkId: "chunk", pageStart: 4, pageEnd: 4, excerpt: "2026년 매출 200억원", content: "2026년 매출 200억원" }],
+  });
+  const findings = buildAutomaticVerificationFindings(evaluation);
+  assert.deepEqual(findings.map(({ type, riskCategory, result, claim }) => ({ type, riskCategory, result, claim })), [{
+    type: "CONTRADICTION",
+    riskCategory: "NUMBER",
+    result: "BLOCK",
+    claim: "DRAFT_CONFLICT",
+  }]);
+  assert.deepEqual(findings[0]?.evidenceFactIds, [evaluation.assertions[0]?.assertionId]);
+  assert.doesNotMatch(JSON.stringify(findings), /360|200억원/);
+});
+
+test("automatic verifier context includes only comparable evidence assertions", () => {
+  const evaluation = evaluateEvidenceFactConsistency({
+    draftText: "Project A는 2026년 매출 200억원",
+    sources: [
+      { documentId: "a", sourceVersion: 1, chunkId: "a", pageStart: 1, pageEnd: 1, excerpt: "Project A는 2026년 매출 200억원", content: "Project A는 2026년 매출 200억원" },
+      { documentId: "b", sourceVersion: 1, chunkId: "b", pageStart: 1, pageEnd: 1, excerpt: "Project B는 2026년 매출 999억원", content: "Project B는 2026년 매출 999억원" },
+    ],
+  });
+  assert.deepEqual(selectAutomaticEvidenceAssertions(evaluation).map((item) => item.lineage?.documentId), ["a"]);
 });

@@ -43,3 +43,22 @@ test("block, retry lineage, review self-loop and repeated checkpoints form one l
   attempt = executePublicPressRagNode({ attempt, input: { selectedNoteIds: ["note-2"] }, output: { title: "최종", plain: "최종 본문" }, context: context() });
   assert.equal(attempt.status, "COMPLETED");
 });
+
+test("controlled PDF policy preserves parent BLOCK and gives corrected child PASS", () => {
+  let attempt = createPublicPressRagAttempt({ runId: "revenue", memo: "Bridge는 2026년 매출 360억원을 기록했습니다.", tone: "formal", now: 1_800_000_000_000 });
+  attempt = executePublicPressRagNode({ attempt, input: { type: "PRESS_RELEASE" }, output: { articleId: attempt.articleId }, context: context() });
+  attempt = advancePublicPressRagEdge(attempt, context());
+  attempt = executePublicPressRagNode({ attempt, input: { rawText: attempt.inputSnapshot.rawText }, output: normalized([{ claim: attempt.inputSnapshot.rawText, citation: citation(3) }]), context: context() });
+  attempt = advancePublicPressRagEdge(attempt, context());
+  attempt = executePublicPressRagNode({ attempt, input: { confirmedBrief: true }, output: { title: "Bridge 실적", plain: "Bridge는 2026년 매출 360억원을 기록했습니다." }, context: context() });
+  assert.equal(attempt.status, "BLOCKED");
+  assert.equal(attempt.transitions.at(-1)?.edgeId, "draft-review");
+  const parent = attempt;
+  attempt = retryPublicPressRagFromBlock({ attempt, correctedMemo: "Bridge는 2026년 매출 200억원을 기록했습니다.", context: context() });
+  assert.equal(attempt.activeNodeId, "draft-generation");
+  attempt = executePublicPressRagNode({ attempt, input: { confirmedBrief: true }, output: { title: "Bridge 실적", plain: "Bridge는 2026년 매출 200억원을 기록했습니다." }, context: context() });
+  assert.equal(attempt.transitions.at(-1)?.verdict, "PASS");
+  assert.equal(parent.transitions.at(-1)?.verdict, "BLOCK");
+  const evidence = attempt.transitions.at(-1)?.observations.find((item) => item.guardrailId === "evidence-fact-consistency")?.evidence;
+  assert.equal(JSON.stringify(evidence).includes("200억원"), false);
+});

@@ -62,7 +62,7 @@ export async function createPressProcessRun(args: { teamId: string; userId: stri
   if (args.enableObservability !== true) return run;
   try {
     const workflowId = args.processId === "press-creation" ? "presstuner.press-creation" : "presstuner.press-agent";
-    const workflowVersion = args.processId === "press-creation" ? "2.0.0" : "press-agent-v2";
+    const workflowVersion = args.processId === "press-creation" ? process.version : "press-agent-v2";
     const operation = await dependencies.beginOperation({ teamId: args.teamId, userId: args.userId, workflowId, workflowVersion, traceId });
     if (operation.status === "registered") {
       await prisma.agentRun.update({ where: { id: run.id }, data: { input: json({ ...privateInput, operationId: operation.operationId }) } });

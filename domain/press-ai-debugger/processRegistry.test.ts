@@ -36,3 +36,8 @@ test("Press creation declares the three real confirmation gates", () => {
   );
 });
 
+test("current Press creation publishes 2.1.0 and draft-review requires evidence consistency", () => {
+  assert.equal(pressCreationProcess.version, "2.1.0");
+  assert.ok(pressCreationProcess.edges.find((edge) => edge.id === "draft-review")
+    ?.mandatoryGuardrailIds.includes("evidence-fact-consistency"));
+});

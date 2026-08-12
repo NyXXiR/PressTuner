@@ -49,3 +49,11 @@ test("the browser boundary calls only the two public demo endpoints", async () =
   assert.match(client, /\/api\/demo\/press-rag-scenario\/command/);
   assert.doesNotMatch(client + hook, /\/api\/press\/|@prisma|OPENAI_API_KEY|signing/i);
 });
+
+test("the evidence panel links the controlled PDF page and exposes no upload input", async () => {
+  const panel = await source("components/demo/PressAiScenarioEvidencePanel.tsx");
+  const contract = await source("domain/demo/pressRagScenarioContract.ts");
+  assert.match(contract, /\/samples\/press-ai-debugger\/evidence-fact-consistency\.pdf#page=1/);
+  assert.match(panel, /PUBLIC_PRESS_RAG_EVIDENCE\.assetUrl/);
+  assert.doesNotMatch(panel, /type=["']file["']|onChange=.*files|upload/i);
+});

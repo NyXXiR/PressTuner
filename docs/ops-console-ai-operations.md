@@ -2,9 +2,56 @@
 
 ## Checkpoint debugger: one authoritative path
 
-The real `/demo/rag-test` checkpoint-attempt service publishes immutable `presstuner-debug-run/v3` snapshots. The checkpoint attempt UUID is the Ops Console `operationId`; PressTuner owns topology, lifecycle, retry, human-gate, requirement applicability, reachability, evaluability, and verdict meaning. Each of the eight observations carries the canonical workflow scope `{ kind: "WORKFLOW", workflowId: "presstuner.press-creation", workflowVersion: "2.0.0" }`. Ops Console independently validates the complete scoped roster, stores, counts, and visualizes the snapshots but does not reevaluate requirements.
+The real `/demo/rag-test` checkpoint-attempt service publishes immutable `presstuner-debug-run/v4` snapshots for workflow `presstuner.press-creation@2.1.0`. The checkpoint attempt UUID is the Ops Console `operationId`; PressTuner owns topology, lifecycle, retry, human-gate, requirement applicability, reachability, evaluability, and verdict meaning. V4 requirement IDs are extensible and unique within their workflow scope. Ops Console validates and visualizes snapshots but does not reevaluate requirements.
 
-The boundary is an allowlist. It contains fixed workflow/process identity, registry topology, lifecycle timestamps/states, and exactly eight producer-owned requirement observations. Outcomes are `EVALUATED`, `NOT_EVALUABLE`, `NOT_REACHED`, or `NOT_APPLICABLE`; only fixed reason codes cross. Critical-fact evidence crosses only as NUMBER/DATE/QUOTE/CONSTRAINT counts and SHA-256 hashes. Memo, brief, article, evaluator prose, expected/observed values, prompt, provider payload, raw evidence values, team ID, and user ID never cross.
+The boundary is an allowlist. It contains workflow/process identity, transmitted registry topology, lifecycle timestamps/states, and safe workflow-scoped requirement observations. Outcomes are `EVALUATED`, `NOT_EVALUABLE`, `NOT_REACHED`, or `NOT_APPLICABLE`; only fixed reason codes cross. Critical-fact and evidence-consistency details cross only as counts and sorted capped SHA-256 references. The privacy denylist rejects raw subjects, project names, values, units, source/PDF text, draft text, memo, brief, evaluator prose, prompt, provider payload, team IDs, user IDs, and actor IDs. `privacy.contentExcluded` must be `true`.
+
+The current evidence-consistency observation wire shape is:
+
+```json
+{
+  "requirementId": "evidence-fact-consistency",
+  "stageId": "verification",
+  "edgeId": "draft-review",
+  "display": {
+    "label": { "ko": "근거 사실 일치", "en": "Evidence fact consistency" },
+    "stageLabel": { "ko": "검증", "en": "Verification" },
+    "edgeLabel": { "ko": "초안에서 리뷰로", "en": "Draft to review" }
+  },
+  "scope": {
+    "kind": "WORKFLOW",
+    "workflowId": "presstuner.press-creation",
+    "workflowVersion": "2.1.0"
+  },
+  "outcome": { "state": "EVALUATED", "verdict": "BLOCK", "evaluatedAt": "2026-08-12T00:00:00.000Z" },
+  "details": {
+    "kind": "EVIDENCE_FACT_CONSISTENCY",
+    "counts": { "checked": 1, "matched": 0, "draftConflict": 1, "sourceConflict": 0, "notEvaluable": 0 },
+    "riskCategoryCounts": { "NUMBER": 1, "PERIOD": 0, "DATE": 0, "PERSON": 0, "TITLE": 0, "DIRECT_QUOTE": 0, "OTHER": 0 },
+    "documentRefs": ["sha256:<64-lowercase-hex>"],
+    "factRefs": ["sha256:<64-lowercase-hex>"],
+    "claimRefs": ["sha256:<64-lowercase-hex>"]
+  }
+}
+```
+
+The generic quality event carries identity and verdict only:
+
+```json
+{
+  "kind": "quality",
+  "metricId": "guardrail_verdict",
+  "value": 1,
+  "unit": "violations",
+  "sampleCount": 1,
+  "direction": "lower_is_better",
+  "stageId": "verification",
+  "guardrailId": "evidence-fact-consistency",
+  "verdict": "violation"
+}
+```
+
+Mappings are `PASS → pass`, `BLOCK → violation`, and no comparable evaluation → `not_evaluable`. Production verification registers `{ "type": "service", "reference": null }`, pseudonymizes only the tenant reference, and never sends a user/actor identifier. If a checkpoint attempt is related, its UUID is reused; otherwise a short-lived service operation is registered, reported, and completed.
 
 Snapshots are queued in `press_tuner_debug_snapshot_outbox` in the same transaction as each authoritative attempt mutation. Delivery happens after commit with a three-second timeout and never changes command success. Exact state is deduplicated by content hash; `snapshotRevision` is independent from attempt revision so failure-only changes remain observable.
 
@@ -27,9 +74,11 @@ Failure behavior:
 
 Unset `OPS_CONSOLE_PRESSTUNER_DEBUG_ENABLED` to retain the default enabled behavior. Set it to `false` for rollback; pending rows remain recoverable and checkpoint execution continues.
 
-## Compatibility behavior
+## Compatibility and rollout
 
-PressTuner and Ops Console retain explicit strict v1 and v2 parsers alongside v3. Pending v1/v2 outbox records remain deliverable unchanged, and stored historical snapshots remain readable without migration. A v1-only operation contributes to requirement trends as “observation not delivered”; Ops does not invent the seven observations v1 did not carry. Roll out Ops Console v3 parsing and failure-trends v2 serialization before enabling PressTuner v3 delivery. To roll back the emitter, set `OPS_CONSOLE_PRESSTUNER_DEBUG_ENABLED=false` or revert only new emission to v2; keep Ops Console v3 support deployed so stored v3 rows remain readable.
+V1, v2, and v3 schemas remain strict and frozen at the eight-requirement `2.0.0` roster. The sender union parses v1-v4, pending legacy outbox JSON is delivered unchanged, and no historical row is migrated. New outbox rows are v4. Rollout is Ops-first: deploy Ops Console v1-v4 acceptance before enabling PressTuner v4 delivery. Fail-open behavior applies to disabled credentials, timeout, network failure, non-2xx responses, and serialization/delivery errors; none may change verification, retry, finalization, or checkpoint results.
+
+Rollback is the server-side `OPS_CONSOLE_PRESSTUNER_DEBUG_ENABLED=false` switch. It disables only new delivery and preserves pending outbox rows. Keep Ops v4 parsing deployed so already stored v4 rows remain readable.
 
 Existing Press Agent operation registration, guardrail events, completion, and content-free OTLP export remain internal compatibility behavior. They are unrelated to checkpoint snapshot delivery.
 
@@ -49,8 +98,8 @@ The verifier requires `PRESS_QA_STORAGE_STATE` (an authenticated Playwright stor
 
 The browser confirmation uses the authenticated `/ops/ai-operations` route.
 The created attempt ID remains internal to the parameterized snapshot lookup.
-Stored JSON is parsed through the strict v1/v2/v3 snapshot union and the newly
-created run must resolve to v3. Successful output contains only schema version,
+Stored JSON is parsed through the strict v1/v2/v3/v4 snapshot union and the newly
+created run must resolve to v4. Successful output contains only schema version,
 requirement count, canonical-scope confirmation, route confirmation, and
 privacy status. It never prints the attempt ID, application or database URLs,
 memo text, snapshots, team/user identity, or caught database/HTTP bodies.

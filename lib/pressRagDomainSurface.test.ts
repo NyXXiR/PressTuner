@@ -107,3 +107,12 @@ test("editing a verified draft refreshes verification and disables stale FINAL a
     /disabled=\{completing \|\| reviewing \|\| !verificationFinalizable\}/,
   );
 });
+
+test("source conflicts point to team knowledge without introducing a press upload surface", () => {
+  const panel = readFileSync(join(root, "components/press/PressVerificationPanel.tsx"), "utf8");
+  const generator = readFileSync(join(root, "components/press/PressGenerator.tsx"), "utf8");
+  const simplified = readFileSync(join(root, "components/press/SimplifiedPressFlow.tsx"), "utf8");
+  assert.match(panel, /SOURCE_CONFLICT/);
+  assert.match(panel, /href="\/team\/knowledge"/);
+  assert.doesNotMatch(panel + generator + simplified, /type=["']file["']|PDF selector|uploadKnowledge/i);
+});

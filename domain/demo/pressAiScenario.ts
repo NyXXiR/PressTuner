@@ -16,8 +16,6 @@ export function latestScenarioReviewNotes(attempt: PublicPressRagAttempt) {
 
 export function repairedScenarioMemo(memo = PUBLIC_PRESS_RAG_GUIDED_MEMO) {
   return memo
-    .split(/(?<=[.!?。])\s+/u)
-    .filter((claim) => !/점유율|1위/u.test(claim))
-    .join(" ")
+    .replace(/(2026\s*년\s*매출(?:액)?\s*)360(?=\s*억\s*원)/gu, "$1200")
     .trim();
 }

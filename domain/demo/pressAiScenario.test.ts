@@ -7,8 +7,9 @@ import { createPublicPressRagAttempt, executePublicPressRagNode } from "./pressR
 
 test("scenario presentation follows the injected canonical topology", () => {
   assert.deepEqual(PRESS_AI_SCENARIO_NODES.map((node) => node.id), publicPressRagScenarioProcess.nodes.map((node) => node.id));
-  assert.doesNotMatch(repairedScenarioMemo(), /점유율|1위/);
-  assert.match(PUBLIC_PRESS_RAG_GUIDED_MEMO, /점유율 1위/);
+  assert.doesNotMatch(repairedScenarioMemo(), /360억원/);
+  assert.match(repairedScenarioMemo(), /200억원/);
+  assert.match(PUBLIC_PRESS_RAG_GUIDED_MEMO, /360억원/);
 });
 
 test("latest review notes select the second repeated checkpoint", () => {

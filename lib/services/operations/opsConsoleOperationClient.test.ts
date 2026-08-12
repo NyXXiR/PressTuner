@@ -111,6 +111,34 @@ test("operation client sends strict registration and completion contracts with p
   assert.doesNotMatch(serializedRequests, /raw-team-id|raw-user-id/);
 });
 
+test("service operation registration sends no actor identifier", async () => {
+  let captured: Record<string, unknown> | null = null;
+  const client = createOpsConsoleOperationClient({
+    environment: validEnvironment,
+    fetch: async (_url, init) => {
+      captured = JSON.parse(String(init?.body));
+      return new Response(null, { status: 201 });
+    },
+    randomUUID: () => operationId,
+    now: () => now,
+  });
+  const result = await client.beginService({
+    teamId: "raw-team-id",
+    workflowId: "presstuner.press-creation",
+    workflowVersion: "2.1.0",
+  });
+  assert.equal(result.status, "registered");
+  assert.deepEqual((captured as unknown as { workflow: unknown }).workflow, {
+    id: "presstuner.press-creation",
+    version: "2.1.0",
+  });
+  assert.deepEqual((captured as unknown as { actor: unknown }).actor, {
+    type: "service",
+    reference: null,
+  });
+  assert.equal(JSON.stringify(captured).includes("raw-team-id"), false);
+});
+
 test("operation client rejects an invalid traceId before requesting", async () => {
   const client = createOpsConsoleOperationClient({
     environment: validEnvironment,

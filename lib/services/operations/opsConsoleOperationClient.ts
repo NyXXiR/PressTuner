@@ -235,6 +235,46 @@ export function createOpsConsoleOperationClient(
       });
     },
 
+    async beginService(args: {
+      teamId: string;
+      workflowId: string;
+      workflowVersion: string;
+      operationId?: string;
+    }): Promise<OpsConsoleOperationResult> {
+      const operationId = args.operationId ?? randomUUID();
+      const configuration = readConfiguration(environment);
+      if (!configuration) return disabled(operationId);
+      if (!UUID_PATTERN.test(operationId)) {
+        return {
+          status: "failed",
+          code: "OPS_CONSOLE_INVALID_OPERATION_ID",
+          operationId,
+          environment: configuration.environment,
+        };
+      }
+      const timestamp = now().toISOString();
+      return request({
+        configuration,
+        fetch: fetchImpl,
+        url: `${configuration.baseUrl}/api/ai-operations/v1/operations`,
+        operationId,
+        body: {
+          schemaVersion: "ops-console/operation-registration/v1",
+          operationId,
+          traceId: createHash("sha256").update(operationId).digest("hex").slice(0, 32),
+          workflow: {
+            id: args.workflowId,
+            version: args.workflowVersion,
+          },
+          tenantRef: pseudonymizeOperationReference(args.teamId),
+          environment: configuration.environment,
+          actor: { type: "service", reference: null },
+          startedAt: timestamp,
+          registeredAt: timestamp,
+        },
+      });
+    },
+
     /**
      * Reports guardrail verdicts for a finished operation. Ops Console attributes each
      * verdict to the workflow stage it names, so its report can point at the stage that
@@ -321,6 +361,7 @@ export function createOpsConsoleOperationClient(
 const defaultClient = createOpsConsoleOperationClient();
 
 export const beginOpsConsoleOperation = defaultClient.begin;
+export const beginOpsConsoleServiceOperation = defaultClient.beginService;
 export const completeOpsConsoleOperation = defaultClient.complete;
 export const reportOpsConsoleGuardrails = defaultClient.reportGuardrails;
 export const readOpsConsoleOperationEnvironment = defaultClient.environment;

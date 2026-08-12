@@ -101,6 +101,11 @@ export function PressVerificationPanel({
               </strong>{" "}
               {finding.claim} —{" "}
               {finding.explanation}
+              {finding.claim === "SOURCE_CONFLICT" ? (
+                <a href="/team/knowledge" className="ml-2 font-bold text-primary underline">
+                  팀 지식에서 충돌 근거 정리
+                </a>
+              ) : null}
             </li>
           ))}
         </ul>

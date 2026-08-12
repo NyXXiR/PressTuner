@@ -7,6 +7,11 @@ import {
   type PressRagNormalizationOutput,
   type PublicPressRagAttempt,
 } from "./pressRagScenarioContract";
+import {
+  EVIDENCE_FACT_CONSISTENCY_REQUIREMENT_ID,
+  evidenceFactText,
+  evaluateEvidenceFactConsistency,
+} from "@/domain/article/evidenceFactConsistency";
 
 export class PressRagMachineError extends Error {
   constructor(readonly code: string, readonly details: Record<string, unknown> = {}) {
@@ -140,7 +145,7 @@ function observation(
 function passObservations(context: MachineContext, edgeId: string) {
   const edge = publicPressRagScenarioProcess.edges.find((item) => item.id === edgeId);
   return (edge?.mandatoryGuardrailIds ?? [])
-    .filter((id) => id !== FIXED_EVIDENCE_GUARDRAIL_ID)
+    .filter((id) => id !== FIXED_EVIDENCE_GUARDRAIL_ID && id !== EVIDENCE_FACT_CONSISTENCY_REQUIREMENT_ID)
     .map((id, index) =>
       observation(
         context,
@@ -198,6 +203,30 @@ function transitionForExecution(
         observations.length,
       ),
     ];
+  } else if (edgeId === "draft-review") {
+    const assessment = evaluateEvidenceFactConsistency({
+      draftText: evidenceFactText(output),
+      sources: [{
+        documentId: PUBLIC_PRESS_RAG_EVIDENCE.id,
+        sourceVersion: PUBLIC_PRESS_RAG_EVIDENCE.sourceVersion,
+        chunkId: PUBLIC_PRESS_RAG_EVIDENCE.chunkId,
+        pageStart: PUBLIC_PRESS_RAG_EVIDENCE.pageStart,
+        pageEnd: PUBLIC_PRESS_RAG_EVIDENCE.pageEnd,
+        excerpt: PUBLIC_PRESS_RAG_EVIDENCE.facts.find((item) => item.id === "FACT-BRIDGE-REVENUE-2026")!.excerpt,
+        content: PUBLIC_PRESS_RAG_EVIDENCE.facts.find((item) => item.id === "FACT-BRIDGE-REVENUE-2026")!.excerpt,
+      }],
+    });
+    verdict = assessment.verdict === "BLOCK" ? "BLOCK" : "PASS";
+    observations = [...observations, observation(
+      context,
+      EVIDENCE_FACT_CONSISTENCY_REQUIREMENT_ID,
+      verdict,
+      "통제 합성 PDF의 현재 수치 근거와 동일한 초안 주장",
+      assessment.verdict.toLocaleLowerCase("en-US"),
+      verdict === "BLOCK" ? "초안 수치가 통제 합성 근거와 충돌합니다." : "초안 수치가 통제 합성 근거와 일치합니다.",
+      assessment.verdict === "NOT_EVALUABLE" ? null : assessment.details,
+      observations.length,
+    )];
   }
   return {
     id: identifier(context, "transition"),
@@ -287,7 +316,7 @@ export function retryPublicPressRagFromBlock(args: {
   const blocked = args.attempt.transitions.find(
     (transition) => !transition.advancedAt && transition.verdict === "BLOCK",
   );
-  if (!blocked || blocked.edgeId !== "brief-draft") {
+  if (!blocked || !["brief-draft", "draft-review"].includes(blocked.edgeId)) {
     throw new PressRagMachineError("PRESS_RAG_RETRY_OUT_OF_ORDER");
   }
   const restored = args.attempt.checkpoints
@@ -299,6 +328,38 @@ export function retryPublicPressRagFromBlock(args: {
       mode: "RESTORED" as const,
     }));
   const createdAt = timestamp(context);
+  if (blocked.edgeId === "draft-review") {
+    const oldToNewCheckpoint = new Map(
+      restored.map((checkpoint, index) => [
+        args.attempt.checkpoints[index]?.id,
+        checkpoint.id,
+      ]),
+    );
+    const restoredTransitions = args.attempt.transitions
+      .filter((transition) => transition.advancedAt && transition.sequence < blocked.sequence)
+      .map((transition, index) => ({
+        ...transition,
+        id: identifier(context, "transition"),
+        sequence: index,
+        sourceCheckpointId: transition.sourceCheckpointId
+          ? oldToNewCheckpoint.get(transition.sourceCheckpointId)
+          : undefined,
+      }));
+    return {
+      ...args.attempt,
+      id: identifier(context, "attempt"),
+      parentAttemptId: args.attempt.id,
+      revision: context.revision ?? args.attempt.revision + 1,
+      status: "ACTIVE" as const,
+      activeNodeId: "draft-generation",
+      startNodeId: "draft-generation",
+      createdAt,
+      completedAt: null,
+      inputSnapshot: { ...args.attempt.inputSnapshot, rawText: args.correctedMemo },
+      checkpoints: restored,
+      transitions: restoredTransitions,
+    };
+  }
   const restoredInit = restored.find((checkpoint) => checkpoint.nodeId === "article-initialization");
   const transition = {
     id: identifier(context, "transition"),

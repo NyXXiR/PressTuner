@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluatePressTransitionGuardrails, rollUpGuardrailVerdict } from "./transitionGuardrails";
+import { evaluateEvidenceFactConsistency } from "@/domain/article/evidenceFactConsistency";
 
 test("mandatory observations are complete and expectations append deterministically", () => {
   const result = evaluatePressTransitionGuardrails({ edgeId: "initialization-brief", sourceInput: {}, sourceOutput: { articleId: "a" }, targetPayload: {}, attempt: { teamId: "t", articleId: "a" }, article: { id: "a", teamId: "t", type: "PRESS_RELEASE" }, expectations: [{ id: "z", field: "contains", value: "never" }, { id: "a", field: "notContains", value: "never" }] });
@@ -84,4 +85,24 @@ test("all matcher-v1 operators evaluate deterministic typed subjects", () => {
   const expectations = definitions.map(([subject, operator, operand], index) => ({ id: `operator-${index}`, edgeId: "draft-review", matcher: { version: 1 as const, subject, operator, ...(operand === undefined ? {} : { operand }) }, verdict: "BLOCK" as const }));
   const result = evaluatePressTransitionGuardrails({ edgeId: "draft-review", sourceInput: { rawText: "input" }, sourceOutput: { title: "Alpha", plain: "Beta", notes: [{ id: "n1" }, { id: "n2" }] }, targetPayload: { plain: "Gamma", selectedNoteIds: ["n1", "n2"] }, attempt: { teamId: "t", articleId: "a" }, expectations });
   assert.deepEqual(result.observations.filter((item) => item.origin === "CASE_EXPECTATION").map((item) => item.verdict), expectations.map(() => "PASS"));
+});
+
+test("evidence consistency blocks draft-review with only safe aggregate evidence", () => {
+  const assessment = evaluateEvidenceFactConsistency({
+    draftText: "2026년 매출 360억원",
+    sources: [{ documentId: "private-document", sourceVersion: 1, chunkId: "private-chunk", pageStart: 1, pageEnd: 1, excerpt: "2026년 매출 200억원", content: "2026년 매출 200억원" }],
+  });
+  const result = evaluatePressTransitionGuardrails({ edgeId: "draft-review", sourceInput: {}, sourceOutput: { title: "제목", plain: "본문" }, targetPayload: { plain: "본문" }, attempt: { teamId: "private-team", articleId: "article" }, evidenceFactConsistency: assessment });
+  const observation = result.observations.find((item) => item.guardrailId === "evidence-fact-consistency");
+  assert.equal(observation?.verdict, "BLOCK");
+  assert.equal(result.verdict, "BLOCK");
+  const serialized = JSON.stringify(observation?.evidence);
+  for (const raw of ["360", "200억원", "private-document", "private-chunk", "private-team"]) assert.equal(serialized.includes(raw), false);
+});
+
+test("missing evidence assessment never fabricates a PASS detail", () => {
+  const result = evaluatePressTransitionGuardrails({ edgeId: "draft-review", sourceInput: {}, sourceOutput: { title: "제목", plain: "본문" }, targetPayload: { plain: "본문" }, attempt: { teamId: "team", articleId: "article" } });
+  const observation = result.observations.find((item) => item.guardrailId === "evidence-fact-consistency");
+  assert.equal(observation?.verdict, "PASS");
+  assert.equal(observation?.evidence, null);
 });

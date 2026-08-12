@@ -122,12 +122,30 @@ This file records the long-lived rules for `PressTuner`.
   chunk, page, and excerpt provenance in the same transaction.
 - A verification is current only while canonical content hash, grounding
   revision, and team knowledge corpus version all match.
+- Team verification scans every numeric chunk that is current-team, READY,
+  effective FACT, on the active generation, non-deleted, and not displaced by
+  a non-deleted READY successor. Ranked top-K retrieval is not an authority
+  boundary for this check.
+- Evidence fact consistency compares only exact normalized
+  `(subject/project, period, metric, unit)` keys. Korean currency is converted
+  to exact base-KRW decimal strings without floating point; unsupported prose
+  is `not_evaluable` and is never guessed.
+- Multiple values from independent active documents for one key are
+  `SOURCE_CONFLICT` and block until `/team/knowledge` resolves the authority.
+  Automatic facts use the reserved
+  `verification:evidence-fact-consistency:` source-key prefix and retain
+  document, source-version, chunk, page, and excerpt lineage.
 - RAG-backed contradictions about a number, period, date, person, title, or
   direct quote block FINAL. Unsupported user facts and style-policy violations
   warn but do not block.
 - Every FINAL transition uses the authoritative finalization service and
   requires a current PASS or WARN. Reviewer approval leaves an article
   IN_PROGRESS.
+- Evidence consistency persistence rechecks draft hash, grounding revision,
+  and corpus version under the article lock. Matching automatic facts become
+  draft evidence and may become final citations; superseded automatic facts
+  are deactivated. This behavior reuses the current schema and adds no Prisma
+  model or migration.
 - Agent retrieval candidates and final citations are separate. Agent apply must
   reproduce the verified canonical draft hash and still satisfy the optimistic
   article-version guard.
