@@ -1,0 +1,91 @@
+{
+  "canonicalSha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+  "entryNodeIds": [
+    "article-initialization"
+  ],
+  "nodes": [
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:article.initialize:v1",
+      "kind": "ACTION",
+      "label": "문서 초기화",
+      "nodeId": "article-initialization"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "SOURCE_BOUND",
+        "sourceSetRef": {
+          "artifactId": "presstuner-memo-source-policy-v1",
+          "locator": "ref:policies/presstuner/memo-source/v1",
+          "mediaType": "application/json",
+          "schemaVersion": "1.0",
+          "sha256": "1a63503ce4a09b83308ebb6d927e9777f0d917538def6694ac19cc6d77971e99",
+          "sizeBytes": 228
+        }
+      },
+      "handlerRef": "presstuner:handler:press.normalize-brief:v1",
+      "kind": "HUMAN_GATE",
+      "label": "메모 정규화",
+      "nodeId": "brief-normalization"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "EXTERNAL_VERIFICATION",
+        "verifierRef": "presstuner:verifier:evidence-fact-consistency:v1"
+      },
+      "handlerRef": "presstuner:handler:press.generate-draft:v1",
+      "kind": "HUMAN_GATE",
+      "label": "초안 생성",
+      "nodeId": "draft-generation"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:press.review-draft:v1",
+      "kind": "HUMAN_GATE",
+      "label": "초안 리뷰",
+      "nodeId": "draft-review"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:press.rewrite-selected:v1",
+      "kind": "TERMINAL",
+      "label": "선택 수정",
+      "nodeId": "selected-rewrite"
+    }
+  ],
+  "processId": "press-creation",
+  "schemaVersion": "1.0",
+  "transitions": [
+    {
+      "decisionRef": "presstuner:decision:initialization-brief:v1",
+      "sourceNodeId": "article-initialization",
+      "targetNodeId": "brief-normalization",
+      "transitionId": "initialization-brief"
+    },
+    {
+      "decisionRef": "presstuner:decision:brief-draft:v1",
+      "sourceNodeId": "brief-normalization",
+      "targetNodeId": "draft-generation",
+      "transitionId": "brief-draft"
+    },
+    {
+      "decisionRef": "presstuner:decision:draft-review:v1",
+      "sourceNodeId": "draft-generation",
+      "targetNodeId": "draft-review",
+      "transitionId": "draft-review"
+    },
+    {
+      "decisionRef": "presstuner:decision:review-rewrite:v1",
+      "sourceNodeId": "draft-review",
+      "targetNodeId": "selected-rewrite",
+      "transitionId": "review-rewrite"
+    }
+  ],
+  "version": "2.1.0"
+}

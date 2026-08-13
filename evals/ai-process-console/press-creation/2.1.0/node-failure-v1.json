@@ -1,0 +1,15 @@
+{
+  "failureNodeId": "draft-generation",
+  "fixtureId": "node-failure-v1",
+  "memoText": "가상 서비스 감마의 합성 메모다.",
+  "processId": "press-creation",
+  "processVersion": "2.1.0",
+  "reviewInstruction": "결정적 실패를 재현한다.",
+  "rewriteInstruction": "사용되지 않는다.",
+  "scenario": "NODE_FAILURE",
+  "schemaVersion": "1.0",
+  "selectedNoteIds": [
+    "note_synthetic-session_0"
+  ],
+  "tone": "friendly"
+}

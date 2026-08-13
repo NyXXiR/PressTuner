@@ -1,0 +1,30 @@
+import { createHash } from "node:crypto";
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, child]) => child !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, stableValue(child)]),
+    );
+  }
+  return value;
+}
+
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(stableValue(value));
+}
+
+export function canonicalJsonFile(value: unknown): string {
+  return `${JSON.stringify(stableValue(value), null, 2)}\n`;
+}
+
+export function sha256Canonical(value: unknown): string {
+  return createHash("sha256").update(canonicalJson(value)).digest("hex");
+}
+
+export function sha256Text(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}

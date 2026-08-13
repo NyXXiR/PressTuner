@@ -1,0 +1,41 @@
+{
+  "capabilities": {
+    "domainEvents": {
+      "deduplicationKey": "SOURCE_AND_EVENT_ID",
+      "delivery": "AT_LEAST_ONCE",
+      "ordering": "PER_ATTEMPT_MONOTONIC_SEQUENCE",
+      "schemaVersion": "1.0",
+      "source": "urn:presstuner:ai-process-console:facts:v1",
+      "transactionalOutbox": true
+    },
+    "testRun": {
+      "available": true,
+      "endpoint": {
+        "destinationId": "presstuner.ai-process-console.test-run.v1",
+        "transport": "INJECTED"
+      },
+      "isolation": "PROJECT_OWNED_FIXTURE_ONLY"
+    }
+  },
+  "displayName": "PressTuner",
+  "environment": "conformance",
+  "manifestId": "presstuner.ai-process-console.v1",
+  "processes": [
+    {
+      "canonicalSha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+      "definition": {
+        "artifactId": "presstuner-press-creation-2.1.0",
+        "locator": "ref:definitions/presstuner/press-creation/2.1.0",
+        "mediaType": "application/json",
+        "schemaVersion": "1.0",
+        "sha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+        "sizeBytes": 2033
+      },
+      "processId": "press-creation",
+      "version": "2.1.0"
+    }
+  ],
+  "projectId": "presstuner",
+  "schemaVersion": "1.0",
+  "serviceName": "presstuner"
+}

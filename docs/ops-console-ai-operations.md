@@ -84,6 +84,8 @@ Existing Press Agent operation registration, guardrail events, completion, and c
 
 Generic producer capability negotiation, workflow-manifest registration, and execution-fact delivery are retired. PressTuner has no supported workflow/fact client or synthetic Ops test-data endpoint. Historical Ops workflow-definition and execution-fact rows remain read-only for trend history until the separate 180-day retention follow-up removes those tables.
 
+The standalone AI Process Console producer is a different integration boundary. It publishes checked local v1 artifacts and exposes a fixture-only command service backed by `ai_process_fact_outbox`. Its opt-in authenticated adapter can accept that one command and send EventV1 facts only to the separately configured AI Process Console. It never sends those facts to Ops Console, reuses neither Ops credentials nor `press_tuner_debug_snapshot_outbox`, and does not establish or claim a `CONNECTED` state. See [the producer pilot](./ai-process-console-producer-pilot.md) and [the authenticated adapter](./ai-process-console-producer-adapter.md).
+
 ## Verification
 
 Run focused unit/integration gates first, then use disposable databases and authenticated local servers:

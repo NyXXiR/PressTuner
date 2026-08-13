@@ -8,3 +8,11 @@ test("checkpoint lifecycle dual-writes every durable canonical phase", () => {
   assert.match(checkpoint, /phase: "STARTED"/); assert.match(checkpoint, /phase: "COMPLETED"/); assert.match(checkpoint, /phase: "FAILED"/); assert.match(checkpoint, /"BLOCKED"/);
   assert.match(retry, /mapReplayStarted/); assert.match(cases, /mapDatasetItemCaptured/); assert.match(checkpoint, /appendCanonicalEventInTransaction/);
 });
+
+test("checkpoint fact hooks are optional and execute at transaction-scoped mutations", () => {
+  const checkpoint = readFileSync("lib/services/press-ai-debugger/checkpointDebuggerService.ts", "utf8");
+  for (const hook of ["onAttemptCreated", "onNodeStarted", "onNodeCompleted", "onNodeFailed", "onTransitionEvaluated", "onTransitionSelected", "onEvidenceEvaluated", "onAttemptTerminal"]) assert.match(checkpoint, new RegExp(`${hook}(?:\\?\\.|!)\\(tx`));
+  assert.match(checkpoint, /onAttemptCreated\?\.\(tx/);
+  assert.match(checkpoint, /onNodeCompleted\?\.\(tx/);
+  assert.match(checkpoint, /onTransitionSelected\?\.\(tx/);
+});

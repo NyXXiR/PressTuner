@@ -511,6 +511,20 @@ enum PressTunerDebugSnapshotDeliveryState {
   CONTRACT_FAILURE
 }
 
+enum AiProcessTestRunStatus {
+  RECEIVED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+
+enum AiProcessFactDeliveryState {
+  PENDING
+  DELIVERED
+  DEAD_LETTER
+}
+
 // ---------------------------------------------------------
 // [MODELS]
 // ---------------------------------------------------------
@@ -2207,6 +2221,67 @@ model PressTunerDebugSnapshotOutbox {
   @@unique([attemptId, contentHash])
   @@index([deliveryState, retryAt, createdAt])
   @@map("press_tuner_debug_snapshot_outbox")
+}
+
+model AiProcessTestRun {
+  id                    String                 @id @default(cuid()) @map("id")
+  commandSource         String                 @map("command_source")
+  commandId             String                 @map("command_id")
+  commandHash           String                 @map("command_hash")
+  projectId             String                 @map("project_id")
+  testRunId             String                 @map("test_run_id")
+  correlationId         String                 @map("correlation_id")
+  processId             String?                @map("process_id")
+  processVersion        String?                @map("process_version")
+  processDefinitionHash String?                @map("process_definition_hash")
+  fixtureArtifactId     String                 @map("fixture_artifact_id")
+  fixtureSha256         String                 @map("fixture_sha256")
+  fixtureLocator        String                 @map("fixture_locator")
+  factAttemptId         String                 @map("fact_attempt_id")
+  status                AiProcessTestRunStatus @default(RECEIVED) @map("status")
+  rejectionCode         String?                @map("rejection_code")
+  failureCode           String?                @map("failure_code")
+  startedAt             DateTime?              @map("started_at")
+  completedAt           DateTime?              @map("completed_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  @@unique([commandSource, commandId])
+  @@unique([projectId, testRunId])
+  @@index([status, createdAt])
+  @@map("ai_process_test_run")
+}
+
+model AiProcessFactOutbox {
+  id            String                     @id @default(cuid()) @map("id")
+  source        String                     @map("source")
+  eventId       String                     @map("event_id")
+  attemptId     String                     @map("attempt_id")
+  sequence      Int                        @map("sequence")
+  eventType     String                     @map("event_type")
+  canonicalHash String                     @map("canonical_hash")
+  payload       Json                       @map("payload")
+  deliveryState AiProcessFactDeliveryState @default(PENDING) @map("delivery_state")
+  attemptCount  Int                        @default(0) @map("attempt_count")
+  nextAttemptAt DateTime?                  @map("next_attempt_at")
+  safeErrorCode String?                    @map("safe_error_code")
+  deliveredAt   DateTime?                  @map("delivered_at")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+
+  @@unique([source, eventId])
+  @@unique([source, attemptId, sequence])
+  @@index([deliveryState, nextAttemptAt, createdAt])
+  @@index([source, attemptId, sequence])
+  @@index([source, deliveryState, createdAt])
+  @@index([source, deliveryState, deliveredAt])
+  @@map("ai_process_fact_outbox")
+}
+
+model AiProcessProducerDeliveryWatermark {
+  source                   String   @id @map("source")
+  lastSuccessfulDeliveryAt DateTime @map("last_successful_delivery_at")
+
+  @@map("ai_process_producer_delivery_watermark")
 }
 
 model PressAiDebugCheckpoint {

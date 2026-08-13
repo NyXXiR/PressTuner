@@ -1,0 +1,6 @@
+{
+  "classification": "CONTENT_FREE",
+  "description": "Synthetic memo claims are checked against fixture-owned claim hashes; source text is never published in facts.",
+  "policyId": "presstuner:memo-source-policy:v1",
+  "schemaVersion": "1.0"
+}

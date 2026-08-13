@@ -1,0 +1,14 @@
+{
+  "fixtureId": "guardrail-block-v1",
+  "memoText": "가상 서비스 베타는 2042년 9월 공개되는 합성 서비스다.",
+  "processId": "press-creation",
+  "processVersion": "2.1.0",
+  "reviewInstruction": "근거 불일치를 재현한다.",
+  "rewriteInstruction": "사용되지 않는다.",
+  "scenario": "GUARDRAIL_BLOCK",
+  "schemaVersion": "1.0",
+  "selectedNoteIds": [
+    "note_synthetic-session_0"
+  ],
+  "tone": "neutral"
+}
