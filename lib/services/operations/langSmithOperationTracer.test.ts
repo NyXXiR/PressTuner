@@ -110,10 +110,9 @@ test("records a privacy-safe root run correlated by operation metadata", async (
   assert.equal(JSON.stringify({ created, updated }).includes("privateDraft"), false);
 });
 
-test("uses a provided canonical traceId and converts it to UUID form for LangSmith", async () => {
+test("keeps a provided domain trace separate from the LangSmith root identity", async () => {
   const { tracer, created } = createHarness();
   const canonicalTraceId = "123e4567e89b12d3a456426614174000";
-  const expectedUuid = "123e4567-e89b-12d3-a456-426614174000";
 
   await tracer.trace({
     operationId,
@@ -130,9 +129,10 @@ test("uses a provided canonical traceId and converts it to UUID form for LangSmi
   });
 
   assert.equal(created.length, 2);
-  assert.equal(created[0]!.trace_id, expectedUuid);
-  assert.equal(created[1]!.trace_id, expectedUuid);
+  assert.equal(created[0]!.trace_id, created[0]!.id);
+  assert.equal(created[1]!.trace_id, created[0]!.id);
   assert.equal(created[1]!.parent_run_id, created[0]!.id);
+  assert.equal(JSON.stringify(created).includes(canonicalTraceId), false);
 });
 
 test("never lets LangSmith delivery failure alter the Agent result", async () => {

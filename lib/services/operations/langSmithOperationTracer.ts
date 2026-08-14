@@ -296,17 +296,12 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     }));
   }
 
-  function hex32ToUuid(value: string): string {
-    const lower = value.toLowerCase();
-    return `${lower.slice(0, 8)}-${lower.slice(8, 12)}-${lower.slice(12, 16)}-${lower.slice(16, 20)}-${lower.slice(20, 32)}`;
-  }
-
   async function trace<T>(args: { operationId: string | null; traceId?: string | null; workflowId: string; workflowVersion: string; environment: string; phase: Phase; execute: () => Promise<T> }): Promise<T> {
     if (!args.operationId || !UUID_PATTERN.test(args.operationId)) return args.execute();
     const active = readConfiguredClient();
     if (!active) return args.execute();
     const runId = randomUUID();
-    const traceId = args.traceId && /^[0-9a-f]{32}$/i.test(args.traceId) ? hex32ToUuid(args.traceId) : runId;
+    const traceId = runId;
     const startedAt = now();
     const dottedOrder = createDottedOrder(startedAt, runId);
     try {
