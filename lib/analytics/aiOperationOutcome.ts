@@ -6,6 +6,9 @@ import { aggregationMetadataRegistry } from "@/domain/ai-process-console/v1/vend
 type TerminalAgentStatus = "COMPLETED" | "FAILED";
 type OutcomeInput = {
   vendorOperationId: string | null | undefined;
+  vendorProjectId: string | null | undefined;
+  vendorEnvironment: string | null | undefined;
+  vendorServiceName: string | null | undefined;
   status: string;
 };
 type OutcomeBrowser = {
@@ -15,6 +18,7 @@ type OutcomeBrowser = {
 };
 
 const PSEUDONYMOUS_OPERATION_PATTERN = /^hmac-sha256:[a-f0-9]{64}$/;
+const SAFE_DIMENSION_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/i;
 const EVENT_NAME_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
 const DEFAULT_POSTHOG_EVENT = "ai_operation_outcome";
 const DEFAULT_GA4_EVENT = "presstuner_ai_operation_business";
@@ -46,6 +50,9 @@ export function emitAiOperationOutcome(
   browser: OutcomeBrowser = defaultBrowser(),
 ): boolean {
   if (!input.vendorOperationId || !PSEUDONYMOUS_OPERATION_PATTERN.test(input.vendorOperationId)) return false;
+  if (!input.vendorProjectId || !SAFE_DIMENSION_PATTERN.test(input.vendorProjectId)) return false;
+  if (!input.vendorEnvironment || !SAFE_DIMENSION_PATTERN.test(input.vendorEnvironment)) return false;
+  if (!input.vendorServiceName || !SAFE_DIMENSION_PATTERN.test(input.vendorServiceName)) return false;
   if (!(["COMPLETED", "FAILED"] as string[]).includes(input.status)) return false;
 
   const status = input.status as TerminalAgentStatus;
@@ -67,10 +74,19 @@ export function emitAiOperationOutcome(
     DEFAULT_GA4_EVENT,
   );
   const operationKey = aggregationMetadataRegistry.operationId.posthog.key;
-  if (!operationKey) return false;
+  const projectKey = aggregationMetadataRegistry.projectId.posthog.key;
+  const environmentKey = aggregationMetadataRegistry.environment.posthog.key;
+  const serviceKey = aggregationMetadataRegistry.serviceName.posthog.key;
+  if (!operationKey || !projectKey || !environmentKey || !serviceKey) return false;
+  const properties = {
+    [projectKey]: input.vendorProjectId,
+    [environmentKey]: input.vendorEnvironment,
+    [serviceKey]: input.vendorServiceName,
+    [operationKey]: input.vendorOperationId,
+  };
   try {
     browser.capturePostHogEvent?.(postHogEvent, {
-      [operationKey]: input.vendorOperationId,
+      ...properties,
       outcome: productOutcome,
     });
   } catch {
@@ -80,7 +96,7 @@ export function emitAiOperationOutcome(
   if (status === "COMPLETED") {
     try {
       browser.gtag?.("event", ga4Event, {
-        [operationKey]: input.vendorOperationId,
+        ...properties,
         outcome: "conversion",
       });
     } catch {

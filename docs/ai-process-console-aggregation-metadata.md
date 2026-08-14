@@ -14,6 +14,8 @@ The active RAG aggregation dimensions are `project_id`, `environment`, `service_
 
 Provider-native observation fields are not canonical aggregation metadata. LangSmith run status, timing and token fields, and PostHog's `outcome` value remain provider-owned observations that the Console normalizes into bounded summaries.
 
+The browser `ai_operation_outcome` event is emitted only when the server returned the Console-projected `project_id`, `environment`, `service_name`, and HMAC `operation_id`. This is required because the MeerkatHQ PostHog provider project is shared by multiple products; `$host` is not an aggregation authority. Console queries bind `project_id=presstuner` before correlating operation outcomes.
+
 ## Update procedure
 
 When AI Process Console changes `packages/contracts/src/v1/metadata-registry.ts`, update the project adapter snapshot and its projection tests in the same integration change. A breaking registry change requires a new side-by-side contract version; do not silently reinterpret retained v1 data.

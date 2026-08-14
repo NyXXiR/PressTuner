@@ -63,6 +63,9 @@ type AgentRunView = {
   id: string;
   operationId?: string | null;
   vendorOperationId?: string | null;
+  vendorProjectId?: string | null;
+  vendorEnvironment?: string | null;
+  vendorServiceName?: string | null;
   status:
     | "PENDING"
     | "RUNNING"
@@ -232,6 +235,9 @@ export default function PressAssistantBar() {
     setAgentRun(run);
     emitAiOperationOutcome({
       vendorOperationId: run.vendorOperationId,
+      vendorProjectId: run.vendorProjectId,
+      vendorEnvironment: run.vendorEnvironment,
+      vendorServiceName: run.vendorServiceName,
       status: run.status,
     });
     return run;

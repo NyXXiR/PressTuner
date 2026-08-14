@@ -104,6 +104,9 @@ test("Agent v2 projects operation correlation through AI Process Console-owned a
   assert.match(source, /phase: "continuation"/);
   assert.match(source, /operationId: operation\.operationId/);
   assert.match(source, /projectMetadataForVendor/);
+  assert.match(source, /vendorProjectId:/);
+  assert.match(source, /vendorEnvironment:/);
+  assert.match(source, /vendorServiceName:/);
   assert.match(source, /processDefinitionHash:/);
   assert.match(source, /executionMode: "LIVE"/);
   assert.doesNotMatch(source, /workflow_id:/);

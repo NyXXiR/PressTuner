@@ -10,7 +10,13 @@ import vendorMetadataContract from "../domain/ai-process-console/v1/vendorMetada
 const { parseGa4OperationCollectRequest } = ga4RequestProof;
 const { aggregationMetadataRegistry } = vendorMetadataContract;
 const operationMetadataKey = aggregationMetadataRegistry.operationId.posthog.key;
+const projectMetadataKey = aggregationMetadataRegistry.projectId.posthog.key;
+const environmentMetadataKey = aggregationMetadataRegistry.environment.posthog.key;
+const serviceMetadataKey = aggregationMetadataRegistry.serviceName.posthog.key;
 assert.ok(operationMetadataKey, "AI Process Console PostHog operation key is missing");
+assert.ok(projectMetadataKey, "AI Process Console PostHog project key is missing");
+assert.ok(environmentMetadataKey, "AI Process Console PostHog environment key is missing");
+assert.ok(serviceMetadataKey, "AI Process Console PostHog service key is missing");
 
 loadDotEnv({ path: resolve(process.cwd(), ".env"), override: true });
 loadDotEnv({ path: resolve(process.cwd(), ".env.production"), override: false });
@@ -133,7 +139,7 @@ try {
     undefined,
     { timeout: 30_000 },
   );
-  await page.evaluate((canonicalOperationKey) => {
+  await page.evaluate(({ canonicalOperationKey, canonicalProjectKey, canonicalEnvironmentKey, canonicalServiceKey }) => {
     const calls = { posthog: [], ga4: [] };
     Object.defineProperty(window, "__aiOperationAnalyticsProof", {
       configurable: true,
@@ -148,8 +154,9 @@ try {
           calls.posthog.push({
             operationId: properties?.[canonicalOperationKey],
             outcome: properties?.outcome,
-            originProject: properties?.origin_project,
-            environment: properties?.environment,
+            projectId: properties?.[canonicalProjectKey],
+            environment: properties?.[canonicalEnvironmentKey],
+            serviceName: properties?.[canonicalServiceKey],
           });
         }
         capture(eventName, properties);
@@ -169,7 +176,12 @@ try {
         gtag(...args);
       };
     }
-  }, operationMetadataKey);
+  }, {
+    canonicalOperationKey: operationMetadataKey,
+    canonicalProjectKey: projectMetadataKey,
+    canonicalEnvironmentKey: environmentMetadataKey,
+    canonicalServiceKey: serviceMetadataKey,
+  });
   const analyticsBaseline = { ...analyticsRequestCounts };
   const analyticsResponseBaseline = analyticsResponses.length;
 
@@ -188,6 +200,9 @@ try {
   assert.equal(runBody.ok, true, "Press Agent response was not successful");
   assert.ok(UUID_PATTERN.test(run?.operationId ?? ""), "Press Agent returned no service operation ID");
   assert.ok(PSEUDONYMOUS_OPERATION_PATTERN.test(run?.vendorOperationId ?? ""), "Press Agent returned no projected vendor operation ID");
+  assert.equal(run?.vendorProjectId, "presstuner", "Press Agent returned the wrong projected project ID");
+  assert.equal(run?.vendorEnvironment, "production", "Press Agent returned the wrong projected environment");
+  assert.equal(run?.vendorServiceName, "presstuner", "Press Agent returned the wrong projected service name");
   assert.ok(
     run.status === "COMPLETED" || run.status === "FAILED",
     `Press Agent did not reach a terminal state: ${run.status ?? "unknown"}`,
@@ -217,8 +232,9 @@ try {
       (call) =>
         call.operationId === run.vendorOperationId &&
         call.outcome === expectedOutcome &&
-        call.originProject === "briefflow" &&
-        call.environment === "production",
+        call.projectId === run.vendorProjectId &&
+        call.environment === run.vendorEnvironment &&
+        call.serviceName === run.vendorServiceName,
     ),
     "the loaded PostHog SDK did not receive the exact operation outcome",
   );
@@ -264,8 +280,8 @@ try {
   console.log(JSON.stringify({
     status: "verified_browser_emission",
     operationId: run.vendorOperationId,
-    workflowId: "presstuner.press-agent",
-    workflowVersion: run.agentVersion,
+    processId: "rag-query",
+    processVersion: "1.0.0",
     terminalStatus: run.status,
     outcomeMarker: expectedOutcome,
     windowStart: proofStartedAt,

@@ -1931,6 +1931,9 @@ export async function getPressAgentRun(args: {
   }
   const operationId = readPressAgentOperationId(runRecord.input);
   const posthogOperationKey = aggregationMetadataRegistry.operationId.posthog.key;
+  const posthogProjectKey = aggregationMetadataRegistry.projectId.posthog.key;
+  const posthogEnvironmentKey = aggregationMetadataRegistry.environment.posthog.key;
+  const posthogServiceKey = aggregationMetadataRegistry.serviceName.posthog.key;
   const posthogMetadata = projectPressAgentAggregationMetadata({
     operationId,
     runId: runRecord.id,
@@ -1941,6 +1944,15 @@ export async function getPressAgentRun(args: {
     operationId,
     vendorOperationId: posthogOperationKey && typeof posthogMetadata[posthogOperationKey] === "string"
       ? posthogMetadata[posthogOperationKey]
+      : null,
+    vendorProjectId: posthogProjectKey && typeof posthogMetadata[posthogProjectKey] === "string"
+      ? posthogMetadata[posthogProjectKey]
+      : null,
+    vendorEnvironment: posthogEnvironmentKey && typeof posthogMetadata[posthogEnvironmentKey] === "string"
+      ? posthogMetadata[posthogEnvironmentKey]
+      : null,
+    vendorServiceName: posthogServiceKey && typeof posthogMetadata[posthogServiceKey] === "string"
+      ? posthogMetadata[posthogServiceKey]
       : null,
     canRetry,
     feedback: Array.isArray(feedbacks) ? (feedbacks[0] ?? null) : null,

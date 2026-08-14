@@ -6,6 +6,18 @@ import { emitAiOperationOutcome } from "./aiOperationOutcome";
 
 const vendorOperationId = `hmac-sha256:${"a".repeat(64)}`;
 const operationKey = aggregationMetadataRegistry.operationId.posthog.key!;
+const projectKey = aggregationMetadataRegistry.projectId.posthog.key!;
+const environmentKey = aggregationMetadataRegistry.environment.posthog.key!;
+const serviceKey = aggregationMetadataRegistry.serviceName.posthog.key!;
+
+const outcomeInput = (status: string, overrides: Record<string, unknown> = {}) => ({
+  vendorOperationId,
+  vendorProjectId: "presstuner",
+  vendorEnvironment: "production",
+  vendorServiceName: "presstuner",
+  status,
+  ...overrides,
+});
 
 function browserHarness() {
   const posthog: Array<[string, Record<string, unknown> | undefined]> = [];
@@ -30,37 +42,55 @@ test("completed operations emit outcomes using the Console-owned pseudonymous ag
   const harness = browserHarness();
   assert.equal(
     emitAiOperationOutcome(
-      { vendorOperationId, status: "COMPLETED" },
+      outcomeInput("COMPLETED"),
       harness.browser,
     ),
     true,
   );
   assert.equal(
     emitAiOperationOutcome(
-      { vendorOperationId, status: "COMPLETED" },
+      outcomeInput("COMPLETED"),
       harness.browser,
     ),
     false,
   );
   assert.deepEqual(harness.posthog, [
-    ["ai_operation_outcome", { [operationKey]: vendorOperationId, outcome: "accepted" }],
+    ["ai_operation_outcome", {
+      [projectKey]: "presstuner",
+      [environmentKey]: "production",
+      [serviceKey]: "presstuner",
+      [operationKey]: vendorOperationId,
+      outcome: "accepted",
+    }],
   ]);
   assert.deepEqual(harness.ga4, [
     [
       "event",
       "presstuner_ai_operation_business",
-      { [operationKey]: vendorOperationId, outcome: "conversion" },
+      {
+        [projectKey]: "presstuner",
+        [environmentKey]: "production",
+        [serviceKey]: "presstuner",
+        [operationKey]: vendorOperationId,
+        outcome: "conversion",
+      },
     ],
   ]);
 });
 test("failed operations emit only the abandoned PostHog outcome", () => {
   const harness = browserHarness();
   assert.equal(
-    emitAiOperationOutcome({ vendorOperationId, status: "FAILED" }, harness.browser),
+    emitAiOperationOutcome(outcomeInput("FAILED"), harness.browser),
     true,
   );
   assert.deepEqual(harness.posthog, [
-    ["ai_operation_outcome", { [operationKey]: vendorOperationId, outcome: "abandoned" }],
+    ["ai_operation_outcome", {
+      [projectKey]: "presstuner",
+      [environmentKey]: "production",
+      [serviceKey]: "presstuner",
+      [operationKey]: vendorOperationId,
+      outcome: "abandoned",
+    }],
   ]);
   assert.deepEqual(harness.ga4, []);
 });
@@ -69,23 +99,27 @@ test("invalid identifiers and statuses are rejected and absent providers are har
   const harness = browserHarness();
   assert.equal(
     emitAiOperationOutcome(
-      { vendorOperationId: "10000000-0000-4000-8000-000000000001", status: "COMPLETED" },
+      outcomeInput("COMPLETED", { vendorOperationId: "10000000-0000-4000-8000-000000000001" }),
       harness.browser,
     ),
     false,
   );
   assert.equal(
     emitAiOperationOutcome(
-      { vendorOperationId, status: "RUNNING" },
+      outcomeInput("RUNNING"),
       harness.browser,
     ),
     false,
   );
   assert.equal(
     emitAiOperationOutcome(
-      { vendorOperationId, status: "FAILED" },
+      outcomeInput("FAILED"),
       { sessionStorage: harness.browser.sessionStorage },
     ),
     true,
+  );
+  assert.equal(
+    emitAiOperationOutcome(outcomeInput("COMPLETED", { vendorProjectId: undefined }), harness.browser),
+    false,
   );
 });
