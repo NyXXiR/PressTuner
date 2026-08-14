@@ -33,6 +33,19 @@
       },
       "processId": "press-creation",
       "version": "2.1.0"
+    },
+    {
+      "canonicalSha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",
+      "definition": {
+        "artifactId": "presstuner-rag-query-1.0.0",
+        "locator": "ref:definitions/presstuner/rag-query/1.0.0",
+        "mediaType": "application/json",
+        "schemaVersion": "1.0",
+        "sha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",
+        "sizeBytes": 2512
+      },
+      "processId": "rag-query",
+      "version": "1.0.0"
     }
   ],
   "projectId": "presstuner",

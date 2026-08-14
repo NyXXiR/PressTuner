@@ -1,4 +1,4 @@
-import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
+import { pressCreationProcess, ragQueryProcess, type PressAiProcessDefinition } from "@/domain/press-ai-debugger/processRegistry";
 import { canonicalJson, canonicalJsonFile, sha256Canonical, sha256Text } from "./canonicalJson";
 import { MemoSourcePolicyV1Schema, ProcessDefinitionV1Schema, ProjectIntegrationManifestV1Schema, assertPrivacySafe, type ArtifactReferenceV1, type ProcessDefinitionV1, type ProjectIntegrationManifestV1 } from "./contracts";
 import { fixtureRegistry } from "./fixtureRegistry";
@@ -36,36 +36,72 @@ const evidencePolicies = new Map<string, ProcessDefinitionV1["nodes"][number]["e
   ["selected-rewrite", { kind: "NONE" }],
 ]);
 
-export function buildProcessDefinition(): ProcessDefinitionV1 {
+function buildDefinition(args: {
+  process: PressAiProcessDefinition;
+  nodeKind: (nodeId: string) => ProcessDefinitionV1["nodes"][number]["kind"];
+  handlerRef: (nodeId: string, operationKey: string) => string;
+  evidencePolicy: (nodeId: string) => ProcessDefinitionV1["nodes"][number]["evidencePolicy"];
+}): ProcessDefinitionV1 {
   const base = {
     schemaVersion: "1.0" as const,
-    processId: pressCreationProcess.id,
-    version: pressCreationProcess.version,
-    entryNodeIds: [pressCreationProcess.nodes.slice().sort((a, b) => a.sequence - b.sequence)[0].id],
-    nodes: pressCreationProcess.nodes.slice().sort((a, b) => a.sequence - b.sequence).map((node) => ({
+    processId: args.process.id,
+    version: args.process.version,
+    entryNodeIds: [args.process.nodes.slice().sort((a, b) => a.sequence - b.sequence)[0].id],
+    nodes: args.process.nodes.slice().sort((a, b) => a.sequence - b.sequence).map((node) => ({
       nodeId: node.id,
       label: node.label,
-      kind: nodeKinds.get(node.id)!,
-      handlerRef: `presstuner:handler:${node.operationKey}:v1`,
-      evidencePolicy: evidencePolicies.get(node.id)!,
+      kind: args.nodeKind(node.id),
+      handlerRef: args.handlerRef(node.id, node.operationKey),
+      evidencePolicy: args.evidencePolicy(node.id),
     })),
-    transitions: pressCreationProcess.edges.slice().sort((a, b) => a.sequence - b.sequence).map((edge) => ({
+    transitions: args.process.edges.slice().sort((a, b) => a.sequence - b.sequence).map((edge) => ({
       transitionId: edge.id,
       sourceNodeId: edge.source,
       targetNodeId: edge.target,
       decisionRef: `presstuner:decision:${edge.id}:v1`,
     })),
   };
-  // Publication convention: hash canonical definition content with canonicalSha256 omitted,
-  // then inject that digest into the published definition and all descriptor references.
   return ProcessDefinitionV1Schema.parse({ ...base, canonicalSha256: sha256Canonical(base) });
 }
 
-export function processDefinitionReference(definition = buildProcessDefinition()): ArtifactReferenceV1 {
-  return artifactReference({ artifactId: "presstuner-press-creation-2.1.0", locator: "ref:definitions/presstuner/press-creation/2.1.0", value: definition, sha256: definition.canonicalSha256 });
+export function buildProcessDefinition(): ProcessDefinitionV1 {
+  // Publication convention: hash canonical definition content with canonicalSha256 omitted,
+  // then inject that digest into the published definition and all descriptor references.
+  return buildDefinition({
+    process: pressCreationProcess,
+    nodeKind: (nodeId) => nodeKinds.get(nodeId)!,
+    handlerRef: (_nodeId, operationKey) => `presstuner:handler:${operationKey}:v1`,
+    evidencePolicy: (nodeId) => evidencePolicies.get(nodeId)!,
+  });
 }
 
-export function buildProjectManifest(definition = buildProcessDefinition()): ProjectIntegrationManifestV1 {
+const ragNodeKinds = new Map<string, ProcessDefinitionV1["nodes"][number]["kind"]>([
+  ["request-intake", "ACTION"],
+  ["retrieval-execution", "ACTION"],
+  ["evidence-decision", "DECISION"],
+  ["response-behavior", "ACTION"],
+  ["verification", "DECISION"],
+  ["fallback", "ACTION"],
+  ["terminal-evaluation", "TERMINAL"],
+]);
+
+export function buildRagQueryProcessDefinition(): ProcessDefinitionV1 {
+  return buildDefinition({
+    process: ragQueryProcess,
+    nodeKind: (nodeId) => ragNodeKinds.get(nodeId)!,
+    handlerRef: (nodeId) => `presstuner:handler:rag-query:${nodeId}:v1`,
+    evidencePolicy: () => ({ kind: "NONE" }),
+  });
+}
+
+export function processDefinitionReference(definition = buildProcessDefinition()): ArtifactReferenceV1 {
+  return artifactReference({ artifactId: `presstuner-${definition.processId}-${definition.version}`, locator: `ref:definitions/presstuner/${definition.processId}/${definition.version}`, value: definition, sha256: definition.canonicalSha256 });
+}
+
+export function buildProjectManifest(input?: ProcessDefinitionV1 | readonly ProcessDefinitionV1[]): ProjectIntegrationManifestV1 {
+  const definitions = input === undefined
+    ? [buildProcessDefinition(), buildRagQueryProcessDefinition()]
+    : Array.isArray(input) ? input : [input];
   const manifest = {
     schemaVersion: "1.0" as const,
     manifestId: "presstuner.ai-process-console.v1",
@@ -73,7 +109,7 @@ export function buildProjectManifest(definition = buildProcessDefinition()): Pro
     displayName: "PressTuner",
     environment: "conformance",
     serviceName: "presstuner",
-    processes: [{ processId: definition.processId, version: definition.version, canonicalSha256: definition.canonicalSha256, definition: processDefinitionReference(definition) }],
+    processes: definitions.map((definition) => ({ processId: definition.processId, version: definition.version, canonicalSha256: definition.canonicalSha256, definition: processDefinitionReference(definition) })),
     capabilities: {
       domainEvents: { schemaVersion: "1.0" as const, source: AI_PROCESS_CONSOLE_SOURCE, delivery: "AT_LEAST_ONCE" as const, ordering: "PER_ATTEMPT_MONOTONIC_SEQUENCE" as const, deduplicationKey: "SOURCE_AND_EVENT_ID" as const, transactionalOutbox: true as const },
       testRun: { available: true as const, isolation: "PROJECT_OWNED_FIXTURE_ONLY" as const, endpoint: { destinationId: AI_PROCESS_CONSOLE_DESTINATION, transport: "INJECTED" as const } },
@@ -85,9 +121,11 @@ export function buildProjectManifest(definition = buildProcessDefinition()): Pro
 
 export function publishedArtifacts(): Readonly<Record<string, unknown>> {
   const definition = buildProcessDefinition();
+  const ragDefinition = buildRagQueryProcessDefinition();
   return Object.freeze({
-    "integrations/ai-process-console/v1/project-manifest.json": buildProjectManifest(definition),
+    "integrations/ai-process-console/v1/project-manifest.json": buildProjectManifest([definition, ragDefinition]),
     "integrations/ai-process-console/v1/press-creation-2.1.0.definition.json": definition,
+    "integrations/ai-process-console/v1/rag-query-1.0.0.definition.json": ragDefinition,
     "integrations/ai-process-console/v1/memo-source-policy-v1.json": memoSourcePolicy,
     ...Object.fromEntries(fixtureRegistry.map(({ fixture }) => [`evals/ai-process-console/press-creation/2.1.0/${fixture.fixtureId}.json`, fixture])),
   });

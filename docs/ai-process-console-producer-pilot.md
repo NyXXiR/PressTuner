@@ -1,6 +1,6 @@
 # AI Process Console producer pilot
 
-PressTuner is a conformance-ready producer for the standalone AI Process Console v1 contract. This pilot publishes local artifacts, accepts one fixture-only command, and records privacy-safe past-tense facts in a transactional outbox. The pilot remains dormant by default. An opt-in authenticated HTTP adapter can expose the same service and deliver its existing facts, but neither the pilot nor the adapter may be described as `CONNECTED` by PressTuner.
+PressTuner is a conformance-ready producer for the standalone AI Process Console v1 contract. It publishes local artifacts, accepts one fixture-only command for `press-creation@2.1.0`, and records privacy-safe past-tense facts in a transactional outbox. Real Press Agent `rag-query@1.0.0` workflow events also enqueue LIVE facts. The network adapter remains dormant by default: an opt-in authenticated HTTP adapter can expose the fixture service and deliver pending facts, but neither the producer nor the adapter may be described as `CONNECTED` by PressTuner.
 
 ## Contract ownership and conformance anchor
 
@@ -10,7 +10,7 @@ The AI Process Console repository owns v1 contract evolution. PressTuner changes
 
 ## Authority boundary
 
-PressTuner remains authoritative for `press-creation@2.1.0` topology, handlers, transition evaluation and selection, fixture ownership, product state, and transaction boundaries. The console may supply only `dev.aiprocess.command.test-run.requested.v1`. The dormant service has no caller-selected callback, destination, URL, host, credential, handler, node, transition, or mutation action. The optional server-only HTTP boundary is documented in [AI Process Console producer adapter](./ai-process-console-producer-adapter.md); none of its deployment configuration is published in v1 artifacts.
+PressTuner remains authoritative for the `press-creation@2.1.0` and `rag-query@1.0.0` topologies, handlers, workflow events, transition meaning, fixture ownership, product state, and transaction boundaries. The console may supply only `dev.aiprocess.command.test-run.requested.v1` for the existing project-owned `press-creation` fixtures. The dormant service has no caller-selected callback, destination, URL, host, credential, handler, node, transition, or mutation action. The optional server-only HTTP boundary is documented in [AI Process Console producer adapter](./ai-process-console-producer-adapter.md); none of its deployment configuration is published in v1 artifacts.
 
 The production debugger paths remain unchanged:
 
@@ -19,13 +19,13 @@ The production debugger paths remain unchanged:
 - Ops operation registration;
 - LangSmith and PostHog projections.
 
-The generic `ai_process_fact_outbox` is separate from the Ops snapshot outbox. It stores strict AI Process Console v1 events and does not reinterpret or migrate snapshot payloads.
+The generic `ai_process_fact_outbox` is separate from the Ops snapshot outbox. It stores strict AI Process Console v1 events and does not reinterpret or migrate snapshot payloads. A mapped real workflow event and its LIVE outbox fact are committed in the same Prisma transaction; failure to enqueue the fact rolls back that new authoritative workflow event. Network delivery still occurs after commit and remains fail-open.
 
 ## Published artifacts
 
-The checked files under `integrations/ai-process-console/v1/` contain the project manifest, process definition, and content-free memo-source policy. Synthetic fixture definitions live under `evals/ai-process-console/press-creation/2.1.0/`.
+The checked files under `integrations/ai-process-console/v1/` contain the project manifest, both process definitions, and the content-free memo-source policy. Synthetic fixture definitions remain unchanged under `evals/ai-process-console/press-creation/2.1.0/`.
 
-The process definition is generated from `domain/press-ai-debugger/processRegistry.ts`, sorted by registry sequence. It contains exactly five nodes and four transitions. `HUMAN_GATE` describes the post-handler checkpoint; guardrail and human decisions remain transition semantics through project-owned `decisionRef` values. No synthetic `DECISION` node is added.
+Both process definitions are generated from `domain/press-ai-debugger/processRegistry.ts`, sorted by registry sequence. `press-creation@2.1.0` contains exactly five nodes and four transitions. `HUMAN_GATE` describes its post-handler checkpoint; guardrail and human decisions remain transition semantics through project-owned `decisionRef` values. No synthetic `DECISION` node is added to that fixture process. The frozen `rag-query@1.0.0` definition contains its existing seven nodes and seven edges; publication does not change runtime topology.
 
 Definition hashing deliberately excludes the self-referential `canonicalSha256` field:
 
@@ -43,6 +43,14 @@ npm run ai-process-console:artifacts:check
 
 `--output-dir <directory>` may be passed directly to `scripts/exportAiProcessConsoleArtifacts.ts` for a disposable comparison directory.
 
+## Real LIVE fact projection and trusted correlation
+
+Each newly persisted real Press Agent public workflow event is projected additively into the strict v1 fact contract when that event has an unambiguous representation. Run start/finish, executable stage lifecycle, selected transitions, and explicitly not-taken transitions are represented. Waiting/skipped stages and moving/blocked edges do not invent terminal or evaluator meaning. Node duration is present only when the same public event history contains a prior running event for that node.
+
+LIVE facts use the Agent run ID for `caseId`, `correlationId`, and `attemptId`, and retain the original public workflow event UUID as the fact ID. When `AgentRun.input.operationId` contains the already-issued validated operation UUID, that UUID is copied into canonical fact metadata as the shared join key used by existing LangSmith and PostHog observability. A missing or invalid operation ID remains absent. The stored Agent trace is attached as a LangSmith reference only when it passes the strict reference schema; no provider trace is generated by the projection.
+
+The projection publishes only process/node/transition identity, fixed finding codes, timestamps, sequence, and safe correlation metadata. It never copies prompts, model output, retrieved source bodies, provider payloads, credentials, tenant/user identity, or the private `AgentRun.input` object. The public `PressAgentWorkflowEventV1` and audit-event details do not gain an `operationId` field.
+
 ## Injected command and fact ports
 
 `createAiProcessTestRunService()` returns a transport-neutral `handle(value)` command service. It parses the strict command before invoking any fixture callback. The only optional delivery port is:
@@ -57,7 +65,7 @@ type AiProcessFactTransport = {
 };
 ```
 
-When no transport is injected, facts remain pending and no delivery is attempted. Delivery happens only after commit and exceptions are fail-open. Contract, authentication, and sequence failures dead-letter immediately. Other failures use capped exponential retry and dead-letter after eight attempts. Delivery is monotonic per attempt; a failed earlier event pauses later events in the same stream.
+When no transport is injected, facts remain pending and no delivery is attempted. Delivery happens only after commit and exceptions are fail-open. This fail-open policy applies to delivery, not same-transaction LIVE fact enqueue. Contract, authentication, and sequence failures dead-letter immediately. Other failures use capped exponential retry and dead-letter after eight attempts. Delivery is monotonic per attempt; a failed earlier event pauses later events in the same stream.
 
 ## Isolation and privacy
 

@@ -76,6 +76,7 @@ import {
   type PressAgentGuardrailObservation,
 } from "@/domain/evaluation/pressAgentGuardrailSignals";
 import { derivePressAgentRagFeedback } from "@/domain/evaluation/pressAgentRagFeedbackCriteria";
+import { readPressAgentOperationId } from "@/domain/evaluation/pressAgentOperationId";
 import {
   recordLangSmithRagObservation,
   reportLangSmithRootFeedback,
@@ -100,8 +101,7 @@ async function persistPressAgentWorkflowEvent(args: Parameters<typeof persistDur
 export const PRESS_AGENT_VERSION = "press-agent-v2";
 export const PRESS_AGENT_MODEL =
   process.env.PT_PRESS_AGENT_MODEL ?? "gpt-4.1-mini";
-const OPERATION_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export { readPressAgentOperationId } from "@/domain/evaluation/pressAgentOperationId";
 const PRESS_AGENT_TOKEN_RATES = {
   inputUsdPerMillion: Number(
     process.env.PT_PRESS_AGENT_INPUT_USD_PER_MILLION ?? 0.4,
@@ -170,14 +170,6 @@ const AgentOutputSchema = z.object({
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return sanitizePostgresJson(value) as Prisma.InputJsonValue;
-}
-
-export function readPressAgentOperationId(input: unknown): string | null {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
-  const operationId = (input as Record<string, unknown>).operationId;
-  return typeof operationId === "string" && OPERATION_ID_PATTERN.test(operationId)
-    ? operationId
-    : null;
 }
 
 async function recordOperationTelemetryFailure(args: {

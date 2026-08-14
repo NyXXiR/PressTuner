@@ -1,6 +1,6 @@
 # AI Process Console producer adapter
 
-The adapter is the opt-in network boundary around PressTuner's strict v1 producer pilot. It adds authenticated fixture-command ingress, signed EventV1 delivery, protected producer-health evidence, delivered-fact retention, and a one-shot worker. It does not change the manifest, process definition, policies, fixtures, project authority, or console-owned connection state.
+The adapter is the opt-in network boundary around PressTuner's strict v1 producer. It adds authenticated fixture-command ingress, signed TEST and LIVE EventV1 delivery, protected producer-health evidence, delivered-fact retention, and a one-shot worker. It does not change the manifest, process definitions, policies, fixtures, project authority, or console-owned connection state.
 
 ## Direction and authority
 
@@ -13,7 +13,7 @@ The two directions have distinct identities and credentials:
 
 Only the outbound identity is present in the server-side destination registry. It resolves to exactly one configured fact-ingest URL. The inbound manifest identity cannot resolve to that URL, and request callers cannot supply a destination, URL, handler, node, transition, fixture text, callback, or production mutation action.
 
-PressTuner remains authoritative for command validation, fixture resolution, workflow execution, commits, receipts, fact creation, and delivery ordering. Delivery occurs after authoritative commits and remains fail-open. The console must deduplicate by `(source, event ID)` because parallel or retried delivery is at least once.
+PressTuner remains authoritative for command validation, fixture resolution, real workflow execution, commits, receipts, fact creation, and delivery ordering. Mapped real `rag-query@1.0.0` events enqueue with their LIVE facts in one transaction; delivery occurs after authoritative commits and remains fail-open. The console must deduplicate by `(source, event ID)` because parallel or retried delivery is at least once.
 
 ## Server configuration
 

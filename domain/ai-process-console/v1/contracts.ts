@@ -255,7 +255,7 @@ export const EventV1Schema = z.discriminatedUnion("type", [
   event("dev.aiprocess.event.test-run.rejected.v1", z.strictObject({ testRunId: IdentifierSchema, reasonCode: z.enum(["FIXTURE_NOT_FOUND", "DEFINITION_NOT_FOUND", "ISOLATION_UNAVAILABLE", "REQUEST_INVALID"]) })),
   event("dev.aiprocess.event.attempt.started.v1", z.strictObject({ attemptId: IdentifierSchema })),
   event("dev.aiprocess.event.node.execution.started.v1", z.strictObject({ nodeId: IdentifierSchema, handlerRef: IdentifierSchema })),
-  event("dev.aiprocess.event.node.execution.completed.v1", z.strictObject({ nodeId: IdentifierSchema, handlerRef: IdentifierSchema, durationMs: z.number().int().nonnegative(), outputArtifact: ArtifactReferenceV1Schema.optional() })),
+  event("dev.aiprocess.event.node.execution.completed.v1", z.strictObject({ nodeId: IdentifierSchema, handlerRef: IdentifierSchema, durationMs: z.number().int().nonnegative().optional(), outputArtifact: ArtifactReferenceV1Schema.optional() })),
   event("dev.aiprocess.event.node.execution.failed.v1", z.strictObject({ nodeId: IdentifierSchema, handlerRef: IdentifierSchema, errorCode: IdentifierSchema })),
   event("dev.aiprocess.event.transition.evaluated.v1", z.strictObject({ transitionId: IdentifierSchema, sourceNodeId: IdentifierSchema, targetNodeId: IdentifierSchema, matched: z.boolean(), decisionRef: IdentifierSchema })),
   event("dev.aiprocess.event.transition.selected.v1", z.strictObject({ transitionId: IdentifierSchema, sourceNodeId: IdentifierSchema, targetNodeId: IdentifierSchema, decisionRef: IdentifierSchema })),

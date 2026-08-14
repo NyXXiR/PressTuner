@@ -13,7 +13,12 @@ test("public workflow persistence serializes on the run, dedupes, persists, then
   assert.ok(create >= 0 && observe > create, "observer must run only after the transaction persisted the event");
   assert.match(source, /eventType: PRESS_AGENT_PUBLIC_WORKFLOW_EVENT_TYPE/);
   assert.match(source, /appendCanonicalEvent/);
-  assert.doesNotMatch(source, /sourceName|excerpt|operationId/);
+  assert.match(source, /readPressAgentOperationId\(lockedRun\.input\)/);
+  assert.match(source, /buildRagQueryProcessDefinition/);
+  assert.match(source, /executionMode: "LIVE"/);
+  assert.match(source, /enqueueNextAiProcessFact/);
+  assert.match(source, /details: \{ publicEvent: event \}/);
+  assert.doesNotMatch(source, /details: \{[^}]*operationId/);
 });
 
 test("replay and history enforce team, starter, launch surface, and fail-closed parsing", () => {

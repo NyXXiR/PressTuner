@@ -1,0 +1,118 @@
+{
+  "canonicalSha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",
+  "entryNodeIds": [
+    "request-intake"
+  ],
+  "nodes": [
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:request-intake:v1",
+      "kind": "ACTION",
+      "label": "요청 접수",
+      "nodeId": "request-intake"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:retrieval-execution:v1",
+      "kind": "ACTION",
+      "label": "검색 실행",
+      "nodeId": "retrieval-execution"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:evidence-decision:v1",
+      "kind": "DECISION",
+      "label": "근거 판단",
+      "nodeId": "evidence-decision"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:response-behavior:v1",
+      "kind": "ACTION",
+      "label": "응답 생성",
+      "nodeId": "response-behavior"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:verification:v1",
+      "kind": "DECISION",
+      "label": "검증",
+      "nodeId": "verification"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:fallback:v1",
+      "kind": "ACTION",
+      "label": "안전 대체",
+      "nodeId": "fallback"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handlerRef": "presstuner:handler:rag-query:terminal-evaluation:v1",
+      "kind": "TERMINAL",
+      "label": "최종 평가",
+      "nodeId": "terminal-evaluation"
+    }
+  ],
+  "processId": "rag-query",
+  "schemaVersion": "1.0",
+  "transitions": [
+    {
+      "decisionRef": "presstuner:decision:request-retrieval:v1",
+      "sourceNodeId": "request-intake",
+      "targetNodeId": "retrieval-execution",
+      "transitionId": "request-retrieval"
+    },
+    {
+      "decisionRef": "presstuner:decision:retrieval-evidence:v1",
+      "sourceNodeId": "retrieval-execution",
+      "targetNodeId": "evidence-decision",
+      "transitionId": "retrieval-evidence"
+    },
+    {
+      "decisionRef": "presstuner:decision:evidence-response:v1",
+      "sourceNodeId": "evidence-decision",
+      "targetNodeId": "response-behavior",
+      "transitionId": "evidence-response"
+    },
+    {
+      "decisionRef": "presstuner:decision:response-verification:v1",
+      "sourceNodeId": "response-behavior",
+      "targetNodeId": "verification",
+      "transitionId": "response-verification"
+    },
+    {
+      "decisionRef": "presstuner:decision:verification-terminal:v1",
+      "sourceNodeId": "verification",
+      "targetNodeId": "terminal-evaluation",
+      "transitionId": "verification-terminal"
+    },
+    {
+      "decisionRef": "presstuner:decision:verification-fallback:v1",
+      "sourceNodeId": "verification",
+      "targetNodeId": "fallback",
+      "transitionId": "verification-fallback"
+    },
+    {
+      "decisionRef": "presstuner:decision:fallback-terminal:v1",
+      "sourceNodeId": "fallback",
+      "targetNodeId": "terminal-evaluation",
+      "transitionId": "fallback-terminal"
+    }
+  ],
+  "version": "1.0.0"
+}

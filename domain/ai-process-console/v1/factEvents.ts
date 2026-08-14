@@ -1,6 +1,6 @@
 import { canonicalJson, sha256Canonical, sha256Text } from "./canonicalJson";
 import { AI_PROCESS_CONSOLE_SOURCE, buildProjectManifest, buildProcessDefinition, processDefinitionReference } from "./publication";
-import { EventV1Schema, assertPrivacySafe, resolveObservabilityReferencesV1, type ArtifactReferenceV1, type CanonicalMetadata, type EventV1, type ObservabilityReferenceV1, type ProjectIntegrationManifestV1 } from "./contracts";
+import { EventV1Schema, assertPrivacySafe, resolveObservabilityReferencesV1, type ArtifactReferenceV1, type CanonicalMetadata, type EventV1, type ObservabilityReferenceV1, type ProcessDefinitionV1, type ProjectIntegrationManifestV1 } from "./contracts";
 
 type FactData = EventV1["data"];
 type FactType = EventV1["type"];
@@ -8,10 +8,10 @@ type FactType = EventV1["type"];
 export type FactIdentity = Readonly<{
   caseId: string;
   objectType: string;
-  operationId: string;
+  operationId?: string;
   attemptId: string;
   correlationId: string;
-  testRunId: string;
+  testRunId?: string;
   trace?: ObservabilityReferenceV1;
   observabilityReferences?: readonly ObservabilityReferenceV1[];
 }>;
@@ -19,7 +19,7 @@ export type FactIdentity = Readonly<{
 export type FactFactory = Readonly<{
   identity: FactIdentity;
   eventIdFor: (logicalKey: string) => string;
-  create: (input: { type: FactType; logicalKey: string; sequence: number; data: FactData; occurredAt?: Date; causationId?: string }) => EventV1;
+  create: (input: { type: FactType; logicalKey: string; sequence: number; data: FactData; occurredAt?: Date; causationId?: string; eventId?: string }) => EventV1;
 }>;
 
 function deterministicEventId(source: string, attemptId: string, logicalKey: string): string {
@@ -57,9 +57,9 @@ function reconcileMetadata(event: Omit<EventV1, "metadata">, claimed: CanonicalM
   return { ...claimed, ...derived };
 }
 
-export function createResolvedFactFactory(args: { identity: FactIdentity; manifest?: ProjectIntegrationManifestV1; clock?: () => Date }): FactFactory {
-  const definition = buildProcessDefinition();
-  const manifest = args.manifest ?? buildProjectManifest(definition);
+export function createResolvedFactFactory(args: { identity: FactIdentity; definition?: ProcessDefinitionV1; executionMode?: "TEST" | "LIVE"; manifest?: ProjectIntegrationManifestV1; clock?: () => Date }): FactFactory {
+  const definition = args.definition ?? buildProcessDefinition();
+  const manifest = args.manifest ?? buildProjectManifest();
   const descriptor = manifest.processes.find((item) => item.processId === definition.processId && item.version === definition.version);
   if (!descriptor) throw new Error("AI_PROCESS_CONSOLE_DEFINITION_NOT_FOUND");
   const clock = args.clock ?? (() => new Date());
@@ -71,19 +71,21 @@ export function createResolvedFactFactory(args: { identity: FactIdentity; manife
   const identity = Object.freeze({
     caseId: args.identity.caseId,
     objectType: args.identity.objectType,
-    operationId: args.identity.operationId,
+    ...(args.identity.operationId === undefined ? {} : { operationId: args.identity.operationId }),
     attemptId: args.identity.attemptId,
     correlationId: args.identity.correlationId,
-    testRunId: args.identity.testRunId,
+    ...(args.identity.testRunId === undefined ? {} : { testRunId: args.identity.testRunId }),
     ...(trace === undefined ? {} : { trace }),
     ...(observabilityReferences === undefined ? {} : { observabilityReferences }),
   });
   const inherited: CanonicalMetadata = {
     projectId: manifest.projectId, environment: manifest.environment, serviceName: manifest.serviceName,
-    caseId: args.identity.caseId, objectType: args.identity.objectType, operationId: args.identity.operationId,
+    caseId: args.identity.caseId, objectType: args.identity.objectType,
+    ...(args.identity.operationId === undefined ? {} : { operationId: args.identity.operationId }),
     attemptId: args.identity.attemptId, correlationId: args.identity.correlationId,
     processId: descriptor.processId, processVersion: descriptor.version, processDefinitionHash: descriptor.canonicalSha256,
-    executionMode: "TEST", testRunId: args.identity.testRunId,
+    executionMode: args.executionMode ?? "TEST",
+    ...(args.identity.testRunId === undefined ? {} : { testRunId: args.identity.testRunId }),
   };
   if (technical?.provider === "LANGSMITH" || technical?.provider === "OPENTELEMETRY") {
     inherited.traceId = technical.traceId;
@@ -94,11 +96,11 @@ export function createResolvedFactFactory(args: { identity: FactIdentity; manife
     identity,
     eventIdFor,
     create(input) {
-      const id = eventIdFor(input.logicalKey);
+      const id = input.eventId ?? eventIdFor(input.logicalKey);
       const bare = {
         specversion: "1.0" as const, id, source: AI_PROCESS_CONSOLE_SOURCE, subject: `attempts/${args.identity.attemptId}`,
         time: (input.occurredAt ?? clock()).toISOString(), schemaVersion: "1.0" as const, correlationId: args.identity.correlationId,
-        causationId: input.causationId, sequence: input.sequence, executionMode: "TEST" as const,
+        causationId: input.causationId, sequence: input.sequence, executionMode: args.executionMode ?? "TEST",
         ...(trace === undefined ? {} : { trace }),
         ...(observabilityReferences === undefined ? {} : { observabilityReferences }),
         type: input.type, data: input.data,

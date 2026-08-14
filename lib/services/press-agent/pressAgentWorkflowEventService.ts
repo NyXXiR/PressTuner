@@ -15,6 +15,12 @@ import { prisma } from "@/lib/prisma";
 import { parsePressAiProcessEvent } from "@/domain/press-ai-debugger/processEvents";
 import { mapPressProcessEvent } from "@/domain/ai-telemetry/pressMapper";
 import { appendCanonicalEvent } from "@/lib/services/ai-telemetry/canonicalEventStore";
+import { ObservabilityReferenceV1Schema } from "@/domain/ai-process-console/v1/contracts";
+import { createResolvedFactFactory } from "@/domain/ai-process-console/v1/factEvents";
+import { hasPressAgentWorkflowFactProjection, projectPressAgentWorkflowFact } from "@/domain/ai-process-console/v1/pressAgentFactProjection";
+import { AI_PROCESS_CONSOLE_SOURCE, buildRagQueryProcessDefinition } from "@/domain/ai-process-console/v1/publication";
+import { readPressAgentOperationId } from "@/domain/evaluation/pressAgentOperationId";
+import { enqueueNextAiProcessFact } from "@/lib/services/ai-process-console/factOutbox";
 
 export const PRESS_AGENT_PUBLIC_WORKFLOW_EVENT_TYPE = "PUBLIC_WORKFLOW_EVENT_V1";
 export const PRESS_AGENT_RAG_DEBUGGER_LAUNCH_SURFACE = "RAG_DEBUGGER_V1";
@@ -43,8 +49,9 @@ export async function persistPressAgentWorkflowEvent(args: {
   event: PressAgentWorkflowEventInput;
 }): Promise<PressAgentWorkflowEventV1> {
   const persisted = await prisma.$transaction(async (tx) => {
-    const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM agent_run WHERE id = ${args.runId} AND team_id = ${args.teamId} FOR UPDATE`;
+    const locked = await tx.$queryRaw<Array<{ id: string; traceId: string | null; input: Prisma.JsonValue }>>`SELECT id, trace_id AS "traceId", input FROM agent_run WHERE id = ${args.runId} AND team_id = ${args.teamId} FOR UPDATE`;
     if (locked.length !== 1) throw new Error("PRESS_AGENT_RUN_NOT_FOUND");
+    const lockedRun = locked[0];
     const rows = await tx.agentRuntimeAuditEvent.findMany({
       where: { teamId: args.teamId, runId: args.runId, eventType: PRESS_AGENT_PUBLIC_WORKFLOW_EVENT_TYPE },
       select: { details: true },
@@ -70,9 +77,36 @@ export async function persistPressAgentWorkflowEvent(args: {
         details: { publicEvent: event } as unknown as Prisma.InputJsonValue,
       },
     });
-    const run = await tx.agentRun.findUnique({ where: { id: args.runId }, select: { traceId: true } });
-    const canonicalEvent = mapPressProcessEvent({ teamId: args.teamId, runId: args.runId, traceId: run?.traceId, attemptId: args.runId, processId: "rag-query", processVersion: "1.0.0", registryHash: "legacy-rag-v1" }, parsePressAiProcessEvent(event));
+    const canonicalEvent = mapPressProcessEvent({ teamId: args.teamId, runId: args.runId, traceId: lockedRun.traceId, attemptId: args.runId, processId: "rag-query", processVersion: "1.0.0", registryHash: "legacy-rag-v1" }, parsePressAiProcessEvent(event));
     if (canonicalEvent) await appendCanonicalEvent(tx, canonicalEvent);
+    if (hasPressAgentWorkflowFactProjection(event)) {
+      const definition = buildRagQueryProcessDefinition();
+      const parsedTrace = lockedRun.traceId
+        ? ObservabilityReferenceV1Schema.safeParse({ provider: "LANGSMITH", traceId: lockedRun.traceId })
+        : null;
+      const operationId = readPressAgentOperationId(lockedRun.input);
+      const factory = createResolvedFactFactory({
+        definition,
+        executionMode: "LIVE",
+        identity: {
+          caseId: args.runId,
+          objectType: "press-agent-rag-query",
+          ...(operationId ? { operationId } : {}),
+          attemptId: args.runId,
+          correlationId: args.runId,
+          ...(parsedTrace?.success ? { trace: parsedTrace.data } : {}),
+        },
+      });
+      await enqueueNextAiProcessFact(tx, {
+        source: AI_PROCESS_CONSOLE_SOURCE,
+        attemptId: args.runId,
+        build: (sequence) => {
+          const fact = projectPressAgentWorkflowFact({ event, priorEvents: events, factory, sequence });
+          if (!fact) throw new Error("PRESS_AGENT_WORKFLOW_FACT_PROJECTION_MISSING");
+          return fact;
+        },
+      });
+    }
     return event;
   });
   try {
