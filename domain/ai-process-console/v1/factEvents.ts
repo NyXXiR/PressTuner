@@ -1,6 +1,6 @@
-import { canonicalJson, sha256Canonical } from "./canonicalJson";
+import { canonicalJson, sha256Canonical, sha256Text } from "./canonicalJson";
 import { AI_PROCESS_CONSOLE_SOURCE, buildProjectManifest, buildProcessDefinition, processDefinitionReference } from "./publication";
-import { EventV1Schema, assertPrivacySafe, resolveObservabilityReferencesV1, type CanonicalMetadata, type EventV1, type ObservabilityReferenceV1, type ProjectIntegrationManifestV1 } from "./contracts";
+import { EventV1Schema, assertPrivacySafe, resolveObservabilityReferencesV1, type ArtifactReferenceV1, type CanonicalMetadata, type EventV1, type ObservabilityReferenceV1, type ProjectIntegrationManifestV1 } from "./contracts";
 
 type FactData = EventV1["data"];
 type FactType = EventV1["type"];
@@ -18,11 +18,24 @@ export type FactIdentity = Readonly<{
 
 export type FactFactory = Readonly<{
   identity: FactIdentity;
+  eventIdFor: (logicalKey: string) => string;
   create: (input: { type: FactType; logicalKey: string; sequence: number; data: FactData; occurredAt?: Date; causationId?: string }) => EventV1;
 }>;
 
 function deterministicEventId(source: string, attemptId: string, logicalKey: string): string {
   return `event-${sha256Canonical({ source, attemptId, logicalKey }).slice(0, 48)}`;
+}
+
+export function buildCheckpointOutputReference(args: { checkpointId: string; output: unknown }): ArtifactReferenceV1 {
+  const canonical = canonicalJson(args.output);
+  return Object.freeze({
+    artifactId: `checkpoint-${args.checkpointId}`,
+    schemaVersion: "1.0",
+    sha256: sha256Text(canonical),
+    mediaType: "application/json",
+    sizeBytes: Buffer.byteLength(canonical),
+    locator: `ref:press-ai-debug-checkpoints/${args.checkpointId}/output`,
+  });
 }
 
 function contentFreeReference(reference: ObservabilityReferenceV1): ObservabilityReferenceV1 {
@@ -76,10 +89,12 @@ export function createResolvedFactFactory(args: { identity: FactIdentity; manife
     inherited.traceId = technical.traceId;
     if (technical.spanId !== undefined) inherited.spanId = technical.spanId;
   }
+  const eventIdFor = (logicalKey: string) => deterministicEventId(AI_PROCESS_CONSOLE_SOURCE, args.identity.attemptId, logicalKey);
   return Object.freeze({
     identity,
+    eventIdFor,
     create(input) {
-      const id = deterministicEventId(AI_PROCESS_CONSOLE_SOURCE, args.identity.attemptId, input.logicalKey);
+      const id = eventIdFor(input.logicalKey);
       const bare = {
         specversion: "1.0" as const, id, source: AI_PROCESS_CONSOLE_SOURCE, subject: `attempts/${args.identity.attemptId}`,
         time: (input.occurredAt ?? clock()).toISOString(), schemaVersion: "1.0" as const, correlationId: args.identity.correlationId,

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { canonicalJson, sha256Text } from "./canonicalJson";
 import { EventV1Schema, assertPrivacySafe } from "./contracts";
-import { createResolvedFactFactory, createUnresolvedRejectionFact } from "./factEvents";
+import { buildCheckpointOutputReference, createResolvedFactFactory, createUnresolvedRejectionFact } from "./factEvents";
 import { AI_PROCESS_CONSOLE_SOURCE, buildProcessDefinition } from "./publication";
 
 const identity = { caseId: "case-1", objectType: "synthetic-press-fixture", operationId: "operation-1", attemptId: "attempt-1", correlationId: "correlation-1", testRunId: "test-run-1", trace: { provider: "OPENTELEMETRY" as const, traceId: "trace-1", spanId: "span-1", link: { label: "trace", url: "https://example.invalid/trace/1" } } };
@@ -15,6 +16,25 @@ test("resolved facts inherit application, case, attempt, process, and event meta
   assert.deepEqual(fact.metadata, { projectId: "presstuner", environment: "conformance", serviceName: "presstuner", caseId: "case-1", objectType: "synthetic-press-fixture", operationId: "operation-1", attemptId: "attempt-1", correlationId: "correlation-1", processId: "press-creation", processVersion: "2.1.0", processDefinitionHash: buildProcessDefinition().canonicalSha256, executionMode: "TEST", testRunId: "test-run-1", traceId: "trace-1", spanId: "span-1", eventId: fact.id, occurredAt: fact.time, eventType: fact.type, sequence: 4, nodeId: "draft-generation" });
   const replay = factory.create({ type: fact.type, logicalKey: "node:one:completed", sequence: 4, data: fact.data, occurredAt: new Date(fact.time) });
   assert.equal(replay.id, fact.id);
+  assert.equal(factory.eventIdFor("node:one:completed"), fact.id);
+  assert.notEqual(factory.identity.caseId, factory.identity.attemptId);
+  assert.notEqual(factory.identity.operationId, factory.identity.attemptId);
+});
+
+test("checkpoint output references hash canonical bytes without publishing content or summaries", () => {
+  const output = { z: ["private output"], a: { value: 1 } };
+  const canonical = canonicalJson(output);
+  const reference = buildCheckpointOutputReference({ checkpointId: "checkpoint-123", output });
+  assert.deepEqual(reference, {
+    artifactId: "checkpoint-checkpoint-123",
+    schemaVersion: "1.0",
+    sha256: sha256Text(canonical),
+    mediaType: "application/json",
+    sizeBytes: Buffer.byteLength(canonical),
+    locator: "ref:press-ai-debug-checkpoints/checkpoint-123/output",
+  });
+  assert.equal("summary" in reference, false);
+  assert.equal(JSON.stringify(reference).includes("private output"), false);
 });
 
 test("unresolved rejection remains valid without inventing process identity", () => {

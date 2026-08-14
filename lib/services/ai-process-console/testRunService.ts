@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { TestRunRequestedCommandV1Schema, type EventV1, type TestRunRequestedCommandV1 } from "@/domain/ai-process-console/v1/contracts";
+import { EventV1Schema, TestRunRequestedCommandV1Schema, type EventV1, type TestRunRequestedCommandV1 } from "@/domain/ai-process-console/v1/contracts";
 import { canonicalJson, sha256Canonical } from "@/domain/ai-process-console/v1/canonicalJson";
-import { createResolvedFactFactory, createUnresolvedRejectionFact, hashPrivateClaim, publishedProcessDefinitionReference, type FactFactory } from "@/domain/ai-process-console/v1/factEvents";
+import { buildCheckpointOutputReference, createResolvedFactFactory, createUnresolvedRejectionFact, hashPrivateClaim, publishedProcessDefinitionReference, type FactFactory } from "@/domain/ai-process-console/v1/factEvents";
 import { resolveSyntheticFixture, type SyntheticFixture } from "@/domain/ai-process-console/v1/fixtureRegistry";
 import { AI_PROCESS_CONSOLE_SOURCE, buildProcessDefinition, buildProjectManifest } from "@/domain/ai-process-console/v1/publication";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
@@ -31,6 +31,30 @@ const safeFailureCode = (error: unknown, fallback = "TEST_RUN_FAILED") => {
   const code = error instanceof Error ? (error as Error & { code?: string }).code : undefined;
   return typeof code === "string" && /^[A-Z][A-Z0-9_]{0,99}$/.test(code) ? code : fallback;
 };
+
+const factLogicalKey = Object.freeze({
+  testRunAccepted: "test-run:accepted",
+  testRunRejected: "test-run:rejected",
+  testRunCompleted: "test-run:completed",
+  attemptStarted: "attempt:started",
+  attemptCompleted: "attempt:completed",
+  attemptFailed: "attempt:failed",
+  nodeStarted: (nodeId: string, commandId: string) => `node:${nodeId}:${commandId}:started`,
+  nodeCompleted: (checkpointId: string) => `checkpoint:${checkpointId}:node-completed`,
+  nodeFailed: (nodeId: string, commandId: string) => `node:${nodeId}:${commandId}:failed`,
+  transitionEvaluated: (transitionId: string) => `transition:${transitionId}:evaluated`,
+  evidenceEvaluated: (evidenceEvaluationId: string) => `evidence:${evidenceEvaluationId}:evaluated`,
+  transitionSelected: (transitionId: string) => `transition:${transitionId}:selected`,
+});
+
+type AttemptTerminalCause = Parameters<NonNullable<CheckpointLifecycleHooks["onAttemptTerminal"]>>[1]["cause"];
+
+function terminalCauseEventId(factory: FactFactory, cause: AttemptTerminalCause): string {
+  if (cause.kind === "NODE_COMPLETED") return factory.eventIdFor(factLogicalKey.nodeCompleted(cause.checkpointId));
+  if (cause.kind === "NODE_FAILED") return factory.eventIdFor(factLogicalKey.nodeFailed(cause.nodeId, cause.commandId));
+  if (cause.kind === "TRANSITION_EVALUATED") return factory.eventIdFor(factLogicalKey.transitionEvaluated(cause.transitionId));
+  return factory.eventIdFor(factLogicalKey.evidenceEvaluated(cause.evidenceEvaluationId));
+}
 
 export function classifyTestRunRequest(input: unknown): { accepted: true; command: TestRunRequestedCommandV1; fixture: SyntheticFixture } | { accepted: false; code: RejectionCode } {
   const parsed = TestRunRequestedCommandV1Schema.safeParse(input);
@@ -68,22 +92,26 @@ function deterministicDependencies(fixture: SyntheticFixture): PressAiDependency
 }
 
 function createFactHooks(factory: FactFactory): CheckpointLifecycleHooks {
-  const emit = (tx: Prisma.TransactionClient, logicalKey: string, build: (sequence: number) => EventV1) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId: factory.identity.attemptId, build });
+  const emit = (tx: Prisma.TransactionClient, build: (sequence: number) => EventV1) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId: factory.identity.attemptId, build });
   const node = (nodeId: string) => pressCreationProcess.nodes.find((item) => item.id === nodeId)!;
   return {
-    onAttemptCreated: async (tx, event) => { await emit(tx, "attempt:started", (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.started.v1", logicalKey: "attempt:started", sequence, occurredAt: event.occurredAt, data: { attemptId: event.attemptId } })); },
-    onNodeStarted: async (tx, event) => { await emit(tx, `node:${event.nodeId}:started`, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.started.v1", logicalKey: `node:${event.nodeId}:started`, sequence, occurredAt: event.occurredAt, causationId: event.commandId, data: { nodeId: event.nodeId, handlerRef: `presstuner:handler:${node(event.nodeId).operationKey}:v1` } })); },
-    onNodeCompleted: async (tx, event) => { await emit(tx, `node:${event.nodeId}:completed`, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.completed.v1", logicalKey: `node:${event.nodeId}:completed`, sequence, occurredAt: event.occurredAt, causationId: event.commandId, data: { nodeId: event.nodeId, handlerRef: `presstuner:handler:${node(event.nodeId).operationKey}:v1`, durationMs: event.durationMs } })); },
-    onNodeFailed: async (tx, event) => { await emit(tx, `node:${event.nodeId}:failed`, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.failed.v1", logicalKey: `node:${event.nodeId}:failed`, sequence, occurredAt: event.occurredAt, causationId: event.commandId, data: { nodeId: event.nodeId, handlerRef: `presstuner:handler:${node(event.nodeId).operationKey}:v1`, errorCode: /^[A-Z][A-Z0-9_]{0,99}$/.test(event.errorCode) ? event.errorCode : "NODE_EXECUTION_FAILED" } })); },
-    onTransitionEvaluated: async (tx, event) => { await emit(tx, `transition:${event.edgeId}:evaluated`, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.evaluated.v1", logicalKey: `transition:${event.edgeId}:evaluated`, sequence, occurredAt: event.occurredAt, data: { transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, matched: event.matched, decisionRef: `presstuner:decision:${event.edgeId}:v1` } })); },
-    onTransitionSelected: async (tx, event) => { await emit(tx, `transition:${event.edgeId}:selected`, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.selected.v1", logicalKey: `transition:${event.edgeId}:selected`, sequence, occurredAt: event.occurredAt, data: { transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, decisionRef: `presstuner:decision:${event.edgeId}:v1` } })); },
+    onAttemptCreated: async (tx, event) => { await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.started.v1", logicalKey: factLogicalKey.attemptStarted, sequence, occurredAt: event.occurredAt, causationId: factory.eventIdFor(factLogicalKey.testRunAccepted), data: { attemptId: event.attemptId } })); },
+    onNodeStarted: async (tx, event) => { await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.started.v1", logicalKey: factLogicalKey.nodeStarted(event.nodeId, event.commandId), sequence, occurredAt: event.occurredAt, causationId: event.incomingTransitionId ? factory.eventIdFor(factLogicalKey.transitionSelected(event.incomingTransitionId)) : factory.eventIdFor(factLogicalKey.attemptStarted), data: { nodeId: event.nodeId, handlerRef: `presstuner:handler:${node(event.nodeId).operationKey}:v1` } })); },
+    onNodeCompleted: async (tx, event) => { await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.completed.v1", logicalKey: factLogicalKey.nodeCompleted(event.checkpointId), sequence, occurredAt: event.occurredAt, causationId: factory.eventIdFor(factLogicalKey.nodeStarted(event.nodeId, event.commandId)), data: { nodeId: event.nodeId, handlerRef: `presstuner:handler:${node(event.nodeId).operationKey}:v1`, durationMs: event.durationMs, outputArtifact: buildCheckpointOutputReference({ checkpointId: event.checkpointId, output: event.output }) } })); },
+    onNodeFailed: async (tx, event) => { await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.failed.v1", logicalKey: factLogicalKey.nodeFailed(event.nodeId, event.commandId), sequence, occurredAt: event.occurredAt, causationId: factory.eventIdFor(factLogicalKey.nodeStarted(event.nodeId, event.commandId)), data: { nodeId: event.nodeId, handlerRef: `presstuner:handler:${node(event.nodeId).operationKey}:v1`, errorCode: /^[A-Z][A-Z0-9_]{0,99}$/.test(event.errorCode) ? event.errorCode : "NODE_EXECUTION_FAILED" } })); },
+    onTransitionEvaluated: async (tx, event) => { await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.evaluated.v1", logicalKey: factLogicalKey.transitionEvaluated(event.transitionId), sequence, occurredAt: event.occurredAt, causationId: factory.eventIdFor(factLogicalKey.nodeCompleted(event.sourceCheckpointId)), data: { transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, matched: event.matched, decisionRef: `presstuner:decision:${event.edgeId}:v1` } })); },
+    onTransitionSelected: async (tx, event) => { await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.selected.v1", logicalKey: factLogicalKey.transitionSelected(event.transitionId), sequence, occurredAt: event.occurredAt, causationId: factory.eventIdFor(event.evidenceEvaluationId ? factLogicalKey.evidenceEvaluated(event.evidenceEvaluationId) : factLogicalKey.transitionEvaluated(event.transitionId)), data: { transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, decisionRef: `presstuner:decision:${event.edgeId}:v1` } })); },
     onEvidenceEvaluated: async (tx, event) => {
       const definitionNode = buildProcessDefinition().nodes.find((item) => item.nodeId === event.nodeId)!;
-      await emit(tx, `evidence:${event.nodeId}:evaluated`, (sequence) => factory.create({ type: "dev.aiprocess.event.evidence.evaluated.v1", logicalKey: `evidence:${event.nodeId}:evaluated`, sequence, occurredAt: event.occurredAt, data: { nodeId: event.nodeId, policy: definitionNode.evidencePolicy, evaluations: event.evaluations.slice(0, 100).map((item) => ({ claimId: item.claimId, claimSha256: hashPrivateClaim(item.claimText), result: item.result, evidenceArtifacts: [], evaluatorRef: item.evaluatorRef, reasonCodes: [...item.reasonCodes] })) } }));
+      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.evidence.evaluated.v1", logicalKey: factLogicalKey.evidenceEvaluated(event.evidenceEvaluationId), sequence, occurredAt: event.occurredAt, causationId: factory.eventIdFor(factLogicalKey.transitionEvaluated(event.transitionId)), data: { nodeId: event.nodeId, policy: definitionNode.evidencePolicy, evaluations: event.evaluations.slice(0, 100).map((item) => ({ claimId: item.claimId, claimSha256: hashPrivateClaim(item.claimText), result: item.result, evidenceArtifacts: [], evaluatorRef: item.evaluatorRef, reasonCodes: [...item.reasonCodes] })) } }));
     },
     onAttemptTerminal: async (tx, event) => {
-      if (event.status === "COMPLETED") await emit(tx, "attempt:completed", (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.completed.v1", logicalKey: "attempt:completed", sequence, occurredAt: event.occurredAt, data: { attemptId: event.attemptId } }));
-      else await emit(tx, "attempt:failed", (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.failed.v1", logicalKey: "attempt:failed", sequence, occurredAt: event.occurredAt, data: { attemptId: event.attemptId, failureCode: (event.failureCode ?? (event.status === "BLOCKED" ? "TRANSITION_GUARDRAIL_BLOCK" : "ATTEMPT_FAILED")).replace(/[^A-Za-z0-9._:/+-]/g, "_").slice(0, 128) } }));
+      const causationId = terminalCauseEventId(factory, event.cause);
+      if (event.status === "COMPLETED" && event.cause.kind === "NODE_COMPLETED") {
+        const cause = event.cause;
+        await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.completed.v1", logicalKey: factLogicalKey.attemptCompleted, sequence, occurredAt: event.occurredAt, causationId, data: { attemptId: event.attemptId, resultArtifact: buildCheckpointOutputReference({ checkpointId: cause.checkpointId, output: cause.output }) } }));
+      }
+      else await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.failed.v1", logicalKey: factLogicalKey.attemptFailed, sequence, occurredAt: event.occurredAt, causationId, data: { attemptId: event.attemptId, failureCode: (event.failureCode ?? (event.status === "BLOCKED" ? "TRANSITION_GUARDRAIL_BLOCK" : "ATTEMPT_FAILED")).replace(/[^A-Za-z0-9._:/+-]/g, "_").slice(0, 128) } }));
     },
   };
 }
@@ -117,8 +145,8 @@ async function persistRejection(args: { input: z.infer<typeof looseEnvelope>; co
   await prisma.$transaction(async (tx) => {
     await tx.aiProcessTestRun.create({ data: { commandSource: args.input.source, commandId: args.input.id, commandHash: args.commandHash, projectId: args.input.data.projectId, testRunId: args.input.data.testRunId, correlationId: args.input.correlationId, fixtureArtifactId: args.input.data.fixture.artifactId, fixtureSha256: args.input.data.fixture.sha256, fixtureLocator: args.input.data.fixture.locator, factAttemptId: attemptId, status: "REJECTED", rejectionCode: args.code, completedAt: new Date() } });
     if (args.code === "FIXTURE_NOT_FOUND" || args.code === "ISOLATION_UNAVAILABLE") {
-      const factory = createResolvedFactFactory({ identity: { caseId: `case-${attemptId.slice(-48)}`, objectType: "synthetic-press-fixture", operationId: `operation-${attemptId.slice(-48)}`, attemptId, correlationId: args.input.correlationId, testRunId: args.input.data.testRunId } });
-      await enqueueAiProcessFact(tx, { attemptId, event: factory.create({ type: "dev.aiprocess.event.test-run.rejected.v1", logicalKey: "test-run:rejected", sequence: 1, causationId: args.input.id, data: { testRunId: args.input.data.testRunId, reasonCode: args.code } }) });
+      const factory = createResolvedFactFactory({ identity: { caseId: args.input.correlationId, objectType: "synthetic-press-fixture", operationId: args.input.id, attemptId, correlationId: args.input.correlationId, testRunId: args.input.data.testRunId } });
+      await enqueueAiProcessFact(tx, { attemptId, event: factory.create({ type: "dev.aiprocess.event.test-run.rejected.v1", logicalKey: factLogicalKey.testRunRejected, sequence: 1, causationId: args.input.id, data: { testRunId: args.input.data.testRunId, reasonCode: args.code } }) });
     } else {
       const event = createUnresolvedRejectionFact({ testRunId: args.input.data.testRunId, correlationId: args.input.correlationId, commandId: args.input.id, reasonCode: args.code });
       await enqueueAiProcessFact(tx, { attemptId, event });
@@ -149,7 +177,7 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       }
       const attemptId = factAttemptId(command);
       const identity = {
-        caseId: `case-${attemptId.slice(-48)}`, objectType: "synthetic-press-fixture", operationId: `operation-${attemptId.slice(-48)}`,
+        caseId: command.correlationId, objectType: "synthetic-press-fixture", operationId: command.id,
         attemptId, correlationId: command.correlationId, testRunId: command.data.testRunId,
         trace: command.trace, observabilityReferences: command.observabilityReferences,
       };
@@ -162,22 +190,26 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       } catch {
         await prisma.$transaction(async (tx) => {
           await tx.aiProcessTestRun.update({ where: { id: receipt.id }, data: { status: "REJECTED", rejectionCode: "ISOLATION_UNAVAILABLE", completedAt: new Date() } });
-          await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.rejected.v1", logicalKey: "test-run:rejected", sequence, causationId: command.id, data: { testRunId: command.data.testRunId, reasonCode: "ISOLATION_UNAVAILABLE" } }) });
+          await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.rejected.v1", logicalKey: factLogicalKey.testRunRejected, sequence, causationId: command.id, data: { testRunId: command.data.testRunId, reasonCode: "ISOLATION_UNAVAILABLE" } }) });
         });
         await flushAiProcessFactOutbox({ transport: dependencies.transport });
         return { status: "REJECTED", testRunId: command.data.testRunId, rejectionCode: "ISOLATION_UNAVAILABLE" };
       }
       await prisma.$transaction(async (tx) => {
         await tx.aiProcessTestRun.update({ where: { id: receipt.id }, data: { status: "RUNNING", startedAt: new Date() } });
-        await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.accepted.v1", logicalKey: "test-run:accepted", sequence, causationId: command.id, data: { testRunId: command.data.testRunId, processDefinition: publishedProcessDefinitionReference } }) });
+        await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.accepted.v1", logicalKey: factLogicalKey.testRunAccepted, sequence, causationId: command.id, data: { testRunId: command.data.testRunId, processDefinition: publishedProcessDefinitionReference } }) });
       });
+      let attemptTerminalEventId = factory.eventIdFor(factLogicalKey.attemptFailed);
       try {
         result = await runFixture({ fixture, workspace, attemptId, factory });
+        attemptTerminalEventId = factory.eventIdFor(result.outcome === "SUCCEEDED" ? factLogicalKey.attemptCompleted : factLogicalKey.attemptFailed);
       } catch (error) {
         result = { outcome: "FAILED", failureCode: safeFailureCode(error) };
         const terminal = await prisma.aiProcessFactOutbox.findFirst({ where: { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, eventType: "dev.aiprocess.event.attempt.failed.v1" }, select: { id: true } });
         if (!terminal) {
-          try { await prisma.$transaction(async (tx) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.failed.v1", logicalKey: "attempt:failed", sequence, data: { attemptId, failureCode: result.failureCode ?? "TEST_RUN_FAILED" } }) })); }
+          const nodeFailure = await prisma.aiProcessFactOutbox.findFirst({ where: { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, eventType: "dev.aiprocess.event.node.execution.failed.v1" }, orderBy: { sequence: "desc" }, select: { payload: true } });
+          const causationId = nodeFailure ? EventV1Schema.parse(nodeFailure.payload).id : factory.eventIdFor(factLogicalKey.testRunAccepted);
+          try { await prisma.$transaction(async (tx) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.failed.v1", logicalKey: factLogicalKey.attemptFailed, sequence, causationId, data: { attemptId, failureCode: result.failureCode ?? "TEST_RUN_FAILED" } }) })); }
           catch { /* Fact persistence cannot bypass isolated-workspace cleanup. */ }
         }
       }
@@ -189,7 +221,7 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       if (cleanupFailure) result = { outcome: "FAILED", failureCode: cleanupFailure };
       await prisma.$transaction(async (tx) => {
         await tx.aiProcessTestRun.update({ where: { id: receipt.id }, data: { status: result.outcome, failureCode: result.failureCode, completedAt: new Date() } });
-        await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.completed.v1", logicalKey: "test-run:completed", sequence, data: { testRunId: command.data.testRunId, outcome: result.outcome } }) });
+        await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.completed.v1", logicalKey: factLogicalKey.testRunCompleted, sequence, causationId: attemptTerminalEventId, data: { testRunId: command.data.testRunId, outcome: result.outcome } }) });
       });
       await flushAiProcessFactOutbox({ transport: dependencies.transport });
       return { status: result.outcome, testRunId: command.data.testRunId, failureCode: result.failureCode };

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { fixtureRegistry } from "@/domain/ai-process-console/v1/fixtureRegistry";
 import { AI_PROCESS_CONSOLE_SOURCE, buildProcessDefinition, buildProjectManifest, processDefinitionReference } from "@/domain/ai-process-console/v1/publication";
-import { EventV1Schema, findForbiddenIntegrationPaths } from "@/domain/ai-process-console/v1/contracts";
+import { EventV1Schema, findForbiddenIntegrationPaths, type EventV1 } from "@/domain/ai-process-console/v1/contracts";
 import { createAiProcessTestRunService } from "./testRunService";
 import { createHttpAiProcessFactTransport } from "./httpFactTransport.server";
 import { createAiProcessTestRunPostHandler } from "./adapterRoutes.server";
@@ -67,12 +67,56 @@ test("successful isolated run emits a coherent monotonic terminal fact stream an
     assert.equal(facts[0].eventType, "dev.aiprocess.event.test-run.accepted.v1");
     assert.equal(facts.at(-1)?.eventType, "dev.aiprocess.event.test-run.completed.v1");
     assert.equal(facts.filter((row) => row.eventType === "dev.aiprocess.event.node.execution.completed.v1").length, 5);
-    for (const row of facts) { assert.equal(EventV1Schema.safeParse(row.payload).success, true); assert.deepEqual(findForbiddenIntegrationPaths(row.payload), []); }
+    const payloads = facts.map((row) => EventV1Schema.parse(row.payload));
+    for (const event of payloads) {
+      assert.deepEqual(findForbiddenIntegrationPaths(event), []);
+      assert.equal(event.metadata?.caseId, input.correlationId);
+      assert.equal(event.metadata?.operationId, input.id);
+      assert.equal(event.metadata?.attemptId, receipt.factAttemptId);
+      assert.notEqual(event.metadata?.attemptId, event.metadata?.caseId);
+      assert.notEqual(event.metadata?.attemptId, event.metadata?.operationId);
+    }
     const accepted = EventV1Schema.parse(facts[0].payload);
     assert.deepEqual(accepted.trace, { provider: "OPENTELEMETRY", traceId: "trace-synthetic-run", spanId: "span-synthetic-run" });
     assert.deepEqual(accepted.observabilityReferences, [{ provider: "POSTHOG", metricKey: "test-run-success", windowStart: "2030-01-01T00:00:00.000Z", windowEnd: "2030-01-01T01:00:00.000Z" }]);
     assert.equal(accepted.metadata?.traceId, "trace-synthetic-run");
     assert.equal(accepted.metadata?.spanId, "span-synthetic-run");
+    assert.equal(accepted.causationId, input.id);
+    const attemptStarted = payloads.find((event) => event.type === "dev.aiprocess.event.attempt.started.v1")!;
+    assert.equal(attemptStarted.causationId, accepted.id);
+    for (const node of buildProcessDefinition().nodes) {
+      const started = payloads.find((event) => event.type === "dev.aiprocess.event.node.execution.started.v1" && event.data.nodeId === node.nodeId)!;
+      const completed = payloads.find((event) => event.type === "dev.aiprocess.event.node.execution.completed.v1" && event.data.nodeId === node.nodeId)! as Extract<EventV1, { type: "dev.aiprocess.event.node.execution.completed.v1" }>;
+      assert.equal(completed.causationId, started.id);
+      assert.ok(completed.data.outputArtifact);
+      assert.equal("summary" in completed.data.outputArtifact, false);
+      const incoming = buildProcessDefinition().transitions.find((transition) => transition.targetNodeId === node.nodeId);
+      if (!incoming) assert.equal(started.causationId, attemptStarted.id);
+      else {
+        const selected = payloads.find((event) => event.type === "dev.aiprocess.event.transition.selected.v1" && event.data.transitionId === incoming.transitionId)!;
+        assert.equal(started.causationId, selected.id);
+      }
+    }
+    const startedIds = payloads
+      .filter((event) => event.type === "dev.aiprocess.event.node.execution.started.v1")
+      .map((event) => event.id);
+    assert.equal(new Set(startedIds).size, startedIds.length);
+    for (const transition of buildProcessDefinition().transitions) {
+      const sourceCompleted = payloads.find((event) => event.type === "dev.aiprocess.event.node.execution.completed.v1" && event.data.nodeId === transition.sourceNodeId)!;
+      const evaluated = payloads.find((event) => event.type === "dev.aiprocess.event.transition.evaluated.v1" && event.data.transitionId === transition.transitionId)!;
+      const evidence = payloads.find((event) => event.type === "dev.aiprocess.event.evidence.evaluated.v1" && event.data.nodeId === transition.sourceNodeId);
+      const selected = payloads.find((event) => event.type === "dev.aiprocess.event.transition.selected.v1" && event.data.transitionId === transition.transitionId)!;
+      assert.equal(evaluated.causationId, sourceCompleted.id);
+      if (evidence) assert.equal(evidence.causationId, evaluated.id);
+      assert.equal(selected.causationId, evidence?.id ?? evaluated.id);
+    }
+    const terminalNode = buildProcessDefinition().nodes.find((node) => node.kind === "TERMINAL")!;
+    const terminalNodeCompleted = payloads.find((event) => event.type === "dev.aiprocess.event.node.execution.completed.v1" && event.data.nodeId === terminalNode.nodeId)! as Extract<EventV1, { type: "dev.aiprocess.event.node.execution.completed.v1" }>;
+    const attemptCompleted = payloads.find((event) => event.type === "dev.aiprocess.event.attempt.completed.v1")! as Extract<EventV1, { type: "dev.aiprocess.event.attempt.completed.v1" }>;
+    const testRunCompleted = payloads.find((event) => event.type === "dev.aiprocess.event.test-run.completed.v1")!;
+    assert.deepEqual(attemptCompleted.data.resultArtifact, terminalNodeCompleted.data.outputArtifact);
+    assert.equal(attemptCompleted.causationId, terminalNodeCompleted.id);
+    assert.equal(testRunCompleted.causationId, attemptCompleted.id);
     assert.equal(await prisma.team.findUnique({ where: { id: sentinel.id } }) !== null, true);
     assert.equal(await prisma.team.count({ where: { slug: { startsWith: "aipc-" }, id: { not: sentinel.id } } }), 0);
     const replay = await createAiProcessTestRunService().handle(input);
@@ -100,6 +144,8 @@ test("a recoverable conflicting command persists one minimal rejection fact acro
   assert.equal(rejection.type, "dev.aiprocess.event.test-run.rejected.v1");
   assert.equal(rejection.metadata?.processId, undefined);
   assert.equal(rejection.metadata?.attemptId, undefined);
+  assert.equal(rejection.metadata?.caseId, undefined);
+  assert.equal(rejection.metadata?.operationId, undefined);
   const replay = await service.handle(input);
   assert.equal(replay.replayed, true);
   assert.equal(await prisma.aiProcessFactOutbox.count({ where: { attemptId: receipt.factAttemptId } }), 1);
@@ -113,7 +159,12 @@ test("guardrail block emits no selected transition after the block", async () =>
   const receipt = await remember(input.data.testRunId);
   const facts = await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } });
   const payloads = facts.map((row) => EventV1Schema.parse(row.payload));
-  assert.ok(payloads.some((event) => event.type === "dev.aiprocess.event.attempt.failed.v1"));
+  const failed = payloads.find((event) => event.type === "dev.aiprocess.event.attempt.failed.v1")!;
+  const blockingEvaluation = payloads.findLast((event) => event.type === "dev.aiprocess.event.evidence.evaluated.v1" || event.type === "dev.aiprocess.event.transition.evaluated.v1")!;
+  const testRunCompleted = payloads.find((event) => event.type === "dev.aiprocess.event.test-run.completed.v1")!;
+  assert.equal(failed.causationId, blockingEvaluation.id);
+  assert.equal("resultArtifact" in failed.data, false);
+  assert.equal(testRunCompleted.causationId, failed.id);
   assert.equal(payloads.some((event) => event.type === "dev.aiprocess.event.transition.selected.v1" && event.data.transitionId === "brief-draft"), false);
 });
 
@@ -130,6 +181,13 @@ test("deterministic node failure is terminal and delivery exceptions do not chan
   assert.equal(receipt.status, "FAILED");
   const facts = await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } });
   assert.ok(facts.some((row) => row.eventType === "dev.aiprocess.event.node.execution.failed.v1"));
+  const failedPayloads = facts.map((row) => EventV1Schema.parse(row.payload));
+  const nodeFailed = failedPayloads.find((event) => event.type === "dev.aiprocess.event.node.execution.failed.v1")!;
+  const attemptFailed = failedPayloads.find((event) => event.type === "dev.aiprocess.event.attempt.failed.v1")!;
+  const testRunCompleted = failedPayloads.find((event) => event.type === "dev.aiprocess.event.test-run.completed.v1")!;
+  assert.equal(attemptFailed.causationId, nodeFailed.id);
+  assert.equal("resultArtifact" in attemptFailed.data, false);
+  assert.equal(testRunCompleted.causationId, attemptFailed.id);
   assert.ok(facts.some((row) => row.deliveryState === "PENDING" && row.attemptCount > 0));
   assert.ok(requests > 0);
 });
@@ -146,6 +204,12 @@ test("definition and fixture rejections create safe terminal receipts without a 
   assert.equal(fixtureResult.status, "REJECTED");
   const fixtureReceipt = await remember(invalidFixture.data.testRunId);
   assert.equal(fixtureReceipt.rejectionCode, "FIXTURE_NOT_FOUND");
+  const fixtureFacts = await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: fixtureReceipt.factAttemptId } });
+  assert.equal(fixtureFacts.length, 1);
+  const fixtureRejection = EventV1Schema.parse(fixtureFacts[0].payload);
+  assert.equal(fixtureRejection.metadata?.caseId, invalidFixture.correlationId);
+  assert.equal(fixtureRejection.metadata?.operationId, invalidFixture.id);
+  assert.equal(fixtureRejection.metadata?.attemptId, fixtureReceipt.factAttemptId);
 });
 
 test("authenticated adapter acceptance delivers, reports health, retains facts, and preserves receipt plus watermark", async () => {

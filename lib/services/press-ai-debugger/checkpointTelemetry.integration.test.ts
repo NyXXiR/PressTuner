@@ -16,3 +16,14 @@ test("checkpoint fact hooks are optional and execute at transaction-scoped mutat
   assert.match(checkpoint, /onNodeCompleted\?\.\(tx/);
   assert.match(checkpoint, /onTransitionSelected\?\.\(tx/);
 });
+
+test("checkpoint completion exposes persisted output identity before transition evaluation", () => {
+  const checkpoint = readFileSync("lib/services/press-ai-debugger/checkpointDebuggerService.ts", "utf8");
+  assert.match(checkpoint, /onNodeCompleted[^;]+checkpointId[^;]+output/);
+  assert.match(checkpoint, /onEvidenceEvaluated[^;]+transitionId[^;]+evidenceEvaluationId/);
+  assert.match(checkpoint, /onTransitionSelected[^;]+evidenceEvaluationId/);
+  const persisted = checkpoint.indexOf("pressAiDebugCheckpoint.create");
+  const completed = checkpoint.indexOf("onNodeCompleted?.(tx", persisted);
+  const evaluated = checkpoint.indexOf("onTransitionEvaluated?.(tx", persisted);
+  assert.ok(persisted >= 0 && completed > persisted && evaluated > completed);
+});
