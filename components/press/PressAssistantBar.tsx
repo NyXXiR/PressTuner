@@ -62,6 +62,7 @@ type AgentApproval = {
 type AgentRunView = {
   id: string;
   operationId?: string | null;
+  vendorOperationId?: string | null;
   status:
     | "PENDING"
     | "RUNNING"
@@ -230,7 +231,7 @@ export default function PressAssistantBar() {
   const observeAgentRun = (run: AgentRunView) => {
     setAgentRun(run);
     emitAiOperationOutcome({
-      operationId: run.operationId,
+      vendorOperationId: run.vendorOperationId,
       status: run.status,
     });
     return run;

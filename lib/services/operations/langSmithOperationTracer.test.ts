@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { projectMetadataForVendor } from "@/domain/ai-process-console/v1/vendorMetadataProjection";
 import {
   createLangSmithOperationTracer,
   type LangSmithTraceClient,
 } from "./langSmithOperationTracer";
 
 const operationId = "10000000-0000-4000-8000-000000000001";
+const metadataHmacKey = "canonical-metadata-hmac-key";
 
 function createHarness(overrides?: {
   createError?: Error;
@@ -48,6 +50,7 @@ function createHarness(overrides?: {
       LANGSMITH_PROJECT_ID: overrides?.projectId ?? "30000000-0000-4000-8000-000000000003",
       LANGSMITH_ENDPOINT: "https://api.smith.langchain.com",
       LANGSMITH_WORKSPACE_ID: "workspace-1",
+      AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY: metadataHmacKey,
     },
     randomUUID: () => `20000000-0000-4000-8000-${String(uuidSequence++).padStart(12, "0")}`,
     now: (() => { let tick = 0; return () => 1_754_313_120_000 + tick++; })(),
@@ -94,13 +97,14 @@ test("records a privacy-safe root run correlated by operation metadata", async (
     project_name: "Ops console",
     inputs: { phase: "initial" },
     extra: {
-      metadata: {
-        operation_id: operationId,
-        workflow_id: "presstuner.press-agent",
-        workflow_version: "press-agent-v2",
+      metadata: projectMetadataForVendor({
+        projectId: "presstuner",
         environment: "production",
-        phase: "initial",
-      },
+        serviceName: "presstuner",
+        operationId,
+        processId: "presstuner.press-agent",
+        processVersion: "press-agent-v2",
+      }, "langsmith", metadataHmacKey),
     },
   });
   assert.equal(updated.length, 1);
@@ -230,13 +234,15 @@ test("creates correctly parented privacy-safe child runs without serializing cal
   assert.equal(child!.project_name, root!.project_name);
   assert.match(String(child!.dotted_order), new RegExp(`^${String(root!.dotted_order).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.`));
   assert.equal(child!.run_type, "retriever");
-  assert.deepEqual((child!.extra as { metadata: unknown }).metadata, {
-    operation_id: operationId,
-    workflow_id: "presstuner.press-agent",
-    workflow_version: "press-agent-v2",
-    phase: "initial",
-    stage_id: "retrieval-execution",
-  });
+  assert.deepEqual((child!.extra as { metadata: unknown }).metadata, projectMetadataForVendor({
+    projectId: "presstuner",
+    environment: "production",
+    serviceName: "presstuner",
+    operationId,
+    processId: "presstuner.press-agent",
+    processVersion: "press-agent-v2",
+    nodeId: "retrieval-execution",
+  }, "langsmith", metadataHmacKey));
   assert.equal(JSON.stringify({ created, updated }).includes("private source text"), false);
   assert.equal(JSON.stringify({ created, updated }).includes("private query"), false);
   assert.equal(JSON.stringify({ created, updated }).includes("private observation extra"), false);

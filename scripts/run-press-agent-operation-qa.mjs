@@ -5,8 +5,12 @@ import { config as loadDotEnv } from "dotenv";
 import { chromium } from "playwright";
 
 import ga4RequestProof from "../lib/analytics/ga4OperationRequestProof.ts";
+import vendorMetadataContract from "../domain/ai-process-console/v1/vendorMetadataContract.ts";
 
 const { parseGa4OperationCollectRequest } = ga4RequestProof;
+const { aggregationMetadataRegistry } = vendorMetadataContract;
+const operationMetadataKey = aggregationMetadataRegistry.operationId.posthog.key;
+assert.ok(operationMetadataKey, "AI Process Console PostHog operation key is missing");
 
 loadDotEnv({ path: resolve(process.cwd(), ".env"), override: true });
 loadDotEnv({ path: resolve(process.cwd(), ".env.production"), override: false });
@@ -25,6 +29,7 @@ assert.ok(qaSecret, "AI_QA_AUTH_SECRET is required");
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PSEUDONYMOUS_OPERATION_PATTERN = /^hmac-sha256:[a-f0-9]{64}$/;
 const prompt =
   "내부 근거 문서에서 'QA-OPS-20260805' 항목을 찾아 한 문장으로 요약해줘. 자료가 없으면 추측하지 말고 근거 부족으로 답변을 중단해줘.";
 const proofStartedAt = new Date(Date.now() - 60_000).toISOString();
@@ -128,7 +133,7 @@ try {
     undefined,
     { timeout: 30_000 },
   );
-  await page.evaluate(() => {
+  await page.evaluate((canonicalOperationKey) => {
     const calls = { posthog: [], ga4: [] };
     Object.defineProperty(window, "__aiOperationAnalyticsProof", {
       configurable: true,
@@ -141,7 +146,7 @@ try {
       posthog.capture = (eventName, properties) => {
         if (eventName === "ai_operation_outcome") {
           calls.posthog.push({
-            operationId: properties?.operation_id,
+            operationId: properties?.[canonicalOperationKey],
             outcome: properties?.outcome,
             originProject: properties?.origin_project,
             environment: properties?.environment,
@@ -157,14 +162,14 @@ try {
         if (args[0] === "event" && args[1] === "presstuner_ai_operation_business") {
           const properties = args[2];
           calls.ga4.push({
-            operationId: properties?.operation_id,
+            operationId: properties?.[canonicalOperationKey],
             outcome: properties?.outcome,
           });
         }
         gtag(...args);
       };
     }
-  });
+  }, operationMetadataKey);
   const analyticsBaseline = { ...analyticsRequestCounts };
   const analyticsResponseBaseline = analyticsResponses.length;
 
@@ -182,6 +187,7 @@ try {
   const run = runBody.run;
   assert.equal(runBody.ok, true, "Press Agent response was not successful");
   assert.ok(UUID_PATTERN.test(run?.operationId ?? ""), "Press Agent returned no service operation ID");
+  assert.ok(PSEUDONYMOUS_OPERATION_PATTERN.test(run?.vendorOperationId ?? ""), "Press Agent returned no projected vendor operation ID");
   assert.ok(
     run.status === "COMPLETED" || run.status === "FAILED",
     `Press Agent did not reach a terminal state: ${run.status ?? "unknown"}`,
@@ -194,7 +200,7 @@ try {
         storage.getItem(`presstuner:ai-operation-outcome:${operationId}:${outcome}`),
       );
     },
-    { operationId: run.operationId },
+    { operationId: run.vendorOperationId },
     { timeout: 15_000 },
   );
   await page.waitForTimeout(10_000);
@@ -209,7 +215,7 @@ try {
   assert.ok(
     analyticsCalls.posthog.some(
       (call) =>
-        call.operationId === run.operationId &&
+        call.operationId === run.vendorOperationId &&
         call.outcome === expectedOutcome &&
         call.originProject === "briefflow" &&
         call.environment === "production",
@@ -233,14 +239,14 @@ try {
     assert.ok(
       analyticsCalls.ga4.some(
         (call) =>
-          call.operationId === run.operationId && call.outcome === "conversion",
+          call.operationId === run.vendorOperationId && call.outcome === "conversion",
       ),
       "the loaded GA4 SDK did not receive the exact completed operation outcome",
     );
     const exactGa4Responses = postTerminalResponses.filter(
       (response) =>
         response.provider === "ga4" &&
-        response.operationEvent?.operationId === run.operationId &&
+        response.operationEvent?.operationId === run.vendorOperationId &&
         response.operationEvent?.outcome === "conversion",
     );
     assert.ok(
@@ -257,7 +263,7 @@ try {
 
   console.log(JSON.stringify({
     status: "verified_browser_emission",
-    operationId: run.operationId,
+    operationId: run.vendorOperationId,
     workflowId: "presstuner.press-agent",
     workflowVersion: run.agentVersion,
     terminalStatus: run.status,
@@ -275,7 +281,7 @@ try {
             ? postTerminalResponses.filter(
                 (response) =>
                   response.provider === "ga4" &&
-                  response.operationEvent?.operationId === run.operationId,
+                  response.operationEvent?.operationId === run.vendorOperationId,
               ).length
             : "not_applicable",
         successfulResponse: run.status === "COMPLETED" ? true : "not_applicable",

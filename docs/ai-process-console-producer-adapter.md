@@ -25,6 +25,7 @@ No adapter setting may use a `NEXT_PUBLIC_*` name.
 | `AI_PROCESS_CONSOLE_DESTINATION_URL` | Required when enabled; exact fact-ingest URL. Credentials, query strings, and fragments are rejected. |
 | `AI_PROCESS_CONSOLE_INBOUND_HMAC_SECRET` | Required; independently generated and at least 32 UTF-8 bytes. |
 | `AI_PROCESS_CONSOLE_OUTBOUND_HMAC_SECRET` | Required, at least 32 UTF-8 bytes, and different from the inbound secret. |
+| `AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY` | Required for LangSmith/PostHog correlation; independently generated, server-only, shared with the Console provider read adapter, and never reused as either transport secret. |
 | `AI_PROCESS_CONSOLE_HTTP_TIMEOUT_MS` | `3000`; integer range `100..30000`. |
 | `AI_PROCESS_CONSOLE_AUTH_MAX_SKEW_SECONDS` | `300`; integer range `30..900`. |
 | `AI_PROCESS_CONSOLE_FLUSH_BATCH_SIZE` | `50`; integer range `1..500`. |

@@ -96,16 +96,19 @@ test("serialized v1 checkpoints retain their original version identity", () => {
   );
 });
 
-test("Agent v2 propagates a private operation UUID across durable and trace boundaries", () => {
+test("Agent v2 projects operation correlation through AI Process Console-owned aggregation metadata", () => {
   const source = readFileSync(join(__dirname, "pressAgentRuntime.ts"), "utf8");
   assert.match(source, /beginOpsConsoleOperation/);
   assert.match(source, /traceLangSmithOperation/);
   assert.match(source, /phase: "initial"/);
   assert.match(source, /phase: "continuation"/);
   assert.match(source, /operationId: operation\.operationId/);
-  assert.match(source, /operation_id: operation\.operationId/);
-  assert.match(source, /workflow_id: PRESS_AGENT_WORKFLOW_ID/);
-  assert.match(source, /workflow_version: PRESS_AGENT_VERSION/);
+  assert.match(source, /projectMetadataForVendor/);
+  assert.match(source, /processDefinitionHash:/);
+  assert.match(source, /executionMode: "LIVE"/);
+  assert.doesNotMatch(source, /workflow_id:/);
+  assert.doesNotMatch(source, /workflow_version:/);
+  assert.doesNotMatch(source, /stage_id:/);
   assert.doesNotMatch(source, /metadata:\s*\{\s*runId:[^}]*teamId:/);
   assert.match(source, /completePressAgentOperation/);
   assert.match(source, /readPressAgentOperationId/);

@@ -65,7 +65,6 @@ import {
   beginOpsConsoleOperation,
   completeOpsConsoleOperation,
   reportOpsConsoleGuardrails,
-  PRESS_AGENT_WORKFLOW_ID,
   readOpsConsoleOperationEnvironment,
   type OpsConsoleOperationResult,
 } from "@/lib/services/operations/opsConsoleOperationClient";
@@ -77,6 +76,9 @@ import {
 } from "@/domain/evaluation/pressAgentGuardrailSignals";
 import { derivePressAgentRagFeedback } from "@/domain/evaluation/pressAgentRagFeedbackCriteria";
 import { readPressAgentOperationId } from "@/domain/evaluation/pressAgentOperationId";
+import { buildProjectManifest, buildRagQueryProcessDefinition } from "@/domain/ai-process-console/v1/publication";
+import { aggregationMetadataRegistry, type AiProcessConsoleVendor } from "@/domain/ai-process-console/v1/vendorMetadataContract";
+import { projectMetadataForVendor } from "@/domain/ai-process-console/v1/vendorMetadataProjection";
 import {
   recordLangSmithRagObservation,
   reportLangSmithRootFeedback,
@@ -102,6 +104,31 @@ export const PRESS_AGENT_VERSION = "press-agent-v2";
 export const PRESS_AGENT_MODEL =
   process.env.PT_PRESS_AGENT_MODEL ?? "gpt-4.1-mini";
 export { readPressAgentOperationId } from "@/domain/evaluation/pressAgentOperationId";
+const RAG_QUERY_PROCESS_DEFINITION = buildRagQueryProcessDefinition();
+const AI_PROCESS_CONSOLE_MANIFEST = buildProjectManifest();
+
+function projectPressAgentAggregationMetadata(args: {
+  operationId: string | null;
+  runId: string;
+  environment: string;
+}, vendor: AiProcessConsoleVendor): Readonly<Record<string, string | number>> {
+  const hmacKey = process.env.AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY?.trim();
+  if (!args.operationId || !hmacKey) return Object.freeze({});
+  return projectMetadataForVendor({
+    projectId: AI_PROCESS_CONSOLE_MANIFEST.projectId,
+    environment: args.environment,
+    serviceName: AI_PROCESS_CONSOLE_MANIFEST.serviceName,
+    caseId: args.runId,
+    objectType: "press-agent-rag-query",
+    operationId: args.operationId,
+    attemptId: args.runId,
+    correlationId: args.runId,
+    processId: RAG_QUERY_PROCESS_DEFINITION.processId,
+    processVersion: RAG_QUERY_PROCESS_DEFINITION.version,
+    processDefinitionHash: RAG_QUERY_PROCESS_DEFINITION.canonicalSha256,
+    executionMode: "LIVE",
+  }, vendor, hmacKey);
+}
 const PRESS_AGENT_TOKEN_RATES = {
   inputUsdPerMillion: Number(
     process.env.PT_PRESS_AGENT_INPUT_USD_PER_MILLION ?? 0.4,
@@ -1321,15 +1348,24 @@ export async function startPressAgentRun(args: {
     deadlineAt: runRecord.deadlineAt!,
   });
   try {
+    const operationEnvironment =
+      operation.environment ??
+      readOpsConsoleOperationEnvironment() ??
+      "unconfigured";
     await traceLangSmithOperation({
       operationId,
       traceId,
-      workflowId: PRESS_AGENT_WORKFLOW_ID,
-      workflowVersion: PRESS_AGENT_VERSION,
-      environment:
-        operation.environment ??
-        readOpsConsoleOperationEnvironment() ??
-        "unconfigured",
+      workflowId: RAG_QUERY_PROCESS_DEFINITION.processId,
+      workflowVersion: RAG_QUERY_PROCESS_DEFINITION.version,
+      environment: operationEnvironment,
+      projectId: AI_PROCESS_CONSOLE_MANIFEST.projectId,
+      serviceName: AI_PROCESS_CONSOLE_MANIFEST.serviceName,
+      caseId: runRecord.id,
+      objectType: "press-agent-rag-query",
+      attemptId: runRecord.id,
+      correlationId: runRecord.id,
+      processDefinitionHash: RAG_QUERY_PROCESS_DEFINITION.canonicalSha256,
+      executionMode: "LIVE",
       phase: "initial",
       execute: async () => {
         const result = await withTrace(
@@ -1353,20 +1389,11 @@ export async function startPressAgentRun(args: {
           {
             traceId,
             groupId: runRecord.id,
-            metadata: {
+            metadata: projectPressAgentAggregationMetadata({
+              operationId,
               runId: runRecord.id,
-              ...(operationId
-                ? {
-                    operation_id: operation.operationId,
-                    workflow_id: PRESS_AGENT_WORKFLOW_ID,
-                    workflow_version: PRESS_AGENT_VERSION,
-                    environment:
-                      operation.environment ??
-                      readOpsConsoleOperationEnvironment() ??
-                      "unconfigured",
-                  }
-                : {}),
-            },
+              environment: operationEnvironment,
+            }, "langsmith"),
           },
         );
         await persistRunResult(runRecord, result, startedAtMs, operationId);
@@ -1520,12 +1547,21 @@ async function continuePressAgentRun(
       throw new Error("PRESS_AGENT_ARTICLE_VERSION_CONFLICT");
     }
     const operationId = readPressAgentOperationId(runRecord.input);
+    const operationEnvironment = readOpsConsoleOperationEnvironment() ?? "unconfigured";
     await traceLangSmithOperation({
       operationId,
       traceId,
-      workflowId: PRESS_AGENT_WORKFLOW_ID,
-      workflowVersion: PRESS_AGENT_VERSION,
-      environment: readOpsConsoleOperationEnvironment() ?? "unconfigured",
+      workflowId: RAG_QUERY_PROCESS_DEFINITION.processId,
+      workflowVersion: RAG_QUERY_PROCESS_DEFINITION.version,
+      environment: operationEnvironment,
+      projectId: AI_PROCESS_CONSOLE_MANIFEST.projectId,
+      serviceName: AI_PROCESS_CONSOLE_MANIFEST.serviceName,
+      caseId: runRecord.id,
+      objectType: "press-agent-rag-query",
+      attemptId: runRecord.id,
+      correlationId: runRecord.id,
+      processDefinitionHash: RAG_QUERY_PROCESS_DEFINITION.canonicalSha256,
+      executionMode: "LIVE",
       phase: "continuation",
       execute: async () => {
         const result = await withTrace(
@@ -1554,20 +1590,13 @@ async function continuePressAgentRun(
             });
           },
           {
-            traceId,
-            groupId: runRecord.id,
-            metadata: {
-              runId: runRecord.id,
-              ...(operationId
-                ? {
-                    operation_id: operationId,
-                    workflow_id: PRESS_AGENT_WORKFLOW_ID,
-                    workflow_version: PRESS_AGENT_VERSION,
-                    environment:
-                      readOpsConsoleOperationEnvironment() ?? "unconfigured",
-                  }
-                : {}),
-            },
+              traceId,
+              groupId: runRecord.id,
+              metadata: projectPressAgentAggregationMetadata({
+                operationId,
+                runId: runRecord.id,
+                environment: operationEnvironment,
+              }, "langsmith"),
           },
         );
         await persistRunResult(runRecord, result, startedAtMs, operationId);
@@ -1900,9 +1929,19 @@ export async function getPressAgentRun(args: {
       canRetry = false;
     }
   }
+  const operationId = readPressAgentOperationId(runRecord.input);
+  const posthogOperationKey = aggregationMetadataRegistry.operationId.posthog.key;
+  const posthogMetadata = projectPressAgentAggregationMetadata({
+    operationId,
+    runId: runRecord.id,
+    environment: readOpsConsoleOperationEnvironment() ?? "unconfigured",
+  }, "posthog");
   return {
     ...safeRunRecord,
-    operationId: readPressAgentOperationId(runRecord.input),
+    operationId,
+    vendorOperationId: posthogOperationKey && typeof posthogMetadata[posthogOperationKey] === "string"
+      ? posthogMetadata[posthogOperationKey]
+      : null,
     canRetry,
     feedback: Array.isArray(feedbacks) ? (feedbacks[0] ?? null) : null,
   };

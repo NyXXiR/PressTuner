@@ -1,6 +1,7 @@
+import { aggregationMetadataRegistry } from "@/domain/ai-process-console/v1/vendorMetadataContract";
+
 const GA4_EVENT_NAME = "presstuner_ai_operation_business";
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PSEUDONYMOUS_OPERATION_PATTERN = /^hmac-sha256:[a-f0-9]{64}$/;
 
 export type Ga4OperationCollectRequest = {
   measurementId: string;
@@ -41,12 +42,14 @@ export function parseGa4OperationCollectRequest(
 
   const measurementId = params.get("tid") ?? "";
   const eventName = params.get("en");
-  const operationId = params.get("ep.operation_id") ?? "";
+  const operationKey = aggregationMetadataRegistry.operationId.posthog.key;
+  if (!operationKey) return null;
+  const operationId = params.get(`ep.${operationKey}`) ?? "";
   const outcome = params.get("ep.outcome");
   if (
     !/^G-[A-Z0-9]+$/.test(measurementId) ||
     eventName !== GA4_EVENT_NAME ||
-    !UUID_PATTERN.test(operationId) ||
+    !PSEUDONYMOUS_OPERATION_PATTERN.test(operationId) ||
     outcome !== "conversion"
   ) {
     return null;

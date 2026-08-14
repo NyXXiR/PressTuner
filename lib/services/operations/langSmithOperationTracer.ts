@@ -8,6 +8,7 @@ import {
   PRESS_AGENT_RAG_FEEDBACK_CRITERIA_V1,
   type PressAgentRagFeedback,
 } from "@/domain/evaluation/pressAgentRagFeedbackCriteria";
+import { projectMetadataForVendor } from "@/domain/ai-process-console/v1/vendorMetadataProjection";
 
 type TraceEnvironment = Record<string, string | undefined>;
 type Phase = "initial" | "continuation";
@@ -35,14 +36,7 @@ export type LangSmithRagStageObservation = {
   fallback: Readonly<{ mode: "EXTRACTIVE" | "ABSTENTION"; postFallbackVerificationStatus: "PASS" | "FAIL" }>;
 };
 
-type SafeMetadata = {
-  operation_id: string;
-  workflow_id: string;
-  workflow_version: string;
-  phase: Phase;
-  stage_id?: LangSmithRagStageId;
-  environment?: string;
-};
+type SafeMetadata = Readonly<Record<string, string | number>>;
 
 type LangSmithRunCreate = {
   id: string;
@@ -84,6 +78,7 @@ type ClientConfiguration = {
   workspaceId?: string;
   projectName: string;
   projectId?: string;
+  metadataHmacKey: string;
   timeoutMs: number;
 };
 
@@ -102,10 +97,7 @@ type ActiveRun = {
   traceId: string;
   runId: string;
   dottedOrder: string;
-  operationId: string;
-  workflowId: string;
-  workflowVersion: string;
-  phase: Phase;
+  vendorMetadata: SafeMetadata;
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -117,7 +109,8 @@ const feedbackKeys = new Set<string>(PRESS_AGENT_RAG_FEEDBACK_CRITERIA_V1.map(({
 function readConfiguration(environment: TraceEnvironment): ClientConfiguration | null {
   const apiKey = environment.LANGSMITH_API_KEY?.trim();
   const projectName = environment.LANGSMITH_PROJECT?.trim();
-  if (!apiKey || !projectName || projectName.length > 200) return null;
+  const metadataHmacKey = environment.AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY?.trim();
+  if (!apiKey || !projectName || !metadataHmacKey || projectName.length > 200) return null;
   let endpoint: URL;
   try {
     endpoint = new URL(environment.LANGSMITH_ENDPOINT?.trim() || DEFAULT_ENDPOINT);
@@ -133,6 +126,7 @@ function readConfiguration(environment: TraceEnvironment): ClientConfiguration |
     workspaceId: environment.LANGSMITH_WORKSPACE_ID?.trim() || undefined,
     projectName,
     projectId: projectId && UUID_PATTERN.test(projectId) ? projectId : undefined,
+    metadataHmacKey,
     timeoutMs: Number.isFinite(requestedTimeout) ? Math.min(MAX_TIMEOUT_MS, Math.max(1, Math.floor(requestedTimeout))) : DEFAULT_TIMEOUT_MS,
   };
 }
@@ -247,7 +241,16 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
         run_type: stageRunType(args.stageId),
         project_name: parent.configuration.projectName,
         inputs: { stage: args.stageId },
-        extra: { metadata: { operation_id: parent.operationId, workflow_id: parent.workflowId, workflow_version: parent.workflowVersion, phase: parent.phase, stage_id: args.stageId } },
+        extra: {
+          metadata: {
+            ...parent.vendorMetadata,
+            ...projectMetadataForVendor(
+              { nodeId: args.stageId },
+              "langsmith",
+              parent.configuration.metadataHmacKey,
+            ),
+          },
+        },
       });
       created = true;
     } catch {
@@ -296,7 +299,23 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     }));
   }
 
-  async function trace<T>(args: { operationId: string | null; traceId?: string | null; workflowId: string; workflowVersion: string; environment: string; phase: Phase; execute: () => Promise<T> }): Promise<T> {
+  async function trace<T>(args: {
+    operationId: string | null;
+    traceId?: string | null;
+    workflowId: string;
+    workflowVersion: string;
+    environment: string;
+    phase: Phase;
+    projectId?: string;
+    serviceName?: string;
+    caseId?: string;
+    objectType?: string;
+    attemptId?: string;
+    correlationId?: string;
+    processDefinitionHash?: string;
+    executionMode?: "TEST" | "LIVE";
+    execute: () => Promise<T>;
+  }): Promise<T> {
     if (!args.operationId || !UUID_PATTERN.test(args.operationId)) return args.execute();
     const active = readConfiguredClient();
     if (!active) return args.execute();
@@ -304,6 +323,20 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     const traceId = runId;
     const startedAt = now();
     const dottedOrder = createDottedOrder(startedAt, runId);
+    const vendorMetadata = projectMetadataForVendor({
+      projectId: args.projectId ?? "presstuner",
+      environment: args.environment,
+      serviceName: args.serviceName ?? "presstuner",
+      ...(args.caseId ? { caseId: args.caseId } : {}),
+      ...(args.objectType ? { objectType: args.objectType } : {}),
+      operationId: args.operationId,
+      ...(args.attemptId ? { attemptId: args.attemptId } : {}),
+      ...(args.correlationId ? { correlationId: args.correlationId } : {}),
+      processId: args.workflowId,
+      processVersion: args.workflowVersion,
+      ...(args.processDefinitionHash ? { processDefinitionHash: args.processDefinitionHash } : {}),
+      ...(args.executionMode ? { executionMode: args.executionMode } : {}),
+    }, "langsmith", active.configuration.metadataHmacKey);
     try {
       await active.client.createRun({
         id: runId,
@@ -314,12 +347,12 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
         run_type: "chain",
         project_name: active.configuration.projectName,
         inputs: { phase: args.phase },
-        extra: { metadata: { operation_id: args.operationId, workflow_id: args.workflowId, workflow_version: args.workflowVersion, environment: args.environment, phase: args.phase } },
+        extra: { metadata: vendorMetadata },
       });
     } catch {
       return args.execute();
     }
-    const root: ActiveRun = { client: active.client, configuration: active.configuration, rootId: runId, traceId, runId, dottedOrder, operationId: args.operationId, workflowId: args.workflowId, workflowVersion: args.workflowVersion, phase: args.phase };
+    const root: ActiveRun = { client: active.client, configuration: active.configuration, rootId: runId, traceId, runId, dottedOrder, vendorMetadata };
     try {
       const result = await activeRuns.run(root, args.execute);
       try {

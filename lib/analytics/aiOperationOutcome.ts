@@ -1,10 +1,11 @@
 "use client";
 
 import { capturePostHogEvent } from "@/lib/posthog";
+import { aggregationMetadataRegistry } from "@/domain/ai-process-console/v1/vendorMetadataContract";
 
 type TerminalAgentStatus = "COMPLETED" | "FAILED";
 type OutcomeInput = {
-  operationId: string | null | undefined;
+  vendorOperationId: string | null | undefined;
   status: string;
 };
 type OutcomeBrowser = {
@@ -13,8 +14,7 @@ type OutcomeBrowser = {
   sessionStorage?: Pick<Storage, "getItem" | "setItem">;
 };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PSEUDONYMOUS_OPERATION_PATTERN = /^hmac-sha256:[a-f0-9]{64}$/;
 const EVENT_NAME_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
 const DEFAULT_POSTHOG_EVENT = "ai_operation_outcome";
 const DEFAULT_GA4_EVENT = "presstuner_ai_operation_business";
@@ -45,12 +45,12 @@ export function emitAiOperationOutcome(
   input: OutcomeInput,
   browser: OutcomeBrowser = defaultBrowser(),
 ): boolean {
-  if (!input.operationId || !UUID_PATTERN.test(input.operationId)) return false;
+  if (!input.vendorOperationId || !PSEUDONYMOUS_OPERATION_PATTERN.test(input.vendorOperationId)) return false;
   if (!(["COMPLETED", "FAILED"] as string[]).includes(input.status)) return false;
 
   const status = input.status as TerminalAgentStatus;
   const productOutcome = status === "COMPLETED" ? "accepted" : "abandoned";
-  const storageKey = `presstuner:ai-operation-outcome:${input.operationId}:${productOutcome}`;
+  const storageKey = `presstuner:ai-operation-outcome:${input.vendorOperationId}:${productOutcome}`;
   try {
     if (browser.sessionStorage?.getItem(storageKey)) return false;
     browser.sessionStorage?.setItem(storageKey, "1");
@@ -66,9 +66,11 @@ export function emitAiOperationOutcome(
     process.env.NEXT_PUBLIC_OPS_CONSOLE_GA4_BUSINESS_EVENT,
     DEFAULT_GA4_EVENT,
   );
+  const operationKey = aggregationMetadataRegistry.operationId.posthog.key;
+  if (!operationKey) return false;
   try {
     browser.capturePostHogEvent?.(postHogEvent, {
-      operation_id: input.operationId,
+      [operationKey]: input.vendorOperationId,
       outcome: productOutcome,
     });
   } catch {
@@ -78,7 +80,7 @@ export function emitAiOperationOutcome(
   if (status === "COMPLETED") {
     try {
       browser.gtag?.("event", ga4Event, {
-        operation_id: input.operationId,
+        [operationKey]: input.vendorOperationId,
         outcome: "conversion",
       });
     } catch {
