@@ -1,5 +1,7 @@
 import { canonicalJson } from "@/domain/ai-process-console/v1/canonicalJson";
 import { EventV1Schema } from "@/domain/ai-process-console/v1/contracts";
+import { EventV2Schema } from "@/domain/ai-process-console/v2/contracts";
+import { canonicalV2FactContent } from "@/domain/ai-process-console/v2/factEvents";
 import type { AiProcessFactTransport, FactDeliveryResult } from "./factTransport";
 import { AI_PROCESS_SIGNATURE_HEADER, AI_PROCESS_TIMESTAMP_HEADER, signAiProcessRequest } from "./requestAuthentication";
 
@@ -27,8 +29,9 @@ export function createHttpAiProcessFactTransport(args: {
   const fetchImplementation = args.fetch ?? fetch;
   return {
     async deliver(input) {
-      const fact = EventV1Schema.parse(input);
-      const body = canonicalJson(fact);
+      const parsedV2 = EventV2Schema.safeParse(input);
+      const fact = parsedV2.success ? parsedV2.data : EventV1Schema.parse(input);
+      const body = parsedV2.success ? canonicalV2FactContent(parsedV2.data) : canonicalJson(fact);
       const timestamp = Math.floor((args.clock?.() ?? new Date()).getTime() / 1000).toString();
       const authentication = signAiProcessRequest({ secret: args.outboundHmacSecret, timestamp, method: "POST", pathname: args.destinationUrl.pathname, body });
       const controller = new AbortController();

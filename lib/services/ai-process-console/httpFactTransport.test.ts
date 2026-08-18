@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createResolvedFactFactory } from "@/domain/ai-process-console/v1/factEvents";
 import { canonicalJson } from "@/domain/ai-process-console/v1/canonicalJson";
+import { createV2FactFactory, canonicalV2FactContent } from "@/domain/ai-process-console/v2/factEvents";
 import { verifyAiProcessRequest } from "./requestAuthentication";
 import { createHttpAiProcessFactTransport } from "./httpFactTransport.server";
 
@@ -30,6 +31,20 @@ test("transport emits canonical EventV1 bytes with exact outbound authentication
   const headers = new Headers(request.init?.headers);
   assert.equal(headers.get("content-type"), "application/json");
   assert.equal(verifyAiProcessRequest({ secret, timestamp: headers.get("x-ai-process-timestamp"), signature: headers.get("x-ai-process-signature"), method: "POST", pathname: "/api/facts", body: canonicalJson(fact), maxSkewSeconds: 300, clock }), true);
+});
+
+test("transport emits canonical EventV2 bytes through the same authenticated destination", async () => {
+  const v2Factory = createV2FactFactory({ identity: { caseId: "case-http-v2", objectType: "synthetic", operationId: "operation-http-v2", attemptId: "attempt-http-v2", testRunId: "test-run-http-v2" }, clock });
+  const v2Fact = v2Factory.create({ type: "dev.aiprocess.event.attempt.started.v2", logicalKey: "started", sequence: 1, data: {} });
+  let request: { init?: RequestInit } | undefined;
+  const transport = createHttpAiProcessFactTransport({ destinationUrl: new URL("https://console.example.test/api/facts"), outboundHmacSecret: secret, timeoutMs: 3000, clock, fetch: async (_input, init) => {
+    request = { init };
+    return new Response(null, { status: 202 });
+  } });
+  assert.deepEqual(await transport.deliver(v2Fact), { status: "DELIVERED" });
+  assert.equal(request?.init?.body, canonicalV2FactContent(v2Fact));
+  const headers = new Headers(request?.init?.headers);
+  assert.equal(verifyAiProcessRequest({ secret, timestamp: headers.get("x-ai-process-timestamp"), signature: headers.get("x-ai-process-signature"), method: "POST", pathname: "/api/facts", body: canonicalV2FactContent(v2Fact), maxSkewSeconds: 300, clock }), true);
 });
 
 test("transport applies the complete bounded HTTP response table", async () => {
