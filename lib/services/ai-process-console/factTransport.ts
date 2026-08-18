@@ -1,4 +1,7 @@
 import type { EventV1 } from "@/domain/ai-process-console/v1/contracts";
+import type { EventV2 } from "@/domain/ai-process-console/v2/contracts";
+
+export type AiProcessFact = EventV1 | EventV2;
 
 export const AI_PROCESS_FACT_MAX_ATTEMPTS = 8;
 export const AI_PROCESS_FACT_MAX_BACKOFF_MS = 60 * 60 * 1000;
@@ -19,7 +22,7 @@ export type FactDeliveryResult =
   | { status: "PERMANENT"; code: Extract<FactDeliveryErrorCode, "AUTHENTICATION_FAILED" | "CONTRACT_INVALID" | "SEQUENCE_CONFLICT" | "HTTP_REJECTED"> };
 
 export type AiProcessFactTransport = Readonly<{
-  deliver: (fact: EventV1) => Promise<FactDeliveryResult>;
+  deliver: (fact: AiProcessFact) => Promise<FactDeliveryResult>;
 }>;
 
 const permanentCodes = new Set<FactDeliveryErrorCode>(["AUTHENTICATION_FAILED", "CONTRACT_INVALID", "SEQUENCE_CONFLICT", "HTTP_REJECTED"]);

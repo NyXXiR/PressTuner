@@ -40,7 +40,11 @@ test("publication includes the frozen rag-query registry topology without changi
     ["verification-fallback", "verification", "fallback"],
     ["fallback-terminal", "fallback", "terminal-evaluation"],
   ]);
-  assert.deepEqual(buildProjectManifest().processes.map(({ processId, version }) => [processId, version]), [["press-creation", "2.1.0"], ["rag-query", "1.0.0"]]);
+  assert.deepEqual(buildProjectManifest().processes.map(({ processId, version }) => [processId, version]), [["press-creation", "2.1.0"], ["press-creation", "3.0.0"], ["rag-query", "1.0.0"]]);
   assert.ok("integrations/ai-process-console/v1/rag-query-1.0.0.definition.json" in publishedArtifacts());
   assert.ok("evals/ai-process-console/press-creation/2.1.0/success-v1.json" in publishedArtifacts());
+  const bundle = publishedArtifacts()["integrations/ai-process-console/registration-bundle.json"] as { definitions: { schemaVersion: string; processId: string; version: string }[]; testFixtures: { declarationId: string; fixture: unknown }[] };
+  assert.deepEqual(bundle.definitions.map(({ schemaVersion, processId, version }) => [schemaVersion, processId, version]), [["1.0", "press-creation", "2.1.0"], ["2.0", "press-creation", "3.0.0"], ["1.0", "rag-query", "1.0.0"]]);
+  assert.deepEqual(bundle.testFixtures.map(({ declarationId }) => declarationId), ["success-v1", "success-v2", "final-quality-block-v2"]);
+  assert.equal(JSON.stringify(bundle).includes("memoText"), false);
 });

@@ -3,6 +3,8 @@ import test from "node:test";
 import { fixtureRegistry } from "@/domain/ai-process-console/v1/fixtureRegistry";
 import { buildProjectManifest, processDefinitionReference, buildProcessDefinition } from "@/domain/ai-process-console/v1/publication";
 import { classifyTestRunRequest } from "./testRunService";
+import { fixtureRegistryV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
+import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
 
 const command = () => ({ specversion: "1.0", id: "command-123", source: "urn:ai-process-console:test-runs", subject: "project/presstuner", time: "2030-01-01T00:00:00.000Z", schemaVersion: "1.0", correlationId: "correlation-123", sequence: 0, executionMode: "TEST", type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: "test-run-123", projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinition()), fixture: fixtureRegistry[0].artifact } });
 
@@ -13,6 +15,12 @@ test("only the strict fixture-isolated test-run command is accepted", () => {
   for (const [key, value] of Object.entries({ destinationId: "caller", destinationUrl: "https://attacker.invalid", handler: "override", node: "draft", transition: "force", fixtureText: "private", mutation: "production" })) {
     assert.deepEqual(classifyTestRunRequest({ ...command(), [key]: value }), { accepted: false, code: "REQUEST_INVALID" }, key);
   }
+});
+
+test("the same isolated endpoint accepts the exact v2 definition and fixture only", () => {
+  const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: fixtureRegistryV2[0].artifact } };
+  assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: fixtureRegistryV2[0].fixture, contractVersion: "v2" });
+  assert.deepEqual(classifyTestRunRequest({ ...input, data: { ...input.data, fixture: fixtureRegistry[0].artifact } }), { accepted: false, code: "FIXTURE_NOT_FOUND" });
 });
 
 test("definition, project, unknown fixture, and saved-case requests are rejected safely", () => {

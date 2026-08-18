@@ -1,0 +1,14 @@
+{
+  "fixtureId": "final-quality-block-v2",
+  "memoText": "가상 서비스 델타의 완성본 품질 결함을 재현하는 합성 메모다.",
+  "processId": "press-creation",
+  "processVersion": "3.0.0",
+  "reviewInstruction": "완성본 품질을 확인한다.",
+  "rewriteInstruction": "빈 완성본 결함을 재현한다.",
+  "scenario": "QUALITY_BLOCK",
+  "schemaVersion": "2.0",
+  "selectedNoteIds": [
+    "note_synthetic-session_0"
+  ],
+  "tone": "neutral"
+}

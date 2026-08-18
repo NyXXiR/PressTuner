@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { EventV1Schema, assertPrivacySafe, type EventV1 } from "@/domain/ai-process-console/v1/contracts";
 import { canonicalFactContent } from "@/domain/ai-process-console/v1/factEvents";
+import { EventV2Schema, type EventV2 } from "@/domain/ai-process-console/v2/contracts";
+import { canonicalV2FactContent } from "@/domain/ai-process-console/v2/factEvents";
 import { sha256Text } from "@/domain/ai-process-console/v1/canonicalJson";
 import { prisma } from "@/lib/prisma";
 import { AI_PROCESS_FACT_MAX_ATTEMPTS, factRetryDelayMs, normalizeFactDeliveryError, type AiProcessFactTransport, type FactDeliveryResult } from "./factTransport";
@@ -14,11 +16,17 @@ export class AiProcessFactConflictError extends Error {
   }
 }
 
-export async function enqueueAiProcessFact(tx: Prisma.TransactionClient, input: { attemptId: string; event: EventV1 }) {
-  const event = EventV1Schema.parse(input.event);
+type AiProcessFact = EventV1 | EventV2;
+const parseFact = (input: unknown): AiProcessFact => {
+  const v2 = EventV2Schema.safeParse(input);
+  return v2.success ? v2.data : EventV1Schema.parse(input);
+};
+
+export async function enqueueAiProcessFact(tx: Prisma.TransactionClient, input: { attemptId: string; event: AiProcessFact }) {
+  const event = parseFact(input.event);
   assertPrivacySafe(event);
   if (event.source.length === 0 || input.attemptId.length === 0) throw new Error("AI_PROCESS_FACT_IDENTITY_INVALID");
-  const canonical = canonicalFactContent(event);
+  const canonical = event.schemaVersion === "2.0" ? canonicalV2FactContent(event) : canonicalFactContent(event);
   const canonicalHash = sha256Text(canonical);
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${event.source}:${input.attemptId}`}))`;
   const duplicate = await tx.aiProcessFactOutbox.findUnique({ where: { source_eventId: { source: event.source, eventId: event.id } } });
@@ -32,10 +40,10 @@ export async function enqueueAiProcessFact(tx: Prisma.TransactionClient, input: 
   return { row, created: true };
 }
 
-export async function enqueueNextAiProcessFact(tx: Prisma.TransactionClient, input: { source: string; attemptId: string; build: (sequence: number) => EventV1 }) {
+export async function enqueueNextAiProcessFact(tx: Prisma.TransactionClient, input: { source: string; attemptId: string; build: (sequence: number) => AiProcessFact }) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${input.source}:${input.attemptId}`}))`;
   const latest = await tx.aiProcessFactOutbox.findFirst({ where: { source: input.source, attemptId: input.attemptId }, orderBy: { sequence: "desc" }, select: { sequence: true } });
-  const event = EventV1Schema.parse(input.build((latest?.sequence ?? 0) + 1));
+  const event = parseFact(input.build((latest?.sequence ?? 0) + 1));
   if (event.source !== input.source) throw new Error("AI_PROCESS_FACT_SOURCE_MISMATCH");
   // The lock is re-entrant for this transaction; the shared validator owns final idempotence checks.
   return enqueueAiProcessFact(tx, { attemptId: input.attemptId, event });
@@ -74,7 +82,8 @@ export async function flushAiProcessFactOutbox(args: { transport?: AiProcessFact
       if (haltedAttempts.has(stream)) continue;
       const earlier = await prisma.aiProcessFactOutbox.findFirst({ where: { source: row.source, attemptId: row.attemptId, sequence: { lt: row.sequence }, deliveryState: { in: ["PENDING", "DEAD_LETTER"] } }, select: { id: true } });
       if (earlier) { haltedAttempts.add(stream); continue; }
-      const parsed = EventV1Schema.safeParse(row.payload);
+      const parsedV2 = EventV2Schema.safeParse(row.payload);
+      const parsed = parsedV2.success ? parsedV2 : EventV1Schema.safeParse(row.payload);
       let result: FactDeliveryResult;
       if (!parsed.success) result = { status: "PERMANENT", code: "CONTRACT_INVALID" };
       else {

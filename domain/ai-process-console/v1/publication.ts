@@ -2,6 +2,9 @@ import { pressCreationProcess, ragQueryProcess, type PressAiProcessDefinition } 
 import { canonicalJson, canonicalJsonFile, sha256Canonical, sha256Text } from "./canonicalJson";
 import { MemoSourcePolicyV1Schema, ProcessDefinitionV1Schema, ProjectIntegrationManifestV1Schema, assertPrivacySafe, type ArtifactReferenceV1, type ProcessDefinitionV1, type ProjectIntegrationManifestV1 } from "./contracts";
 import { fixtureRegistry } from "./fixtureRegistry";
+import { buildProcessDefinitionV2 } from "../v2/publication";
+import { fixtureRegistryV2 } from "../v2/fixtureRegistry";
+import type { ProcessDefinitionV2 } from "../v2/contracts";
 
 export const AI_PROCESS_CONSOLE_SOURCE = "urn:presstuner:ai-process-console:facts:v1";
 export const AI_PROCESS_CONSOLE_DESTINATION = "presstuner.ai-process-console.test-run.v1";
@@ -94,13 +97,13 @@ export function buildRagQueryProcessDefinition(): ProcessDefinitionV1 {
   });
 }
 
-export function processDefinitionReference(definition = buildProcessDefinition()): ArtifactReferenceV1 {
+export function processDefinitionReference(definition: ProcessDefinitionV1 | ProcessDefinitionV2 = buildProcessDefinition()): ArtifactReferenceV1 {
   return artifactReference({ artifactId: `presstuner-${definition.processId}-${definition.version}`, locator: `ref:definitions/presstuner/${definition.processId}/${definition.version}`, value: definition, sha256: definition.canonicalSha256 });
 }
 
-export function buildProjectManifest(input?: ProcessDefinitionV1 | readonly ProcessDefinitionV1[]): ProjectIntegrationManifestV1 {
+export function buildProjectManifest(input?: ProcessDefinitionV1 | ProcessDefinitionV2 | readonly (ProcessDefinitionV1 | ProcessDefinitionV2)[]): ProjectIntegrationManifestV1 {
   const definitions = input === undefined
-    ? [buildProcessDefinition(), buildRagQueryProcessDefinition()]
+    ? [buildProcessDefinition(), buildProcessDefinitionV2(), buildRagQueryProcessDefinition()]
     : Array.isArray(input) ? input : [input];
   const manifest = {
     schemaVersion: "1.0" as const,
@@ -121,13 +124,22 @@ export function buildProjectManifest(input?: ProcessDefinitionV1 | readonly Proc
 
 export function publishedArtifacts(): Readonly<Record<string, unknown>> {
   const definition = buildProcessDefinition();
+  const definitionV2 = buildProcessDefinitionV2();
   const ragDefinition = buildRagQueryProcessDefinition();
+  const definitions = [definition, definitionV2, ragDefinition];
+  const testFixtures = [
+    ...fixtureRegistry.filter(({ fixture }) => fixture.fixtureId === "success-v1").map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: "PressTuner v1 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definition.canonicalSha256, fixture: artifact })),
+    ...fixtureRegistryV2.map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: fixture.scenario === "QUALITY_BLOCK" ? "PressTuner v2 완성본 품질 BLOCK" : "PressTuner v2 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definitionV2.canonicalSha256, fixture: artifact })),
+  ];
   return Object.freeze({
-    "integrations/ai-process-console/v1/project-manifest.json": buildProjectManifest([definition, ragDefinition]),
+    "integrations/ai-process-console/v1/project-manifest.json": buildProjectManifest(definitions),
+    "integrations/ai-process-console/registration-bundle.json": { manifest: buildProjectManifest(definitions), definitions, testFixtures },
     "integrations/ai-process-console/v1/press-creation-2.1.0.definition.json": definition,
+    "integrations/ai-process-console/v2/press-creation-3.0.0.definition.json": definitionV2,
     "integrations/ai-process-console/v1/rag-query-1.0.0.definition.json": ragDefinition,
     "integrations/ai-process-console/v1/memo-source-policy-v1.json": memoSourcePolicy,
     ...Object.fromEntries(fixtureRegistry.map(({ fixture }) => [`evals/ai-process-console/press-creation/2.1.0/${fixture.fixtureId}.json`, fixture])),
+    ...Object.fromEntries(fixtureRegistryV2.map(({ fixture }) => [`evals/ai-process-console/press-creation/3.0.0/${fixture.fixtureId}.json`, fixture])),
   });
 }
 

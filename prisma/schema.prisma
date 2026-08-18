@@ -2241,6 +2241,7 @@ model AiProcessTestRun {
   status                AiProcessTestRunStatus @default(RECEIVED) @map("status")
   rejectionCode         String?                @map("rejection_code")
   failureCode           String?                @map("failure_code")
+  debugSnapshot         Json?                  @map("debug_snapshot")
   startedAt             DateTime?              @map("started_at")
   completedAt           DateTime?              @map("completed_at")
   createdAt             DateTime               @default(now()) @map("created_at")

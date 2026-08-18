@@ -1,0 +1,327 @@
+{
+  "canonicalSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+  "entryNodeIds": [
+    "article-initialization"
+  ],
+  "nodes": [
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handler": {
+        "componentId": "presstuner:handler:article.initialize",
+        "sha256": "b42e1dc418f05060872c69b13c259f51db6448c906bd1322b703ac0b37d23bfc",
+        "version": "3.0.0"
+      },
+      "kind": "ACTION",
+      "label": "문서 초기화",
+      "nodeId": "article-initialization"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handler": {
+        "componentId": "presstuner:handler:press.normalize-brief",
+        "sha256": "215a77cc68079b265b80aca59c512731858f255ae4514d5e48d7b64704e691e2",
+        "version": "3.0.0"
+      },
+      "kind": "ACTION",
+      "label": "메모 정규화",
+      "nodeId": "brief-normalization"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "EXTERNAL_VERIFICATION",
+        "verifier": {
+          "componentId": "presstuner:verifier:evidence-fact-consistency",
+          "sha256": "7cf3b79d58eca684fb902cf9e5fcbce60c5e9ece0335023aa1dd8075a301cb9d",
+          "version": "1.0.0"
+        }
+      },
+      "handler": {
+        "componentId": "presstuner:handler:press.generate-draft",
+        "sha256": "a2ba730d7b2c1c53a484567f73f3b305fd14308cbcb26f4932d84d888c105c5f",
+        "version": "3.0.0"
+      },
+      "kind": "ACTION",
+      "label": "초안 생성",
+      "nodeId": "draft-generation"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handler": {
+        "componentId": "presstuner:handler:press.review-draft",
+        "sha256": "7e311e43654b5b98221090dc96d80dc593492a3c94416462e70c74256cb3a121",
+        "version": "3.0.0"
+      },
+      "kind": "DECISION",
+      "label": "초안 리뷰",
+      "nodeId": "draft-review"
+    },
+    {
+      "evidencePolicy": {
+        "kind": "NONE"
+      },
+      "handler": {
+        "componentId": "presstuner:handler:press.rewrite-selected",
+        "sha256": "8c6546ecdd6253c0406e20a121c549a1ea322f1b3ec3ff590f753e5cc472f239",
+        "version": "3.0.0"
+      },
+      "kind": "TERMINAL",
+      "label": "선택 수정 및 완성",
+      "nodeId": "selected-rewrite"
+    }
+  ],
+  "processId": "press-creation",
+  "requirements": [
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:article-team-ownership",
+        "sha256": "798a258e7dffbc2f4294e914a6f944f60ecf5a903369f5337d352ae49675ced2",
+        "version": "1.0.0"
+      },
+      "label": "문서 팀 소유권",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "article-initialization",
+        "transitionId": "initialization-brief"
+      },
+      "requirementId": "article-team-ownership",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:fresh-press-release",
+        "sha256": "b7951adb2957f381ebbfd97dbc0a83b399cabf5787a1a05aed33301d8d45b639",
+        "version": "1.0.0"
+      },
+      "label": "새 보도자료 문서",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "article-initialization",
+        "transitionId": "initialization-brief"
+      },
+      "requirementId": "fresh-press-release",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:memo-brief-grounding",
+        "sha256": "1071511965e91a17c05d5992312b72e6662429d453aff4055c2beadd165bcc42",
+        "version": "1.0.0"
+      },
+      "label": "메모-브리프 근거 일치",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "brief-normalization",
+        "transitionId": "brief-draft"
+      },
+      "requirementId": "memo-brief-grounding",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:critical-fact-preservation",
+        "sha256": "d51607dce09b7624d8a0d55cb898a614ba19b63e2347ea8e77d4cecbadb35cb6",
+        "version": "1.0.0"
+      },
+      "label": "핵심 사실 보존",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "brief-normalization",
+        "transitionId": "brief-draft"
+      },
+      "requirementId": "critical-fact-preservation",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:brief-draft-grounding",
+        "sha256": "a3d51dc76fff8e5edf15d95a933c37a5fcf48591455923772fa1e29dd9de7566",
+        "version": "1.0.0"
+      },
+      "label": "브리프-초안 근거 일치",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "draft-generation",
+        "transitionId": "draft-review"
+      },
+      "requirementId": "brief-draft-grounding",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:press-structure",
+        "sha256": "7c721687216badd2d117e504449d6ba8b47a66ce438c5c7d914cc59235ee391f",
+        "version": "1.0.0"
+      },
+      "label": "보도자료 구조",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "draft-generation",
+        "transitionId": "draft-review"
+      },
+      "requirementId": "press-structure",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:evidence-fact-consistency",
+        "sha256": "6d0743ce68c7e6459391585e42acec98d2d4f3335fcd16a2e3c66066cf793c5f",
+        "version": "1.0.0"
+      },
+      "label": "근거-사실 일관성",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "draft-generation",
+        "transitionId": "draft-review"
+      },
+      "requirementId": "evidence-fact-consistency",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:review-note-selection",
+        "sha256": "0cfe247647149783e1f603a44d6cd855e1a981c99e81ed6cc75a872ff05e9b2e",
+        "version": "1.0.0"
+      },
+      "label": "리뷰 노트 선택",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "draft-review",
+        "transitionId": "review-rewrite"
+      },
+      "requirementId": "review-note-selection",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:rewrite-instruction-bounds",
+        "sha256": "dafee6e1fb4b2fbae57ba4e636044ec4ff94600a9c1aa2d3bfff5a2d476fe292",
+        "version": "1.0.0"
+      },
+      "label": "수정 지침 범위",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "draft-review",
+        "transitionId": "review-rewrite"
+      },
+      "requirementId": "rewrite-instruction-bounds",
+      "version": "1.0.0"
+    },
+    {
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:review-checkpoint-lineage",
+        "sha256": "42d2313e8deb9018fffe0cc611eb4a2163046504b681422394ba905b559ac791",
+        "version": "1.0.0"
+      },
+      "label": "리뷰 체크포인트 계보",
+      "location": {
+        "kind": "TRANSITION",
+        "stageId": "draft-review",
+        "transitionId": "review-rewrite"
+      },
+      "requirementId": "review-checkpoint-lineage",
+      "version": "1.0.0"
+    },
+    {
+      "description": "완성 노드가 비어 있지 않은 제목과 본문을 생성했는지 검사합니다.",
+      "evaluation": {
+        "kind": "BOOLEAN"
+      },
+      "evaluator": {
+        "componentId": "presstuner:guardrail:final-output-quality",
+        "sha256": "384c9a5d439b8ed259b23cb1ee0756afeb5a498c1f75726278e4ea0dd676b76a",
+        "version": "1.0.0"
+      },
+      "label": "완성본 제목·본문 품질",
+      "location": {
+        "kind": "NODE",
+        "nodeId": "selected-rewrite"
+      },
+      "requirementId": "final-output-quality",
+      "version": "1.0.0"
+    }
+  ],
+  "schemaVersion": "2.0",
+  "transitions": [
+    {
+      "decision": {
+        "componentId": "presstuner:decision:initialization-brief",
+        "sha256": "4d1b3895d3048b14fcb2d0623b5ba0a3729f3f38bdcfd688198aca2ba42a8d46",
+        "version": "3.0.0"
+      },
+      "maxTraversalsPerAttempt": 1,
+      "sourceNodeId": "article-initialization",
+      "targetNodeId": "brief-normalization",
+      "transitionId": "initialization-brief"
+    },
+    {
+      "decision": {
+        "componentId": "presstuner:decision:brief-draft",
+        "sha256": "973c88ce1797a52bdc881431215615fb24146de574a3bca83db45f9d129f73f0",
+        "version": "3.0.0"
+      },
+      "maxTraversalsPerAttempt": 1,
+      "sourceNodeId": "brief-normalization",
+      "targetNodeId": "draft-generation",
+      "transitionId": "brief-draft"
+    },
+    {
+      "decision": {
+        "componentId": "presstuner:decision:draft-review",
+        "sha256": "c94c59e4aee2004c0f027b63552480b23bfa794ebc567704be81df85c4fb1746",
+        "version": "3.0.0"
+      },
+      "maxTraversalsPerAttempt": 1,
+      "sourceNodeId": "draft-generation",
+      "targetNodeId": "draft-review",
+      "transitionId": "draft-review"
+    },
+    {
+      "decision": {
+        "componentId": "presstuner:decision:review-rewrite",
+        "sha256": "aebb48245794e6b389b08c61f524189ca38cd4a7dd64c9a5dcf4805cc65ed1af",
+        "version": "3.0.0"
+      },
+      "maxTraversalsPerAttempt": 1,
+      "sourceNodeId": "draft-review",
+      "targetNodeId": "selected-rewrite",
+      "transitionId": "review-rewrite"
+    }
+  ],
+  "version": "3.0.0"
+}

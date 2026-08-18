@@ -5,7 +5,11 @@ import { EventV1Schema, TestRunRequestedCommandV1Schema, type EventV1, type Test
 import { canonicalJson, sha256Canonical } from "@/domain/ai-process-console/v1/canonicalJson";
 import { buildCheckpointOutputReference, createResolvedFactFactory, createUnresolvedRejectionFact, hashPrivateClaim, publishedProcessDefinitionReference, type FactFactory } from "@/domain/ai-process-console/v1/factEvents";
 import { resolveSyntheticFixture, type SyntheticFixture } from "@/domain/ai-process-console/v1/fixtureRegistry";
-import { AI_PROCESS_CONSOLE_SOURCE, buildProcessDefinition, buildProjectManifest } from "@/domain/ai-process-console/v1/publication";
+import { AI_PROCESS_CONSOLE_SOURCE, buildProcessDefinition, buildProjectManifest, processDefinitionReference } from "@/domain/ai-process-console/v1/publication";
+import { createV2CheckpointFactHooks } from "@/domain/ai-process-console/v2/checkpointFactHooks";
+import { createV2FactFactory } from "@/domain/ai-process-console/v2/factEvents";
+import { resolveSyntheticFixtureV2, type SyntheticFixtureV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
+import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import { prisma } from "@/lib/prisma";
 import type { PressAiDependencyOverrides, PressAiCompletionRequest } from "@/lib/services/article/pressAiDependencies";
@@ -13,6 +17,7 @@ import { advanceCheckpointEdge, createCheckpointAttempt, executeCheckpointNode, 
 import { cleanupIsolatedFixtureWorkspace, createIsolatedFixtureWorkspace, type IsolatedFixtureWorkspace } from "./isolatedFixtureWorkspace";
 import { enqueueAiProcessFact, enqueueNextAiProcessFact, flushAiProcessFactOutbox } from "./factOutbox";
 import type { AiProcessFactTransport } from "./factTransport";
+import { captureTestDebugSnapshot } from "./testDebugSnapshot";
 
 type RejectionCode = "FIXTURE_NOT_FOUND" | "DEFINITION_NOT_FOUND" | "ISOLATION_UNAVAILABLE" | "REQUEST_INVALID";
 type TestRunOutcome = Readonly<{ status: "SUCCEEDED" | "FAILED" | "REJECTED"; testRunId: string; rejectionCode?: RejectionCode; failureCode?: string; replayed?: boolean }>;
@@ -56,18 +61,25 @@ function terminalCauseEventId(factory: FactFactory, cause: AttemptTerminalCause)
   return factory.eventIdFor(factLogicalKey.evidenceEvaluated(cause.evidenceEvaluationId));
 }
 
-export function classifyTestRunRequest(input: unknown): { accepted: true; command: TestRunRequestedCommandV1; fixture: SyntheticFixture } | { accepted: false; code: RejectionCode } {
+type RunnerFixture = SyntheticFixture | SyntheticFixtureV2;
+type AcceptedTestRun = { accepted: true; command: TestRunRequestedCommandV1; fixture: RunnerFixture; contractVersion: "v1" | "v2" };
+
+export function classifyTestRunRequest(input: unknown): AcceptedTestRun | { accepted: false; code: RejectionCode } {
   const parsed = TestRunRequestedCommandV1Schema.safeParse(input);
   if (!parsed.success) return { accepted: false, code: "REQUEST_INVALID" };
   const manifest = buildProjectManifest();
   if (parsed.data.data.projectId !== manifest.projectId) return { accepted: false, code: "REQUEST_INVALID" };
-  if (canonicalJson(parsed.data.data.processDefinition) !== canonicalJson(publishedProcessDefinitionReference)) return { accepted: false, code: "DEFINITION_NOT_FOUND" };
-  const fixture = resolveSyntheticFixture(parsed.data.data.fixture);
+  const v1Reference = publishedProcessDefinitionReference;
+  const v2Reference = processDefinitionReference(buildProcessDefinitionV2());
+  const requested = canonicalJson(parsed.data.data.processDefinition);
+  const contractVersion = requested === canonicalJson(v1Reference) ? "v1" : requested === canonicalJson(v2Reference) ? "v2" : undefined;
+  if (!contractVersion) return { accepted: false, code: "DEFINITION_NOT_FOUND" };
+  const fixture = contractVersion === "v2" ? resolveSyntheticFixtureV2(parsed.data.data.fixture) : resolveSyntheticFixture(parsed.data.data.fixture);
   if (!fixture) return { accepted: false, code: parsed.data.data.fixture.locator.startsWith("ref:saved-cases/") ? "ISOLATION_UNAVAILABLE" : "FIXTURE_NOT_FOUND" };
-  return { accepted: true, command: parsed.data, fixture };
+  return { accepted: true, command: parsed.data, fixture, contractVersion };
 }
 
-function deterministicDependencies(fixture: SyntheticFixture): PressAiDependencyOverrides {
+function deterministicDependencies(fixture: RunnerFixture): PressAiDependencyOverrides {
   return {
     now: () => new Date("2030-01-01T00:00:00.000Z"),
     createId: () => "synthetic-session",
@@ -81,11 +93,13 @@ function deterministicDependencies(fixture: SyntheticFixture): PressAiDependency
         const candidate = { value: fixture.memoText, sourceId: "memo", evidence: fixture.memoText };
         return JSON.stringify({ serviceName: {}, announceType: { value: "기타", sourceId: "memo", evidence: fixture.memoText }, oneLiner: candidate, points: [candidate], quoteWho: {}, quoteMessage: {}, eventAt: {}, publishAt: {} });
       }
-      if (fixture.scenario === "NODE_FAILURE" && fixture.failureNodeId === "draft-generation" && !system.includes("notes 배열") && !system.includes("선택된 수정")) {
+      if ("failureNodeId" in fixture && fixture.scenario === "NODE_FAILURE" && fixture.failureNodeId === "draft-generation" && !system.includes("notes 배열") && !system.includes("선택된 수정")) {
         throw Object.assign(new Error("SYNTHETIC_HANDLER_FAILURE"), { code: "SYNTHETIC_HANDLER_FAILURE" });
       }
       if (system.includes("notes 배열")) return JSON.stringify({ notes: [{ quote: "합성 보도자료 리드", note: "합성 문장을 더 명료하게 다듬는다.", type: "HINT", sourceFactIds: [] }] });
-      if (system.includes("선택") || user.includes("selected") || user.includes("수정")) return JSON.stringify({ title: "합성 보도자료 수정본", plain: `합성 보도자료 리드\n${fixture.memoText}\n합성 보도자료 마침` });
+      if (system.includes("선택") || user.includes("selected") || user.includes("수정")) return fixture.scenario === "QUALITY_BLOCK"
+        ? JSON.stringify({ title: " ", plain: " " })
+        : JSON.stringify({ title: "합성 보도자료 수정본", plain: `합성 보도자료 리드\n${fixture.memoText}\n합성 보도자료 마침` });
       return JSON.stringify({ title: "합성 보도자료", lead: "합성 보도자료 리드", fact: fixture.memoText, paragraphs: [{ text: fixture.memoText, importance: 3 }], closing: "합성 보도자료 마침", usedFactIds: [] });
     },
   };
@@ -116,8 +130,8 @@ function createFactHooks(factory: FactFactory): CheckpointLifecycleHooks {
   };
 }
 
-async function runFixture(args: { fixture: SyntheticFixture; workspace: IsolatedFixtureWorkspace; attemptId: string; factory: FactFactory }): Promise<{ outcome: "SUCCEEDED" | "FAILED"; failureCode?: string }> {
-  const hooks = createFactHooks(args.factory);
+async function runFixture(args: { fixture: RunnerFixture; workspace: IsolatedFixtureWorkspace; attemptId: string; hooks: CheckpointLifecycleHooks }): Promise<{ outcome: "SUCCEEDED" | "FAILED"; failureCode?: string }> {
+  const hooks = args.hooks;
   const dependencies = deterministicDependencies(args.fixture);
   await createCheckpointAttempt({ teamId: args.workspace.teamId, userId: args.workspace.userId, hooks, input: { commandId: args.attemptId, expectedRevision: 0, rawText: args.fixture.memoText, tone: args.fixture.tone, reviewInstruction: args.fixture.reviewInstruction, rewriteInstruction: args.fixture.rewriteInstruction } });
   let revision = 0;
@@ -168,7 +182,7 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
         await flushAiProcessFactOutbox({ transport: dependencies.transport });
         return outcome;
       }
-      const { command, fixture } = classification;
+      const { command, fixture, contractVersion } = classification;
       const commandHash = hashCommand(command);
       const existing = await prisma.aiProcessTestRun.findUnique({ where: { commandSource_commandId: { commandSource: command.source, commandId: command.id } } });
       if (existing) {
@@ -181,8 +195,11 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
         attemptId, correlationId: command.correlationId, testRunId: command.data.testRunId,
         trace: command.trace, observabilityReferences: command.observabilityReferences,
       };
-      const factory = createResolvedFactFactory({ identity });
-      const receipt = await prisma.aiProcessTestRun.create({ data: { commandSource: command.source, commandId: command.id, commandHash, projectId: command.data.projectId, testRunId: command.data.testRunId, correlationId: command.correlationId, processId: "press-creation", processVersion: "2.1.0", processDefinitionHash: buildProcessDefinition().canonicalSha256, fixtureArtifactId: command.data.fixture.artifactId, fixtureSha256: command.data.fixture.sha256, fixtureLocator: command.data.fixture.locator, factAttemptId: attemptId, status: "RECEIVED" } });
+      const factory = contractVersion === "v1" ? createResolvedFactFactory({ identity }) : undefined;
+      const v2Factory = contractVersion === "v2" ? createV2FactFactory({ identity: { caseId: command.correlationId, objectType: "synthetic-press-fixture", operationId: command.id, attemptId, testRunId: command.data.testRunId } }) : undefined;
+      const hooks = factory ? createFactHooks(factory) : createV2CheckpointFactHooks(v2Factory!);
+      const activeDefinition = contractVersion === "v2" ? buildProcessDefinitionV2() : buildProcessDefinition();
+      const receipt = await prisma.aiProcessTestRun.create({ data: { commandSource: command.source, commandId: command.id, commandHash, projectId: command.data.projectId, testRunId: command.data.testRunId, correlationId: command.correlationId, processId: "press-creation", processVersion: activeDefinition.version, processDefinitionHash: activeDefinition.canonicalSha256, fixtureArtifactId: command.data.fixture.artifactId, fixtureSha256: command.data.fixture.sha256, fixtureLocator: command.data.fixture.locator, factAttemptId: attemptId, status: "RECEIVED" } });
       let workspace: IsolatedFixtureWorkspace | null = null;
       let result: { outcome: "SUCCEEDED" | "FAILED"; failureCode?: string } = { outcome: "FAILED", failureCode: "TEST_RUN_FAILED" };
       try {
@@ -190,23 +207,24 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       } catch {
         await prisma.$transaction(async (tx) => {
           await tx.aiProcessTestRun.update({ where: { id: receipt.id }, data: { status: "REJECTED", rejectionCode: "ISOLATION_UNAVAILABLE", completedAt: new Date() } });
-          await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.rejected.v1", logicalKey: factLogicalKey.testRunRejected, sequence, causationId: command.id, data: { testRunId: command.data.testRunId, reasonCode: "ISOLATION_UNAVAILABLE" } }) });
+          if (factory) await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.rejected.v1", logicalKey: factLogicalKey.testRunRejected, sequence, causationId: command.id, data: { testRunId: command.data.testRunId, reasonCode: "ISOLATION_UNAVAILABLE" } }) });
         });
         await flushAiProcessFactOutbox({ transport: dependencies.transport });
         return { status: "REJECTED", testRunId: command.data.testRunId, rejectionCode: "ISOLATION_UNAVAILABLE" };
       }
       await prisma.$transaction(async (tx) => {
         await tx.aiProcessTestRun.update({ where: { id: receipt.id }, data: { status: "RUNNING", startedAt: new Date() } });
-        await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.accepted.v1", logicalKey: factLogicalKey.testRunAccepted, sequence, causationId: command.id, data: { testRunId: command.data.testRunId, processDefinition: publishedProcessDefinitionReference } }) });
+        if (factory) await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.accepted.v1", logicalKey: factLogicalKey.testRunAccepted, sequence, causationId: command.id, data: { testRunId: command.data.testRunId, processDefinition: publishedProcessDefinitionReference } }) });
       });
-      let attemptTerminalEventId = factory.eventIdFor(factLogicalKey.attemptFailed);
+      let attemptTerminalEventId = factory?.eventIdFor(factLogicalKey.attemptFailed);
       try {
-        result = await runFixture({ fixture, workspace, attemptId, factory });
-        attemptTerminalEventId = factory.eventIdFor(result.outcome === "SUCCEEDED" ? factLogicalKey.attemptCompleted : factLogicalKey.attemptFailed);
+        result = await runFixture({ fixture, workspace, attemptId, hooks });
+        if (contractVersion === "v2") await captureTestDebugSnapshot(receipt.id, attemptId);
+        if (factory) attemptTerminalEventId = factory.eventIdFor(result.outcome === "SUCCEEDED" ? factLogicalKey.attemptCompleted : factLogicalKey.attemptFailed);
       } catch (error) {
         result = { outcome: "FAILED", failureCode: safeFailureCode(error) };
-        const terminal = await prisma.aiProcessFactOutbox.findFirst({ where: { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, eventType: "dev.aiprocess.event.attempt.failed.v1" }, select: { id: true } });
-        if (!terminal) {
+        const terminal = await prisma.aiProcessFactOutbox.findFirst({ where: { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, eventType: contractVersion === "v2" ? "dev.aiprocess.event.attempt.failed.v2" : "dev.aiprocess.event.attempt.failed.v1" }, select: { id: true } });
+        if (!terminal && factory) {
           const nodeFailure = await prisma.aiProcessFactOutbox.findFirst({ where: { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, eventType: "dev.aiprocess.event.node.execution.failed.v1" }, orderBy: { sequence: "desc" }, select: { payload: true } });
           const causationId = nodeFailure ? EventV1Schema.parse(nodeFailure.payload).id : factory.eventIdFor(factLogicalKey.testRunAccepted);
           try { await prisma.$transaction(async (tx) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.failed.v1", logicalKey: factLogicalKey.attemptFailed, sequence, causationId, data: { attemptId, failureCode: result.failureCode ?? "TEST_RUN_FAILED" } }) })); }
@@ -221,7 +239,7 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       if (cleanupFailure) result = { outcome: "FAILED", failureCode: cleanupFailure };
       await prisma.$transaction(async (tx) => {
         await tx.aiProcessTestRun.update({ where: { id: receipt.id }, data: { status: result.outcome, failureCode: result.failureCode, completedAt: new Date() } });
-        await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.completed.v1", logicalKey: factLogicalKey.testRunCompleted, sequence, causationId: attemptTerminalEventId, data: { testRunId: command.data.testRunId, outcome: result.outcome } }) });
+        if (factory && attemptTerminalEventId) await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId, build: (sequence) => factory.create({ type: "dev.aiprocess.event.test-run.completed.v1", logicalKey: factLogicalKey.testRunCompleted, sequence, causationId: attemptTerminalEventId, data: { testRunId: command.data.testRunId, outcome: result.outcome } }) });
       });
       await flushAiProcessFactOutbox({ transport: dependencies.transport });
       return { status: result.outcome, testRunId: command.data.testRunId, failureCode: result.failureCode };

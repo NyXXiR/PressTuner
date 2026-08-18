@@ -1,0 +1,657 @@
+{
+  "definitions": [
+    {
+      "canonicalSha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+      "entryNodeIds": [
+        "article-initialization"
+      ],
+      "nodes": [
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:article.initialize:v1",
+          "kind": "ACTION",
+          "label": "문서 초기화",
+          "nodeId": "article-initialization"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "SOURCE_BOUND",
+            "sourceSetRef": {
+              "artifactId": "presstuner-memo-source-policy-v1",
+              "locator": "ref:policies/presstuner/memo-source/v1",
+              "mediaType": "application/json",
+              "schemaVersion": "1.0",
+              "sha256": "1a63503ce4a09b83308ebb6d927e9777f0d917538def6694ac19cc6d77971e99",
+              "sizeBytes": 228
+            }
+          },
+          "handlerRef": "presstuner:handler:press.normalize-brief:v1",
+          "kind": "HUMAN_GATE",
+          "label": "메모 정규화",
+          "nodeId": "brief-normalization"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "EXTERNAL_VERIFICATION",
+            "verifierRef": "presstuner:verifier:evidence-fact-consistency:v1"
+          },
+          "handlerRef": "presstuner:handler:press.generate-draft:v1",
+          "kind": "HUMAN_GATE",
+          "label": "초안 생성",
+          "nodeId": "draft-generation"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:press.review-draft:v1",
+          "kind": "HUMAN_GATE",
+          "label": "초안 리뷰",
+          "nodeId": "draft-review"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:press.rewrite-selected:v1",
+          "kind": "TERMINAL",
+          "label": "선택 수정",
+          "nodeId": "selected-rewrite"
+        }
+      ],
+      "processId": "press-creation",
+      "schemaVersion": "1.0",
+      "transitions": [
+        {
+          "decisionRef": "presstuner:decision:initialization-brief:v1",
+          "sourceNodeId": "article-initialization",
+          "targetNodeId": "brief-normalization",
+          "transitionId": "initialization-brief"
+        },
+        {
+          "decisionRef": "presstuner:decision:brief-draft:v1",
+          "sourceNodeId": "brief-normalization",
+          "targetNodeId": "draft-generation",
+          "transitionId": "brief-draft"
+        },
+        {
+          "decisionRef": "presstuner:decision:draft-review:v1",
+          "sourceNodeId": "draft-generation",
+          "targetNodeId": "draft-review",
+          "transitionId": "draft-review"
+        },
+        {
+          "decisionRef": "presstuner:decision:review-rewrite:v1",
+          "sourceNodeId": "draft-review",
+          "targetNodeId": "selected-rewrite",
+          "transitionId": "review-rewrite"
+        }
+      ],
+      "version": "2.1.0"
+    },
+    {
+      "canonicalSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+      "entryNodeIds": [
+        "article-initialization"
+      ],
+      "nodes": [
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handler": {
+            "componentId": "presstuner:handler:article.initialize",
+            "sha256": "b42e1dc418f05060872c69b13c259f51db6448c906bd1322b703ac0b37d23bfc",
+            "version": "3.0.0"
+          },
+          "kind": "ACTION",
+          "label": "문서 초기화",
+          "nodeId": "article-initialization"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handler": {
+            "componentId": "presstuner:handler:press.normalize-brief",
+            "sha256": "215a77cc68079b265b80aca59c512731858f255ae4514d5e48d7b64704e691e2",
+            "version": "3.0.0"
+          },
+          "kind": "ACTION",
+          "label": "메모 정규화",
+          "nodeId": "brief-normalization"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "EXTERNAL_VERIFICATION",
+            "verifier": {
+              "componentId": "presstuner:verifier:evidence-fact-consistency",
+              "sha256": "7cf3b79d58eca684fb902cf9e5fcbce60c5e9ece0335023aa1dd8075a301cb9d",
+              "version": "1.0.0"
+            }
+          },
+          "handler": {
+            "componentId": "presstuner:handler:press.generate-draft",
+            "sha256": "a2ba730d7b2c1c53a484567f73f3b305fd14308cbcb26f4932d84d888c105c5f",
+            "version": "3.0.0"
+          },
+          "kind": "ACTION",
+          "label": "초안 생성",
+          "nodeId": "draft-generation"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handler": {
+            "componentId": "presstuner:handler:press.review-draft",
+            "sha256": "7e311e43654b5b98221090dc96d80dc593492a3c94416462e70c74256cb3a121",
+            "version": "3.0.0"
+          },
+          "kind": "DECISION",
+          "label": "초안 리뷰",
+          "nodeId": "draft-review"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handler": {
+            "componentId": "presstuner:handler:press.rewrite-selected",
+            "sha256": "8c6546ecdd6253c0406e20a121c549a1ea322f1b3ec3ff590f753e5cc472f239",
+            "version": "3.0.0"
+          },
+          "kind": "TERMINAL",
+          "label": "선택 수정 및 완성",
+          "nodeId": "selected-rewrite"
+        }
+      ],
+      "processId": "press-creation",
+      "requirements": [
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:article-team-ownership",
+            "sha256": "798a258e7dffbc2f4294e914a6f944f60ecf5a903369f5337d352ae49675ced2",
+            "version": "1.0.0"
+          },
+          "label": "문서 팀 소유권",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "article-initialization",
+            "transitionId": "initialization-brief"
+          },
+          "requirementId": "article-team-ownership",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:fresh-press-release",
+            "sha256": "b7951adb2957f381ebbfd97dbc0a83b399cabf5787a1a05aed33301d8d45b639",
+            "version": "1.0.0"
+          },
+          "label": "새 보도자료 문서",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "article-initialization",
+            "transitionId": "initialization-brief"
+          },
+          "requirementId": "fresh-press-release",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:memo-brief-grounding",
+            "sha256": "1071511965e91a17c05d5992312b72e6662429d453aff4055c2beadd165bcc42",
+            "version": "1.0.0"
+          },
+          "label": "메모-브리프 근거 일치",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "brief-normalization",
+            "transitionId": "brief-draft"
+          },
+          "requirementId": "memo-brief-grounding",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:critical-fact-preservation",
+            "sha256": "d51607dce09b7624d8a0d55cb898a614ba19b63e2347ea8e77d4cecbadb35cb6",
+            "version": "1.0.0"
+          },
+          "label": "핵심 사실 보존",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "brief-normalization",
+            "transitionId": "brief-draft"
+          },
+          "requirementId": "critical-fact-preservation",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:brief-draft-grounding",
+            "sha256": "a3d51dc76fff8e5edf15d95a933c37a5fcf48591455923772fa1e29dd9de7566",
+            "version": "1.0.0"
+          },
+          "label": "브리프-초안 근거 일치",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "draft-generation",
+            "transitionId": "draft-review"
+          },
+          "requirementId": "brief-draft-grounding",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:press-structure",
+            "sha256": "7c721687216badd2d117e504449d6ba8b47a66ce438c5c7d914cc59235ee391f",
+            "version": "1.0.0"
+          },
+          "label": "보도자료 구조",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "draft-generation",
+            "transitionId": "draft-review"
+          },
+          "requirementId": "press-structure",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:evidence-fact-consistency",
+            "sha256": "6d0743ce68c7e6459391585e42acec98d2d4f3335fcd16a2e3c66066cf793c5f",
+            "version": "1.0.0"
+          },
+          "label": "근거-사실 일관성",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "draft-generation",
+            "transitionId": "draft-review"
+          },
+          "requirementId": "evidence-fact-consistency",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:review-note-selection",
+            "sha256": "0cfe247647149783e1f603a44d6cd855e1a981c99e81ed6cc75a872ff05e9b2e",
+            "version": "1.0.0"
+          },
+          "label": "리뷰 노트 선택",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "draft-review",
+            "transitionId": "review-rewrite"
+          },
+          "requirementId": "review-note-selection",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:rewrite-instruction-bounds",
+            "sha256": "dafee6e1fb4b2fbae57ba4e636044ec4ff94600a9c1aa2d3bfff5a2d476fe292",
+            "version": "1.0.0"
+          },
+          "label": "수정 지침 범위",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "draft-review",
+            "transitionId": "review-rewrite"
+          },
+          "requirementId": "rewrite-instruction-bounds",
+          "version": "1.0.0"
+        },
+        {
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:review-checkpoint-lineage",
+            "sha256": "42d2313e8deb9018fffe0cc611eb4a2163046504b681422394ba905b559ac791",
+            "version": "1.0.0"
+          },
+          "label": "리뷰 체크포인트 계보",
+          "location": {
+            "kind": "TRANSITION",
+            "stageId": "draft-review",
+            "transitionId": "review-rewrite"
+          },
+          "requirementId": "review-checkpoint-lineage",
+          "version": "1.0.0"
+        },
+        {
+          "description": "완성 노드가 비어 있지 않은 제목과 본문을 생성했는지 검사합니다.",
+          "evaluation": {
+            "kind": "BOOLEAN"
+          },
+          "evaluator": {
+            "componentId": "presstuner:guardrail:final-output-quality",
+            "sha256": "384c9a5d439b8ed259b23cb1ee0756afeb5a498c1f75726278e4ea0dd676b76a",
+            "version": "1.0.0"
+          },
+          "label": "완성본 제목·본문 품질",
+          "location": {
+            "kind": "NODE",
+            "nodeId": "selected-rewrite"
+          },
+          "requirementId": "final-output-quality",
+          "version": "1.0.0"
+        }
+      ],
+      "schemaVersion": "2.0",
+      "transitions": [
+        {
+          "decision": {
+            "componentId": "presstuner:decision:initialization-brief",
+            "sha256": "4d1b3895d3048b14fcb2d0623b5ba0a3729f3f38bdcfd688198aca2ba42a8d46",
+            "version": "3.0.0"
+          },
+          "maxTraversalsPerAttempt": 1,
+          "sourceNodeId": "article-initialization",
+          "targetNodeId": "brief-normalization",
+          "transitionId": "initialization-brief"
+        },
+        {
+          "decision": {
+            "componentId": "presstuner:decision:brief-draft",
+            "sha256": "973c88ce1797a52bdc881431215615fb24146de574a3bca83db45f9d129f73f0",
+            "version": "3.0.0"
+          },
+          "maxTraversalsPerAttempt": 1,
+          "sourceNodeId": "brief-normalization",
+          "targetNodeId": "draft-generation",
+          "transitionId": "brief-draft"
+        },
+        {
+          "decision": {
+            "componentId": "presstuner:decision:draft-review",
+            "sha256": "c94c59e4aee2004c0f027b63552480b23bfa794ebc567704be81df85c4fb1746",
+            "version": "3.0.0"
+          },
+          "maxTraversalsPerAttempt": 1,
+          "sourceNodeId": "draft-generation",
+          "targetNodeId": "draft-review",
+          "transitionId": "draft-review"
+        },
+        {
+          "decision": {
+            "componentId": "presstuner:decision:review-rewrite",
+            "sha256": "aebb48245794e6b389b08c61f524189ca38cd4a7dd64c9a5dcf4805cc65ed1af",
+            "version": "3.0.0"
+          },
+          "maxTraversalsPerAttempt": 1,
+          "sourceNodeId": "draft-review",
+          "targetNodeId": "selected-rewrite",
+          "transitionId": "review-rewrite"
+        }
+      ],
+      "version": "3.0.0"
+    },
+    {
+      "canonicalSha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",
+      "entryNodeIds": [
+        "request-intake"
+      ],
+      "nodes": [
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:request-intake:v1",
+          "kind": "ACTION",
+          "label": "요청 접수",
+          "nodeId": "request-intake"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:retrieval-execution:v1",
+          "kind": "ACTION",
+          "label": "검색 실행",
+          "nodeId": "retrieval-execution"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:evidence-decision:v1",
+          "kind": "DECISION",
+          "label": "근거 판단",
+          "nodeId": "evidence-decision"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:response-behavior:v1",
+          "kind": "ACTION",
+          "label": "응답 생성",
+          "nodeId": "response-behavior"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:verification:v1",
+          "kind": "DECISION",
+          "label": "검증",
+          "nodeId": "verification"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:fallback:v1",
+          "kind": "ACTION",
+          "label": "안전 대체",
+          "nodeId": "fallback"
+        },
+        {
+          "evidencePolicy": {
+            "kind": "NONE"
+          },
+          "handlerRef": "presstuner:handler:rag-query:terminal-evaluation:v1",
+          "kind": "TERMINAL",
+          "label": "최종 평가",
+          "nodeId": "terminal-evaluation"
+        }
+      ],
+      "processId": "rag-query",
+      "schemaVersion": "1.0",
+      "transitions": [
+        {
+          "decisionRef": "presstuner:decision:request-retrieval:v1",
+          "sourceNodeId": "request-intake",
+          "targetNodeId": "retrieval-execution",
+          "transitionId": "request-retrieval"
+        },
+        {
+          "decisionRef": "presstuner:decision:retrieval-evidence:v1",
+          "sourceNodeId": "retrieval-execution",
+          "targetNodeId": "evidence-decision",
+          "transitionId": "retrieval-evidence"
+        },
+        {
+          "decisionRef": "presstuner:decision:evidence-response:v1",
+          "sourceNodeId": "evidence-decision",
+          "targetNodeId": "response-behavior",
+          "transitionId": "evidence-response"
+        },
+        {
+          "decisionRef": "presstuner:decision:response-verification:v1",
+          "sourceNodeId": "response-behavior",
+          "targetNodeId": "verification",
+          "transitionId": "response-verification"
+        },
+        {
+          "decisionRef": "presstuner:decision:verification-terminal:v1",
+          "sourceNodeId": "verification",
+          "targetNodeId": "terminal-evaluation",
+          "transitionId": "verification-terminal"
+        },
+        {
+          "decisionRef": "presstuner:decision:verification-fallback:v1",
+          "sourceNodeId": "verification",
+          "targetNodeId": "fallback",
+          "transitionId": "verification-fallback"
+        },
+        {
+          "decisionRef": "presstuner:decision:fallback-terminal:v1",
+          "sourceNodeId": "fallback",
+          "targetNodeId": "terminal-evaluation",
+          "transitionId": "fallback-terminal"
+        }
+      ],
+      "version": "1.0.0"
+    }
+  ],
+  "manifest": {
+    "capabilities": {
+      "domainEvents": {
+        "deduplicationKey": "SOURCE_AND_EVENT_ID",
+        "delivery": "AT_LEAST_ONCE",
+        "ordering": "PER_ATTEMPT_MONOTONIC_SEQUENCE",
+        "schemaVersion": "1.0",
+        "source": "urn:presstuner:ai-process-console:facts:v1",
+        "transactionalOutbox": true
+      },
+      "testRun": {
+        "available": true,
+        "endpoint": {
+          "destinationId": "presstuner.ai-process-console.test-run.v1",
+          "transport": "INJECTED"
+        },
+        "isolation": "PROJECT_OWNED_FIXTURE_ONLY"
+      }
+    },
+    "displayName": "PressTuner",
+    "environment": "conformance",
+    "manifestId": "presstuner.ai-process-console.v1",
+    "processes": [
+      {
+        "canonicalSha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+        "definition": {
+          "artifactId": "presstuner-press-creation-2.1.0",
+          "locator": "ref:definitions/presstuner/press-creation/2.1.0",
+          "mediaType": "application/json",
+          "schemaVersion": "1.0",
+          "sha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+          "sizeBytes": 2033
+        },
+        "processId": "press-creation",
+        "version": "2.1.0"
+      },
+      {
+        "canonicalSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+        "definition": {
+          "artifactId": "presstuner-press-creation-3.0.0",
+          "locator": "ref:definitions/presstuner/press-creation/3.0.0",
+          "mediaType": "application/json",
+          "schemaVersion": "1.0",
+          "sha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+          "sizeBytes": 7295
+        },
+        "processId": "press-creation",
+        "version": "3.0.0"
+      },
+      {
+        "canonicalSha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",
+        "definition": {
+          "artifactId": "presstuner-rag-query-1.0.0",
+          "locator": "ref:definitions/presstuner/rag-query/1.0.0",
+          "mediaType": "application/json",
+          "schemaVersion": "1.0",
+          "sha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",
+          "sizeBytes": 2512
+        },
+        "processId": "rag-query",
+        "version": "1.0.0"
+      }
+    ],
+    "projectId": "presstuner",
+    "schemaVersion": "1.0",
+    "serviceName": "presstuner"
+  },
+  "testFixtures": [
+    {
+      "declarationId": "success-v1",
+      "fixture": {
+        "artifactId": "presstuner-fixture-success-v1",
+        "locator": "ref:fixtures/presstuner/press-creation/2.1.0/success-v1",
+        "mediaType": "application/json",
+        "schemaVersion": "1.0",
+        "sha256": "694d44229c23ae38cd3c1ba16a53b9339a0ed11aba93e6d9463763d83e6972a0",
+        "sizeBytes": 414
+      },
+      "label": "PressTuner v1 합성 성공",
+      "processDefinitionSha256": "ee5ff2910c6901d45599a97a6f2f4a59ccc1befadb4155be496073fdfa7e19cc",
+      "processId": "press-creation",
+      "processVersion": "2.1.0",
+      "projectId": "presstuner"
+    },
+    {
+      "declarationId": "success-v2",
+      "fixture": {
+        "artifactId": "presstuner-fixture-success-v2",
+        "locator": "ref:fixtures/presstuner/press-creation/3.0.0/success-v2",
+        "mediaType": "application/json",
+        "schemaVersion": "2.0",
+        "sha256": "4a65ac6181b609cf0e1e9f4b902645d27276e3e9d332b383ed9e66baefb8f127",
+        "sizeBytes": 414
+      },
+      "label": "PressTuner v2 합성 성공",
+      "processDefinitionSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+      "processId": "press-creation",
+      "processVersion": "3.0.0",
+      "projectId": "presstuner"
+    },
+    {
+      "declarationId": "final-quality-block-v2",
+      "fixture": {
+        "artifactId": "presstuner-fixture-final-quality-block-v2",
+        "locator": "ref:fixtures/presstuner/press-creation/3.0.0/final-quality-block-v2",
+        "mediaType": "application/json",
+        "schemaVersion": "2.0",
+        "sha256": "f1dcfbb8739217229a7a2ced658f38a968c3d0054c3165c90bb6793ea36c8872",
+        "sizeBytes": 420
+      },
+      "label": "PressTuner v2 완성본 품질 BLOCK",
+      "processDefinitionSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+      "processId": "press-creation",
+      "processVersion": "3.0.0",
+      "projectId": "presstuner"
+    }
+  ]
+}

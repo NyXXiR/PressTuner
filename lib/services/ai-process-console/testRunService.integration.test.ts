@@ -11,6 +11,10 @@ import { createAiProcessTestRunPostHandler } from "./adapterRoutes.server";
 import { signAiProcessRequest } from "./requestAuthentication";
 import { readAiProcessProducerHealth } from "./producerHealth";
 import { retainDeliveredAiProcessFacts } from "./deliveredFactRetention";
+import { EventV2Schema } from "@/domain/ai-process-console/v2/contracts";
+import { fixtureRegistryV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
+import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
+import { inspectProjectTestSnapshot, replayProjectTestTransition } from "./projectTestDebugService";
 
 const receiptIds: string[] = [];
 const attemptIds: string[] = [];
@@ -21,6 +25,15 @@ function command(fixtureIndex: number) {
     specversion: "1.0", id: `command-${suffix}`, source: "urn:ai-process-console:test-runs", subject: "project/presstuner",
     time: "2030-01-01T00:00:00.000Z", schemaVersion: "1.0", correlationId: `correlation-${suffix}`, sequence: 0, executionMode: "TEST",
     type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: `test-run-${suffix}`, projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinition()), fixture: fixtureRegistry[fixtureIndex].artifact },
+  } as const;
+}
+
+function commandV2(fixtureIndex: number) {
+  const suffix = randomUUID();
+  return {
+    specversion: "1.0", id: `command-v2-${suffix}`, source: "urn:ai-process-console:test-runs", subject: "project/presstuner",
+    time: "2030-01-01T00:00:00.000Z", schemaVersion: "1.0", correlationId: `correlation-v2-${suffix}`, sequence: 0, executionMode: "TEST",
+    type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: `test-run-v2-${suffix}`, projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: fixtureRegistryV2[fixtureIndex].artifact },
   } as const;
 }
 
@@ -123,6 +136,44 @@ test("successful isolated run emits a coherent monotonic terminal fact stream an
     assert.equal(replay.replayed, true);
     assert.equal(await prisma.aiProcessFactOutbox.count({ where: { attemptId: receipt.factAttemptId } }), facts.length);
   } finally { await prisma.team.delete({ where: { id: sentinel.id } }).catch(() => undefined); }
+});
+
+test("ten v2 isolated attempts keep execution success separate from one exact quality BLOCK", async () => {
+  const commands = Array.from({ length: 10 }, (_, index) => commandV2(index === 6 ? 1 : 0));
+  const finalOutcomes: string[] = [];
+  for (const input of commands) {
+    const result = await createAiProcessTestRunService().handle(input);
+    assert.equal(result.status, "SUCCEEDED");
+    const receipt = await remember(input.data.testRunId);
+    assert.equal(receipt.processVersion, "3.0.0");
+    assert.notEqual(receipt.debugSnapshot, null);
+    const rows = await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } });
+    assert.deepEqual(rows.map((row) => row.sequence), rows.map((_, index) => index + 1));
+    const facts = rows.map((row) => EventV2Schema.parse(row.payload));
+    assert.equal(facts[0].type, "dev.aiprocess.event.attempt.started.v2");
+    assert.equal(facts.at(-1)?.type, "dev.aiprocess.event.attempt.completed.v2");
+    assert.equal(facts.filter((event) => event.type === "dev.aiprocess.event.node.execution.completed.v2").length, 5);
+    const final = facts.find((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && event.data.requirementId === "final-output-quality");
+    assert.ok(final && final.type === "dev.aiprocess.event.requirement.observed.v2");
+    finalOutcomes.push(final.data.outcome.state === "EVALUATED" ? final.data.outcome.verdict : final.data.outcome.state);
+    assert.deepEqual(final.data.occurrence, { kind: "NODE", nodeId: "selected-rewrite", nodeExecutionId: final.data.occurrence.kind === "NODE" ? final.data.occurrence.nodeExecutionId : "" });
+    assert.equal(final.causationId, final.data.observedForEventId);
+    if (input.data.fixture.artifactId === fixtureRegistryV2[1].artifact.artifactId) {
+      const definition = buildProcessDefinitionV2();
+      const exact = { projectId: "presstuner", environment: "conformance", processId: definition.processId, processVersion: definition.version, processDefinitionHash: definition.canonicalSha256, executionMode: "TEST" as const, caseId: input.correlationId, attemptId: receipt.factAttemptId };
+      const node = await inspectProjectTestSnapshot({ schemaVersion: "1.0", requestId: "inspect-block-node", ...exact, location: { kind: "NODE", nodeId: "selected-rewrite" } });
+      assert.equal(node.status, "AVAILABLE");
+      assert.equal(node.status === "AVAILABLE" && node.snapshot.kind === "NODE" && node.snapshot.nodeId, "selected-rewrite");
+      assert.equal(node.status === "AVAILABLE" && node.snapshot.kind === "NODE" && node.snapshot.output.title, " ");
+      assert.deepEqual(node.status === "AVAILABLE" && node.snapshot.kind === "NODE" ? node.snapshot.requirements : [], [{ requirementId: "final-output-quality", requirementVersion: "1.0.0", verdict: "BLOCK", reasonCodes: ["EMPTY_FINAL_OUTPUT"] }]);
+      const replay = await replayProjectTestTransition({ schemaVersion: "1.0", requestId: "replay-review-edge", ...exact, transition: { transitionId: "review-rewrite", sourceNodeId: "draft-review", targetNodeId: "selected-rewrite" }, candidateInput: { articleId: "synthetic", selectedNoteIds: [], userInstruction: "" } });
+      assert.equal(replay.status, "COMPLETED");
+      assert.equal(replay.status === "COMPLETED" && replay.decision.matched, false);
+      assert.ok(replay.status === "COMPLETED" && replay.requirements.some((item) => item.verdict === "BLOCK"));
+    }
+  }
+  assert.equal(finalOutcomes.filter((outcome) => outcome === "PASS").length, 9);
+  assert.equal(finalOutcomes.filter((outcome) => outcome === "BLOCK").length, 1);
 });
 
 test("a recoverable conflicting command persists one minimal rejection fact across replay", async () => {
