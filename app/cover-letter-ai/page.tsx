@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.briefflow.com";
+import { SITE_URL } from "@/lib/site-url";
 const canonical = `${SITE_URL}/cover-letter-ai`;
 
 export const metadata: Metadata = {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BriefFlowLandingPage } from "@/components/marketing/BriefFlowLandingPage";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.briefflow.com";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "brieFFlow · 보도자료 AI와 자기소개서 AI",

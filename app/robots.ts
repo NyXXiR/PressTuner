@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 
+import { SITE_URL } from "@/lib/site-url";
+
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.briefflow.com";
   return {
     rules: [
       { userAgent: "*", allow: "/" },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

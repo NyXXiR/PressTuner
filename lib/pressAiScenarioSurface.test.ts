@@ -15,7 +15,7 @@ test("the public scenario route stays static while disclosing its live isolated 
 
 test("the public scenario route is discoverable in the sitemap", async () => {
   const sitemap = await source("app/sitemap.ts");
-  assert.match(sitemap, /url:\s*`\$\{baseUrl\}\/demo\/rag-test\/scenario`/);
+  assert.match(sitemap, /path:\s*["']\/demo\/rag-test\/scenario["']/);
   assert.match(sitemap, /changeFrequency:\s*["']weekly["']/);
 });
 

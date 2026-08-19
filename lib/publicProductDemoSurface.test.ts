@@ -31,7 +31,8 @@ test("/demo has route metadata and an explicit public proxy contract", () => {
     /publicPaths\s*=\s*\[[\s\S]*?["']\/demo["'][\s\S]*?\]/,
   );
   assert.match(proxy, /["']\/demo\/:path\*["']/);
-  assert.match(sitemap, /url:\s*`\$\{baseUrl\}\/demo`/);
+  // 경로 목록이 데이터로 분리돼 있어 코드 모양이 아니라 항목의 존재를 확인한다.
+  assert.match(sitemap, /path:\s*["']\/demo["']/);
   assert.match(sitemap, /changeFrequency:\s*["']weekly["']/);
 });
 

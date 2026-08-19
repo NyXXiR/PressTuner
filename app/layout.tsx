@@ -8,7 +8,7 @@ import { ClientPageTitle } from "@/components/common/ClientPageTitle";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import { getPostHogClientConfig } from "@/lib/server/posthog-config";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.briefflow.com";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
