@@ -7,10 +7,10 @@ import {
 import { CheckpointAttemptSchema } from "@/lib/pressAiProcessDebuggerClient";
 
 export const PUBLIC_PRESS_RAG_LIMITS = Object.freeze({
-  starts: 6,
+  starts: 3,
   windowSeconds: 600,
   capabilityTtlSeconds: 900,
-  commandBudget: 20,
+  commandBudget: 15,
   bodyBytes: 64 * 1024,
   capabilityBytes: 48 * 1024,
 });

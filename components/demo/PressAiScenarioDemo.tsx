@@ -20,13 +20,21 @@ import { usePublicPressRagScenario } from "./usePublicPressRagScenario";
 
 const button = "min-h-11 rounded-lg px-4 py-2 text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function PressAiScenarioDemo() {
+export type PressAiScenarioDemoProps = {
+  initialMemo?: string;
+  initialTone?: "formal" | "neutral" | "friendly";
+  initialReviewInstruction?: string;
+  initialRewriteInstruction?: string;
+  showLoginHint?: boolean;
+};
+
+export function PressAiScenarioDemo(props: PressAiScenarioDemoProps) {
   const runner = usePublicPressRagScenario();
-  const [memo, setMemo] = useState(PUBLIC_PRESS_RAG_GUIDED_MEMO);
-  const [tone, setTone] = useState<"formal" | "neutral" | "friendly">("formal");
+  const [memo, setMemo] = useState(props.initialMemo ?? PUBLIC_PRESS_RAG_GUIDED_MEMO);
+  const [tone, setTone] = useState<"formal" | "neutral" | "friendly">(props.initialTone ?? "formal");
   const [repairMemo, setRepairMemo] = useState(repairedScenarioMemo());
-  const [reviewInstruction, setReviewInstruction] = useState("제목과 리드의 명료성을 검토하세요.");
-  const [rewriteInstruction, setRewriteInstruction] = useState("선택한 노트만 반영하세요.");
+  const [reviewInstruction, setReviewInstruction] = useState(props.initialReviewInstruction ?? "제목과 리드의 명료성을 검토하세요.");
+  const [rewriteInstruction, setRewriteInstruction] = useState(props.initialRewriteInstruction ?? "선택한 노트만 반영하세요.");
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [inspectedAttemptId, setInspectedAttemptId] = useState<string | null>(null);
   const [selection, setSelection] = useState<PressAiWorkbenchSelection | null>(null);
@@ -135,6 +143,11 @@ export function PressAiScenarioDemo() {
           {attempt.status === "COMPLETED" ? <section className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-5 dark:bg-emerald-950/20"><h2 className="text-xl font-black">시나리오 완료</h2><p className="mt-1 text-sm">부모/자식 계보, 두 리뷰 체크포인트, review-repeat self-loop, 선택 수정 결과가 모두 보존되었습니다.</p><button type="button" onClick={() => { runner.clear(); setMemo(PUBLIC_PRESS_RAG_GUIDED_MEMO); setRepairMemo(repairedScenarioMemo()); setSelectedNoteIds([]); }} className={`${button} mt-4 border border-border bg-card`}>새 시나리오 준비</button></section> : null}
         </div> : null}
 
+        {props.showLoginHint ? (
+          <p className="mt-6 text-xs leading-6 text-muted-foreground">
+            로그인하면 시도 히스토리와 케이스 저장·분기 기능을 추가로 사용할 수 있습니다.
+          </p>
+        ) : null}
         <p className="mt-8 text-xs leading-6 text-muted-foreground">로그인, 고객 Article, Prisma, 제품 할당량을 사용하지 않습니다. 새로고침하면 브라우저 메모리에만 있던 실행 표시 상태는 사라지지만, 세션 시작 한도 쿠키는 유지됩니다.</p>
       </div>
     </section>

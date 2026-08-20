@@ -36,7 +36,7 @@ test("start issues a session cookie and command initializes without an AI call",
   assert.equal(command.status, 200);
   const next = await command.json();
   assert.equal(next.attempt.checkpoints[0].nodeId, "article-initialization");
-  assert.equal(next.commandsRemaining, 19);
+  assert.equal(next.commandsRemaining, 14);
 });
 
 test("routes reject non-JSON, cross-site and oversized requests", async () => {
@@ -58,14 +58,14 @@ test("same-origin validation follows the incoming host instead of a rewritten Ne
   assert.equal(response.status, 201);
 });
 
-test("the seventh rolling start returns 429 with Retry-After", async () => {
+test("the fourth rolling start returns 429 with Retry-After", async () => {
   let cookie: string | undefined;
-  for (let index = 0; index < 6; index += 1) {
+  for (let index = 0; index < 3; index += 1) {
     const response = await startPost(request("start", { memo: `memo ${index}`, tone: "formal" }, cookie));
     assert.equal(response.status, 201);
     cookie = response.headers.get("Set-Cookie")?.split(";", 1)[0];
   }
-  const rejected = await startPost(request("start", { memo: "seventh", tone: "formal" }, cookie));
+  const rejected = await startPost(request("start", { memo: "fourth", tone: "formal" }, cookie));
   assert.equal(rejected.status, 429);
   assert.ok(Number(rejected.headers.get("Retry-After")) > 0);
   assert.equal((await rejected.json()).remainingStarts, 0);
