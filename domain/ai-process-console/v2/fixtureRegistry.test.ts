@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fixtureRegistryV2, resolveSyntheticFixtureV2, SyntheticFixtureV2Schema } from "./fixtureRegistry";
+import { evaluatePressTransitionGuardrails } from "@/domain/press-ai-debugger/transitionGuardrails";
 
 test("v2 fixtures preserve existing order and append exact transition scenarios", () => {
   assert.deepEqual(fixtureRegistryV2.map(({ fixture }) => fixture.fixtureId), ["success-v2", "final-quality-block-v2", "brief-draft-warn-v2", "brief-draft-block-v2"]);
@@ -22,4 +23,21 @@ test("v2 fixture resolution rejects every modified identity field and fixture bo
   assert.equal(SyntheticFixtureV2Schema.safeParse({ ...entry.fixture, processId: "other" }).success, false);
   assert.equal(SyntheticFixtureV2Schema.safeParse({ ...entry.fixture, processVersion: "3.0.1" }).success, false);
   assert.equal(SyntheticFixtureV2Schema.safeParse({ ...entry.fixture, memoText: "changed", extra: true }).success, false);
+});
+
+test("transition WARN fixture preserves one of two extracted facts and evaluates both authored guardrails as WARN", () => {
+  const fixture = fixtureRegistryV2.find(({ fixture }) => fixture.fixtureId === "brief-draft-warn-v2")!.fixture;
+  const output = { oneLiner: fixture.normalizedBriefText, points: [fixture.normalizedBriefText] };
+  const result = evaluatePressTransitionGuardrails({
+    edgeId: "brief-draft",
+    sourceInput: { rawText: fixture.memoText },
+    sourceOutput: output,
+    targetPayload: { confirmedBrief: output },
+    attempt: { teamId: "synthetic-team", articleId: "synthetic-article" },
+  });
+  assert.equal(result.verdict, "WARN");
+  assert.deepEqual(result.observations.map(({ guardrailId, verdict }) => [guardrailId, verdict]), [
+    ["memo-brief-grounding", "WARN"],
+    ["critical-fact-preservation", "WARN"],
+  ]);
 });

@@ -660,8 +660,8 @@
         "locator": "ref:fixtures/presstuner/press-creation/3.0.0/brief-draft-warn-v2",
         "mediaType": "application/json",
         "schemaVersion": "2.0",
-        "sha256": "9f5066de19c2bf391fa5c412bf9ce1f4f4707fa9ede987e2993215ac47c00191",
-        "sizeBytes": 484
+        "sha256": "75c3824148d79bb678e99e4f3ff473937016bbef0cea4c25a626a2c2241f284a",
+        "sizeBytes": 490
       },
       "label": "PressTuner v2 브리프 전이 WARN",
       "processDefinitionSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
