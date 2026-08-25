@@ -8,6 +8,7 @@ import {
   CreditCard,
   Ellipsis,
   FilePlus2,
+  FileText,
   Files,
   LayoutDashboard,
   Layers,
@@ -59,6 +60,13 @@ const PRIMARY_NAV_ITEMS = [
 ] as const;
 
 const RESOURCE_NAV_ITEMS = [
+  {
+    label: "이력서 문서",
+    href: "/resume/documents",
+    icon: FileText,
+    match: (pathname: string) => pathname.startsWith("/resume/documents"),
+    prefetch: false,
+  },
   {
     label: "경험 보관함",
     href: "/resume/bricks",

@@ -526,6 +526,47 @@ html {
   border-radius: 0;
 }
 
+@page resume-document {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  body:has(.resume-document-builder) {
+    background: white !important;
+    page: resume-document;
+  }
+
+  body:has(.resume-document-builder) header,
+  body:has(.resume-document-builder) aside,
+  body:has(.resume-document-builder) nav,
+  .resume-builder-chrome,
+  .resume-section-controls,
+  .resume-reorder-help,
+  .resume-hidden,
+  .resume-editor-backdrop {
+    display: none !important;
+  }
+
+  body:has(.resume-document-builder) main {
+    padding: 0 !important;
+  }
+
+  .resume-builder-layout {
+    display: block !important;
+  }
+
+  .resume-document-builder,
+  .resume-paper {
+    width: 210mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+}
+
 /* 괘선이 그어진 원고 본문 — 배경이 내용과 함께 스크롤되도록 local */
 .wongoji .wg-ruled {
   line-height: 2.1;
