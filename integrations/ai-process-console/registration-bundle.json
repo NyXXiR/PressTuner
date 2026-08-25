@@ -579,7 +579,7 @@
           "artifactId": "presstuner-press-creation-3.0.0",
           "locator": "ref:definitions/presstuner/press-creation/3.0.0",
           "mediaType": "application/json",
-          "schemaVersion": "1.0",
+          "schemaVersion": "2.0",
           "sha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
           "sizeBytes": 7295
         },

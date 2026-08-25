@@ -48,3 +48,9 @@ test("publication includes the frozen rag-query registry topology without changi
   assert.deepEqual(bundle.testFixtures.map(({ declarationId }) => declarationId), ["success-v1", "success-v2", "final-quality-block-v2"]);
   assert.equal(JSON.stringify(bundle).includes("memoText"), false);
 });
+
+test("v2 process descriptors retain the referenced artifact generation", () => {
+  const descriptor = buildProjectManifest().processes.find(({ processId, version }) => processId === "press-creation" && version === "3.0.0");
+  assert.ok(descriptor);
+  assert.equal(descriptor.definition.schemaVersion, "2.0");
+});

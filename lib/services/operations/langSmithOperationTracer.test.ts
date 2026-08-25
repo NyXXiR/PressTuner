@@ -334,3 +334,24 @@ test("invalid project UUID disables feedback without disabling tracing", async (
   assert.equal(created.length, 1);
   assert.equal(feedback.length, 0);
 });
+
+test("publishes one deterministic TEST root and updates it even after duplicate create", async () => {
+  const { tracer, created, updated } = createHarness({ createError: new Error("already exists") });
+  const metadata = {
+    projectId: "presstuner", environment: "conformance", serviceName: "presstuner",
+    caseId: "case-secret", objectType: "synthetic-press-fixture", operationId: "operation-secret",
+    attemptId: "attempt-secret", correlationId: "correlation-secret", processId: "press-creation",
+    processVersion: "3.0.0", processDefinitionHash: "a".repeat(64), executionMode: "TEST" as const,
+  };
+  await tracer.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" });
+  await tracer.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" });
+  assert.equal(created.length, 2);
+  assert.equal(created[0].id, created[1].id);
+  assert.equal(created[0].trace_id, created[0].id);
+  assert.deepEqual(created[0].inputs, { executionMode: "TEST" });
+  assert.deepEqual((created[0].extra as { metadata: unknown }).metadata, projectMetadataForVendor(metadata, "langsmith", metadataHmacKey));
+  assert.equal(updated.length, 2);
+  assert.ok(updated.every((entry) => entry.id === created[0].id && entry.run.outputs && (entry.run.outputs as { status: string }).status === "completed"));
+  const serialized = JSON.stringify({ created, updated });
+  for (const raw of [metadata.operationId, metadata.caseId, metadata.attemptId, metadata.correlationId, metadata.processDefinitionHash]) assert.equal(serialized.includes(raw), false);
+});

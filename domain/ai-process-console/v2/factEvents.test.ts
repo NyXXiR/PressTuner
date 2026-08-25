@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createV2FactFactory } from "./factEvents";
-import { componentRevisionForNode, componentRevisionForRequirement } from "./publication";
+import { createV2FactFactory, createV2RunFactFactory } from "./factEvents";
+import { buildProcessDefinitionV2, componentRevisionForNode, componentRevisionForRequirement } from "./publication";
+import { processDefinitionReference } from "../v1/publication";
 
 test("v2 facts inherit complete attempt metadata without optional caller assembly", () => {
   const factory = createV2FactFactory({ identity: { caseId: "case-1", objectType: "synthetic-press-fixture", operationId: "operation-1", attemptId: "attempt-1", testRunId: "run-1" }, clock: () => new Date("2030-01-01T00:00:00.000Z") });
@@ -11,6 +12,25 @@ test("v2 facts inherit complete attempt metadata without optional caller assembl
   assert.equal(started.metadata.processVersion, "3.0.0");
   assert.equal(started.correlationId, "case-1");
   assert.equal(factory.create({ type: started.type, logicalKey: "attempt:started", sequence: 1, data: {} }).id, started.id);
+});
+
+test("v2 run facts use a deterministic isolated run stream without attempt identity", () => {
+  const factory = createV2RunFactFactory({ testRunId: "run-1", clock: () => new Date("2030-01-01T00:00:00.000Z") });
+  const accepted = factory.create({ type: "dev.aiprocess.event.test-run.accepted.v2", logicalKey: "test-run:accepted", sequence: 1, data: { processDefinition: processDefinitionReference(buildProcessDefinitionV2()) } });
+  const completed = factory.create({ type: "dev.aiprocess.event.test-run.completed.v2", logicalKey: "test-run:completed", sequence: 2, causationId: "attempt-terminal", data: { runnerOutcome: "COMPLETED" } });
+  const rejected = factory.create({ type: "dev.aiprocess.event.test-run.rejected.v2", logicalKey: "test-run:rejected", sequence: 1, data: { reasonCode: "ISOLATION_UNAVAILABLE" } });
+  assert.equal(accepted.correlationId, "run-1");
+  assert.equal(completed.correlationId, "run-1");
+  assert.equal(rejected.correlationId, "run-1");
+  assert.deepEqual([accepted.sequence, completed.sequence, rejected.sequence], [1, 2, 1]);
+  assert.deepEqual(factory.metadata, {
+    projectId: "presstuner", environment: "conformance", serviceName: "presstuner",
+    processId: "press-creation", processVersion: "3.0.0", processDefinitionHash: buildProcessDefinitionV2().canonicalSha256,
+    scope: "RUN", executionMode: "TEST", testRunId: "run-1",
+  });
+  assert.equal("operationId" in factory.metadata, false);
+  assert.equal("attemptId" in factory.metadata, false);
+  assert.equal(factory.create({ type: "dev.aiprocess.event.test-run.accepted.v2", logicalKey: "test-run:accepted", sequence: 1, data: accepted.data }).id, accepted.id);
 });
 
 test("v2 quality observations point to one exact node occurrence", () => {

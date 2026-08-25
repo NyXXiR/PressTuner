@@ -33,3 +33,16 @@ export function getPostHogClientConfig() {
     apiHost,
   };
 }
+
+export function getPostHogServerCaptureConfig() {
+  const apiKey = process.env.POSTHOG_PROJECT_API_KEY
+    ?? readProjectApiKeyFromFile(process.env.POSTHOG_PROJECT_API_KEY_FILE ?? DEFAULT_POSTHOG_TOKEN_FILE);
+  if (!apiKey) return null;
+  try {
+    const apiHost = new URL(process.env.POSTHOG_HOST ?? DEFAULT_POSTHOG_HOST);
+    if (apiHost.protocol !== "https:" || apiHost.username || apiHost.password || apiHost.search || apiHost.hash) return null;
+    return { apiKey, apiHost };
+  } catch {
+    return null;
+  }
+}

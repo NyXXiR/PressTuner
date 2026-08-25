@@ -16,9 +16,9 @@ export const memoSourcePolicy = Object.freeze(MemoSourcePolicyV1Schema.parse({
   description: "Synthetic memo claims are checked against fixture-owned claim hashes; source text is never published in facts.",
 }));
 
-function artifactReference(args: { artifactId: string; locator: string; value: unknown; sha256?: string }): ArtifactReferenceV1 {
+function artifactReference(args: { artifactId: string; schemaVersion?: string; locator: string; value: unknown; sha256?: string }): ArtifactReferenceV1 {
   const canonical = canonicalJson(args.value);
-  return { artifactId: args.artifactId, schemaVersion: "1.0", sha256: args.sha256 ?? sha256Text(canonical), mediaType: "application/json", sizeBytes: Buffer.byteLength(canonical), locator: args.locator };
+  return { artifactId: args.artifactId, schemaVersion: args.schemaVersion ?? "1.0", sha256: args.sha256 ?? sha256Text(canonical), mediaType: "application/json", sizeBytes: Buffer.byteLength(canonical), locator: args.locator };
 }
 
 export const memoSourcePolicyReference = Object.freeze(artifactReference({
@@ -98,7 +98,7 @@ export function buildRagQueryProcessDefinition(): ProcessDefinitionV1 {
 }
 
 export function processDefinitionReference(definition: ProcessDefinitionV1 | ProcessDefinitionV2 = buildProcessDefinition()): ArtifactReferenceV1 {
-  return artifactReference({ artifactId: `presstuner-${definition.processId}-${definition.version}`, locator: `ref:definitions/presstuner/${definition.processId}/${definition.version}`, value: definition, sha256: definition.canonicalSha256 });
+  return artifactReference({ artifactId: `presstuner-${definition.processId}-${definition.version}`, schemaVersion: definition.schemaVersion, locator: `ref:definitions/presstuner/${definition.processId}/${definition.version}`, value: definition, sha256: definition.canonicalSha256 });
 }
 
 export function buildProjectManifest(input?: ProcessDefinitionV1 | ProcessDefinitionV2 | readonly (ProcessDefinitionV1 | ProcessDefinitionV2)[]): ProjectIntegrationManifestV1 {

@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID as nodeRandomUUID } from "node:crypto";
+import { v5 as uuidv5 } from "uuid";
 
 import { Client } from "langsmith";
 import { convertToDottedOrderFormat } from "langsmith/run_trees";
@@ -9,6 +10,7 @@ import {
   type PressAgentRagFeedback,
 } from "@/domain/evaluation/pressAgentRagFeedbackCriteria";
 import { projectMetadataForVendor } from "@/domain/ai-process-console/v1/vendorMetadataProjection";
+import type { CanonicalMetadata } from "@/domain/ai-process-console/v1/contracts";
 
 type TraceEnvironment = Record<string, string | undefined>;
 type Phase = "initial" | "continuation";
@@ -47,7 +49,7 @@ type LangSmithRunCreate = {
   name: string;
   run_type: "chain" | "retriever";
   project_name: string;
-  inputs: { phase: Phase } | { stage: LangSmithRagStageId };
+  inputs: { phase: Phase } | { stage: LangSmithRagStageId } | { executionMode: "TEST" };
   extra: { metadata: SafeMetadata };
 };
 
@@ -104,6 +106,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const DEFAULT_ENDPOINT = "https://api.smith.langchain.com";
 const DEFAULT_TIMEOUT_MS = 3_000;
 const MAX_TIMEOUT_MS = 10_000;
+const TEST_ROOT_NAMESPACE = "1b9d6d10-a709-5de7-9c10-bc4da61f76e5";
 const feedbackKeys = new Set<string>(PRESS_AGENT_RAG_FEEDBACK_CRITERIA_V1.map(({ criterionId }) => criterionId));
 
 function readConfiguration(environment: TraceEnvironment): ClientConfiguration | null {
@@ -371,7 +374,52 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     }
   }
 
-  return { trace, traceRagStage, recordRagObservation, reportRootFeedback };
+  async function publishRootOutcome(args: {
+    metadata: CanonicalMetadata;
+    outcome: "SUCCEEDED" | "FAILED";
+    startedAt: string;
+    completedAt: string;
+  }): Promise<void> {
+    const active = readConfiguredClient();
+    if (!active || !args.metadata.operationId || args.metadata.executionMode !== "TEST") return;
+    const startedAt = Date.parse(args.startedAt);
+    const completedAt = Date.parse(args.completedAt);
+    if (!Number.isFinite(startedAt) || !Number.isFinite(completedAt) || completedAt < startedAt) return;
+    try {
+      const vendorMetadata = projectMetadataForVendor(args.metadata, "langsmith", active.configuration.metadataHmacKey);
+      const projectedOperationId = vendorMetadata.operation_id;
+      if (typeof projectedOperationId !== "string") return;
+      const runId = uuidv5(projectedOperationId, TEST_ROOT_NAMESPACE);
+      const dottedOrder = createDottedOrder(startedAt, runId);
+      try {
+        await active.client.createRun({
+          id: runId,
+          trace_id: runId,
+          start_time: startedAt,
+          dotted_order: dottedOrder,
+          name: "PressTuner TEST operation outcome",
+          run_type: "chain",
+          project_name: active.configuration.projectName,
+          inputs: { executionMode: "TEST" },
+          extra: { metadata: vendorMetadata },
+        });
+      } catch {
+        // A deterministic ID may already exist after an ambiguous prior create.
+      }
+      try {
+        await active.client.updateRun(runId, {
+          end_time: completedAt,
+          outputs: { status: args.outcome === "SUCCEEDED" ? "completed" : "failed" },
+        });
+      } catch {
+        // TEST provider publication is fail-open.
+      }
+    } catch {
+      // Projection and client failures cannot affect the authoritative test run.
+    }
+  }
+
+  return { trace, traceRagStage, recordRagObservation, reportRootFeedback, publishRootOutcome };
 }
 
 const defaultTracer = createLangSmithOperationTracer();
@@ -380,3 +428,4 @@ export const traceLangSmithOperation = defaultTracer.trace;
 export const traceLangSmithRagStage = defaultTracer.traceRagStage;
 export const recordLangSmithRagObservation = defaultTracer.recordRagObservation;
 export const reportLangSmithRootFeedback = defaultTracer.reportRootFeedback;
+export const publishLangSmithTestRunOutcome = defaultTracer.publishRootOutcome;

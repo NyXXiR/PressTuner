@@ -15,6 +15,7 @@ import { EventV2Schema } from "@/domain/ai-process-console/v2/contracts";
 import { fixtureRegistryV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
 import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
 import { inspectProjectTestSnapshot, replayProjectTestTransition } from "./projectTestDebugService";
+import type { TestRunProviderPublicationPort } from "./testRunProviderPublication.server";
 
 const receiptIds: string[] = [];
 const attemptIds: string[] = [];
@@ -39,7 +40,7 @@ function commandV2(fixtureIndex: number) {
 
 async function remember(testRunId: string) {
   const receipt = await prisma.aiProcessTestRun.findUniqueOrThrow({ where: { projectId_testRunId: { projectId: "presstuner", testRunId } } });
-  receiptIds.push(receipt.id); attemptIds.push(receipt.factAttemptId);
+  receiptIds.push(receipt.id); attemptIds.push(receipt.factAttemptId, receipt.testRunId);
   return receipt;
 }
 
@@ -153,6 +154,15 @@ test("ten v2 isolated attempts keep execution success separate from one exact qu
     assert.equal(facts[0].type, "dev.aiprocess.event.attempt.started.v2");
     assert.equal(facts.at(-1)?.type, "dev.aiprocess.event.attempt.completed.v2");
     assert.equal(facts.filter((event) => event.type === "dev.aiprocess.event.node.execution.completed.v2").length, 5);
+    assert.ok(facts.every((event) => event.metadata.scope === "ATTEMPT" && event.metadata.operationId === input.id));
+    const runRows = await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: input.data.testRunId }, orderBy: { sequence: "asc" } });
+    const runFacts = runRows.map((row) => EventV2Schema.parse(row.payload));
+    assert.deepEqual(runFacts.map((event) => event.type), ["dev.aiprocess.event.test-run.accepted.v2", "dev.aiprocess.event.test-run.completed.v2"]);
+    assert.deepEqual(runFacts.map((event) => event.sequence), [1, 2]);
+    assert.ok(runFacts.every((event) => event.metadata.scope === "RUN" && event.metadata.testRunId === input.data.testRunId && !("operationId" in event.metadata)));
+    const runCompleted = runFacts[1];
+    assert.equal(runCompleted.type, "dev.aiprocess.event.test-run.completed.v2");
+    assert.equal(runCompleted.type === "dev.aiprocess.event.test-run.completed.v2" && runCompleted.data.runnerOutcome, "COMPLETED");
     const final = facts.find((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && event.data.requirementId === "final-output-quality");
     assert.ok(final && final.type === "dev.aiprocess.event.requirement.observed.v2");
     finalOutcomes.push(final.data.outcome.state === "EVALUATED" ? final.data.outcome.verdict : final.data.outcome.state);
@@ -174,6 +184,33 @@ test("ten v2 isolated attempts keep execution success separate from one exact qu
   }
   assert.equal(finalOutcomes.filter((outcome) => outcome === "PASS").length, 9);
   assert.equal(finalOutcomes.filter((outcome) => outcome === "BLOCK").length, 1);
+});
+
+test("success-v2 publishes after terminal facts and exact replay reuses the same operation and attempt", async () => {
+  const input = commandV2(0);
+  const publications: Array<Parameters<TestRunProviderPublicationPort["publish"]>[0]> = [];
+  const service = createAiProcessTestRunService({ providerPublication: { async publish(value) { publications.push(value); } } });
+  const first = await service.handle(input);
+  assert.equal(first.status, "SUCCEEDED");
+  const receipt = await remember(input.data.testRunId);
+  const attemptFacts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
+  const runFacts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.testRunId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
+  assert.equal(attemptFacts.filter((event) => event.type === "dev.aiprocess.event.attempt.completed.v2").length, 1);
+  assert.equal(runFacts.filter((event) => event.type === "dev.aiprocess.event.test-run.accepted.v2").length, 1);
+  assert.equal(runFacts.filter((event) => event.type === "dev.aiprocess.event.test-run.completed.v2" && event.data.runnerOutcome === "COMPLETED").length, 1);
+  assert.ok(attemptFacts.every((event) => event.metadata.scope === "ATTEMPT" && event.metadata.operationId === input.id));
+  assert.equal(publications.length, 1);
+  assert.equal(publications[0].metadata.operationId, input.id);
+  assert.equal(publications[0].metadata.attemptId, receipt.factAttemptId);
+  await assert.rejects(service.handle({ ...input, time: "2030-01-01T00:00:02.000Z" }), /AI_PROCESS_COMMAND_REUSE_CONFLICT/);
+  assert.equal(publications.length, 1);
+  const replay = await service.handle(input);
+  assert.equal(replay.replayed, true);
+  assert.equal(publications.length, 2);
+  assert.equal(publications[1].metadata.operationId, publications[0].metadata.operationId);
+  assert.equal(publications[1].metadata.attemptId, publications[0].metadata.attemptId);
+  assert.equal(await prisma.aiProcessFactOutbox.count({ where: { attemptId: receipt.factAttemptId } }), attemptFacts.length);
+  assert.equal(await prisma.aiProcessFactOutbox.count({ where: { attemptId: receipt.testRunId } }), runFacts.length);
 });
 
 test("a recoverable conflicting command persists one minimal rejection fact across replay", async () => {
