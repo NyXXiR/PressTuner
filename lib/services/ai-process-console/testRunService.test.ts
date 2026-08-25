@@ -18,9 +18,23 @@ test("only the strict fixture-isolated test-run command is accepted", () => {
 });
 
 test("the same isolated endpoint accepts the exact v2 definition and fixture only", () => {
-  const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: fixtureRegistryV2[0].artifact } };
-  assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: fixtureRegistryV2[0].fixture, contractVersion: "v2" });
+  const success = fixtureRegistryV2.find(({ fixture }) => fixture.fixtureId === "success-v2")!;
+  const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: success.artifact } };
+  assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: success.fixture, contractVersion: "v2" });
   assert.deepEqual(classifyTestRunRequest({ ...input, data: { ...input.data, fixture: fixtureRegistry[0].artifact } }), { accepted: false, code: "FIXTURE_NOT_FOUND" });
+});
+
+test("every registered v2 fixture requires its exact immutable declaration", () => {
+  for (const entry of fixtureRegistryV2) {
+    const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: entry.artifact } };
+    assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: entry.fixture, contractVersion: "v2" });
+    for (const fixture of [
+      { ...entry.artifact, artifactId: `${entry.artifact.artifactId}-changed` },
+      { ...entry.artifact, locator: `${entry.artifact.locator}-changed` },
+      { ...entry.artifact, sizeBytes: entry.artifact.sizeBytes + 1 },
+      { ...entry.artifact, sha256: "0".repeat(64) },
+    ]) assert.deepEqual(classifyTestRunRequest({ ...input, data: { ...input.data, fixture } }), { accepted: false, code: "FIXTURE_NOT_FOUND" });
+  }
 });
 
 test("definition, project, unknown fixture, and saved-case requests are rejected safely", () => {

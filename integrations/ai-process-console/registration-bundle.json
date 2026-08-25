@@ -652,6 +652,38 @@
       "processId": "press-creation",
       "processVersion": "3.0.0",
       "projectId": "presstuner"
+    },
+    {
+      "declarationId": "brief-draft-warn-v2",
+      "fixture": {
+        "artifactId": "presstuner-fixture-brief-draft-warn-v2",
+        "locator": "ref:fixtures/presstuner/press-creation/3.0.0/brief-draft-warn-v2",
+        "mediaType": "application/json",
+        "schemaVersion": "2.0",
+        "sha256": "9f5066de19c2bf391fa5c412bf9ce1f4f4707fa9ede987e2993215ac47c00191",
+        "sizeBytes": 484
+      },
+      "label": "PressTuner v2 브리프 전이 WARN",
+      "processDefinitionSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+      "processId": "press-creation",
+      "processVersion": "3.0.0",
+      "projectId": "presstuner"
+    },
+    {
+      "declarationId": "brief-draft-block-v2",
+      "fixture": {
+        "artifactId": "presstuner-fixture-brief-draft-block-v2",
+        "locator": "ref:fixtures/presstuner/press-creation/3.0.0/brief-draft-block-v2",
+        "mediaType": "application/json",
+        "schemaVersion": "2.0",
+        "sha256": "ccc436ac19ff0262a20e8fa1c0427749bf9a559e4b9680a4d985e633bbf06530",
+        "sizeBytes": 484
+      },
+      "label": "PressTuner v2 브리프 전이 BLOCK",
+      "processDefinitionSha256": "5d4c1c643439e7d55ebe452e7b7b8d1623a6fc0740fbde5e169940d13f1eff17",
+      "processId": "press-creation",
+      "processVersion": "3.0.0",
+      "projectId": "presstuner"
     }
   ]
 }

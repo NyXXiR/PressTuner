@@ -23,6 +23,13 @@ export function evaluateFinalOutputQuality(output: unknown): { verdict: "PASS" |
   return valid ? { verdict: "PASS", reasonCodes: [] } : { verdict: "BLOCK", reasonCodes: ["EMPTY_FINAL_OUTPUT"] };
 }
 
+export function transitionRequirementReasonCodes(observation: { guardrailId: string; verdict: "PASS" | "WARN" | "BLOCK"; origin: "MANDATORY" | "CASE_EXPECTATION" }): string[] {
+  if (observation.verdict === "PASS") return [];
+  if (observation.guardrailId === "critical-fact-preservation" && observation.verdict === "BLOCK") return ["ALL_AUTHORED_FACTS_MISSING"];
+  if (observation.guardrailId === "memo-brief-grounding" || observation.guardrailId === "critical-fact-preservation") return ["FACT_MISSING"];
+  return [observation.origin === "MANDATORY" ? "MANDATORY_GUARDRAIL_FAILED" : "CASE_EXPECTATION_FAILED"];
+}
+
 export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointLifecycleHooks {
   const emit = (tx: Prisma.TransactionClient, build: Parameters<typeof enqueueNextAiProcessFact>[1]["build"]) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId: factory.identity.attemptId, build });
   return {
@@ -68,7 +75,7 @@ export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointL
         await emit(tx, (sequence) => factory.create({
           type: "dev.aiprocess.event.requirement.observed.v2", logicalKey: v2FactLogicalKey.requirementObserved(observation.guardrailId, event.transitionId), sequence,
           occurredAt: event.occurredAt, causationId: evaluationEventId,
-          data: { requirementId: observation.guardrailId, requirementVersion: "1.0.0", evaluator: componentRevisionForRequirement(observation.guardrailId), location: { kind: "TRANSITION", transitionId: event.edgeId, stageId: event.sourceNodeId }, occurrence: { kind: "TRANSITION", transitionId: event.edgeId, transitionEvaluationId: event.transitionId }, observedForEventId: evaluationEventId, outcome: { state: "EVALUATED", verdict: observation.verdict, reasonCodes: observation.verdict === "PASS" ? [] : [observation.origin === "MANDATORY" ? "MANDATORY_GUARDRAIL_FAILED" : "CASE_EXPECTATION_FAILED"] } },
+          data: { requirementId: observation.guardrailId, requirementVersion: "1.0.0", evaluator: componentRevisionForRequirement(observation.guardrailId), location: { kind: "TRANSITION", transitionId: event.edgeId, stageId: event.sourceNodeId }, occurrence: { kind: "TRANSITION", transitionId: event.edgeId, transitionEvaluationId: event.transitionId }, observedForEventId: evaluationEventId, outcome: { state: "EVALUATED", verdict: observation.verdict, reasonCodes: transitionRequirementReasonCodes(observation) } },
         }));
       }
     },
@@ -83,7 +90,13 @@ export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointL
         await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.completed.v2", logicalKey: v2FactLogicalKey.attemptCompleted, sequence, occurredAt: event.occurredAt, causationId: terminalNodeEventId, data: { terminalNodeId: cause.nodeId, terminalNodeExecutionId: cause.commandId, terminalNodeEventId, resultArtifact: buildV2OutputReference({ checkpointId: cause.checkpointId, output: cause.output }) } }));
         return;
       }
-      const failedEventId = event.cause.kind === "NODE_FAILED" ? factory.eventIdFor(v2FactLogicalKey.nodeFailed(event.cause.nodeId, event.cause.commandId)) : undefined;
+      const failedEventId = event.cause.kind === "NODE_FAILED"
+        ? factory.eventIdFor(v2FactLogicalKey.nodeFailed(event.cause.nodeId, event.cause.commandId))
+        : event.cause.kind === "TRANSITION_EVALUATED"
+          ? factory.eventIdFor(v2FactLogicalKey.transitionEvaluated(event.cause.transitionId))
+          : event.cause.kind === "EVIDENCE_EVALUATED"
+            ? factory.eventIdFor(v2FactLogicalKey.transitionEvaluated(event.cause.evidenceEvaluationId))
+            : undefined;
       await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.attempt.failed.v2", logicalKey: v2FactLogicalKey.attemptFailed, sequence, occurredAt: event.occurredAt, ...(failedEventId ? { causationId: failedEventId } : {}), data: { failureCode: (event.failureCode ?? (event.status === "BLOCKED" ? "TRANSITION_GUARDRAIL_BLOCK" : "ATTEMPT_FAILED")).replace(/[^A-Za-z0-9._:/+-]/g, "_").slice(0, 128), ...(failedEventId ? { failedEventId } : {}) } }));
     },
   };

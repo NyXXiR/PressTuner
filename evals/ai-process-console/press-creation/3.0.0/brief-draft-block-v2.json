@@ -1,0 +1,15 @@
+{
+  "fixtureId": "brief-draft-block-v2",
+  "memoText": "가상 서비스 감마는 2042년 공개되며 9곳에 제공된다.",
+  "normalizedBriefText": "가상 서비스 감마 공개를 준비한다.",
+  "processId": "press-creation",
+  "processVersion": "3.0.0",
+  "reviewInstruction": "브리프의 차단을 확인한다.",
+  "rewriteInstruction": "선택한 합성 제안만 반영한다.",
+  "scenario": "TRANSITION_BLOCK",
+  "schemaVersion": "2.0",
+  "selectedNoteIds": [
+    "note_synthetic-session_0"
+  ],
+  "tone": "neutral"
+}

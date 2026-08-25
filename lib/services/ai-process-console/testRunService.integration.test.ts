@@ -16,6 +16,7 @@ import { fixtureRegistryV2 } from "@/domain/ai-process-console/v2/fixtureRegistr
 import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
 import { inspectProjectTestSnapshot, replayProjectTestTransition } from "./projectTestDebugService";
 import type { TestRunProviderPublicationPort } from "./testRunProviderPublication.server";
+import { cleanupIsolatedFixtureWorkspace } from "./isolatedFixtureWorkspace";
 
 const receiptIds: string[] = [];
 const attemptIds: string[] = [];
@@ -29,12 +30,14 @@ function command(fixtureIndex: number) {
   } as const;
 }
 
-function commandV2(fixtureIndex: number) {
+function commandV2(fixtureId: string) {
   const suffix = randomUUID();
+  const fixture = fixtureRegistryV2.find((entry) => entry.fixture.fixtureId === fixtureId);
+  if (!fixture) throw new Error(`fixture not found: ${fixtureId}`);
   return {
     specversion: "1.0", id: `command-v2-${suffix}`, source: "urn:ai-process-console:test-runs", subject: "project/presstuner",
     time: "2030-01-01T00:00:00.000Z", schemaVersion: "1.0", correlationId: `correlation-v2-${suffix}`, sequence: 0, executionMode: "TEST",
-    type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: `test-run-v2-${suffix}`, projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: fixtureRegistryV2[fixtureIndex].artifact },
+    type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: `test-run-v2-${suffix}`, projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: fixture.artifact },
   } as const;
 }
 
@@ -140,7 +143,7 @@ test("successful isolated run emits a coherent monotonic terminal fact stream an
 });
 
 test("ten v2 isolated attempts keep execution success separate from one exact quality BLOCK", async () => {
-  const commands = Array.from({ length: 10 }, (_, index) => commandV2(index === 6 ? 1 : 0));
+  const commands = Array.from({ length: 10 }, (_, index) => commandV2(index === 6 ? "final-quality-block-v2" : "success-v2"));
   const finalOutcomes: string[] = [];
   for (const input of commands) {
     const result = await createAiProcessTestRunService().handle(input);
@@ -168,7 +171,7 @@ test("ten v2 isolated attempts keep execution success separate from one exact qu
     finalOutcomes.push(final.data.outcome.state === "EVALUATED" ? final.data.outcome.verdict : final.data.outcome.state);
     assert.deepEqual(final.data.occurrence, { kind: "NODE", nodeId: "selected-rewrite", nodeExecutionId: final.data.occurrence.kind === "NODE" ? final.data.occurrence.nodeExecutionId : "" });
     assert.equal(final.causationId, final.data.observedForEventId);
-    if (input.data.fixture.artifactId === fixtureRegistryV2[1].artifact.artifactId) {
+    if (input.data.fixture.artifactId === fixtureRegistryV2.find(({ fixture }) => fixture.fixtureId === "final-quality-block-v2")!.artifact.artifactId) {
       const definition = buildProcessDefinitionV2();
       const exact = { projectId: "presstuner", environment: "conformance", processId: definition.processId, processVersion: definition.version, processDefinitionHash: definition.canonicalSha256, executionMode: "TEST" as const, caseId: input.correlationId, attemptId: receipt.factAttemptId };
       const node = await inspectProjectTestSnapshot({ schemaVersion: "1.0", requestId: "inspect-block-node", ...exact, location: { kind: "NODE", nodeId: "selected-rewrite" } });
@@ -186,8 +189,77 @@ test("ten v2 isolated attempts keep execution success separate from one exact qu
   assert.equal(finalOutcomes.filter((outcome) => outcome === "BLOCK").length, 1);
 });
 
+test("brief-draft WARN acknowledges both authored observations and reaches the terminal node", async () => {
+  const input = commandV2("brief-draft-warn-v2");
+  const captured: { transition?: { verdict: string; warnAcknowledgedAt: Date | null; advancedAt: Date | null } | null } = {};
+  const service = createAiProcessTestRunService({
+    cleanupWorkspace: async (workspace) => {
+      captured.transition = await prisma.pressAiDebugTransition.findFirst({
+        where: { edgeId: "brief-draft", attempt: { teamId: workspace.teamId } },
+        select: { verdict: true, warnAcknowledgedAt: true, advancedAt: true },
+      });
+      await cleanupIsolatedFixtureWorkspace(workspace);
+    },
+  });
+  const result = await service.handle(input);
+  assert.equal(result.status, "SUCCEEDED");
+  const receipt = await remember(input.data.testRunId);
+  assert.equal(receipt.status, "SUCCEEDED");
+  const facts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
+  const runFacts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.testRunId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
+  assert.deepEqual(runFacts.map((event) => event.sequence), [1, 2]);
+  assert.deepEqual(runFacts.map((event) => event.type), ["dev.aiprocess.event.test-run.accepted.v2", "dev.aiprocess.event.test-run.completed.v2"]);
+  assert.equal(runFacts[1].type === "dev.aiprocess.event.test-run.completed.v2" && runFacts[1].data.runnerOutcome, "COMPLETED");
+  const evaluated = facts.find((event) => event.type === "dev.aiprocess.event.transition.evaluated.v2" && event.data.transitionId === "brief-draft")!;
+  assert.equal(evaluated.type === "dev.aiprocess.event.transition.evaluated.v2" && evaluated.data.matched, true);
+  const observations = facts.filter((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && event.data.location.kind === "TRANSITION" && event.data.location.transitionId === "brief-draft");
+  assert.deepEqual(observations.map((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && [event.data.requirementId, event.data.outcome.state === "EVALUATED" ? event.data.outcome.verdict : event.data.outcome.state, event.data.outcome.state === "EVALUATED" ? event.data.outcome.reasonCodes : []]), [
+    ["memo-brief-grounding", "WARN", ["FACT_MISSING"]],
+    ["critical-fact-preservation", "WARN", ["FACT_MISSING"]],
+  ]);
+  assert.ok(observations.every((event) => event.causationId === evaluated.id));
+  assert.doesNotMatch(JSON.stringify(observations), /2030년|12곳|가상 서비스/);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.transition.selected.v2" && event.data.transitionId === "brief-draft"), true);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.node.execution.started.v2" && event.data.nodeId === "draft-generation"), true);
+  assert.equal(facts.filter((event) => event.type === "dev.aiprocess.event.node.execution.completed.v2").length, 5);
+  assert.equal(facts.filter((event) => event.type === "dev.aiprocess.event.attempt.completed.v2").length, 1);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.attempt.failed.v2" || event.type === "dev.aiprocess.event.node.execution.failed.v2"), false);
+  assert.deepEqual(captured.transition && { verdict: captured.transition.verdict, warnAcknowledged: Boolean(captured.transition.warnAcknowledgedAt), advanced: Boolean(captured.transition.advancedAt) }, { verdict: "WARN", warnAcknowledged: true, advanced: true });
+});
+
+test("brief-draft BLOCK completes the runner but fails the attempt at the unmatched evaluation", async () => {
+  const input = commandV2("brief-draft-block-v2");
+  const result = await createAiProcessTestRunService().handle(input);
+  assert.equal(result.status, "SUCCEEDED");
+  const receipt = await remember(input.data.testRunId);
+  assert.equal(receipt.status, "SUCCEEDED");
+  const facts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
+  const runFacts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.testRunId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
+  assert.deepEqual(runFacts.map((event) => event.sequence), [1, 2]);
+  assert.equal(runFacts[1].type === "dev.aiprocess.event.test-run.completed.v2" && runFacts[1].data.runnerOutcome, "COMPLETED");
+  const evaluated = facts.find((event) => event.type === "dev.aiprocess.event.transition.evaluated.v2" && event.data.transitionId === "brief-draft")!;
+  assert.equal(evaluated.type === "dev.aiprocess.event.transition.evaluated.v2" && evaluated.data.matched, false);
+  const failed = facts.find((event) => event.type === "dev.aiprocess.event.attempt.failed.v2")!;
+  assert.equal(failed.type, "dev.aiprocess.event.attempt.failed.v2");
+  if (failed.type !== "dev.aiprocess.event.attempt.failed.v2") throw new Error("missing attempt failure");
+  assert.equal(failed.data.failureCode, "TRANSITION_GUARDRAIL_BLOCK");
+  assert.equal(failed.data.failedEventId, evaluated.id);
+  assert.equal(failed.causationId, evaluated.id);
+  assert.equal(runFacts[1].causationId, failed.id);
+  const observations = facts.filter((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && event.data.location.kind === "TRANSITION" && event.data.location.transitionId === "brief-draft");
+  assert.deepEqual(observations.map((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && [event.data.requirementId, event.data.outcome.state === "EVALUATED" ? event.data.outcome.verdict : event.data.outcome.state, event.data.outcome.state === "EVALUATED" ? event.data.outcome.reasonCodes : []]), [
+    ["memo-brief-grounding", "WARN", ["FACT_MISSING"]],
+    ["critical-fact-preservation", "BLOCK", ["ALL_AUTHORED_FACTS_MISSING"]],
+  ]);
+  assert.doesNotMatch(JSON.stringify(observations), /2042년|9곳|가상 서비스/);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.transition.selected.v2" && event.data.transitionId === "brief-draft"), false);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.node.execution.started.v2" && event.data.nodeId === "draft-generation"), false);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.requirement.observed.v2" && event.data.location.kind === "NODE"), false);
+  assert.equal(facts.some((event) => event.type === "dev.aiprocess.event.node.execution.failed.v2"), false);
+});
+
 test("success-v2 publishes after terminal facts and exact replay reuses the same operation and attempt", async () => {
-  const input = commandV2(0);
+  const input = commandV2("success-v2");
   const publications: Array<Parameters<TestRunProviderPublicationPort["publish"]>[0]> = [];
   const service = createAiProcessTestRunService({ providerPublication: { async publish(value) { publications.push(value); } } });
   const first = await service.handle(input);

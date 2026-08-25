@@ -129,7 +129,7 @@ export function publishedArtifacts(): Readonly<Record<string, unknown>> {
   const definitions = [definition, definitionV2, ragDefinition];
   const testFixtures = [
     ...fixtureRegistry.filter(({ fixture }) => fixture.fixtureId === "success-v1").map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: "PressTuner v1 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definition.canonicalSha256, fixture: artifact })),
-    ...fixtureRegistryV2.map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: fixture.scenario === "QUALITY_BLOCK" ? "PressTuner v2 완성본 품질 BLOCK" : "PressTuner v2 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definitionV2.canonicalSha256, fixture: artifact })),
+    ...fixtureRegistryV2.map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: fixture.scenario === "QUALITY_BLOCK" ? "PressTuner v2 완성본 품질 BLOCK" : fixture.scenario === "TRANSITION_WARN" ? "PressTuner v2 브리프 전이 WARN" : fixture.scenario === "TRANSITION_BLOCK" ? "PressTuner v2 브리프 전이 BLOCK" : "PressTuner v2 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definitionV2.canonicalSha256, fixture: artifact })),
   ];
   return Object.freeze({
     "integrations/ai-process-console/v1/project-manifest.json": buildProjectManifest(definitions),

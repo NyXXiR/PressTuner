@@ -1,6 +1,6 @@
 # AI Process Console producer adapter
 
-The adapter is the opt-in network boundary around PressTuner's strict v1 producer. It adds authenticated fixture-command ingress, signed TEST and LIVE EventV1 delivery, protected producer-health evidence, delivered-fact retention, and a one-shot worker. It does not change the manifest, process definitions, policies, fixtures, project authority, or console-owned connection state.
+The adapter is the opt-in network boundary around PressTuner's strict producer. It adds authenticated fixture-command ingress, signed TEST and LIVE fact delivery, protected producer-health evidence, delivered-fact retention, and a one-shot worker. It does not change process definitions, choose transitions, accept fixture bodies, or alter project authority or console-owned connection state.
 
 ## Direction and authority
 
@@ -74,7 +74,7 @@ The vector secret is public test material and must never be deployed.
 
 ## Routes and responses
 
-`POST /api/internal/ai-process-console/v1/test-runs` accepts at most 64 KiB with `application/json`. Authenticated JSON is passed unchanged to the strict fixture service. `SUCCEEDED`, fixture `FAILED`, and service `REJECTED` results return HTTP 200 because they are bounded domain outcomes. Changed-body reuse of a command ID returns `409 COMMAND_REUSE_CONFLICT`. Boundary errors are `400 REQUEST_INVALID`, `401 REQUEST_AUTHENTICATION_FAILED`, `413 REQUEST_TOO_LARGE`, `415 JSON_REQUIRED`, `503 ADAPTER_UNAVAILABLE`, or `500 TEST_RUN_REQUEST_FAILED`. No exception text is returned.
+`POST /api/internal/ai-process-console/v1/test-runs` accepts at most 64 KiB with `application/json`. Authenticated JSON is passed unchanged to the strict fixture service. Runner state is independent of the attempt terminal: the expected `brief-draft-block-v2` quality BLOCK returns service `SUCCEEDED` with runner `COMPLETED` even though the attempt emits `attempt.failed.v2`; unexpected blocks and technical failures remain runner failures. `SUCCEEDED`, fixture `FAILED`, and service `REJECTED` results return HTTP 200 because they are bounded domain outcomes. Changed-body reuse of a command ID returns `409 COMMAND_REUSE_CONFLICT`. Boundary errors are `400 REQUEST_INVALID`, `401 REQUEST_AUTHENTICATION_FAILED`, `413 REQUEST_TOO_LARGE`, `415 JSON_REQUIRED`, `503 ADAPTER_UNAVAILABLE`, or `500 TEST_RUN_REQUEST_FAILED`. No exception text is returned.
 
 `GET /api/internal/ai-process-console/v1/health` is authenticated and always sends `Cache-Control: no-store`. Its response is:
 

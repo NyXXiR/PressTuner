@@ -1,0 +1,15 @@
+{
+  "fixtureId": "brief-draft-warn-v2",
+  "memoText": "가상 서비스 베타는 2030년 공개되며 12곳에 제공된다.",
+  "normalizedBriefText": "가상 서비스 베타는 2030년 공개된다.",
+  "processId": "press-creation",
+  "processVersion": "3.0.0",
+  "reviewInstruction": "브리프의 경고를 확인한다.",
+  "rewriteInstruction": "선택한 합성 제안만 반영한다.",
+  "scenario": "TRANSITION_WARN",
+  "schemaVersion": "2.0",
+  "selectedNoteIds": [
+    "note_synthetic-session_0"
+  ],
+  "tone": "neutral"
+}

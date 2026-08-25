@@ -1,6 +1,6 @@
 # AI Process Console producer pilot
 
-PressTuner is a conformance-ready producer for the standalone AI Process Console v1 contract. It publishes local artifacts, accepts one fixture-only command for `press-creation@2.1.0`, and records privacy-safe past-tense facts in a transactional outbox. Real Press Agent `rag-query@1.0.0` workflow events also enqueue LIVE facts. The network adapter remains dormant by default: an opt-in authenticated HTTP adapter can expose the fixture service and deliver pending facts, but neither the producer nor the adapter may be described as `CONNECTED` by PressTuner.
+PressTuner is a conformance-ready producer for the standalone AI Process Console v1 and v2 contracts. It publishes local artifacts, accepts strict project-owned fixtures for `press-creation`, and records privacy-safe past-tense facts in a transactional outbox. Real Press Agent `rag-query@1.0.0` workflow events also enqueue LIVE facts. The network adapter remains dormant by default: an opt-in authenticated HTTP adapter can expose the fixture service and deliver pending facts, but neither the producer nor the adapter may be described as `CONNECTED` by PressTuner.
 
 ## Contract ownership and conformance anchor
 
@@ -10,7 +10,7 @@ The AI Process Console repository owns v1 contract evolution. PressTuner changes
 
 ## Authority boundary
 
-PressTuner remains authoritative for the `press-creation@2.1.0` and `rag-query@1.0.0` topologies, handlers, workflow events, transition meaning, fixture ownership, product state, and transaction boundaries. The console may supply only `dev.aiprocess.command.test-run.requested.v1` for the existing project-owned `press-creation` fixtures. The dormant service has no caller-selected callback, destination, URL, host, credential, handler, node, transition, or mutation action. The optional server-only HTTP boundary is documented in [AI Process Console producer adapter](./ai-process-console-producer-adapter.md); none of its deployment configuration is published in v1 artifacts.
+PressTuner remains authoritative for the `press-creation@2.1.0`, `press-creation@3.0.0`, and `rag-query@1.0.0` topologies, handlers, workflow events, transition meaning, fixture ownership, product state, and transaction boundaries. The console may supply only `dev.aiprocess.command.test-run.requested.v1` for the existing project-owned `press-creation` fixtures. The dormant service has no caller-selected callback, destination, URL, host, credential, handler, node, transition, or mutation action. The optional server-only HTTP boundary is documented in [AI Process Console producer adapter](./ai-process-console-producer-adapter.md); none of its deployment configuration is published in the artifacts.
 
 The production debugger paths remain unchanged:
 
@@ -23,7 +23,7 @@ The generic `ai_process_fact_outbox` is separate from the Ops snapshot outbox. I
 
 ## Published artifacts
 
-The checked files under `integrations/ai-process-console/v1/` contain the project manifest, both process definitions, and the content-free memo-source policy. Synthetic fixture definitions remain unchanged under `evals/ai-process-console/press-creation/2.1.0/`.
+The checked files under `integrations/ai-process-console/` contain the project manifest, three process definitions, and the content-free memo-source policy. Synthetic fixture bodies remain project-owned under `evals/ai-process-console/press-creation/`; registration publishes only immutable artifact references. `press-creation@3.0.0` remains generation 2 with its existing definition hash.
 
 Both process definitions are generated from `domain/press-ai-debugger/processRegistry.ts`, sorted by registry sequence. `press-creation@2.1.0` contains exactly five nodes and four transitions. `HUMAN_GATE` describes its post-handler checkpoint; guardrail and human decisions remain transition semantics through project-owned `decisionRef` values. No synthetic `DECISION` node is added to that fixture process. The frozen `rag-query@1.0.0` definition contains its existing seven nodes and seven edges; publication does not change runtime topology.
 
@@ -69,7 +69,9 @@ When no transport is injected, facts remain pending and no delivery is attempted
 
 ## Isolation and privacy
 
-Only the three checked, versioned synthetic fixtures are resolvable. Unknown artifacts return `FIXTURE_NOT_FOUND`; saved-case locators return `ISOLATION_UNAVAILABLE`. Saved debugger cases are excluded because their current retry flow mutates tenant-coupled state. Supporting them requires a future authenticated copy-to-isolated-workspace adapter.
+Only checked, versioned synthetic fixtures are resolvable. `brief-draft-warn-v2` preserves the authored `2030년` fact but omits `12곳`, acknowledges the resulting two WARN observations, and reaches the terminal node. `brief-draft-block-v2` omits both authored `2042년` and `9곳` facts, emits grounding WARN plus preservation BLOCK, fails the attempt at the unmatched `brief-draft` evaluation, and completes the fixture runner normally. It emits no node failure. Unknown artifacts return `FIXTURE_NOT_FOUND`; saved-case locators return `ISOLATION_UNAVAILABLE`. Saved debugger cases are excluded because their current retry flow mutates tenant-coupled state. Supporting them requires a future authenticated copy-to-isolated-workspace adapter.
+
+V2 requirement reason codes are closed and content-free: partial fact loss uses `FACT_MISSING`, while total authored-fact loss at critical preservation uses `ALL_AUTHORED_FACTS_MISSING`. Raw memo, normalized brief, observed values, and evidence bodies never enter `reasonCodes`.
 
 An accepted run creates a disposable project-owned team, inactive user, membership, article, run, and checkpoint attempt. AI dependencies are deterministic. Only fixture-owned gate acknowledgements are made. Cleanup validates the disposable identity prefix and removes the tenant after success or failure. Isolation establishment failure is a rejection; cleanup failure terminally fails the receipt and never falls back to an existing tenant.
 

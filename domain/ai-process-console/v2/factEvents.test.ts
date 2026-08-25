@@ -43,3 +43,12 @@ test("v2 quality observations point to one exact node occurrence", () => {
   if (observed.type !== "dev.aiprocess.event.requirement.observed.v2") throw new Error("unexpected event type");
   assert.deepEqual(observed.data.occurrence, { kind: "NODE", nodeId: "selected-rewrite", nodeExecutionId: "execution-1" });
 });
+
+test("v2 attempt failure requires exact causation when it identifies a failed event", () => {
+  const factory = createV2FactFactory({ identity: { caseId: "case-3", objectType: "synthetic-press-fixture", operationId: "operation-3", attemptId: "attempt-3", testRunId: "run-3" } });
+  const event = factory.create({ type: "dev.aiprocess.event.attempt.failed.v2", logicalKey: "attempt:failed", sequence: 1, causationId: "transition-evaluated", data: { failureCode: "TRANSITION_GUARDRAIL_BLOCK", failedEventId: "transition-evaluated" } });
+  assert.equal(event.type, "dev.aiprocess.event.attempt.failed.v2");
+  if (event.type !== "dev.aiprocess.event.attempt.failed.v2") throw new Error("unexpected event type");
+  assert.equal(event.causationId, event.data.failedEventId);
+  assert.throws(() => factory.create({ type: "dev.aiprocess.event.attempt.failed.v2", logicalKey: "attempt:failed-mismatch", sequence: 1, causationId: "other", data: { failureCode: "TRANSITION_GUARDRAIL_BLOCK", failedEventId: "transition-evaluated" } }));
+});
