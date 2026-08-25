@@ -1,7 +1,7 @@
 import { canonicalJson, sha256Canonical, sha256Text } from "../v1/canonicalJson";
 import { AI_PROCESS_CONSOLE_SOURCE } from "../v1/publication";
 import type { ArtifactReferenceV1 } from "../v1/contracts";
-import { AttemptMetadataV2Schema, EventV2Schema, RunMetadataV2Schema, type AttemptMetadataV2, type EventV2, type RunMetadataV2 } from "./contracts";
+import { AttemptMetadataV2Schema, EventV2Schema, RunMetadataV2Schema, type AttemptMetadataV2, type EventV2, type ProcessDefinitionV2, type RunMetadataV2 } from "./contracts";
 import { buildProcessDefinitionV2 } from "./publication";
 
 export type V2FactIdentity = Readonly<{
@@ -33,8 +33,8 @@ export function buildV2OutputReference(args: { checkpointId: string; output: unk
   return Object.freeze({ artifactId: `checkpoint-${args.checkpointId}`, schemaVersion: "2.0", sha256: sha256Text(content), mediaType: "application/json", sizeBytes: Buffer.byteLength(content), locator: `ref:press-ai-debug-checkpoints/${args.checkpointId}/output` });
 }
 
-export function createV2FactFactory(args: { identity: V2FactIdentity; executionMode?: "TEST" | "LIVE"; clock?: () => Date }): V2FactFactory {
-  const definition = buildProcessDefinitionV2();
+export function createV2FactFactory(args: { identity: V2FactIdentity; definition?: ProcessDefinitionV2; executionMode?: "TEST" | "LIVE"; clock?: () => Date }): V2FactFactory {
+  const definition = args.definition ?? buildProcessDefinitionV2();
   const executionMode = args.executionMode ?? "TEST";
   const metadata = Object.freeze({
     projectId: "presstuner", environment: "conformance", serviceName: "presstuner",
@@ -59,8 +59,8 @@ export function createV2FactFactory(args: { identity: V2FactIdentity; executionM
   });
 }
 
-export function createV2RunFactFactory(args: { testRunId: string; clock?: () => Date }): V2RunFactFactory {
-  const definition = buildProcessDefinitionV2();
+export function createV2RunFactFactory(args: { testRunId: string; definition?: ProcessDefinitionV2; clock?: () => Date }): V2RunFactFactory {
+  const definition = args.definition ?? buildProcessDefinitionV2();
   const metadata = RunMetadataV2Schema.parse({
     projectId: "presstuner", environment: "conformance", serviceName: "presstuner",
     processId: definition.processId, processVersion: definition.version, processDefinitionHash: definition.canonicalSha256,

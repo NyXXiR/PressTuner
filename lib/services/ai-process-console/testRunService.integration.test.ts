@@ -13,7 +13,7 @@ import { readAiProcessProducerHealth } from "./producerHealth";
 import { retainDeliveredAiProcessFacts } from "./deliveredFactRetention";
 import { EventV2Schema } from "@/domain/ai-process-console/v2/contracts";
 import { fixtureRegistryV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
-import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
+import { buildProcessDefinitionV2, buildProcessDefinitionV2Compatibility } from "@/domain/ai-process-console/v2/publication";
 import { inspectProjectTestSnapshot, replayProjectTestTransition } from "./projectTestDebugService";
 import type { TestRunProviderPublicationPort } from "./testRunProviderPublication.server";
 import { cleanupIsolatedFixtureWorkspace } from "./isolatedFixtureWorkspace";
@@ -34,10 +34,11 @@ function commandV2(fixtureId: string) {
   const suffix = randomUUID();
   const fixture = fixtureRegistryV2.find((entry) => entry.fixture.fixtureId === fixtureId);
   if (!fixture) throw new Error(`fixture not found: ${fixtureId}`);
+  const definition = fixture.fixture.processVersion === "3.1.0" ? buildProcessDefinitionV2Compatibility() : buildProcessDefinitionV2();
   return {
     specversion: "1.0", id: `command-v2-${suffix}`, source: "urn:ai-process-console:test-runs", subject: "project/presstuner",
     time: "2030-01-01T00:00:00.000Z", schemaVersion: "1.0", correlationId: `correlation-v2-${suffix}`, sequence: 0, executionMode: "TEST",
-    type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: `test-run-v2-${suffix}`, projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: fixture.artifact },
+    type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: `test-run-v2-${suffix}`, projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(definition), fixture: fixture.artifact },
   } as const;
 }
 
@@ -187,6 +188,21 @@ test("ten v2 isolated attempts keep execution success separate from one exact qu
   }
   assert.equal(finalOutcomes.filter((outcome) => outcome === "PASS").length, 9);
   assert.equal(finalOutcomes.filter((outcome) => outcome === "BLOCK").length, 1);
+});
+
+test("the 3.1 compatibility publication has an independently executable success fixture", async () => {
+  const definition = buildProcessDefinitionV2Compatibility();
+  const input = commandV2("success-v2-3-1");
+  const result = await createAiProcessTestRunService().handle(input);
+  assert.equal(result.status, "SUCCEEDED");
+  const receipt = await remember(input.data.testRunId);
+  assert.equal(receipt.processVersion, definition.version);
+  assert.equal(receipt.processDefinitionHash, definition.canonicalSha256);
+  assert.notEqual(receipt.debugSnapshot, null);
+  const facts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } }))
+    .map((row) => EventV2Schema.parse(row.payload));
+  assert.equal(facts.at(-1)?.type, "dev.aiprocess.event.attempt.completed.v2");
+  assert.ok(facts.every((event) => event.metadata.processVersion === definition.version && event.metadata.processDefinitionHash === definition.canonicalSha256));
 });
 
 test("brief-draft WARN acknowledges both authored observations and reaches the terminal node", async () => {

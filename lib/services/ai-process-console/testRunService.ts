@@ -9,7 +9,7 @@ import { AI_PROCESS_CONSOLE_SOURCE, buildProcessDefinition, buildProjectManifest
 import { createV2CheckpointFactHooks } from "@/domain/ai-process-console/v2/checkpointFactHooks";
 import { createV2FactFactory, createV2RunFactFactory } from "@/domain/ai-process-console/v2/factEvents";
 import { resolveSyntheticFixtureV2, type SyntheticFixtureV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
-import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
+import { buildProcessDefinitionV2, buildProcessDefinitionV2Compatibility } from "@/domain/ai-process-console/v2/publication";
 import { pressCreationProcess } from "@/domain/press-ai-debugger/processRegistry";
 import { prisma } from "@/lib/prisma";
 import type { PressAiDependencyOverrides, PressAiCompletionRequest } from "@/lib/services/article/pressAiDependencies";
@@ -63,7 +63,9 @@ function terminalCauseEventId(factory: FactFactory, cause: AttemptTerminalCause)
 }
 
 type RunnerFixture = SyntheticFixture | SyntheticFixtureV2;
-type AcceptedTestRun = { accepted: true; command: TestRunRequestedCommandV1; fixture: RunnerFixture; contractVersion: "v1" | "v2" };
+type AcceptedTestRun =
+  | { accepted: true; command: TestRunRequestedCommandV1; fixture: SyntheticFixture; contractVersion: "v1"; definition: ReturnType<typeof buildProcessDefinition> }
+  | { accepted: true; command: TestRunRequestedCommandV1; fixture: SyntheticFixtureV2; contractVersion: "v2"; definition: ReturnType<typeof buildProcessDefinitionV2> };
 type FixtureRunResult = Readonly<{
   runnerOutcome: "COMPLETED" | "FAILED";
   attemptTerminal: "COMPLETED" | "FAILED";
@@ -76,13 +78,20 @@ export function classifyTestRunRequest(input: unknown): AcceptedTestRun | { acce
   const manifest = buildProjectManifest();
   if (parsed.data.data.projectId !== manifest.projectId) return { accepted: false, code: "REQUEST_INVALID" };
   const v1Reference = publishedProcessDefinitionReference;
-  const v2Reference = processDefinitionReference(buildProcessDefinitionV2());
+  const v2Definitions = [buildProcessDefinitionV2(), buildProcessDefinitionV2Compatibility()];
   const requested = canonicalJson(parsed.data.data.processDefinition);
-  const contractVersion = requested === canonicalJson(v1Reference) ? "v1" : requested === canonicalJson(v2Reference) ? "v2" : undefined;
+  const v2Definition = v2Definitions.find((definition) => requested === canonicalJson(processDefinitionReference(definition)));
+  const contractVersion = requested === canonicalJson(v1Reference) ? "v1" : v2Definition ? "v2" : undefined;
   if (!contractVersion) return { accepted: false, code: "DEFINITION_NOT_FOUND" };
-  const fixture = contractVersion === "v2" ? resolveSyntheticFixtureV2(parsed.data.data.fixture) : resolveSyntheticFixture(parsed.data.data.fixture);
+  if (contractVersion === "v2") {
+    const fixture = resolveSyntheticFixtureV2(parsed.data.data.fixture);
+    if (!fixture) return { accepted: false, code: parsed.data.data.fixture.locator.startsWith("ref:saved-cases/") ? "ISOLATION_UNAVAILABLE" : "FIXTURE_NOT_FOUND" };
+    if (fixture.processVersion !== v2Definition!.version) return { accepted: false, code: "FIXTURE_NOT_FOUND" };
+    return { accepted: true, command: parsed.data, fixture, contractVersion, definition: v2Definition! };
+  }
+  const fixture = resolveSyntheticFixture(parsed.data.data.fixture);
   if (!fixture) return { accepted: false, code: parsed.data.data.fixture.locator.startsWith("ref:saved-cases/") ? "ISOLATION_UNAVAILABLE" : "FIXTURE_NOT_FOUND" };
-  return { accepted: true, command: parsed.data, fixture, contractVersion };
+  return { accepted: true, command: parsed.data, fixture, contractVersion, definition: buildProcessDefinition() };
 }
 
 function deterministicDependencies(fixture: RunnerFixture): PressAiDependencyOverrides {
@@ -208,13 +217,13 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
         await flushAiProcessFactOutbox({ transport: dependencies.transport });
         return outcome;
       }
-      const { command, fixture, contractVersion } = classification;
+      const { command, fixture, contractVersion, definition: activeDefinition } = classification;
       const commandHash = hashCommand(command);
       const existing = await prisma.aiProcessTestRun.findUnique({ where: { commandSource_commandId: { commandSource: command.source, commandId: command.id } } });
       if (existing) {
         if (existing.commandHash !== commandHash) throw new Error("AI_PROCESS_COMMAND_REUSE_CONFLICT");
         if (contractVersion === "v2" && (existing.status === "SUCCEEDED" || existing.status === "FAILED") && existing.startedAt && existing.completedAt) {
-          const definition = buildProcessDefinitionV2();
+          const definition = activeDefinition;
           await providerPublication.publish({
             metadata: {
               projectId: command.data.projectId, environment: "conformance", serviceName: "presstuner",
@@ -237,10 +246,9 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
         trace: command.trace, observabilityReferences: command.observabilityReferences,
       };
       const factory = contractVersion === "v1" ? createResolvedFactFactory({ identity }) : undefined;
-      const v2Factory = contractVersion === "v2" ? createV2FactFactory({ identity: { caseId: command.correlationId, objectType: "synthetic-press-fixture", operationId: command.id, attemptId, testRunId: command.data.testRunId } }) : undefined;
-      const v2RunFactory = contractVersion === "v2" ? createV2RunFactFactory({ testRunId: command.data.testRunId }) : undefined;
+      const v2Factory = contractVersion === "v2" ? createV2FactFactory({ identity: { caseId: command.correlationId, objectType: "synthetic-press-fixture", operationId: command.id, attemptId, testRunId: command.data.testRunId }, definition: activeDefinition }) : undefined;
+      const v2RunFactory = contractVersion === "v2" ? createV2RunFactFactory({ testRunId: command.data.testRunId, definition: activeDefinition }) : undefined;
       const hooks = factory ? createFactHooks(factory) : createV2CheckpointFactHooks(v2Factory!);
-      const activeDefinition = contractVersion === "v2" ? buildProcessDefinitionV2() : buildProcessDefinition();
       const receipt = await prisma.aiProcessTestRun.create({ data: { commandSource: command.source, commandId: command.id, commandHash, projectId: command.data.projectId, testRunId: command.data.testRunId, correlationId: command.correlationId, processId: "press-creation", processVersion: activeDefinition.version, processDefinitionHash: activeDefinition.canonicalSha256, fixtureArtifactId: command.data.fixture.artifactId, fixtureSha256: command.data.fixture.sha256, fixtureLocator: command.data.fixture.locator, factAttemptId: attemptId, status: "RECEIVED" } });
       let workspace: IsolatedFixtureWorkspace | null = null;
       let result: FixtureRunResult = { runnerOutcome: "FAILED", attemptTerminal: "FAILED", failureCode: "TEST_RUN_FAILED" };
@@ -264,7 +272,7 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       let attemptTerminalEventId = factory?.eventIdFor(factLogicalKey.attemptFailed);
       try {
         result = await runFixture({ fixture, workspace, attemptId, hooks });
-        if (contractVersion === "v2") await captureTestDebugSnapshot(receipt.id, attemptId);
+        if (contractVersion === "v2") await captureTestDebugSnapshot(receipt.id, attemptId, activeDefinition.version);
         if (factory) attemptTerminalEventId = factory.eventIdFor(result.attemptTerminal === "COMPLETED" ? factLogicalKey.attemptCompleted : factLogicalKey.attemptFailed);
       } catch (error) {
         result = { runnerOutcome: "FAILED", attemptTerminal: "FAILED", failureCode: safeFailureCode(error) };

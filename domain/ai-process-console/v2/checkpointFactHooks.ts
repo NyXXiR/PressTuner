@@ -31,6 +31,7 @@ export function transitionRequirementReasonCodes(observation: { guardrailId: str
 }
 
 export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointLifecycleHooks {
+  const processVersion = factory.metadata.processVersion;
   const emit = (tx: Prisma.TransactionClient, build: Parameters<typeof enqueueNextAiProcessFact>[1]["build"]) => enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId: factory.identity.attemptId, build });
   return {
     onAttemptCreated: async (tx, event) => {
@@ -43,7 +44,7 @@ export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointL
       await emit(tx, (sequence) => factory.create({
         type: "dev.aiprocess.event.node.execution.started.v2", logicalKey: v2FactLogicalKey.nodeStarted(event.nodeId, event.commandId), sequence, occurredAt: event.occurredAt,
         ...(enteredBy.kind === "TRANSITION" ? { causationId: enteredBy.transitionSelectionEventId } : {}),
-        data: { nodeExecutionId: event.commandId, nodeId: event.nodeId, handler: componentRevisionForNode(event.nodeId), enteredBy },
+        data: { nodeExecutionId: event.commandId, nodeId: event.nodeId, handler: componentRevisionForNode(event.nodeId, processVersion), enteredBy },
       }));
     },
     onNodeCompleted: async (tx, event) => {
@@ -51,7 +52,7 @@ export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointL
       const completedEvent = factory.create({
         type: "dev.aiprocess.event.node.execution.completed.v2", logicalKey: v2FactLogicalKey.nodeCompleted(event.checkpointId), sequence: 0,
         occurredAt: event.occurredAt, causationId: startedEventId,
-        data: { nodeExecutionId: event.commandId, nodeId: event.nodeId, startedEventId, handler: componentRevisionForNode(event.nodeId), durationMs: event.durationMs, outputArtifact: buildV2OutputReference({ checkpointId: event.checkpointId, output: event.output }) },
+        data: { nodeExecutionId: event.commandId, nodeId: event.nodeId, startedEventId, handler: componentRevisionForNode(event.nodeId, processVersion), durationMs: event.durationMs, outputArtifact: buildV2OutputReference({ checkpointId: event.checkpointId, output: event.output }) },
       });
       await emit(tx, (sequence) => factory.create({ ...completedEvent, logicalKey: v2FactLogicalKey.nodeCompleted(event.checkpointId), sequence }));
       if (event.nodeId === "selected-rewrite") {
@@ -65,12 +66,12 @@ export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointL
     },
     onNodeFailed: async (tx, event) => {
       const startedEventId = factory.eventIdFor(v2FactLogicalKey.nodeStarted(event.nodeId, event.commandId));
-      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.failed.v2", logicalKey: v2FactLogicalKey.nodeFailed(event.nodeId, event.commandId), sequence, occurredAt: event.occurredAt, causationId: startedEventId, data: { nodeExecutionId: event.commandId, nodeId: event.nodeId, startedEventId, handler: componentRevisionForNode(event.nodeId), errorCode: /^[A-Z][A-Z0-9_]{0,99}$/.test(event.errorCode) ? event.errorCode : "NODE_EXECUTION_FAILED" } }));
+      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.node.execution.failed.v2", logicalKey: v2FactLogicalKey.nodeFailed(event.nodeId, event.commandId), sequence, occurredAt: event.occurredAt, causationId: startedEventId, data: { nodeExecutionId: event.commandId, nodeId: event.nodeId, startedEventId, handler: componentRevisionForNode(event.nodeId, processVersion), errorCode: /^[A-Z][A-Z0-9_]{0,99}$/.test(event.errorCode) ? event.errorCode : "NODE_EXECUTION_FAILED" } }));
     },
     onTransitionEvaluated: async (tx, event) => {
       const sourceNodeTerminalEventId = factory.eventIdFor(v2FactLogicalKey.nodeCompleted(event.sourceCheckpointId));
       const evaluationEventId = factory.eventIdFor(v2FactLogicalKey.transitionEvaluated(event.transitionId));
-      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.evaluated.v2", logicalKey: v2FactLogicalKey.transitionEvaluated(event.transitionId), sequence, occurredAt: event.occurredAt, causationId: sourceNodeTerminalEventId, data: { transitionEvaluationId: event.transitionId, transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, sourceNodeExecutionId: event.sourceNodeExecutionId, sourceNodeTerminalEventId, decision: componentRevisionForTransition(event.edgeId), matched: event.matched } }));
+      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.evaluated.v2", logicalKey: v2FactLogicalKey.transitionEvaluated(event.transitionId), sequence, occurredAt: event.occurredAt, causationId: sourceNodeTerminalEventId, data: { transitionEvaluationId: event.transitionId, transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, sourceNodeExecutionId: event.sourceNodeExecutionId, sourceNodeTerminalEventId, decision: componentRevisionForTransition(event.edgeId, processVersion), matched: event.matched } }));
       for (const observation of event.observations) {
         await emit(tx, (sequence) => factory.create({
           type: "dev.aiprocess.event.requirement.observed.v2", logicalKey: v2FactLogicalKey.requirementObserved(observation.guardrailId, event.transitionId), sequence,
@@ -81,7 +82,7 @@ export function createV2CheckpointFactHooks(factory: V2FactFactory): CheckpointL
     },
     onTransitionSelected: async (tx, event) => {
       const evaluationEventId = factory.eventIdFor(v2FactLogicalKey.transitionEvaluated(event.transitionId));
-      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.selected.v2", logicalKey: v2FactLogicalKey.transitionSelected(event.transitionId), sequence, occurredAt: event.occurredAt, causationId: evaluationEventId, data: { transitionEvaluationId: event.transitionId, transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, evaluationEventId, decision: componentRevisionForTransition(event.edgeId) } }));
+      await emit(tx, (sequence) => factory.create({ type: "dev.aiprocess.event.transition.selected.v2", logicalKey: v2FactLogicalKey.transitionSelected(event.transitionId), sequence, occurredAt: event.occurredAt, causationId: evaluationEventId, data: { transitionEvaluationId: event.transitionId, transitionId: event.edgeId, sourceNodeId: event.sourceNodeId, targetNodeId: event.targetNodeId, evaluationEventId, decision: componentRevisionForTransition(event.edgeId, processVersion) } }));
     },
     onAttemptTerminal: async (tx, event) => {
       if (event.status === "COMPLETED" && event.cause.kind === "NODE_COMPLETED") {

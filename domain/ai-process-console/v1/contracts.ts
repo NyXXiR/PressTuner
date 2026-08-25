@@ -220,6 +220,10 @@ export const ProjectIntegrationManifestV1Schema = z.strictObject({
       z.strictObject({ available: z.literal(false) }),
       z.strictObject({ available: z.literal(true), isolation: z.literal("PROJECT_OWNED_FIXTURE_ONLY"), endpoint: z.strictObject({ destinationId: IdentifierSchema, transport: z.literal("INJECTED") }) }),
     ]),
+    projectTestDebug: z.discriminatedUnion("available", [
+      z.strictObject({ available: z.literal(false) }),
+      z.strictObject({ available: z.literal(true), protocol: z.literal("AIPC_PROJECT_TEST_DEBUG_V2"), isolation: z.literal("PROJECT_OWNED_TEST_ONLY"), endpoint: z.strictObject({ destinationId: IdentifierSchema, transport: z.literal("INJECTED") }) }),
+    ]).optional(),
   }),
 }).superRefine((manifest, context) => {
   const identities = new Set<string>();

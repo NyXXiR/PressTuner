@@ -26,15 +26,37 @@ const evidencePolicy = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("EXTERNAL_VERIFICATION"), verifier: ComponentRevisionV2Schema }),
 ]);
 
+const nodeTestApi = z.strictObject({ snapshotInspect: z.literal(true) });
+const compatibleDefinition = z.strictObject({ processVersion: z.string().min(1).max(64), processDefinitionHash: Sha256Schema });
+const transitionTestApi = z.strictObject({
+  snapshotInspect: z.literal(true),
+  isolatedReplay: z.literal(true).optional(),
+  compatibleDefinitions: z.array(compatibleDefinition).min(1).max(8).optional(),
+}).superRefine((testApi, context) => {
+  if (testApi.compatibleDefinitions && testApi.isolatedReplay !== true) context.addIssue({ code: "custom", message: "Compatibility grants require isolated replay", path: ["isolatedReplay"] });
+  const identities = new Set<string>();
+  for (const [index, item] of (testApi.compatibleDefinitions ?? []).entries()) {
+    const identity = `${item.processVersion}\u0000${item.processDefinitionHash}`;
+    if (identities.has(identity)) context.addIssue({ code: "custom", message: "Duplicate compatible definition", path: ["compatibleDefinitions", index] });
+    identities.add(identity);
+  }
+});
+
 export const ProcessDefinitionV2Schema = z.strictObject({
   schemaVersion: z.literal("2.0"),
   processId: IdentifierSchema,
   version: z.string().min(1).max(64),
   canonicalSha256: Sha256Schema,
   entryNodeIds: z.array(IdentifierSchema).min(1).max(20),
-  nodes: z.array(z.strictObject({ nodeId: IdentifierSchema, label: z.string().min(1).max(120), kind: z.enum(["ACTION", "DECISION", "HUMAN_GATE", "TERMINAL"]), handler: ComponentRevisionV2Schema, evidencePolicy })).min(1).max(100),
-  transitions: z.array(z.strictObject({ transitionId: IdentifierSchema, sourceNodeId: IdentifierSchema, targetNodeId: IdentifierSchema, decision: ComponentRevisionV2Schema, maxTraversalsPerAttempt: z.number().int().min(1).max(100) })).max(500),
+  nodes: z.array(z.strictObject({ nodeId: IdentifierSchema, label: z.string().min(1).max(120), kind: z.enum(["ACTION", "DECISION", "HUMAN_GATE", "TERMINAL"]), handler: ComponentRevisionV2Schema, evidencePolicy, testApi: nodeTestApi.optional() })).min(1).max(100),
+  transitions: z.array(z.strictObject({ transitionId: IdentifierSchema, sourceNodeId: IdentifierSchema, targetNodeId: IdentifierSchema, decision: ComponentRevisionV2Schema, maxTraversalsPerAttempt: z.number().int().min(1).max(100), testApi: transitionTestApi.optional() })).max(500),
   requirements: z.array(z.strictObject({ requirementId: IdentifierSchema, version: z.string().min(1).max(64), label: z.string().min(1).max(160), description: z.string().min(1).max(500).optional(), evaluator: ComponentRevisionV2Schema, location: RequirementLocationV2Schema, evaluation: z.strictObject({ kind: z.literal("BOOLEAN") }) })).max(200),
+}).superRefine((definition, context) => {
+  for (const [transitionIndex, transition] of definition.transitions.entries()) {
+    for (const [grantIndex, grant] of (transition.testApi?.compatibleDefinitions ?? []).entries()) {
+      if (grant.processVersion === definition.version && grant.processDefinitionHash === definition.canonicalSha256) context.addIssue({ code: "custom", message: "A definition cannot grant compatibility to itself", path: ["transitions", transitionIndex, "testApi", "compatibleDefinitions", grantIndex] });
+    }
+  }
 });
 
 export const AttemptMetadataV2Schema = z.strictObject({

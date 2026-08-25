@@ -8,6 +8,15 @@
       "source": "urn:presstuner:ai-process-console:facts:v1",
       "transactionalOutbox": true
     },
+    "projectTestDebug": {
+      "available": true,
+      "endpoint": {
+        "destinationId": "presstuner.ai-process-console.project-test-debug.v2",
+        "transport": "INJECTED"
+      },
+      "isolation": "PROJECT_OWNED_TEST_ONLY",
+      "protocol": "AIPC_PROJECT_TEST_DEBUG_V2"
+    },
     "testRun": {
       "available": true,
       "endpoint": {
@@ -46,6 +55,19 @@
       },
       "processId": "press-creation",
       "version": "3.0.0"
+    },
+    {
+      "canonicalSha256": "a9c7325754628bba10fb0fe0203a265aecb055c7297ada36826c2110c856dfdf",
+      "definition": {
+        "artifactId": "presstuner-press-creation-3.1.0",
+        "locator": "ref:definitions/presstuner/press-creation/3.1.0",
+        "mediaType": "application/json",
+        "schemaVersion": "2.0",
+        "sha256": "a9c7325754628bba10fb0fe0203a265aecb055c7297ada36826c2110c856dfdf",
+        "sizeBytes": 7496
+      },
+      "processId": "press-creation",
+      "version": "3.1.0"
     },
     {
       "canonicalSha256": "dea75040cd18ce740a3c849bc2827fcb9c1c9e1b9b055feac9b41ffaa3c795f4",

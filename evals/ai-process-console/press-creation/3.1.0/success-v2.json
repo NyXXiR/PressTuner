@@ -1,0 +1,14 @@
+{
+  "fixtureId": "success-v2-3-1",
+  "memoText": "가상 서비스 엡실론이 2031년 2월 공개된다. 모든 이름과 수치는 합성 데이터다.",
+  "processId": "press-creation",
+  "processVersion": "3.1.0",
+  "reviewInstruction": "명료성을 확인한다.",
+  "rewriteInstruction": "선택한 합성 제안만 반영한다.",
+  "scenario": "SUCCESS",
+  "schemaVersion": "2.0",
+  "selectedNoteIds": [
+    "note_synthetic-session_0"
+  ],
+  "tone": "formal"
+}

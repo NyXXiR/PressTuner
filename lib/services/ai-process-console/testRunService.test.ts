@@ -4,7 +4,7 @@ import { fixtureRegistry } from "@/domain/ai-process-console/v1/fixtureRegistry"
 import { buildProjectManifest, processDefinitionReference, buildProcessDefinition } from "@/domain/ai-process-console/v1/publication";
 import { classifyTestRunRequest } from "./testRunService";
 import { fixtureRegistryV2 } from "@/domain/ai-process-console/v2/fixtureRegistry";
-import { buildProcessDefinitionV2 } from "@/domain/ai-process-console/v2/publication";
+import { buildProcessDefinitionV2, buildProcessDefinitionV2Compatibility } from "@/domain/ai-process-console/v2/publication";
 
 const command = () => ({ specversion: "1.0", id: "command-123", source: "urn:ai-process-console:test-runs", subject: "project/presstuner", time: "2030-01-01T00:00:00.000Z", schemaVersion: "1.0", correlationId: "correlation-123", sequence: 0, executionMode: "TEST", type: "dev.aiprocess.command.test-run.requested.v1", data: { testRunId: "test-run-123", projectId: buildProjectManifest().projectId, processDefinition: processDefinitionReference(buildProcessDefinition()), fixture: fixtureRegistry[0].artifact } });
 
@@ -20,14 +20,15 @@ test("only the strict fixture-isolated test-run command is accepted", () => {
 test("the same isolated endpoint accepts the exact v2 definition and fixture only", () => {
   const success = fixtureRegistryV2.find(({ fixture }) => fixture.fixtureId === "success-v2")!;
   const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: success.artifact } };
-  assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: success.fixture, contractVersion: "v2" });
+  assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: success.fixture, contractVersion: "v2", definition: buildProcessDefinitionV2() });
   assert.deepEqual(classifyTestRunRequest({ ...input, data: { ...input.data, fixture: fixtureRegistry[0].artifact } }), { accepted: false, code: "FIXTURE_NOT_FOUND" });
 });
 
 test("every registered v2 fixture requires its exact immutable declaration", () => {
   for (const entry of fixtureRegistryV2) {
-    const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(buildProcessDefinitionV2()), fixture: entry.artifact } };
-    assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: entry.fixture, contractVersion: "v2" });
+    const definition = entry.fixture.processVersion === "3.1.0" ? buildProcessDefinitionV2Compatibility() : buildProcessDefinitionV2();
+    const input = { ...command(), data: { ...command().data, processDefinition: processDefinitionReference(definition), fixture: entry.artifact } };
+    assert.deepEqual(classifyTestRunRequest(input), { accepted: true, command: input, fixture: entry.fixture, contractVersion: "v2", definition });
     for (const fixture of [
       { ...entry.artifact, artifactId: `${entry.artifact.artifactId}-changed` },
       { ...entry.artifact, locator: `${entry.artifact.locator}-changed` },

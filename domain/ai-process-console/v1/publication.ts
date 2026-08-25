@@ -2,7 +2,7 @@ import { pressCreationProcess, ragQueryProcess, type PressAiProcessDefinition } 
 import { canonicalJson, canonicalJsonFile, sha256Canonical, sha256Text } from "./canonicalJson";
 import { MemoSourcePolicyV1Schema, ProcessDefinitionV1Schema, ProjectIntegrationManifestV1Schema, assertPrivacySafe, type ArtifactReferenceV1, type ProcessDefinitionV1, type ProjectIntegrationManifestV1 } from "./contracts";
 import { fixtureRegistry } from "./fixtureRegistry";
-import { buildProcessDefinitionV2 } from "../v2/publication";
+import { buildProcessDefinitionV2, buildProcessDefinitionV2Compatibility } from "../v2/publication";
 import { fixtureRegistryV2 } from "../v2/fixtureRegistry";
 import type { ProcessDefinitionV2 } from "../v2/contracts";
 
@@ -103,7 +103,7 @@ export function processDefinitionReference(definition: ProcessDefinitionV1 | Pro
 
 export function buildProjectManifest(input?: ProcessDefinitionV1 | ProcessDefinitionV2 | readonly (ProcessDefinitionV1 | ProcessDefinitionV2)[]): ProjectIntegrationManifestV1 {
   const definitions = input === undefined
-    ? [buildProcessDefinition(), buildProcessDefinitionV2(), buildRagQueryProcessDefinition()]
+    ? [buildProcessDefinition(), buildProcessDefinitionV2(), buildProcessDefinitionV2Compatibility(), buildRagQueryProcessDefinition()]
     : Array.isArray(input) ? input : [input];
   const manifest = {
     schemaVersion: "1.0" as const,
@@ -116,6 +116,7 @@ export function buildProjectManifest(input?: ProcessDefinitionV1 | ProcessDefini
     capabilities: {
       domainEvents: { schemaVersion: "1.0" as const, source: AI_PROCESS_CONSOLE_SOURCE, delivery: "AT_LEAST_ONCE" as const, ordering: "PER_ATTEMPT_MONOTONIC_SEQUENCE" as const, deduplicationKey: "SOURCE_AND_EVENT_ID" as const, transactionalOutbox: true as const },
       testRun: { available: true as const, isolation: "PROJECT_OWNED_FIXTURE_ONLY" as const, endpoint: { destinationId: AI_PROCESS_CONSOLE_DESTINATION, transport: "INJECTED" as const } },
+      projectTestDebug: { available: true as const, protocol: "AIPC_PROJECT_TEST_DEBUG_V2" as const, isolation: "PROJECT_OWNED_TEST_ONLY" as const, endpoint: { destinationId: "presstuner.ai-process-console.project-test-debug.v2", transport: "INJECTED" as const } },
     },
   };
   assertPrivacySafe(manifest);
@@ -125,21 +126,26 @@ export function buildProjectManifest(input?: ProcessDefinitionV1 | ProcessDefini
 export function publishedArtifacts(): Readonly<Record<string, unknown>> {
   const definition = buildProcessDefinition();
   const definitionV2 = buildProcessDefinitionV2();
+  const definitionV2Compatibility = buildProcessDefinitionV2Compatibility();
   const ragDefinition = buildRagQueryProcessDefinition();
-  const definitions = [definition, definitionV2, ragDefinition];
+  const definitions = [definition, definitionV2, definitionV2Compatibility, ragDefinition];
   const testFixtures = [
     ...fixtureRegistry.filter(({ fixture }) => fixture.fixtureId === "success-v1").map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: "PressTuner v1 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definition.canonicalSha256, fixture: artifact })),
-    ...fixtureRegistryV2.map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: fixture.scenario === "QUALITY_BLOCK" ? "PressTuner v2 완성본 품질 BLOCK" : fixture.scenario === "TRANSITION_WARN" ? "PressTuner v2 브리프 전이 WARN" : fixture.scenario === "TRANSITION_BLOCK" ? "PressTuner v2 브리프 전이 BLOCK" : "PressTuner v2 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: definitionV2.canonicalSha256, fixture: artifact })),
+    ...fixtureRegistryV2.map(({ fixture, artifact }) => ({ declarationId: fixture.fixtureId, label: fixture.scenario === "QUALITY_BLOCK" ? "PressTuner v2 완성본 품질 BLOCK" : fixture.scenario === "TRANSITION_WARN" ? "PressTuner v2 브리프 전이 WARN" : fixture.scenario === "TRANSITION_BLOCK" ? "PressTuner v2 브리프 전이 BLOCK" : "PressTuner v2 합성 성공", projectId: "presstuner", processId: fixture.processId, processVersion: fixture.processVersion, processDefinitionSha256: fixture.processVersion === definitionV2Compatibility.version ? definitionV2Compatibility.canonicalSha256 : definitionV2.canonicalSha256, fixture: artifact })),
   ];
   return Object.freeze({
     "integrations/ai-process-console/v1/project-manifest.json": buildProjectManifest(definitions),
     "integrations/ai-process-console/registration-bundle.json": { manifest: buildProjectManifest(definitions), definitions, testFixtures },
     "integrations/ai-process-console/v1/press-creation-2.1.0.definition.json": definition,
     "integrations/ai-process-console/v2/press-creation-3.0.0.definition.json": definitionV2,
+    "integrations/ai-process-console/v2/press-creation-3.1.0.definition.json": definitionV2Compatibility,
     "integrations/ai-process-console/v1/rag-query-1.0.0.definition.json": ragDefinition,
     "integrations/ai-process-console/v1/memo-source-policy-v1.json": memoSourcePolicy,
     ...Object.fromEntries(fixtureRegistry.map(({ fixture }) => [`evals/ai-process-console/press-creation/2.1.0/${fixture.fixtureId}.json`, fixture])),
-    ...Object.fromEntries(fixtureRegistryV2.map(({ fixture }) => [`evals/ai-process-console/press-creation/3.0.0/${fixture.fixtureId}.json`, fixture])),
+    ...Object.fromEntries(fixtureRegistryV2.map(({ fixture }) => [
+      `evals/ai-process-console/press-creation/${fixture.processVersion}/${fixture.processVersion === definitionV2Compatibility.version ? "success-v2" : fixture.fixtureId}.json`,
+      fixture,
+    ])),
   });
 }
 
