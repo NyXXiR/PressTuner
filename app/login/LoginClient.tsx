@@ -106,9 +106,11 @@ export default function LoginClient() {
       method: "google",
       next_path: redirectUrl,
     });
-    window.location.href = `/api/auth/google/start?next=${encodeURIComponent(
-      redirectUrl,
-    )}`;
+    const loginEndpoint =
+      process.env.NODE_ENV !== "production"
+        ? "/api/auth/dev/google-bypass"
+        : "/api/auth/google/start";
+    window.location.href = `${loginEndpoint}?next=${encodeURIComponent(redirectUrl)}`;
   };
 
   return (
@@ -175,7 +177,9 @@ export default function LoginClient() {
             >
               <GoogleIcon className="h-5 w-5 group-hover:scale-110 transition-transform" />
               <span className="text-sm font-medium">
-                Google 계정으로 시작하기
+                {process.env.NODE_ENV !== "production"
+                  ? "개발 계정으로 바로 시작하기"
+                  : "Google 계정으로 시작하기"}
               </span>
             </button>
           </div>
