@@ -25,6 +25,25 @@ type HealthDependencies = Readonly<{
 }>;
 
 const json = (body: unknown, status: number, noStore = false) => Response.json(body, { status, headers: noStore ? { "Cache-Control": "no-store" } : undefined });
+const publicationStates = new Set(["NOT_CONFIGURED", "NOT_ATTEMPTED", "ATTEMPTED"]);
+const safeTestRunResult = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const input = value as Record<string, unknown>;
+  if (!new Set(["SUCCEEDED", "FAILED", "REJECTED"]).has(String(input.status)) || typeof input.testRunId !== "string" || input.testRunId.length > 128) return undefined;
+  const result: Record<string, unknown> = { status: input.status, testRunId: input.testRunId };
+  if (typeof input.rejectionCode === "string" && /^[A-Z][A-Z0-9_]{0,99}$/.test(input.rejectionCode)) result.rejectionCode = input.rejectionCode;
+  if (typeof input.failureCode === "string" && /^[A-Z][A-Z0-9_]{0,99}$/.test(input.failureCode)) result.failureCode = input.failureCode;
+  if (input.replayed === true) result.replayed = true;
+  const publication = input.providerPublication;
+  if (publication && typeof publication === "object" && !Array.isArray(publication)) {
+    const receipt = publication as Record<string, unknown>;
+    if (typeof receipt.langsmith === "string" && publicationStates.has(receipt.langsmith)
+      && typeof receipt.posthog === "string" && publicationStates.has(receipt.posthog)) {
+      result.providerPublication = { langsmith: receipt.langsmith, posthog: receipt.posthog };
+    }
+  }
+  return result;
+};
 
 export function createAiProcessTestRunPostHandler(dependencies: TestRunDependencies = {}) {
   return async function post(request: Request): Promise<Response> {
@@ -61,7 +80,8 @@ export function createAiProcessTestRunPostHandler(dependencies: TestRunDependenc
     const service = (dependencies.createService ?? ((args: { transport: AiProcessFactTransport }) => createAiProcessTestRunService(args)))({ transport });
     try {
       const result = await service.handle(input);
-      return json(result, 200);
+      const safe = safeTestRunResult(result);
+      return safe ? json(safe, 200) : json({ code: "TEST_RUN_REQUEST_FAILED" }, 500);
     } catch (error) {
       if (error instanceof Error && error.message === "AI_PROCESS_COMMAND_REUSE_CONFLICT") return json({ code: "COMMAND_REUSE_CONFLICT" }, 409);
       return json({ code: "TEST_RUN_REQUEST_FAILED" }, 500);

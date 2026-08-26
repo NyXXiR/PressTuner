@@ -18,10 +18,10 @@ import { cleanupIsolatedFixtureWorkspace, createIsolatedFixtureWorkspace, type I
 import { enqueueAiProcessFact, enqueueNextAiProcessFact, flushAiProcessFactOutbox } from "./factOutbox";
 import type { AiProcessFactTransport } from "./factTransport";
 import { captureTestDebugSnapshot } from "./testDebugSnapshot";
-import { createTestRunProviderPublication, type TestRunProviderPublicationPort } from "./testRunProviderPublication.server";
+import { createTestRunProviderPublication, type TestRunProviderPublicationPort, type TestRunProviderPublicationReceipt } from "./testRunProviderPublication.server";
 
 type RejectionCode = "FIXTURE_NOT_FOUND" | "DEFINITION_NOT_FOUND" | "ISOLATION_UNAVAILABLE" | "REQUEST_INVALID";
-type TestRunOutcome = Readonly<{ status: "SUCCEEDED" | "FAILED" | "REJECTED"; testRunId: string; rejectionCode?: RejectionCode; failureCode?: string; replayed?: boolean }>;
+type TestRunOutcome = Readonly<{ status: "SUCCEEDED" | "FAILED" | "REJECTED"; testRunId: string; rejectionCode?: RejectionCode; failureCode?: string; replayed?: boolean; providerPublication?: TestRunProviderPublicationReceipt }>;
 
 const looseEnvelope = z.object({
   id: z.string().min(1).max(128), source: z.string().min(1).max(256), correlationId: z.string().min(1).max(128),
@@ -36,6 +36,16 @@ const factAttemptId = (command: { source: string; id: string }) => {
 const safeFailureCode = (error: unknown, fallback = "TEST_RUN_FAILED") => {
   const code = error instanceof Error ? (error as Error & { code?: string }).code : undefined;
   return typeof code === "string" && /^[A-Z][A-Z0-9_]{0,99}$/.test(code) ? code : fallback;
+};
+const providerDisposition = new Set(["NOT_CONFIGURED", "NOT_ATTEMPTED", "ATTEMPTED"]);
+const safeProviderPublicationReceipt = (value: unknown): TestRunProviderPublicationReceipt | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const receipt = value as Record<string, unknown>;
+  if (!providerDisposition.has(String(receipt.langsmith)) || !providerDisposition.has(String(receipt.posthog))) return undefined;
+  return {
+    langsmith: receipt.langsmith as TestRunProviderPublicationReceipt["langsmith"],
+    posthog: receipt.posthog as TestRunProviderPublicationReceipt["posthog"],
+  };
 };
 
 const factLogicalKey = Object.freeze({
@@ -206,7 +216,9 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
   const createWorkspace = dependencies.createWorkspace ?? createIsolatedFixtureWorkspace;
   const cleanupWorkspace = dependencies.cleanupWorkspace ?? cleanupIsolatedFixtureWorkspace;
   const providerPublication = dependencies.providerPublication
-    ?? (process.env.NODE_ENV === "test" ? { async publish() {} } : createTestRunProviderPublication());
+    ?? (process.env.NODE_ENV === "test"
+      ? { async publish() { return { langsmith: "NOT_CONFIGURED" as const, posthog: "NOT_CONFIGURED" as const }; } }
+      : createTestRunProviderPublication());
   return {
     async handle(input: unknown): Promise<TestRunOutcome> {
       const classification = classifyTestRunRequest(input);
@@ -222,22 +234,25 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
       const existing = await prisma.aiProcessTestRun.findUnique({ where: { commandSource_commandId: { commandSource: command.source, commandId: command.id } } });
       if (existing) {
         if (existing.commandHash !== commandHash) throw new Error("AI_PROCESS_COMMAND_REUSE_CONFLICT");
+        let publicationReceipt: TestRunProviderPublicationReceipt | undefined;
         if (contractVersion === "v2" && (existing.status === "SUCCEEDED" || existing.status === "FAILED") && existing.startedAt && existing.completedAt) {
           const definition = activeDefinition;
-          await providerPublication.publish({
-            metadata: {
-              projectId: command.data.projectId, environment: "conformance", serviceName: "presstuner",
-              caseId: command.correlationId, objectType: "synthetic-press-fixture", operationId: command.id,
-              attemptId: existing.factAttemptId, correlationId: command.correlationId,
-              processId: definition.processId, processVersion: definition.version, processDefinitionHash: definition.canonicalSha256,
-              executionMode: "TEST", testRunId: command.data.testRunId,
-            },
-            outcome: existing.status,
-            startedAt: existing.startedAt.toISOString(),
-            completedAt: existing.completedAt.toISOString(),
-          }).catch(() => undefined);
+          try {
+            publicationReceipt = safeProviderPublicationReceipt(await providerPublication.publish({
+              metadata: {
+                projectId: command.data.projectId, environment: "conformance", serviceName: "presstuner",
+                caseId: command.correlationId, objectType: "synthetic-press-fixture", operationId: command.id,
+                attemptId: existing.factAttemptId, correlationId: command.correlationId,
+                processId: definition.processId, processVersion: definition.version, processDefinitionHash: definition.canonicalSha256,
+                executionMode: "TEST", testRunId: command.data.testRunId,
+              },
+              outcome: existing.status,
+              startedAt: existing.startedAt.toISOString(),
+              completedAt: existing.completedAt.toISOString(),
+            }));
+          } catch { /* Unexpected publisher failures remain ambiguous. */ }
         }
-        return { status: existing.status === "SUCCEEDED" ? "SUCCEEDED" : existing.status === "REJECTED" ? "REJECTED" : "FAILED", testRunId: existing.testRunId, rejectionCode: existing.rejectionCode as RejectionCode | undefined, failureCode: existing.failureCode ?? undefined, replayed: true };
+        return { status: existing.status === "SUCCEEDED" ? "SUCCEEDED" : existing.status === "REJECTED" ? "REJECTED" : "FAILED", testRunId: existing.testRunId, rejectionCode: existing.rejectionCode as RejectionCode | undefined, failureCode: existing.failureCode ?? undefined, replayed: true, ...(publicationReceipt ? { providerPublication: publicationReceipt } : {}) };
       }
       const attemptId = factAttemptId(command);
       const identity = {
@@ -302,13 +317,18 @@ export function createAiProcessTestRunService(dependencies: { transport?: AiProc
         if (v2RunFactory) await enqueueNextAiProcessFact(tx, { source: AI_PROCESS_CONSOLE_SOURCE, attemptId: command.data.testRunId, build: (sequence) => v2RunFactory.create({ type: "dev.aiprocess.event.test-run.completed.v2", logicalKey: factLogicalKey.testRunCompleted, sequence, ...(v2AttemptTerminalEventId ? { causationId: v2AttemptTerminalEventId } : {}), data: { runnerOutcome: result.runnerOutcome } }) });
       });
       await flushAiProcessFactOutbox({ transport: dependencies.transport });
-      if (v2Factory) await providerPublication.publish({
-        metadata: { ...v2Factory.metadata, correlationId: command.correlationId },
-        outcome: serviceOutcome,
-        startedAt: startedAt.toISOString(),
-        completedAt: completedAt.toISOString(),
-      }).catch(() => undefined);
-      return { status: serviceOutcome, testRunId: command.data.testRunId, failureCode: receiptFailureCode };
+      let publicationReceipt: TestRunProviderPublicationReceipt | undefined;
+      if (v2Factory) {
+        try {
+          publicationReceipt = safeProviderPublicationReceipt(await providerPublication.publish({
+            metadata: { ...v2Factory.metadata, correlationId: command.correlationId },
+            outcome: serviceOutcome,
+            startedAt: startedAt.toISOString(),
+            completedAt: completedAt.toISOString(),
+          }));
+        } catch { /* Unexpected publisher failures remain ambiguous. */ }
+      }
+      return { status: serviceOutcome, testRunId: command.data.testRunId, failureCode: receiptFailureCode, ...(publicationReceipt ? { providerPublication: publicationReceipt } : {}) };
     },
   };
 }

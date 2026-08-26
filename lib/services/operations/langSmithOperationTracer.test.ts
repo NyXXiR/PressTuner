@@ -343,8 +343,8 @@ test("publishes one deterministic TEST root and updates it even after duplicate 
     attemptId: "attempt-secret", correlationId: "correlation-secret", processId: "press-creation",
     processVersion: "3.0.0", processDefinitionHash: "a".repeat(64), executionMode: "TEST" as const,
   };
-  await tracer.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" });
-  await tracer.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" });
+  assert.equal(await tracer.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" }), "ATTEMPTED");
+  assert.equal(await tracer.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" }), "ATTEMPTED");
   assert.equal(created.length, 2);
   assert.equal(created[0].id, created[1].id);
   assert.equal(created[0].trace_id, created[0].id);
@@ -354,4 +354,35 @@ test("publishes one deterministic TEST root and updates it even after duplicate 
   assert.ok(updated.every((entry) => entry.id === created[0].id && entry.run.outputs && (entry.run.outputs as { status: string }).status === "completed"));
   const serialized = JSON.stringify({ created, updated });
   for (const raw of [metadata.operationId, metadata.caseId, metadata.attemptId, metadata.correlationId, metadata.processDefinitionHash]) assert.equal(serialized.includes(raw), false);
+});
+
+test("classifies missing configuration separately from bounded local publication skips", async () => {
+  let clientsCreated = 0;
+  const unconfigured = createLangSmithOperationTracer({
+    environment: { LANGSMITH_API_KEY: "secret", LANGSMITH_PROJECT: "project" },
+    createClient: () => { clientsCreated += 1; throw new Error("must not create"); },
+  });
+  const metadata = {
+    projectId: "presstuner", environment: "conformance", serviceName: "presstuner",
+    operationId: "operation-secret", processId: "press-creation", processVersion: "3.0.0",
+    processDefinitionHash: "a".repeat(64), executionMode: "TEST" as const,
+  };
+  assert.equal(await unconfigured.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" }), "NOT_CONFIGURED");
+  assert.equal(clientsCreated, 0);
+
+  const configured = createHarness().tracer;
+  assert.equal(await configured.publishRootOutcome({ metadata: { ...metadata, operationId: undefined }, outcome: "SUCCEEDED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" }), "NOT_ATTEMPTED");
+  assert.equal(await configured.publishRootOutcome({ metadata, outcome: "SUCCEEDED", startedAt: "not-a-time", completedAt: "2030-01-01T00:00:01.000Z" }), "NOT_ATTEMPTED");
+});
+
+test("reports ATTEMPTED when a LangSmith operation is invoked even if every operation fails", async () => {
+  const failure = createHarness({ createError: new Error("private create URL"), updateError: new Error("private update credential") });
+  const metadata = {
+    projectId: "presstuner", environment: "conformance", serviceName: "presstuner",
+    operationId: "operation-secret", processId: "press-creation", processVersion: "3.0.0",
+    processDefinitionHash: "a".repeat(64), executionMode: "TEST" as const,
+  };
+  assert.equal(await failure.tracer.publishRootOutcome({ metadata, outcome: "FAILED", startedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:00:01.000Z" }), "ATTEMPTED");
+  assert.equal(failure.created.length, 1);
+  assert.equal(failure.updated.length, 1);
 });

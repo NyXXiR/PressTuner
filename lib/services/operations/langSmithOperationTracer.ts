@@ -74,6 +74,8 @@ export type LangSmithTraceClient = {
   createFeedback(feedback: LangSmithFeedbackCreate): Promise<unknown>;
 };
 
+export type ProviderPublicationDisposition = "NOT_CONFIGURED" | "NOT_ATTEMPTED" | "ATTEMPTED";
+
 type ClientConfiguration = {
   apiKey: string;
   apiUrl: string;
@@ -379,19 +381,22 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
     outcome: "SUCCEEDED" | "FAILED";
     startedAt: string;
     completedAt: string;
-  }): Promise<void> {
+  }): Promise<ProviderPublicationDisposition> {
     const active = readConfiguredClient();
-    if (!active || !args.metadata.operationId || args.metadata.executionMode !== "TEST") return;
+    if (!active) return "NOT_CONFIGURED";
+    if (!args.metadata.operationId || args.metadata.executionMode !== "TEST") return "NOT_ATTEMPTED";
     const startedAt = Date.parse(args.startedAt);
     const completedAt = Date.parse(args.completedAt);
-    if (!Number.isFinite(startedAt) || !Number.isFinite(completedAt) || completedAt < startedAt) return;
+    if (!Number.isFinite(startedAt) || !Number.isFinite(completedAt) || completedAt < startedAt) return "NOT_ATTEMPTED";
     try {
       const vendorMetadata = projectMetadataForVendor(args.metadata, "langsmith", active.configuration.metadataHmacKey);
       const projectedOperationId = vendorMetadata.operation_id;
-      if (typeof projectedOperationId !== "string") return;
+      if (typeof projectedOperationId !== "string") return "NOT_ATTEMPTED";
       const runId = uuidv5(projectedOperationId, TEST_ROOT_NAMESPACE);
       const dottedOrder = createDottedOrder(startedAt, runId);
+      let attempted = false;
       try {
+        attempted = true;
         await active.client.createRun({
           id: runId,
           trace_id: runId,
@@ -407,6 +412,7 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
         // A deterministic ID may already exist after an ambiguous prior create.
       }
       try {
+        attempted = true;
         await active.client.updateRun(runId, {
           end_time: completedAt,
           outputs: { status: args.outcome === "SUCCEEDED" ? "completed" : "failed" },
@@ -414,8 +420,10 @@ export function createLangSmithOperationTracer(dependencies: TracerDependencies 
       } catch {
         // TEST provider publication is fail-open.
       }
+      return attempted ? "ATTEMPTED" : "NOT_ATTEMPTED";
     } catch {
       // Projection and client failures cannot affect the authoritative test run.
+      return "NOT_ATTEMPTED";
     }
   }
 

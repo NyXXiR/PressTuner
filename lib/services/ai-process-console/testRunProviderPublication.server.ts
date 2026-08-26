@@ -1,7 +1,7 @@
 import { v5 as uuidv5 } from "uuid";
 import type { CanonicalMetadata } from "@/domain/ai-process-console/v1/contracts";
 import { projectMetadataForVendor } from "@/domain/ai-process-console/v1/vendorMetadataProjection";
-import { createLangSmithOperationTracer } from "@/lib/services/operations/langSmithOperationTracer";
+import { createLangSmithOperationTracer, type ProviderPublicationDisposition } from "@/lib/services/operations/langSmithOperationTracer";
 
 const POSTHOG_INSERT_NAMESPACE = "59138c9b-d4fb-5cf5-9052-2bf67ab5ca51";
 const POSTHOG_TIMEOUT_MS = 3_000;
@@ -15,8 +15,13 @@ export interface TestRunProviderPublicationPort {
     outcome: "SUCCEEDED" | "FAILED";
     startedAt: string;
     completedAt: string;
-  }): Promise<void>;
+  }): Promise<TestRunProviderPublicationReceipt>;
 }
+
+export type TestRunProviderPublicationReceipt = Readonly<{
+  langsmith: ProviderPublicationDisposition;
+  posthog: ProviderPublicationDisposition;
+}>;
 
 type PublicationDependencies = {
   environment?: Readonly<Record<string, string | undefined>>;
@@ -33,45 +38,59 @@ export function createTestRunProviderPublication(dependencies: PublicationDepend
     : async () => dependencies.posthog;
   const fetch = dependencies.fetch ?? globalThis.fetch;
 
-  const publishPostHog = async (input: Parameters<TestRunProviderPublicationPort["publish"]>[0]) => {
-    const hmacKey = environment.AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY?.trim();
-    const posthog = await loadPostHog();
-    if (!posthog || !hmacKey || input.metadata.executionMode !== "TEST") return;
-    const properties = projectMetadataForVendor(input.metadata, "posthog", hmacKey);
-    const operationId = properties.operation_id;
-    if (typeof operationId !== "string") return;
-    const outcome = input.outcome === "SUCCEEDED" ? "accepted" : "abandoned";
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), POSTHOG_TIMEOUT_MS);
+  const publishPostHog = async (input: Parameters<TestRunProviderPublicationPort["publish"]>[0]): Promise<ProviderPublicationDisposition> => {
+    let posthog: Awaited<ReturnType<typeof loadPostHog>>;
+    try { posthog = await loadPostHog(); }
+    catch { return "NOT_CONFIGURED"; }
+    if (!posthog) return "NOT_CONFIGURED";
+    const startedAt = Date.parse(input.startedAt);
+    const completedAt = Date.parse(input.completedAt);
+    if (input.metadata.executionMode !== "TEST" || !Number.isFinite(startedAt) || !Number.isFinite(completedAt) || completedAt < startedAt) return "NOT_ATTEMPTED";
     try {
-      await fetch(new URL("/capture/", posthog.apiHost), {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          api_key: posthog.apiKey,
-          event: "ai_operation_outcome",
-          properties: {
-            distinct_id: DISTINCT_ID,
-            $insert_id: uuidv5(`${operationId}:${outcome}`, POSTHOG_INSERT_NAMESPACE),
-            ...properties,
-            outcome,
-          },
-        }),
-      });
+      const hmacKey = environment.AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY!.trim();
+      const properties = projectMetadataForVendor(input.metadata, "posthog", hmacKey);
+      const operationId = properties.operation_id;
+      if (typeof operationId !== "string") return "NOT_ATTEMPTED";
+      const outcome = input.outcome === "SUCCEEDED" ? "accepted" : "abandoned";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), POSTHOG_TIMEOUT_MS);
+      let attempted = false;
+      try {
+        attempted = true;
+        await fetch(new URL("/capture/", posthog.apiHost), {
+          method: "POST",
+          signal: controller.signal,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            api_key: posthog.apiKey,
+            event: "ai_operation_outcome",
+            properties: {
+              distinct_id: DISTINCT_ID,
+              $insert_id: uuidv5(`${operationId}:${outcome}`, POSTHOG_INSERT_NAMESPACE),
+              ...properties,
+              outcome,
+            },
+          }),
+        });
+      } catch {
+        // Provider publication is independent and fail-open.
+      } finally {
+        clearTimeout(timeout);
+      }
+      return attempted ? "ATTEMPTED" : "NOT_ATTEMPTED";
     } catch {
-      // Provider publication is independent and fail-open.
-    } finally {
-      clearTimeout(timeout);
+      return "NOT_ATTEMPTED";
     }
   };
 
   return Object.freeze({
-    async publish(input: Parameters<TestRunProviderPublicationPort["publish"]>[0]) {
-      await Promise.allSettled([
-        langsmith.publishRootOutcome(input),
-        publishPostHog(input),
+    async publish(input: Parameters<TestRunProviderPublicationPort["publish"]>[0]): Promise<TestRunProviderPublicationReceipt> {
+      const hmacKey = environment.AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY?.trim();
+      if (!hmacKey) return { langsmith: "NOT_CONFIGURED", posthog: "NOT_CONFIGURED" };
+      const [langsmithDisposition, posthogDisposition] = await Promise.all([
+        langsmith.publishRootOutcome(input), publishPostHog(input),
       ]);
+      return { langsmith: langsmithDisposition, posthog: posthogDisposition };
     },
   });
 }

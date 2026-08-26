@@ -46,7 +46,7 @@ function harness(overrides: { langsmithCreateFails?: boolean; posthogFails?: boo
 
 test("projects the complete canonical TEST identity equally to LangSmith and PostHog", async () => {
   const { publication, created, updated, captures } = harness();
-  await publication.publish(input);
+  assert.deepEqual(await publication.publish(input), { langsmith: "ATTEMPTED", posthog: "ATTEMPTED" });
   assert.equal(created.length, 1);
   assert.equal(updated.length, 1);
   assert.equal(captures.length, 1);
@@ -65,7 +65,7 @@ test("projects the complete canonical TEST identity equally to LangSmith and Pos
 
 test("provider failures are independent and exact replay reuses both deduplication identities", async () => {
   const langsmithFailure = harness({ langsmithCreateFails: true });
-  await langsmithFailure.publication.publish(input);
+  assert.deepEqual(await langsmithFailure.publication.publish(input), { langsmith: "ATTEMPTED", posthog: "ATTEMPTED" });
   assert.equal(langsmithFailure.captures.length, 1);
   assert.equal(langsmithFailure.updated.length, 1);
 
@@ -82,4 +82,41 @@ test("provider failures are independent and exact replay reuses both deduplicati
   const second = replay.captures[1].body.properties as Record<string, unknown>;
   assert.equal(first.$insert_id, second.$insert_id);
   assert.equal(first.operation_id, second.operation_id);
+});
+
+test("reports provider-specific configuration gaps without invoking either provider", async () => {
+  let langsmithCalls = 0;
+  let fetchCalls = 0;
+  const publication = createTestRunProviderPublication({
+    environment: {},
+    langsmith: { async publishRootOutcome() { langsmithCalls += 1; return "ATTEMPTED"; } },
+    posthog: null,
+    fetch: async () => { fetchCalls += 1; throw new Error("must not fetch"); },
+  });
+  assert.deepEqual(await publication.publish(input), { langsmith: "NOT_CONFIGURED", posthog: "NOT_CONFIGURED" });
+  assert.equal(langsmithCalls, 0);
+  assert.equal(fetchCalls, 0);
+
+  const providerSpecific = createTestRunProviderPublication({
+    environment: { AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY: hmacKey },
+    langsmith: { async publishRootOutcome() { return "NOT_CONFIGURED"; } },
+    posthog: { apiKey: "phc-secret", apiHost: new URL("https://us.i.posthog.com") },
+    fetch: async () => { fetchCalls += 1; return new Response(null, { status: 500 }); },
+  });
+  assert.deepEqual(await providerSpecific.publish(input), { langsmith: "NOT_CONFIGURED", posthog: "ATTEMPTED" });
+});
+
+test("reports bounded local skips as NOT_ATTEMPTED and returns only safe enums", async () => {
+  let fetchCalls = 0;
+  const publication = createTestRunProviderPublication({
+    environment: { AI_PROCESS_CONSOLE_VENDOR_METADATA_HMAC_KEY: hmacKey },
+    langsmith: { async publishRootOutcome() { return "NOT_ATTEMPTED"; } },
+    posthog: { apiKey: "private-key", apiHost: new URL("https://private.example.test") },
+    fetch: async () => { fetchCalls += 1; throw new Error("private response"); },
+  });
+  const result = await publication.publish({ ...input, completedAt: "before-start" });
+  assert.deepEqual(result, { langsmith: "NOT_ATTEMPTED", posthog: "NOT_ATTEMPTED" });
+  assert.equal(fetchCalls, 0);
+  assert.deepEqual(Object.keys(result), ["langsmith", "posthog"]);
+  assert.doesNotMatch(JSON.stringify(result), /private|example|operation|credential|response/);
 });

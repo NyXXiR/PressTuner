@@ -277,9 +277,10 @@ test("brief-draft BLOCK completes the runner but fails the attempt at the unmatc
 test("success-v2 publishes after terminal facts and exact replay reuses the same operation and attempt", async () => {
   const input = commandV2("success-v2");
   const publications: Array<Parameters<TestRunProviderPublicationPort["publish"]>[0]> = [];
-  const service = createAiProcessTestRunService({ providerPublication: { async publish(value) { publications.push(value); } } });
+  const service = createAiProcessTestRunService({ providerPublication: { async publish(value) { publications.push(value); return { langsmith: "ATTEMPTED", posthog: "NOT_CONFIGURED" }; } } });
   const first = await service.handle(input);
   assert.equal(first.status, "SUCCEEDED");
+  assert.deepEqual(first.providerPublication, { langsmith: "ATTEMPTED", posthog: "NOT_CONFIGURED" });
   const receipt = await remember(input.data.testRunId);
   const attemptFacts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.factAttemptId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
   const runFacts = (await prisma.aiProcessFactOutbox.findMany({ where: { attemptId: receipt.testRunId }, orderBy: { sequence: "asc" } })).map((row) => EventV2Schema.parse(row.payload));
@@ -294,11 +295,28 @@ test("success-v2 publishes after terminal facts and exact replay reuses the same
   assert.equal(publications.length, 1);
   const replay = await service.handle(input);
   assert.equal(replay.replayed, true);
+  assert.deepEqual(replay.providerPublication, { langsmith: "ATTEMPTED", posthog: "NOT_CONFIGURED" });
   assert.equal(publications.length, 2);
   assert.equal(publications[1].metadata.operationId, publications[0].metadata.operationId);
   assert.equal(publications[1].metadata.attemptId, publications[0].metadata.attemptId);
   assert.equal(await prisma.aiProcessFactOutbox.count({ where: { attemptId: receipt.factAttemptId } }), attemptFacts.length);
   assert.equal(await prisma.aiProcessFactOutbox.count({ where: { attemptId: receipt.testRunId } }), runFacts.length);
+});
+
+test("terminal v2 responses omit an unexpected or unsafe publisher result", async () => {
+  const throwingInput = commandV2("success-v2");
+  const throwing = createAiProcessTestRunService({ providerPublication: { async publish() { throw new Error("private URL and credential"); } } });
+  const first = await throwing.handle(throwingInput);
+  assert.equal(first.status, "SUCCEEDED");
+  assert.equal(first.providerPublication, undefined);
+  await remember(throwingInput.data.testRunId);
+
+  const unsafeInput = commandV2("success-v2");
+  const unsafe = createAiProcessTestRunService({ providerPublication: { async publish() { return { langsmith: "ATTEMPTED", posthog: "ATTEMPTED", rawError: "credential", identifier: "private" } as never; } } });
+  const unsafeResult = await unsafe.handle(unsafeInput);
+  assert.deepEqual(unsafeResult.providerPublication, { langsmith: "ATTEMPTED", posthog: "ATTEMPTED" });
+  assert.doesNotMatch(JSON.stringify(unsafeResult.providerPublication), /credential|identifier|private|rawError/);
+  await remember(unsafeInput.data.testRunId);
 });
 
 test("a recoverable conflicting command persists one minimal rejection fact across replay", async () => {

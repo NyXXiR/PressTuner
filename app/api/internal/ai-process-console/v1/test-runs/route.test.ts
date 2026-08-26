@@ -74,3 +74,21 @@ test("command reuse conflicts and unexpected failures use bounded responses", as
   assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), { code: "TEST_RUN_REQUEST_FAILED" });
 });
+
+test("successful responses carry only the enum-only provider publication receipt", async () => {
+  const post = createAiProcessTestRunPostHandler({
+    loadConfiguration: () => configuration,
+    clock,
+    createService: () => ({ handle: async () => ({
+      status: "SUCCEEDED", testRunId: "run-safe",
+      providerPublication: { langsmith: "ATTEMPTED", posthog: "NOT_ATTEMPTED", rawError: "private credential" },
+      providerUrl: "https://private.example.test", payload: "secret",
+    }) }),
+  });
+  const response = await post(request("{}"));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    status: "SUCCEEDED", testRunId: "run-safe",
+    providerPublication: { langsmith: "ATTEMPTED", posthog: "NOT_ATTEMPTED" },
+  });
+});
