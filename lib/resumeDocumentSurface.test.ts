@@ -122,3 +122,36 @@ test("shared identity editor exposes reusable contact and eligibility facts", as
   assert.match(source, /비대상/);
   assert.match(source, /employmentProtectionStatus/);
 });
+
+test("resume documents explains section formats and keeps mobile editing controls readable", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /sectionKindGuidance/);
+  for (const guidance of ["연락처와 기본 정보", "문단 중심", "기간과 항목", "짧은 키워드"]) {
+    assert.match(source, new RegExp(guidance));
+  }
+  assert.match(source, /resume-mobile-settings-toggle/);
+  assert.match(source, /aria-expanded=\{mobileSettingsOpen\}/);
+  assert.match(source, /resume-dialog-panel/);
+  assert.match(source, /resume-dialog-scroll/);
+  assert.match(source, /resume-dialog-footer/);
+  assert.match(styles, /@media screen and \(max-width: 767px\)/);
+  assert.match(styles, /\.resume-paper-inner/);
+  assert.match(styles, /\.resume-paper \.resume-item\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+});
+
+test("resume page estimate measures print-like content without editor chrome", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /measurePrintedPageCount/);
+  assert.match(source, /cloneNode\(true\)/);
+  assert.match(source, /resume-print-measure/);
+  assert.match(styles, /\.resume-print-measure \.resume-section-controls/);
+  assert.match(styles, /\.resume-print-header\s*\{[\s\S]*?break-inside:\s*avoid/);
+});

@@ -544,6 +544,11 @@ html {
   page-break-inside: auto;
 }
 
+.resume-print-header {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .resume-document-section[data-section-kind="identity"],
 .resume-item {
   break-inside: avoid;
@@ -558,6 +563,135 @@ html {
 .resume-narrative {
   orphans: 3;
   widows: 3;
+}
+
+/* Estimate pagination from a temporary copy that behaves like printed A4,
+   without counting editor handles, add buttons, or screen-only grid gaps. */
+.resume-print-measure {
+  position: fixed !important;
+  inset: 0 auto auto -10000px !important;
+  visibility: hidden !important;
+  width: 210mm !important;
+  max-width: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
+.resume-print-measure .resume-section-controls,
+.resume-print-measure .resume-reorder-help,
+.resume-print-measure .resume-hidden {
+  display: none !important;
+}
+
+.resume-print-measure .resume-print-sections,
+.resume-print-measure .resume-items {
+  display: block !important;
+}
+
+.resume-print-measure .resume-paper-inner {
+  min-height: 0 !important;
+}
+
+.resume-print-measure .resume-print-section {
+  margin-bottom: 7mm;
+  position: static !important;
+  transform: none !important;
+}
+
+.resume-print-measure .resume-item + .resume-item {
+  margin-top: 4mm;
+}
+
+@media screen and (max-width: 767px) {
+  .resume-preview-shell {
+    min-width: 0;
+  }
+
+  .resume-paper {
+    background-image: none;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+  }
+
+  .resume-paper-inner {
+    min-height: 0;
+    padding: 24px 16px;
+  }
+
+  .resume-print-header {
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .resume-print-sections {
+    gap: 24px;
+  }
+
+  .resume-paper .resume-section-controls {
+    align-items: flex-start;
+  }
+
+  .resume-paper .resume-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .resume-paper .resume-item-period,
+  .resume-paper .resume-item-subtitle,
+  .resume-paper .resume-contact {
+    font-size: 10px;
+  }
+
+  .resume-paper .resume-item-title,
+  .resume-paper .resume-item-body,
+  .resume-paper .resume-narrative {
+    font-size: 11px;
+  }
+
+  .resume-paper .resume-item-body,
+  .resume-paper .resume-narrative {
+    line-height: 1.7;
+  }
+
+  .resume-paper .resume-facts {
+    font-size: 9px;
+  }
+
+  .resume-paper .resume-identity-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resume-paper .resume-contact {
+    text-align: left;
+  }
+
+  .resume-editor-backdrop {
+    padding: 8px;
+  }
+
+  .resume-editor-backdrop > section,
+  .resume-dialog-panel {
+    display: flex;
+    max-height: calc(100dvh - 16px);
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .resume-editor-backdrop > section > div,
+  .resume-dialog-scroll {
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .resume-dialog-footer {
+    flex-shrink: 0;
+    padding: 12px;
+  }
+
+  .resume-editor-backdrop > section > footer {
+    flex-shrink: 0;
+  }
 }
 
 @media print {
