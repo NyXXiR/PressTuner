@@ -8,6 +8,7 @@ import {
   type DevToolRoutePolicy,
 } from "@/lib/devToolRoutePolicy";
 import { SESSION_COOKIE_NAME } from "@/lib/session"; // ✅ 여기로 변경
+import { isSessionIdValid } from "@/lib/sessionValidation";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const LEGACY_ROUTES_ENABLED =
@@ -55,7 +56,42 @@ function isProductionHiddenLegacyApiPath(pathname: string) {
   );
 }
 
-export function proxy(req: NextRequest) {
+type SessionValidator = (sessionId: string) => Promise<boolean>;
+
+function redirectToLogin(req: NextRequest, expireSession = false) {
+  const loginUrl = new URL("/login", req.url);
+  loginUrl.searchParams.set(
+    "next",
+    `${req.nextUrl.pathname}${req.nextUrl.search}`,
+  );
+  const response = NextResponse.redirect(loginUrl);
+
+  if (expireSession) {
+    response.cookies.set(SESSION_COOKIE_NAME, "", {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      expires: new Date(0),
+    });
+  }
+
+  return response;
+}
+
+function redirectToUnavailable(req: NextRequest) {
+  const unavailableUrl = new URL("/unavailable", req.url);
+  unavailableUrl.searchParams.set(
+    "next",
+    `${req.nextUrl.pathname}${req.nextUrl.search}`,
+  );
+  return NextResponse.redirect(unavailableUrl);
+}
+
+export async function proxyWithSessionValidation(
+  req: NextRequest,
+  validateSession: SessionValidator,
+) {
   const url = req.nextUrl;
   const pathname = url.pathname;
 
@@ -91,9 +127,10 @@ export function proxy(req: NextRequest) {
     return NextResponse.rewrite(new URL("/_disabled", req.url));
   }
 
-  if (pathname === "/login" && hasSession) {
-    return NextResponse.redirect(new URL("/my/dashboard", req.url));
-  }
+  // An opaque cookie only proves that a browser value exists, not that the
+  // backing session is valid. Keep login reachable so stale cookies cannot
+  // trap guests in a redirect loop.
+  if (pathname === "/login") return NextResponse.next();
 
   const publicPaths = ["/press", "/demo"];
 
@@ -137,10 +174,25 @@ export function proxy(req: NextRequest) {
   if (!isProtected) return NextResponse.next();
 
   if (!hasSession) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return redirectToLogin(req);
   }
 
+  const sessionId = req.cookies.get(SESSION_COOKIE_NAME)!.value;
+  let hasValidSession = false;
+  try {
+    hasValidSession = await validateSession(sessionId);
+  } catch (error) {
+    console.error("Failed to validate protected-route session", error);
+    return redirectToUnavailable(req);
+  }
+
+  if (!hasValidSession) return redirectToLogin(req, true);
+
   return NextResponse.next();
+}
+
+export async function proxy(req: NextRequest) {
+  return proxyWithSessionValidation(req, isSessionIdValid);
 }
 
 export const config = {

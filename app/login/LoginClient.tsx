@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { trackGaEvent } from "@/lib/analytics/ga4";
+import { getLoginErrorMessage } from "@/lib/auth/loginError";
 
 // Google SVG Icon
 function GoogleIcon({ className }: { className?: string }) {
@@ -50,6 +51,7 @@ export default function LoginClient() {
   const [showTestForm, setShowTestForm] = useState(false);
 
   const searchParams = useSearchParams();
+  const queryError = getLoginErrorMessage(searchParams.get("error"));
   const nextParam = searchParams.get("next");
   const redirectUrl = nextParam && nextParam.startsWith("/") ? nextParam : "/";
   const isResumeRedirect = redirectUrl.startsWith("/resume");
@@ -234,10 +236,10 @@ export default function LoginClient() {
                   </div>
                 </div>
 
-                {error && (
+                {(error || queryError) && (
                   <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-600 dark:text-red-400">
                     <AlertCircle className="h-4 w-4 shrink-0" />
-                    <p>{error}</p>
+                    <p>{error || queryError}</p>
                   </div>
                 )}
 

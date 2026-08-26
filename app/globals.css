@@ -531,6 +531,35 @@ html {
   margin: 0;
 }
 
+.resume-page-guides {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 calc(297mm - 1px),
+    hsl(var(--primary) / 0.35) calc(297mm - 1px) 297mm
+  );
+}
+
+.resume-document-section {
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+.resume-document-section[data-section-kind="identity"],
+.resume-item {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.resume-section-heading {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.resume-narrative {
+  orphans: 3;
+  widows: 3;
+}
+
 @media print {
   body:has(.resume-document-builder) {
     background: white !important;
@@ -563,6 +592,28 @@ html {
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
+  }
+
+  .resume-page-guides {
+    background-image: none !important;
+  }
+
+  .resume-print-sections {
+    display: block !important;
+  }
+
+  .resume-print-section {
+    margin-bottom: 7mm;
+    position: static !important;
+    transform: none !important;
+  }
+
+  .resume-items {
+    display: block !important;
+  }
+
+  .resume-item + .resume-item {
+    margin-top: 4mm;
   }
 
 }

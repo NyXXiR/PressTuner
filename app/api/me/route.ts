@@ -1,6 +1,6 @@
 // src/app/api/me/route.ts
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { apiError } from "@/lib/utils/api";
 import { getMePayload } from "@/lib/services/meService";
 
@@ -19,15 +19,27 @@ export async function OPTIONS() {
   });
 }
 
+export function unauthorizedMeResponse() {
+  const err = apiError("UNAUTHORIZED", "로그인이 필요합니다.", 401);
+  const response = NextResponse.json(err.body, {
+    status: err.status,
+    headers: { "Cache-Control": "no-store" },
+  });
+  response.cookies.set(SESSION_COOKIE_NAME, "", {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    expires: new Date(0),
+  });
+  return response;
+}
+
 export async function GET() {
   try {
     const session = await getSession();
     if (!session) {
-      const err = apiError("UNAUTHORIZED", "로그인이 필요합니다.", 401);
-      return NextResponse.json(err.body, {
-        status: err.status,
-        headers: { "Cache-Control": "no-store" },
-      });
+      return unauthorizedMeResponse();
     }
 
     const payload = await getMePayload(session);

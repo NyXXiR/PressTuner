@@ -5,6 +5,10 @@ import {
   linkGoogleAccountToUser,
   resolveGoogleLogin,
 } from "@/lib/services/oauthService";
+import {
+  isTransientDatabaseConnectionError,
+  withTransientDatabaseRetry,
+} from "@/lib/services/transientDatabaseRetry";
 
 // ----------------------------------------------------------------------
 // Helper Functions
@@ -108,14 +112,16 @@ export async function GET(req: Request) {
       }
 
       try {
-        await linkGoogleAccountToUser({
-          userId: session.userId,
-          providerAccountId,
-          email: g.email,
-          name: g.name,
-          picture: g.picture,
-          emailVerified: g.email_verified,
-        });
+        await withTransientDatabaseRetry(() =>
+          linkGoogleAccountToUser({
+            userId: session.userId,
+            providerAccountId,
+            email: g.email,
+            name: g.name,
+            picture: g.picture,
+            emailVerified: g.email_verified,
+          }),
+        );
       } catch (e: any) {
         const res = NextResponse.redirect(
           new URL(
@@ -137,13 +143,15 @@ export async function GET(req: Request) {
     // ==================================================================
     // (B) 로그인 모드: 소셜 로그인
     // ==================================================================
-    const resolved = await resolveGoogleLogin({
-      providerAccountId,
-      email: g.email,
-      name: g.name,
-      picture: g.picture,
-      emailVerified: g.email_verified,
-    });
+    const resolved = await withTransientDatabaseRetry(() =>
+      resolveGoogleLogin({
+        providerAccountId,
+        email: g.email,
+        name: g.name,
+        picture: g.picture,
+        emailVerified: g.email_verified,
+      }),
+    );
 
     if (!resolved.userId) {
       const res = NextResponse.redirect(
@@ -167,7 +175,9 @@ export async function GET(req: Request) {
     // ==================================================================
     // 로그인 성공 처리 (기존 가입자 or 이메일 연동자)
     // ==================================================================
-    const { session } = await finalizeOAuthLogin(resolved.userId);
+    const { session } = await withTransientDatabaseRetry(() =>
+      finalizeOAuthLogin(resolved.userId),
+    );
 
     const res = NextResponse.redirect(
       new URL(nextUrl, process.env.NEXT_PUBLIC_APP_URL),
@@ -185,8 +195,11 @@ export async function GET(req: Request) {
     return res;
   } catch (e) {
     console.error(e);
+    const errorCode = isTransientDatabaseConnectionError(e)
+      ? "oauth_database_unavailable"
+      : "oauth_failed";
     const res = NextResponse.redirect(
-      new URL("/login?error=oauth_failed", process.env.NEXT_PUBLIC_APP_URL),
+      new URL(`/login?error=${errorCode}`, process.env.NEXT_PUBLIC_APP_URL),
     );
     clearOauthCookies(res);
     return res;

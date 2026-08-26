@@ -3,12 +3,20 @@ import { NextResponse } from "next/server";
 import { getSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { deleteSessionById } from "@/lib/services/sessionService";
 
-export async function POST() {
-  const session = await getSession();
+type SessionLookup = () => Promise<{ id: string } | null>;
+type SessionDelete = (sessionId: string) => Promise<unknown>;
+
+export async function logoutWithSessionCleanup(
+  lookupSession: SessionLookup = getSession,
+  deleteSession: SessionDelete = deleteSessionById,
+) {
   const res = NextResponse.json({ ok: true });
 
-  if (session) {
-    await deleteSessionById(session.id);
+  try {
+    const session = await lookupSession();
+    if (session) await deleteSession(session.id);
+  } catch (error) {
+    console.error("[LOGOUT_SESSION_CLEANUP_ERROR]", error);
   }
 
   res.cookies.set(SESSION_COOKIE_NAME, "", {
@@ -20,4 +28,8 @@ export async function POST() {
   });
 
   return res;
+}
+
+export async function POST() {
+  return logoutWithSessionCleanup();
 }

@@ -242,10 +242,8 @@ export const useMeStore = create<MeStoreState>((set, get) => ({
       if (!res.ok || !data || !data.ok) {
         const msg = data?.message ?? data?.error ?? "me 정보를 불러오지 못했습니다.";
         set({
-          me: null,
           loading: false,
           error: msg,
-          authStatus: "guest",
           checked: true,
         });
         return;
@@ -261,10 +259,8 @@ export const useMeStore = create<MeStoreState>((set, get) => ({
     } catch (e) {
       console.error(e);
       set({
-        me: null,
         loading: false,
         error: "네트워크/서버 오류로 me 정보를 불러오지 못했습니다.",
-        authStatus: "guest",
         checked: true,
       });
     }

@@ -5,6 +5,7 @@ import { apiError } from "@/lib/utils/api";
 import { AuthProvider } from "@prisma/client";
 import { trackOpsEvent } from "@/lib/ops";
 import { registerWithGoogle } from "@/lib/services/oauthService";
+import { withTransientDatabaseRetry } from "@/lib/services/transientDatabaseRetry";
 
 export async function POST(req: Request) {
   const store = await cookies();
@@ -32,14 +33,16 @@ export async function POST(req: Request) {
         ? nextCookie.value
         : "/my/dashboard";
 
-    const { session, userId } = await registerWithGoogle({
-      provider: provider as AuthProvider,
-      providerAccountId,
-      email,
-      name,
-      picture,
-      emailVerified: emailVerified === true,
-    });
+    const { session, userId } = await withTransientDatabaseRetry(() =>
+      registerWithGoogle({
+        provider: provider as AuthProvider,
+        providerAccountId,
+        email,
+        name,
+        picture,
+        emailVerified: emailVerified === true,
+      }),
+    );
 
     void trackOpsEvent({
       event: "signup_completed",
