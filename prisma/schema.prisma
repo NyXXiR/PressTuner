@@ -808,11 +808,26 @@ model User {
   careerVerifications              CareerAnswerVerification[]
   careerVerificationOverrides      CareerVerificationOverride[]
   resumeDocumentImports            ResumeDocumentImport[]
+  resumeDocument                   ResumeDocument?
   resumeDocumentCandidates         ResumeDocumentCandidate[]      @relation("ResumeDocumentCandidateOwner")
   reviewedResumeDocumentCandidates ResumeDocumentCandidate[]      @relation("ResumeDocumentCandidateReviewer")
 
   @@index([label])
   @@map("user")
+}
+
+model ResumeDocument {
+  id            String   @id @default(cuid()) @map("id")
+  userId        String   @unique @map("user_id")
+  payload       Json     @map("payload")
+  schemaVersion Int      @map("schema_version")
+  revision      Int      @default(1) @map("revision")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("resume_document")
 }
 
 model Article {

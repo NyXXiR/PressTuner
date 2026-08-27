@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("resume documents keeps a simple local-only role flow with optional support versions", async () => {
-  const source = await readFile(
-    new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url),
-    "utf8",
-  );
+test("resume documents keeps a simple role flow with optional support versions", async () => {
+  const [source, persistence] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/useResumeDocumentPersistence.ts", import.meta.url), "utf8"),
+  ]);
 
   assert.match(source, /직군 이력서/);
   assert.match(source, /공통 정보/);
@@ -30,7 +30,7 @@ test("resume documents keeps a simple local-only role flow with optional support
   assert.match(source, /clipboardData\.getData\("text\/html"\)/);
   assert.match(source, /DOMParser/);
   assert.match(source, /parseNarrativeClipboard/);
-  assert.match(source, /localStorage\.setItem/);
+  assert.match(persistence, /localStorage\.setItem/);
   assert.doesNotMatch(source, /LOCAL PROTOTYPE/);
   assert.doesNotMatch(source, /local-\$\{Date\.now\(\)\}/);
   assert.match(source, /\/api\/resume\/bricks\/all/);
@@ -212,16 +212,28 @@ test("resume documents explains section formats and keeps mobile editing control
   assert.match(styles, /\.resume-paper \.resume-item\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
-test("resume PDF snapshot remains local-state based without measurement clones", async () => {
-  const [source, editor] = await Promise.all([
+test("resume editing stays local-first while durable persistence is server-backed", async () => {
+  const [source, persistence, editor, route] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/useResumeDocumentPersistence.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/ResumeEditorDocument.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/resume/documents/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(source, /RESUME_DOCUMENT_STORAGE_KEY/);
-  assert.match(source, /localStorage\.setItem/);
+  assert.match(source, /useResumeDocumentPersistence/);
+  assert.match(persistence, /RESUME_DOCUMENT_STORAGE_KEY/);
+  assert.match(persistence, /RESUME_DOCUMENT_SYNC_STORAGE_KEY/);
+  assert.match(persistence, /localStorage\.setItem/);
+  assert.match(persistence, /fetch\("\/api\/resume\/documents"/);
+  assert.match(persistence, /expectedRevision/);
+  assert.match(source, /서버 문서 불러오기/);
+  assert.match(source, /이 편집본으로 저장/);
   assert.doesNotMatch(editor, /localStorage|RESUME_DOCUMENT_STORAGE_KEY|fetch\(/);
   assert.doesNotMatch(source, /cloneNode\(true\)|resume-print-measure/);
+  assert.match(route, /requireTeamContext\(\)/);
+  assert.match(route, /getResumeDocument\(user\.id\)/);
+  assert.match(route, /saveResumeDocument/);
+  assert.doesNotMatch(route, /prisma\./);
 });
 
 test("experience presentation exposes persisted sort and duration controls in editor and PDF output", async () => {
@@ -276,8 +288,9 @@ test("PDF import lifecycle polling is selected-detail-only, abortable, and visib
 });
 
 test("PDF imports stay review-first and recover approved but unapplied candidates", async () => {
-  const [builder, panel, decisionRoute, appliedRoute] = await Promise.all([
+  const [builder, persistence, panel, decisionRoute, appliedRoute] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/useResumeDocumentPersistence.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/decision/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/applied/route.ts", import.meta.url), "utf8"),
@@ -285,7 +298,7 @@ test("PDF imports stay review-first and recover approved but unapplied candidate
 
   assert.match(builder, /PDF로 채우기/);
   assert.match(builder, /applyResumeImportCommand/);
-  assert.match(builder, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
+  assert.match(persistence, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
   assert.match(panel, /AI는 섹션별 후보만 만듭니다/);
   assert.match(panel, /확인하고 반영/);
   assert.match(panel, /문서 반영 다시 시도/);

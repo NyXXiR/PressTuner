@@ -5,13 +5,11 @@ import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  RESUME_DOCUMENT_STORAGE_KEY,
   addCustomSection,
   addRoleCustomSection,
   addSharedSection,
   clearDocumentItemSetting,
   clearRoleProfileItemSetting,
-  createResumeDocumentSeed,
   createRoleProfile,
   createSupportVariant,
   deleteCustomSection,
@@ -27,7 +25,6 @@ import {
   narrativeCharacterCount,
   narrativePlainText,
   orderResumeSections,
-  parseResumeDocumentState,
   promoteRoleCustomSectionToShared,
   promoteSupportCustomSectionToShared,
   resolveDocumentRole,
@@ -80,6 +77,7 @@ import {
   calculateAutomaticCareerDurationMonths,
   normalizeCareerDurationOverride,
 } from "@/domain/resume-documents/experiencePresentation";
+import { useResumeDocumentPersistence } from "@/components/resume/useResumeDocumentPersistence";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
 const kinds: Record<SectionKind, string> = { identity: "인적사항", eligibility: "병역·보훈 등 자격", narrative: "소개글", items: "경력·학력 등 목록", tags: "역량·키워드" };
@@ -103,7 +101,7 @@ const acceptsExperienceBricks = (sectionId: string) => sectionId === "experience
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 
 export function ResumeDocumentBuilder() {
-  const [state, setState] = useState<ResumeDocumentState>(() => createResumeDocumentSeed());
+  const { state, setState, hydrated, storageStatus, loadServerCopy, overwriteServerCopy } = useResumeDocumentPersistence();
   const [view, setView] = useState<"resume" | "shared">("resume");
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [itemEditor, setItemEditor] = useState<ItemEditorState | null>(null);
@@ -117,30 +115,6 @@ export function ResumeDocumentBuilder() {
   const [readinessOpen, setReadinessOpen] = useState(false);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
   const [pdfSnapshot, setPdfSnapshot] = useState<ResumePdfSnapshot | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-  const [storageStatus, setStorageStatus] = useState<"loading" | "saved" | "error">("loading");
-  const stateRef = useRef(state);
-
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      try { setState(parseResumeDocumentState(localStorage.getItem(RESUME_DOCUMENT_STORAGE_KEY)) ?? createResumeDocumentSeed()); }
-      catch { setState(createResumeDocumentSeed()); setStorageStatus("error"); }
-      setHydrated(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-  useEffect(() => {
-    if (!hydrated) return;
-    const frame = window.requestAnimationFrame(() => {
-      try { localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, JSON.stringify(state)); setStorageStatus("saved"); }
-      catch { setStorageStatus("error"); }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [hydrated, state]);
   useEffect(() => {
     if (!draft && !insertAfterId && !itemEditor && !experienceDialogOpen && !importPanelOpen && !readinessOpen && !sharedSectionDialogOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setItemEditor(null); setExperienceDialogOpen(false); setImportPanelOpen(false); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
@@ -161,13 +135,10 @@ export function ResumeDocumentBuilder() {
   const readinessIssues = useMemo(() => inspectResumeReadiness(state, activeProfile?.id ?? "", active?.id), [active?.id, activeProfile?.id, state]);
   const syncExperienceBricks = useCallback((items: ExperienceBrickReference[]) => {
     setState((current) => linkExperienceBricks(current, items));
-  }, []);
+  }, [setState]);
   const applyApprovedImport = useCallback((command: ResumeDocumentImportCommand) => {
-    const next = applyResumeImportCommand(stateRef.current, command);
-    localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, JSON.stringify(next));
-    stateRef.current = next;
-    setState(next);
-  }, []);
+    setState((current) => applyResumeImportCommand(current, command));
+  }, [setState]);
   if (!activeProfile) return null;
   const printableSections = orderedSections.map((section) => {
     const resolved = resolveSection(section, activeProfile, active);
@@ -267,7 +238,8 @@ export function ResumeDocumentBuilder() {
             <NewRoleResume onAdd={(name, roleTitle) => setState((current) => createRoleProfile(current, { name, roleTitle }))} />
               <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-extrabold">회사별 지원 버전 <span className="font-normal text-muted-foreground">(선택)</span></h3><p className="mt-1 text-xs leading-5 text-muted-foreground">같은 직군에 여러 장이 필요할 때만 추가하세요.</p><select aria-label="지원 버전 선택" className="mt-3 h-10 w-full border border-border bg-background px-3 text-sm" value={active?.id ?? ""} onChange={(event) => setState((current) => ({ ...current, activeVariantId: event.target.value || null }))}><option value="">직군 기본</option>{roleVariants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}</select>{active ? <div className="mt-3 grid gap-3"><Field label="버전 이름" value={active.name} onChange={(name) => updateActive({ name })} /><Field label="지원 회사" value={active.company} onChange={(company) => updateActive({ company })} /><Field label="표시 직무(선택)" placeholder={activeProfile.roleTitle} value={active.role} onChange={(role) => updateActive({ role })} /><div className="grid grid-cols-2 gap-2"><button className="inline-flex h-10 items-center justify-center gap-2 border border-primary/40 text-xs font-bold text-primary" onClick={() => setState((current) => duplicateVariant(current, active.id))}><Copy className="h-3.5 w-3.5" /> 지원 버전 복제</button><button className="inline-flex h-10 items-center justify-center gap-2 border border-red-200 text-xs font-bold text-red-600" onClick={deleteActive}><Trash2 className="h-3.5 w-3.5" /> 삭제</button></div></div> : <NewSupportVersion onAdd={(name, company) => setState((current) => createSupportVariant(current, activeProfile.id, { name, company }))} />}</div>
             <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-extrabold">{active ? "지원 버전" : "직군 이력서"} 전용 섹션</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">원하는 섹션 아래의 추가 버튼을 누르세요.</p></div>
-            <p aria-live="polite" className={cx("mt-6 flex items-center gap-1.5 border-t border-border pt-4 text-[11px]", storageStatus === "error" ? "text-red-600" : "text-muted-foreground")}><Check className={cx("h-3.5 w-3.5", storageStatus === "error" ? "text-red-600" : "text-primary")} /> {storageStatus === "error" ? "자동 저장에 실패했습니다. 내용을 별도로 보관해 주세요." : storageStatus === "saved" ? "이 브라우저에 자동 저장됐습니다." : "저장 내용을 불러오는 중입니다."}</p>
+            <p aria-live="polite" className={cx("mt-6 flex items-start gap-1.5 border-t border-border pt-4 text-[11px] leading-5", storageStatus === "error" || storageStatus === "conflict" ? "text-red-600" : storageStatus === "offline" ? "text-amber-700" : "text-muted-foreground")}><Check className={cx("mt-0.5 h-3.5 w-3.5 shrink-0", storageStatus === "error" || storageStatus === "conflict" ? "text-red-600" : "text-primary")} /> {storageStatus === "error" ? "자동 저장에 실패했습니다. 브라우저 임시본은 유지됩니다." : storageStatus === "conflict" ? "다른 기기에서 변경된 문서와 충돌했습니다. 이 브라우저의 편집 내용은 보존되어 있습니다." : storageStatus === "offline" ? "서버에 연결할 수 없어 브라우저에 임시 저장했습니다. 연결되면 다시 저장합니다." : storageStatus === "saved" ? "모든 변경 내용이 서버에 저장됐습니다." : storageStatus === "saving" ? "변경 내용을 서버에 저장하는 중입니다." : "저장 내용을 불러오는 중입니다."}</p>
+            {storageStatus === "conflict" && <div className="mt-2 grid grid-cols-2 gap-2"><button className="h-9 border border-border bg-background px-2 text-[10px] font-bold" onClick={() => { void loadServerCopy(); }} type="button">서버 문서 불러오기</button><button className="h-9 border border-red-300 bg-background px-2 text-[10px] font-bold text-red-700" onClick={overwriteServerCopy} type="button">이 편집본으로 저장</button></div>}
           </aside>
           <div className="resume-preview-shell min-w-0"><div className="resume-builder-chrome mb-3 flex flex-wrap items-center justify-between gap-2 border border-primary/25 bg-primary/5 px-4 py-3 text-xs"><span className="font-bold text-primary"><span className="hidden md:inline">편집 화면은 A4에 가깝게 표시됩니다.</span><span className="md:hidden">모바일 편집 보기 · PDF는 A4로 저장됩니다.</span></span><span className="font-extrabold">저장 미리보기에서 정확한 페이지 수를 확인하세요.</span></div><article className="resume-paper resume-page-guides mx-auto w-full max-w-[210mm] bg-white text-slate-950 shadow-xl"><div className="resume-paper-inner min-h-[297mm] px-[18mm] py-[16mm]"><ResumeEditorHeader company={active?.company || activeProfile.name} documentName={active?.name || `${activeProfile.name} 이력서`} role={resolveDocumentRole(activeProfile, active)} /><p className="resume-reorder-help mb-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><GripVertical className="h-3.5 w-3.5" /> 핸들을 끌어 현재 단계의 섹션 순서를 바꿀 수 있습니다.</p><Reorder.Group axis="y" className="resume-print-sections grid gap-7" onReorder={(sectionOrder) => setState((current) => active ? updateSectionOrder(current, active.id, sectionOrder) : updateRoleProfileSectionOrder(current, activeProfile.id, sectionOrder))} values={orderedSections.map((section) => section.id)}>{orderedSections.map((section) => {
             const resolved = resolveSection(section, activeProfile, active);
