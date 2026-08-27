@@ -61,7 +61,7 @@ test("the default flow has a directly editable role resume and no support versio
 
 test("every starter role resume includes its own editable self-introduction section", () => {
   const state = createResumeDocumentSeed();
-  assert.equal(state.templateRevision, 2);
+  assert.equal(state.templateRevision, 3);
   for (const profile of state.roleProfiles) {
     const coverLetter = profile.customSections.find((section) => section.title === "자기소개서");
     assert.ok(coverLetter);
@@ -83,7 +83,7 @@ test("existing V4 storage receives the role template once without resurrecting a
   const legacy = createResumeDocumentSeed();
   const withoutRevision = { ...legacy, templateRevision: undefined, roleProfiles: legacy.roleProfiles.map((profile) => ({ ...profile, customSections: [] })) };
   const upgraded = parseResumeDocumentState(JSON.stringify(withoutRevision))!;
-  assert.equal(upgraded.templateRevision, 2);
+  assert.equal(upgraded.templateRevision, 3);
   assert.ok(upgraded.roleProfiles.every((profile) => profile.customSections.some((section) => section.title === "자기소개서")));
 
   const deleted = { ...upgraded, roleProfiles: upgraded.roleProfiles.map((profile) => ({ ...profile, customSections: [] })) };
@@ -376,16 +376,43 @@ test("fresh documents start with service planning, full-stack, and AI engineerin
   assert.equal(state.activeRoleProfileId, state.roleProfiles[0].id);
 });
 
-test("fresh documents keep employment and project narratives in separate common sections", () => {
+test("fresh documents keep employment, projects, and career descriptions in three common sections", () => {
   const state = createResumeDocumentSeed();
   const experience = state.sharedSections.find((section) => section.id === "experience")!;
   const projects = state.sharedSections.find((section) => section.id === "projects")!;
+  const careerDescriptions = state.sharedSections.find((section) => section.id === "careerDescriptions")!;
   assert.equal(experience.title, "경력");
-  assert.equal(projects.title, "프로젝트 · 경력기술");
+  assert.equal(projects.title, "프로젝트");
+  assert.equal(careerDescriptions.title, "경력기술서");
   assert.ok(state.sharedSections.indexOf(projects) === state.sharedSections.indexOf(experience) + 1);
+  assert.ok(state.sharedSections.indexOf(careerDescriptions) === state.sharedSections.indexOf(projects) + 1);
   assert.ok((experience.content as ItemsContent).items.every((item) => item.itemKind === "work"));
   assert.ok((projects.content as ItemsContent).items.every((item) => item.itemKind === "project"));
-  for (const profile of state.roleProfiles) assert.ok(profile.sectionOrder?.includes("projects"));
+  assert.ok((careerDescriptions.content as ItemsContent).items.every((item) => item.itemKind === "career-description"));
+  for (const profile of state.roleProfiles) assert.ok(profile.sectionOrder?.includes("careerDescriptions"));
+});
+
+test("revision 2 documents gain an empty career-description section without moving projects", () => {
+  const state = createResumeDocumentSeed();
+  state.templateRevision = 2;
+  state.sharedSections = state.sharedSections.filter((section) => section.id !== "careerDescriptions");
+  const projects = state.sharedSections.find((section) => section.id === "projects")!;
+  projects.title = "프로젝트 · 경력기술";
+  projects.content = { items: [{ id: "kept-project", itemKind: "project", meta: "", title: "결제 전환", subtitle: "리드", body: "성과" }] };
+  for (const profile of state.roleProfiles) profile.sectionOrder = profile.sectionOrder?.filter((id) => id !== "careerDescriptions");
+
+  const migrated = parseResumeDocumentState(JSON.stringify(state))!;
+  assert.equal(migrated.templateRevision, 3);
+  assert.equal(migrated.sharedSections.find((section) => section.id === "projects")?.title, "프로젝트");
+  assert.deepEqual(
+    (migrated.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items.map((item) => item.id),
+    ["kept-project"],
+  );
+  assert.deepEqual(
+    (migrated.sharedSections.find((section) => section.id === "careerDescriptions")!.content as ItemsContent).items,
+    [],
+  );
+  assert.ok(migrated.roleProfiles.every((profile) => profile.sectionOrder?.includes("careerDescriptions")));
 });
 
 test("stored mixed experience items are classified and moved into the project section", () => {

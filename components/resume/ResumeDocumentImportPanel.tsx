@@ -943,6 +943,7 @@ function payloadLabel(payload: ResumeDocumentCandidatePayload) {
   const labels = {
     work: "경력",
     project: "프로젝트",
+    "career-description": "경력기술서",
     education: "학력",
     credential: "자격",
     award: "수상",
@@ -1113,7 +1114,8 @@ function PayloadEditor({
           onChange={(event) => onChange({ ...payload, itemKind: event.target.value as typeof payload.itemKind })}
         >
           <option value="work">직장 경력</option>
-          <option value="project">프로젝트 · 경력기술</option>
+          <option value="project">프로젝트</option>
+          <option value="career-description">경력기술서</option>
           <option value="education">학력</option>
           <option value="credential">자격</option>
           <option value="award">수상</option>
@@ -1123,7 +1125,7 @@ function PayloadEditor({
         </select>
       </label>
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        {payload.itemKind === "work" ? "회사명" : payload.itemKind === "project" ? "프로젝트명" : "제목"}
+        {payload.itemKind === "work" ? "회사명" : payload.itemKind === "project" ? "프로젝트명" : payload.itemKind === "career-description" ? "경력기술 제목" : "제목"}
         <input
           className={inputClass}
           disabled={disabled}
@@ -1134,7 +1136,7 @@ function PayloadEditor({
         />
       </label>
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        {payload.itemKind === "work" ? "부서·직책" : payload.itemKind === "project" ? "역할·기술" : "기관·전공"}
+        {payload.itemKind === "work" ? "부서·직책" : payload.itemKind === "project" ? "역할·기술" : payload.itemKind === "career-description" ? "회사·역할" : "기관·전공"}
         <input
           className={inputClass}
           disabled={disabled}
@@ -1169,8 +1171,8 @@ function PayloadEditor({
         />
         <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={endMonthEnabled} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, endMonth: event.target.checked ? payload.endMonth || payload.startMonth || currentLocalMonth() : "", isCurrent: event.target.checked ? false : payload.isCurrent })} /> 종료연월 있음</span>
       </label>
-      {(payload.itemKind === "work" || payload.itemKind === "project") && <label className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={payload.isCurrent} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, isCurrent: event.target.checked, endMonth: event.target.checked ? "" : payload.endMonth })} /> {payload.itemKind === "work" ? "재직 중" : "진행 중"}</label>}
-      {payload.itemKind === "project" && <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력·회사<input className={inputClass} disabled={disabled} value={payload.relatedWorkTitle ?? ""} onChange={(event) => onChange({ ...payload, relatedWorkTitle: event.target.value })} /></label>}
+      {(payload.itemKind === "work" || payload.itemKind === "project" || payload.itemKind === "career-description") && <label className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={payload.isCurrent} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, isCurrent: event.target.checked, endMonth: event.target.checked ? "" : payload.endMonth })} /> {payload.itemKind === "work" ? "재직 중" : "진행 중"}</label>}
+      {(payload.itemKind === "project" || payload.itemKind === "career-description") && <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력·회사<input className={inputClass} disabled={disabled} value={payload.relatedWorkTitle ?? ""} onChange={(event) => onChange({ ...payload, relatedWorkTitle: event.target.value })} /></label>}
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground sm:col-span-2">
         설명
         <textarea

@@ -24,7 +24,7 @@ export type NarrativeBlockType = "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 export type NarrativeRun = { text: string; bold?: boolean };
 export type NarrativeBlock = { id: string; type: NarrativeBlockType; runs: NarrativeRun[] };
 export type NarrativeContent = { body: string; blocks?: NarrativeBlock[] };
-export type ResumeItemKind = "work" | "project" | "education" | "credential" | "award" | "activity" | "language" | "training";
+export type ResumeItemKind = "work" | "project" | "career-description" | "education" | "credential" | "award" | "activity" | "language" | "training";
 export type ItemContent = {
   id: string;
   itemKind?: ResumeItemKind;
@@ -93,7 +93,7 @@ export type ResumeImportLedgerEntry = {
 };
 export type ResumeDocumentState = {
   version: 5;
-  templateRevision?: 1 | 2;
+  templateRevision?: 1 | 2 | 3;
   sharedSections: ResumeSection[];
   roleProfiles: ResumeRoleProfile[];
   variants: ResumeVariant[];
@@ -159,7 +159,7 @@ const roleCoverLetterSection = (profileId: string): ResumeSection => ({
   custom: true,
 });
 
-const builtInSectionIds = ["profile", "summary", "experience", "projects", "skills", "education", "credentials"];
+const builtInSectionIds = ["profile", "summary", "experience", "projects", "careerDescriptions", "skills", "education", "credentials"];
 const defaultRoleSectionOrder = (profileId: string) => [...builtInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
 
 const starterRoleProfiles = (): ResumeRoleProfile[] => [
@@ -190,7 +190,7 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
   const roleProfiles = starterRoleProfiles();
   return {
     version: 5,
-    templateRevision: 2,
+    templateRevision: 3,
     sharedSections: [
       { id: "profile", title: "인적사항", kind: "identity", content: { name: "이름", email: "email@example.com", phone: "", location: "", gender: "", birthDate: "", links: ["https://portfolio.example.com"] } },
       { id: "summary", title: "소개", kind: "narrative", content: { body: "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요." } },
@@ -198,8 +198,11 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
         { id: newItemId(), itemKind: "work", meta: "2024.01 — 현재", title: "회사명", subtitle: "부서 · 직책", body: "재직 기간의 역할과 핵심 책임을 간결하게 적어주세요." },
         { id: newItemId(), itemKind: "work", meta: "2022.01 — 2023.12", title: "이전 회사명", subtitle: "부서 · 직책", body: "이전 직장의 역할과 핵심 책임을 간결하게 적어주세요." },
       ] } },
-      { id: "projects", title: "프로젝트 · 경력기술", kind: "items", content: { sortDirection: "latest-first", items: [
+      { id: "projects", title: "프로젝트", kind: "items", content: { sortDirection: "latest-first", items: [
         { id: newItemId(), itemKind: "project", meta: "2024.01 — 현재", title: "프로젝트명", subtitle: "역할 · 사용 기술", relatedWorkTitle: "회사명 또는 연결할 경력", body: "해결한 문제, 맡은 역할, 실행 내용과 결과를 적어주세요." },
+      ] } },
+      { id: "careerDescriptions", title: "경력기술서", kind: "items", content: { sortDirection: "latest-first", items: [
+        { id: newItemId(), itemKind: "career-description", meta: "2024.01 — 현재", title: "경력기술 제목", subtitle: "회사 · 역할", relatedWorkTitle: "연결할 경력 또는 회사", body: "프로젝트명이 없는 직무 범위, 주요 책임, 개선 성과를 구체적으로 적어주세요." },
       ] } },
       { id: "skills", title: "핵심 역량", kind: "tags", content: { items: ["문제 해결", "협업", "제품 개발"] } },
       { id: "education", title: "학력", kind: "items", content: { items: [{ id: newItemId(), meta: "졸업 연도", title: "학교 · 과정", subtitle: "전공", body: "추가 내용" }] } },
@@ -1043,8 +1046,8 @@ function insertProjectsAfterExperience(order?: string[]) {
   return order ? insertSectionId(order, "projects", "experience") : order;
 }
 
-function upgradeRoleTemplates<T extends MigratableState>(state: T): T {
-  if (state.templateRevision === 2) return state;
+function upgradeRoleTemplatesV2<T extends MigratableState>(state: T): T {
+  if (state.templateRevision === 2 || state.templateRevision === 3) return state;
   const experienceIndex = state.sharedSections.findIndex((section) => section.id === "experience" && isItemsContent(section.content));
   const existingProjects = state.sharedSections.find((section) => section.id === "projects");
   let sharedSections = state.sharedSections;
@@ -1085,6 +1088,46 @@ function upgradeRoleTemplates<T extends MigratableState>(state: T): T {
       sectionOrder: insertProjectsAfterExperience(variant.sectionOrder),
     })),
   } as T;
+}
+
+function insertCareerDescriptionsAfterProjects(order?: string[]) {
+  return order ? insertSectionId(order, "careerDescriptions", "projects") : order;
+}
+
+function upgradeCareerDescriptionTemplate<T extends MigratableState>(state: T): T {
+  if (state.templateRevision === 3) return state;
+  const projectsIndex = state.sharedSections.findIndex((section) => section.id === "projects");
+  const existingCareerDescriptions = state.sharedSections.some((section) => section.id === "careerDescriptions");
+  let sharedSections = state.sharedSections.map((section) => section.id === "projects" && section.title === "프로젝트 · 경력기술"
+    ? { ...section, title: "프로젝트" }
+    : section);
+  if (!existingCareerDescriptions) {
+    const section: ResumeSection = {
+      id: "careerDescriptions",
+      title: "경력기술서",
+      kind: "items",
+      content: { sortDirection: "latest-first", items: [] },
+    };
+    sharedSections = [...sharedSections];
+    sharedSections.splice(projectsIndex >= 0 ? projectsIndex + 1 : sharedSections.length, 0, section);
+  }
+  return {
+    ...state,
+    templateRevision: 3,
+    sharedSections,
+    roleProfiles: state.roleProfiles.map((profile) => ({
+      ...profile,
+      sectionOrder: insertCareerDescriptionsAfterProjects(profile.sectionOrder),
+    })),
+    variants: state.variants.map((variant) => ({
+      ...variant,
+      sectionOrder: insertCareerDescriptionsAfterProjects(variant.sectionOrder),
+    })),
+  } as T;
+}
+
+function upgradeRoleTemplates<T extends MigratableState>(state: T): T {
+  return upgradeCareerDescriptionTemplate(upgradeRoleTemplatesV2(state));
 }
 
 export function parseResumeDocumentState(raw: string | null): ResumeDocumentState | null {

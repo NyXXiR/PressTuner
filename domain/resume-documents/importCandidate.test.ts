@@ -83,6 +83,7 @@ test("candidate payload schema accepts the item groups found in JobKorea resumes
   for (const itemKind of [
     "work",
     "project",
+    "career-description",
     "education",
     "credential",
     "award",
@@ -105,6 +106,37 @@ test("candidate payload schema accepts the item groups found in JobKorea resumes
     if (parsed.type !== "item") assert.fail("Expected an item payload");
     assert.equal(parsed.itemKind, itemKind);
   }
+});
+
+test("career-description candidates apply only to the dedicated common section", () => {
+  const payload = {
+    type: "item" as const,
+    itemKind: "career-description" as const,
+    title: "샘플테크 플랫폼 엔지니어",
+    subtitle: "주요 역할과 성과",
+    relatedWorkTitle: "샘플테크",
+    body: "결제 안정성과 운영 자동화를 담당했습니다.",
+    startMonth: "2021-01",
+    endMonth: "2024-06",
+    isCurrent: false,
+    tags: [],
+  };
+  const applied = applyResumeImportCommand(createResumeDocumentSeed(), command({
+    candidateKey: "document:career-description",
+    payloadHash: "career-description",
+    targetSectionId: "careerDescriptions",
+    applyMode: "APPEND",
+    payload,
+  }));
+  const items = (applied.sharedSections.find((section) => section.id === "careerDescriptions")!.content as { items: Array<{ itemKind?: string }> }).items;
+  assert.equal(items.find((item) => item.itemKind === "career-description")?.itemKind, "career-description");
+  assert.throws(() => applyResumeImportCommand(createResumeDocumentSeed(), command({
+    candidateKey: "document:career-description-wrong",
+    payloadHash: "career-description-wrong",
+    targetSectionId: "summary",
+    applyMode: "APPEND",
+    payload,
+  })), /RESUME_IMPORT_SECTION_KIND_MISMATCH/);
 });
 
 test("FILL_EMPTY treats starter placeholders as empty but never overwrites real content", () => {

@@ -282,3 +282,13 @@ test("PDF import review groups candidates by section and isolates possible dupli
   assert.match(panel, /개별 확인/);
   assert.match(panel, /inspectResumeImportOverlap/);
 });
+
+test("resume documents expose project and career-description item types separately", async () => {
+  const [builder, panel] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(builder, /careerDescriptions/);
+  assert.match(panel, /value="project">프로젝트</);
+  assert.match(panel, /value="career-description">경력기술서/);
+});

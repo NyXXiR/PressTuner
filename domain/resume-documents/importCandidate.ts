@@ -83,6 +83,7 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
     itemKind: z.enum([
       "work",
       "project",
+      "career-description",
       "education",
       "credential",
       "award",
@@ -325,6 +326,7 @@ function applyPayloadToSection(
     "회사명",
     "이전 회사명",
     "프로젝트명",
+    "경력기술 제목",
     "프로젝트 또는 업무명",
     "이전 프로젝트 또는 업무명",
     "학교 · 과정",
