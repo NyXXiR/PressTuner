@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+
 import {
   formatCareerDuration,
   groupCareerDetails,
@@ -18,6 +20,7 @@ const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const narrativeSizes: Record<NarrativeBlockType, number> = { p: 9.5, h1: 18, h2: 15.5, h3: 13.5, h4: 12, h5: 11, h6: 10 };
+const CAREER_SECTION_OPENING_PRESENCE_POINTS = 132;
 const ITEM_OPENING_BODY_UNITS = 360;
 const ITEM_BODY_WIDOWS = 3;
 
@@ -258,12 +261,14 @@ export function ResumePdfDocument({
   return <Document title={snapshot.documentName} author={snapshot.company}>
     <Page size="A4" style={styles.page} wrap>
       <Header snapshot={snapshot} />
-      {snapshot.sections.filter((section) => !section.hidden).map((section) => <PdfSection
-        currentMonth={snapshot.currentMonth}
-        key={section.id}
-        relatedWorkItems={relatedWorkItems}
-        section={section}
-      />)}
+      {snapshot.sections.filter((section) => !section.hidden).map((section) => <Fragment key={section.id}>
+        {section.id === "projects" ? <View minPresenceAhead={CAREER_SECTION_OPENING_PRESENCE_POINTS} /> : null}
+        <PdfSection
+          currentMonth={snapshot.currentMonth}
+          relatedWorkItems={relatedWorkItems}
+          section={section}
+        />
+      </Fragment>)}
     </Page>
   </Document>;
 }

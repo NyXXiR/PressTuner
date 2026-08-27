@@ -162,3 +162,105 @@ test("long career items move their opening together and still split when they ex
     await pdf.destroy();
   }
 });
+
+test("career detail sections use ample remaining space and may continue across later pages", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  const longCareerDetail = Array.from({ length: 70 }, (_, index) =>
+    `새섹션-상세-${String(index + 1).padStart(2, "0")} 성과와 판단 근거를 다음 검토자가 이해할 수 있도록 구체적으로 기록했습니다.`,
+  ).join("\n");
+  snapshot.relatedWorkItems = [];
+  snapshot.sections = [
+    {
+      id: "summary",
+      title: "간단한 소개",
+      kind: "narrative",
+      layout: "standard",
+      content: { body: "앞 페이지에 남는 짧은 소개입니다." },
+    },
+    {
+      id: "projects",
+      title: "경력 상세",
+      kind: "items",
+      layout: "compact",
+      content: {
+        items: [{
+          id: "independent-long-detail",
+          itemKind: "career-detail",
+          detailType: "project",
+          meta: "2024",
+          title: "새 페이지에서 시작하는 장기 프로젝트",
+          subtitle: "플랫폼 전환",
+          body: longCareerDetail,
+        }],
+      },
+    },
+  ];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const pageTexts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+    }
+
+    const sectionPage = pageTexts.findIndex((text) => text.includes("경력 상세"));
+    const endingPage = pageTexts.findIndex((text) => text.includes("새섹션-상세-70"));
+    assert.equal(sectionPage, 0, "career detail should use ample space left on the current page");
+    assert.ok(pageTexts[0]?.includes("새 페이지에서 시작하는 장기 프로젝트"));
+    assert.ok(endingPage > sectionPage, "a long career detail section should continue after its opening page");
+  } finally {
+    await pdf.destroy();
+  }
+});
+
+test("career detail openings move when the current page remainder is too small", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  const filler = Array.from({ length: 32 }, (_, index) =>
+    `공간채움-${String(index + 1).padStart(2, "0")} 앞선 내용을 충분히 설명하여 현재 페이지 아래쪽의 남은 공간을 작게 만듭니다.`,
+  ).join("\n");
+  const careerDetail = Array.from({ length: 18 }, (_, index) =>
+    `조건부시작-${String(index + 1).padStart(2, "0")} 문제와 해결 과정, 측정 가능한 결과를 구체적으로 기록했습니다.`,
+  ).join("\n");
+  snapshot.relatedWorkItems = [];
+  snapshot.sections = [
+    { id: "summary", title: "앞선 긴 내용", kind: "narrative", layout: "standard", content: { body: filler } },
+    {
+      id: "projects",
+      title: "경력 상세",
+      kind: "items",
+      layout: "compact",
+      content: {
+        items: [{
+          id: "conditional-detail",
+          itemKind: "career-detail",
+          detailType: "improvement",
+          meta: "2025",
+          title: "남은 공간에 따라 이동하는 프로젝트",
+          subtitle: "서비스 안정화",
+          body: careerDetail,
+        }],
+      },
+    },
+  ];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const pageTexts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+    }
+
+    const sectionPage = pageTexts.findIndex((text) => text.includes("경력 상세"));
+    assert.ok(sectionPage > 0, "career detail should move when its meaningful opening does not fit");
+    assert.ok(pageTexts[sectionPage]?.includes("조건부시작-01"));
+    assert.ok(pageTexts[sectionPage]?.includes("조건부시작-04"));
+  } finally {
+    await pdf.destroy();
+  }
+});
