@@ -10,6 +10,7 @@ import {
 } from "./model";
 import {
   applyResumeImportCommand,
+  inspectResumeImportOverlap,
   ResumeDocumentCandidatePayloadSchema,
   type ResumeDocumentImportCommand,
 } from "./importCandidate";
@@ -49,6 +50,32 @@ test("candidate payload schema normalizes supported date values and rejects inva
       field: "photo",
       value: "data:image/png;base64,unsafe",
     }),
+  );
+});
+
+test("identity facts can be reviewed and applied as one section candidate", () => {
+  const payload = ResumeDocumentCandidatePayloadSchema.parse({
+    type: "identity",
+    fields: {
+      name: "홍길동",
+      email: "hong@example.com",
+      phone: "010-1234-5678",
+      birthDate: "1992-06-05",
+    },
+  });
+  const applied = applyResumeImportCommand(createResumeDocumentSeed(), command({
+    payloadHash: "identity-bundle",
+    payload,
+  }));
+  const identity = applied.sharedSections.find((section) => section.id === "profile")!.content as {
+    name: string;
+    email: string;
+    phone: string;
+    birthDate: string;
+  };
+  assert.deepEqual(
+    { name: identity.name, email: identity.email, phone: identity.phone, birthDate: identity.birthDate },
+    { name: "홍길동", email: "hong@example.com", phone: "010-1234-5678", birthDate: "1992-06-05" },
   );
 });
 
@@ -155,6 +182,68 @@ test("tags merge in stable order and item append deduplicates normalized content
   assert.equal(twice.importLedger.length, 3);
 });
 
+test("overlap inspection distinguishes exact content from similar items needing review", () => {
+  const seed = createResumeDocumentSeed();
+  const withEducation = applyResumeImportCommand(seed, command({
+    candidateKey: "document:existing-education",
+    payloadHash: "existing-education",
+    targetSectionId: "education",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "education",
+      title: "한국대학교",
+      subtitle: "컴퓨터공학과",
+      body: "학사 졸업",
+      startMonth: "2011-03",
+      endMonth: "2015-02",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const section = withEducation.sharedSections.find((item) => item.id === "education")!;
+
+  assert.equal(inspectResumeImportOverlap(section, {
+    type: "item",
+    itemKind: "education",
+    title: " 한국대학교 ",
+    subtitle: "컴퓨터공학과",
+    body: "다른 설명",
+    startMonth: "2011-03",
+    endMonth: "2015-02",
+    isCurrent: false,
+    tags: [],
+  }).level, "exact");
+  assert.equal(inspectResumeImportOverlap(section, {
+    type: "item",
+    itemKind: "education",
+    title: "한국대학교",
+    subtitle: "컴퓨터공학 학사",
+    body: "학사 졸업",
+    startMonth: "2011-03",
+    endMonth: "2015-02",
+    isCurrent: false,
+    tags: [],
+  }).level, "possible");
+});
+
+test("merging a narrative already present in the section never appends it twice", () => {
+  const seed = createResumeDocumentSeed();
+  const summary = seed.sharedSections.find((section) => section.id === "summary")!;
+  summary.content = { body: "고객 문제를 데이터로 정의하고 해결합니다." };
+  const applied = applyResumeImportCommand(seed, command({
+    candidateKey: "document:duplicate-summary",
+    payloadHash: "duplicate-summary",
+    targetSectionId: "summary",
+    applyMode: "MERGE",
+    payload: { type: "narrative", body: "고객 문제를 데이터로 정의하고 해결합니다." },
+  }));
+  assert.equal(
+    (applied.sharedSections.find((section) => section.id === "summary")!.content as { body: string }).body,
+    "고객 문제를 데이터로 정의하고 해결합니다.",
+  );
+});
+
 test("PDF item append preserves experience presentation metadata and projects end-month state", () => {
   const state = createResumeDocumentSeed();
   const experience = state.sharedSections.find((section) => section.id === "experience")!;
@@ -186,6 +275,53 @@ test("PDF item append preserves experience presentation metadata and projects en
   assert.equal(appendedContent.sortDirection, "oldest-first");
   assert.equal(appendedContent.careerDurationOverrideMonths, 74);
   assert.equal(appendedContent.items.find((item) => item.title === "신규 경력")?.endMonthEnabled, true);
+  assert.equal(appendedContent.items.find((item) => item.title === "신규 경력")?.itemKind, "work");
+});
+
+test("work and project candidates remain distinct after they are applied", () => {
+  const work = applyResumeImportCommand(createResumeDocumentSeed(), command({
+    candidateKey: "document:work-separated",
+    payloadHash: "work-separated",
+    targetSectionId: "experience",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "work",
+      title: "샘플테크",
+      subtitle: "플랫폼팀 · 백엔드 엔지니어",
+      body: "재직 경력 요약",
+      startMonth: "2020-01",
+      endMonth: "2024-12",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const withProject = applyResumeImportCommand(work, command({
+    candidateKey: "document:project-separated",
+    payloadHash: "project-separated",
+    targetSectionId: "projects",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "project",
+      title: "결제 전환 프로젝트",
+      subtitle: "백엔드 리드",
+      relatedWorkTitle: "샘플테크",
+      body: "전환율을 개선했습니다.",
+      startMonth: "2023-01",
+      endMonth: "2023-06",
+      isCurrent: false,
+      tags: ["TypeScript"],
+    },
+  }));
+
+  const workItem = ((withProject.sharedSections.find((section) => section.id === "experience")!.content as { items: Array<{ title: string; itemKind?: string }> }).items)
+    .find((item) => item.title === "샘플테크");
+  const projectItem = ((withProject.sharedSections.find((section) => section.id === "projects")!.content as { items: Array<{ title: string; itemKind?: string; relatedWorkTitle?: string }> }).items)
+    .find((item) => item.title === "결제 전환 프로젝트");
+  assert.equal(workItem?.itemKind, "work");
+  assert.equal(projectItem?.itemKind, "project");
+  assert.equal(projectItem?.relatedWorkTitle, "샘플테크");
 });
 
 test("commands cannot be applied to an incompatible section", () => {

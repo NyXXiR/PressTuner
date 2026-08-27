@@ -61,7 +61,7 @@ test("the default flow has a directly editable role resume and no support versio
 
 test("every starter role resume includes its own editable self-introduction section", () => {
   const state = createResumeDocumentSeed();
-  assert.equal(state.templateRevision, 1);
+  assert.equal(state.templateRevision, 2);
   for (const profile of state.roleProfiles) {
     const coverLetter = profile.customSections.find((section) => section.title === "자기소개서");
     assert.ok(coverLetter);
@@ -83,7 +83,7 @@ test("existing V4 storage receives the role template once without resurrecting a
   const legacy = createResumeDocumentSeed();
   const withoutRevision = { ...legacy, templateRevision: undefined, roleProfiles: legacy.roleProfiles.map((profile) => ({ ...profile, customSections: [] })) };
   const upgraded = parseResumeDocumentState(JSON.stringify(withoutRevision))!;
-  assert.equal(upgraded.templateRevision, 1);
+  assert.equal(upgraded.templateRevision, 2);
   assert.ok(upgraded.roleProfiles.every((profile) => profile.customSections.some((section) => section.title === "자기소개서")));
 
   const deleted = { ...upgraded, roleProfiles: upgraded.roleProfiles.map((profile) => ({ ...profile, customSections: [] })) };
@@ -214,6 +214,7 @@ test("experience brick synchronization retains section presentation metadata", (
   (experience.content as ItemsContent).careerDurationOverrideMonths = 38;
   const synced = linkExperienceBricks(state, [{
     id: "metadata-brick",
+    experienceType: "WORK",
     title: "메타데이터 보존",
     content: "동기화",
     startDate: "2024-01-01T00:00:00.000Z",
@@ -262,10 +263,10 @@ test("deleting a role resume also removes only its support versions", () => {
 });
 
 test("experience references remain local snapshots with stable source ids", () => {
-  const brick = { id: "local-1", title: "결제 안정화", content: "실패율을 낮춤", period: "2025.01 — 현재", organization: "브리프플로우", roleTitle: "백엔드", tags: [] };
+  const brick = { id: "local-1", title: "결제 안정화", content: "실패율을 낮춤", period: "2025.01 — 현재", organization: "브리프플로우", roleTitle: "백엔드", experienceType: "PROJECT", tags: [] };
   const linked = linkExperienceBricks(createResumeDocumentSeed(), [brick]);
   const refreshed = linkExperienceBricks(linked, [{ ...brick, content: "실패율을 20% 낮춤" }]);
-  const items = (refreshed.sharedSections.find((item) => item.id === "experience")!.content as ItemsContent).items;
+  const items = (refreshed.sharedSections.find((item) => item.id === "projects")!.content as ItemsContent).items;
   const snapshots = items.filter((item) => item.source?.id === brick.id);
   assert.equal(snapshots.length, 1);
   assert.equal(snapshots[0].body, "실패율을 20% 낮춤");
@@ -373,6 +374,41 @@ test("fresh documents start with service planning, full-stack, and AI engineerin
     ["AI 엔지니어", "AI 엔지니어"],
   ]);
   assert.equal(state.activeRoleProfileId, state.roleProfiles[0].id);
+});
+
+test("fresh documents keep employment and project narratives in separate common sections", () => {
+  const state = createResumeDocumentSeed();
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  const projects = state.sharedSections.find((section) => section.id === "projects")!;
+  assert.equal(experience.title, "경력");
+  assert.equal(projects.title, "프로젝트 · 경력기술");
+  assert.ok(state.sharedSections.indexOf(projects) === state.sharedSections.indexOf(experience) + 1);
+  assert.ok((experience.content as ItemsContent).items.every((item) => item.itemKind === "work"));
+  assert.ok((projects.content as ItemsContent).items.every((item) => item.itemKind === "project"));
+  for (const profile of state.roleProfiles) assert.ok(profile.sectionOrder?.includes("projects"));
+});
+
+test("stored mixed experience items are classified and moved into the project section", () => {
+  const state = createResumeDocumentSeed();
+  state.templateRevision = 1;
+  state.sharedSections = state.sharedSections.filter((section) => section.id !== "projects");
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  experience.title = "경력 · 프로젝트";
+  experience.content = { sortDirection: "latest-first", careerDurationOverrideMonths: 62, items: [
+    { id: "work", itemKind: "work", meta: "", title: "샘플테크", subtitle: "개발팀", body: "재직 경력" },
+    { id: "project", itemKind: "project", meta: "", title: "결제 전환", subtitle: "리드", body: "성과" },
+    { id: "legacy-project", meta: "", title: "검색 고도화 프로젝트", subtitle: "샘플테크", body: "성과" },
+    { id: "legacy-work", meta: "", title: "다른회사", subtitle: "플랫폼팀", body: "재직" },
+  ] };
+  for (const profile of state.roleProfiles) profile.sectionOrder = profile.sectionOrder?.filter((id) => id !== "projects");
+
+  const migrated = parseResumeDocumentState(JSON.stringify(state))!;
+  const workItems = (migrated.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items;
+  const projectItems = (migrated.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items;
+  assert.deepEqual(workItems.map((item) => [item.id, item.itemKind]), [["work", "work"], ["legacy-work", "work"]]);
+  assert.deepEqual(projectItems.map((item) => [item.id, item.itemKind]), [["project", "project"], ["legacy-project", "project"]]);
+  assert.equal((migrated.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).careerDurationOverrideMonths, 62);
+  assert.ok(migrated.roleProfiles.every((profile) => profile.sectionOrder?.includes("projects")));
 });
 
 test("an untouched generic V4 seed upgrades to the three starter roles", () => {
@@ -783,10 +819,12 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
 
   const synced = linkExperienceBricks(state, bricks);
   const items = (synced.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items;
-  assert.deepEqual(items.map((item) => item.id), ["manual", "stable-local", "stale-local", "experience-brick:brick-new"]);
+  const projectItems = (synced.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items;
+  assert.deepEqual(items.map((item) => item.id), ["manual", "stale-local"]);
   assert.equal(items[0].body, "유지");
-  assert.deepEqual(items[1], {
+  assert.deepEqual(projectItems.at(-2), {
     id: "stable-local",
+    itemKind: "project",
     meta: "legacy A",
     startMonth: "2024-03",
     endMonth: "2025-05",
@@ -797,11 +835,11 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
     body: "갱신 A",
     source: { type: "experience-brick", id: "brick-a" },
   });
-  assert.equal(items[2].body, "그대로");
-  assert.equal(items[3].subtitle, "ACTIVITY · 협업");
-  assert.equal(items[3].startMonth, "2023-01");
-  assert.equal(items[3].isCurrent, true);
-  assert.equal(items[3].endMonthEnabled, false);
+  assert.equal(items[1].body, "그대로");
+  assert.equal(projectItems.at(-1)?.subtitle, "ACTIVITY · 협업");
+  assert.equal(projectItems.at(-1)?.startMonth, "2023-01");
+  assert.equal(projectItems.at(-1)?.isCurrent, true);
+  assert.equal(projectItems.at(-1)?.endMonthEnabled, false);
   assert.deepEqual(linkExperienceBricks(synced, bricks), synced);
 });
 

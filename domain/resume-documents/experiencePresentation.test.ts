@@ -62,6 +62,15 @@ test("automatic duration counts the union of inclusive, overlapping, nested, adj
   assert.equal(calculateAutomaticCareerDurationMonths(items, "2026-08"), 5);
 });
 
+test("automatic career duration excludes project and activity records", () => {
+  const items = [
+    item("employment", { itemKind: "work", startMonth: "2020-01", endMonth: "2020-12" }),
+    item("project", { itemKind: "project", startMonth: "2019-01", endMonth: "2021-12" }),
+    item("activity", { itemKind: "activity", startMonth: "2018-01", endMonth: "2018-12" }),
+  ];
+  assert.equal(calculateAutomaticCareerDurationMonths(items, "2026-08"), 12);
+});
+
 test("current roles end at the injected current month and invalid ranges are ignored", () => {
   const items = [
     item("current", { startMonth: "2024-11", isCurrent: true }),

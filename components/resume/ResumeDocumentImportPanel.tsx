@@ -15,7 +15,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DateInput } from "@/components/ui/DateInput";
 import {
+  inspectResumeImportOverlap,
   ResumeDocumentCandidatePayloadSchema,
+  type ResumeImportOverlap,
   type ResumeDocumentApplyMode,
   type ResumeDocumentCandidatePayload,
   type ResumeDocumentImportCommand,
@@ -507,6 +509,77 @@ export function ResumeDocumentImportPanel({
   );
 }
 
+type CandidateDraft = {
+  payload: ResumeDocumentCandidatePayload;
+  targetSectionId: string;
+  applyMode: ResumeDocumentApplyMode;
+};
+
+const candidateDraft = (candidate: Candidate): CandidateDraft => ({
+  payload: candidate.payload,
+  targetSectionId: candidate.targetSectionId,
+  applyMode: candidate.applyMode,
+});
+
+async function applyAndAcknowledgeCandidate(
+  candidate: Candidate,
+  command: ResumeDocumentImportCommand,
+  onApply: (command: ResumeDocumentImportCommand) => void,
+) {
+  onApply(command);
+  await jsonRequest(`/api/resume/documents/candidates/${candidate.id}/applied`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ payloadHash: command.payloadHash, documentVersion: 5 }),
+  });
+}
+
+async function approveCandidate(
+  candidate: Candidate,
+  draft: CandidateDraft,
+  onApply: (command: ResumeDocumentImportCommand) => void,
+) {
+  if (candidate.status === "APPROVED" && !candidate.appliedAt) {
+    return applyAndAcknowledgeCandidate(candidate, {
+      candidateKey: `document:${candidate.id}`,
+      payloadHash: candidate.payloadHash,
+      targetSectionId: candidate.targetSectionId,
+      applyMode: candidate.applyMode,
+      payload: candidate.payload,
+      appliedAt: candidate.decidedAt ?? new Date().toISOString(),
+    }, onApply);
+  }
+  await jsonRequest(`/api/resume/documents/candidates/${candidate.id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      ...draft,
+      expectedUpdatedAt: candidate.updatedAt,
+    }),
+  });
+  const decision = await jsonRequest<{ command: ResumeDocumentImportCommand }>(
+    `/api/resume/documents/candidates/${candidate.id}/decision`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision: "APPROVE" }),
+    },
+  );
+  if (!decision.command) throw new Error("승인 명령을 받지 못했습니다.");
+  await applyAndAcknowledgeCandidate(candidate, decision.command, onApply);
+}
+
+async function rejectCandidate(candidate: Candidate) {
+  await jsonRequest(`/api/resume/documents/candidates/${candidate.id}/decision`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      decision: "REJECT",
+      rejectionReason: "사용자가 검토 후 제외함",
+    }),
+  });
+}
+
 function ReviewList({
   candidates,
   sections,
@@ -518,11 +591,72 @@ function ReviewList({
   onApply: (command: ResumeDocumentImportCommand) => void;
   onRefresh: () => void;
 }) {
+  const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
+  const [bulkError, setBulkError] = useState("");
   const visible = candidates.filter(
     (candidate) =>
       candidate.status === "PENDING" ||
       (candidate.status === "APPROVED" && !candidate.appliedAt),
   );
+  const pending = visible.filter((candidate) => candidate.status === "PENDING");
+  const reviewItems = visible.map((candidate) => {
+    const draft = drafts[candidate.id] ?? candidateDraft(candidate);
+    const section = sections.find((item) => item.id === draft.targetSectionId);
+    return {
+      candidate,
+      draft,
+      section,
+      overlap: section ? inspectResumeImportOverlap(section, draft.payload) : { level: "none" } as ResumeImportOverlap,
+    };
+  });
+  const groups = [...reviewItems.reduce((result, item) => {
+    const key = item.draft.targetSectionId;
+    const group = result.get(key) ?? [];
+    group.push(item);
+    result.set(key, group);
+    return result;
+  }, new Map<string, typeof reviewItems>()).entries()];
+  const safeToBulkApprove = reviewItems.filter((item) => item.overlap.level !== "possible");
+  const possibleDuplicateCount = reviewItems.length - safeToBulkApprove.length;
+  const runReview = async (
+    decision: "approve" | "reject",
+    targets: typeof reviewItems,
+    busyKey: string,
+    confirmation: string,
+  ) => {
+    if (!targets.length || !window.confirm(confirmation)) return;
+    setBulkBusy(busyKey);
+    setBulkError("");
+    let failed = 0;
+    for (const { candidate, draft } of targets) {
+      try {
+        if (decision === "approve") {
+          await approveCandidate(candidate, draft, onApply);
+        } else {
+          await rejectCandidate(candidate);
+        }
+      } catch {
+        failed += 1;
+      }
+    }
+    setBulkBusy(null);
+    if (failed > 0) setBulkError(`${failed}개 항목을 처리하지 못했습니다. 남은 항목을 확인한 뒤 다시 시도해 주세요.`);
+    onRefresh();
+  };
+  const bulkReview = async (decision: "approve" | "reject") => {
+    const targets = decision === "approve"
+      ? safeToBulkApprove
+      : reviewItems.filter(({ candidate }) => candidate.status === "PENDING");
+    await runReview(
+      decision,
+      targets,
+      `all-${decision}`,
+      decision === "approve"
+        ? `중복 가능성을 제외한 후보 ${targets.length}개를 모두 승인하고 문서에 반영할까요?`
+        : `대기 중인 후보 ${targets.length}개를 모두 제외할까요?`,
+    );
+  };
   if (!visible.length)
     return (
       <div className="border border-primary/30 bg-primary/5 p-6 text-center">
@@ -535,22 +669,45 @@ function ReviewList({
     );
   return (
     <div>
-      <div className="mb-4">
-        <h3 className="text-lg font-extrabold">승인 대기 {visible.length}개</h3>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div><h3 className="text-lg font-extrabold">섹션별 검토 · 승인 대기 {visible.length}개</h3>
         <p className="mt-1 text-xs text-muted-foreground">
           추천 섹션과 현재 내용을 비교하고, 필요하면 반영할 섹션을 바꾼 뒤 항목별로 결정하세요.
-        </p>
+        </p></div>
+        <div className="flex flex-wrap gap-2">
+          <button className="h-10 border border-border px-4 text-xs font-bold disabled:opacity-50" disabled={bulkBusy !== null || pending.length === 0} onClick={() => void bulkReview("reject")}>전체 제외{pending.length > 0 ? ` (${pending.length})` : ""}</button>
+          <button className="h-10 bg-primary px-4 text-xs font-bold text-primary-foreground disabled:opacity-50" disabled={bulkBusy !== null || safeToBulkApprove.length === 0} onClick={() => void bulkReview("approve")}>{bulkBusy === "all-approve" ? "전체 반영 중…" : `전체 승인·반영 (${safeToBulkApprove.length})`}</button>
+        </div>
       </div>
+      {possibleDuplicateCount > 0 && <p className="mb-4 border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">중복 가능성 후보 {possibleDuplicateCount}개는 전체 승인에서 제외했습니다. 기존 내용과 비교해 개별 확인해 주세요.</p>}
+      {bulkError && <p className="mb-4 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{bulkError}</p>}
       <div className="grid gap-4">
-        {visible.map((candidate) => (
-          <CandidateCard
-            candidate={candidate}
-            key={candidate.id}
-            onApply={onApply}
-            onRefresh={onRefresh}
-            sections={sections}
-          />
-        ))}
+        {groups.map(([sectionId, items]) => {
+          const sectionTitle = items[0]?.section?.title ?? "알 수 없는 섹션";
+          const safeItems = items.filter((item) => item.overlap.level !== "possible");
+          const pendingItems = items.filter(({ candidate }) => candidate.status === "PENDING");
+          return <section className="border-2 border-border bg-muted/10 p-3 sm:p-4" key={sectionId}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div><p className="text-[10px] font-extrabold tracking-widest text-primary">한 섹션으로 모은 제안</p><h4 className="mt-1 font-extrabold">{sectionTitle} · {items.length}개</h4></div>
+              <div className="flex gap-2">
+                <button className="h-9 border border-border px-3 text-[11px] font-bold disabled:opacity-50" disabled={bulkBusy !== null || pendingItems.length === 0} onClick={() => void runReview("reject", pendingItems, `${sectionId}-reject`, `${sectionTitle} 후보 ${pendingItems.length}개를 모두 제외할까요?`)}>섹션 전체 제외</button>
+                <button className="h-9 bg-foreground px-3 text-[11px] font-bold text-background disabled:opacity-50" disabled={bulkBusy !== null || safeItems.length === 0} onClick={() => void runReview("approve", safeItems, `${sectionId}-approve`, `${sectionTitle} 후보 ${safeItems.length}개를 승인하고 반영할까요?`)}>{bulkBusy === `${sectionId}-approve` ? "반영 중…" : `섹션 승인 (${safeItems.length})`}</button>
+              </div>
+            </div>
+            <div className="grid gap-3">
+              {items.map(({ candidate, draft, overlap }) => <CandidateCard
+                candidate={candidate}
+                draft={draft}
+                key={candidate.id}
+                onApply={onApply}
+                onDraftChange={(nextDraft) => setDrafts((current) => ({ ...current, [candidate.id]: nextDraft }))}
+                onRefresh={onRefresh}
+                overlap={overlap}
+                sections={sections}
+              />)}
+            </div>
+          </section>;
+        })}
       </div>
     </div>
   );
@@ -558,20 +715,22 @@ function ReviewList({
 
 function CandidateCard({
   candidate,
+  draft,
   sections,
   onApply,
+  onDraftChange,
   onRefresh,
+  overlap,
 }: {
   candidate: Candidate;
+  draft: CandidateDraft;
   sections: ResumeSection[];
   onApply: (command: ResumeDocumentImportCommand) => void;
+  onDraftChange: (draft: CandidateDraft) => void;
   onRefresh: () => void;
+  overlap: ResumeImportOverlap;
 }) {
-  const [payload, setPayload] = useState(candidate.payload);
-  const [targetSectionId, setTargetSectionId] = useState(
-    candidate.targetSectionId,
-  );
-  const [applyMode, setApplyMode] = useState(candidate.applyMode);
+  const { payload, targetSectionId, applyMode } = draft;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const compatible = useMemo(
@@ -587,59 +746,11 @@ function CandidateCard({
   const approvedUnapplied =
     candidate.status === "APPROVED" && !candidate.appliedAt;
 
-  const applyAndAcknowledge = async (command: ResumeDocumentImportCommand) => {
-    onApply(command);
-    await jsonRequest(
-      `/api/resume/documents/candidates/${candidate.id}/applied`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          payloadHash: command.payloadHash,
-          documentVersion: 5,
-        }),
-      },
-    );
-  };
-
   const approve = async () => {
     setBusy(true);
     setError("");
     try {
-      if (approvedUnapplied) {
-        await applyAndAcknowledge({
-          candidateKey: `document:${candidate.id}`,
-          payloadHash: candidate.payloadHash,
-          targetSectionId: candidate.targetSectionId,
-          applyMode: candidate.applyMode,
-          payload: candidate.payload,
-          appliedAt: candidate.decidedAt ?? new Date().toISOString(),
-        });
-      } else {
-        const patch = await jsonRequest<{ candidate: Candidate }>(
-          `/api/resume/documents/candidates/${candidate.id}`,
-          {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              payload,
-              targetSectionId,
-              applyMode,
-              expectedUpdatedAt: candidate.updatedAt,
-            }),
-          },
-        );
-        const decision = await jsonRequest<{
-          command: ResumeDocumentImportCommand;
-        }>(`/api/resume/documents/candidates/${candidate.id}/decision`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ decision: "APPROVE" }),
-        });
-        if (!decision.command) throw new Error("승인 명령을 받지 못했습니다.");
-        await applyAndAcknowledge(decision.command);
-        void patch;
-      }
+      await approveCandidate(candidate, draft, onApply);
       onRefresh();
     } catch (cause) {
       setError(
@@ -657,17 +768,7 @@ function CandidateCard({
     setBusy(true);
     setError("");
     try {
-      await jsonRequest(
-        `/api/resume/documents/candidates/${candidate.id}/decision`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            decision: "REJECT",
-            rejectionReason: "사용자가 검토 후 제외함",
-          }),
-        },
-      );
+      await rejectCandidate(candidate);
       onRefresh();
     } catch (cause) {
       setError(
@@ -687,12 +788,12 @@ function CandidateCard({
           </p>
           <h4 className="mt-1 font-extrabold">{payloadTitle(payload)}</h4>
         </div>
-        <span
-          className={`px-2 py-1 text-[10px] font-extrabold ${candidate.confidence >= 0.8 ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-800"}`}
-        >
-          {candidate.confidence >= 0.8 ? "근거 명확" : "확인 필요"}
-        </span>
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {overlap.level !== "none" && <span className={`px-2 py-1 text-[10px] font-extrabold ${overlap.level === "exact" ? "bg-slate-100 text-slate-700" : "bg-amber-100 text-amber-900"}`}>{overlap.level === "exact" ? "이미 있음 · 중복 추가 안 함" : "중복 가능성 · 개별 확인"}</span>}
+          <span className={`px-2 py-1 text-[10px] font-extrabold ${candidate.confidence >= 0.8 ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-800"}`}>{candidate.confidence >= 0.8 ? "근거 명확" : "확인 필요"}</span>
+        </div>
       </div>
+      {overlap.message && <p className={`mt-3 border p-3 text-[11px] font-bold leading-5 ${overlap.level === "possible" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>{overlap.message}</p>}
       {candidate.warnings.length > 0 && (
         <ul className="mt-3 border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900">
           {candidate.warnings.map((warning) => (
@@ -707,7 +808,7 @@ function CandidateCard({
             className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground"
             disabled={approvedUnapplied}
             value={targetSectionId}
-            onChange={(event) => setTargetSectionId(event.target.value)}
+            onChange={(event) => onDraftChange({ ...draft, targetSectionId: event.target.value })}
           >
             {compatible.map((section) => (
               <option key={section.id} value={section.id}>
@@ -726,7 +827,7 @@ function CandidateCard({
             disabled={approvedUnapplied}
             value={applyMode}
             onChange={(event) =>
-              setApplyMode(event.target.value as ResumeDocumentApplyMode)
+              onDraftChange({ ...draft, applyMode: event.target.value as ResumeDocumentApplyMode })
             }
           >
             {applyModeOptions(payload).map((option) => (
@@ -751,7 +852,7 @@ function CandidateCard({
         <PayloadEditor
           disabled={approvedUnapplied}
           payload={payload}
-          onChange={setPayload}
+          onChange={(payload) => onDraftChange({ ...draft, payload })}
         />
       </div>
       <details className="mt-4 border border-border bg-muted/20 p-3">
@@ -835,7 +936,7 @@ function sectionPreview(section: ResumeSection) {
 }
 
 function payloadLabel(payload: ResumeDocumentCandidatePayload) {
-  if (payload.type === "identity-field") return "인적사항";
+  if (payload.type === "identity-field" || payload.type === "identity") return "인적사항";
   if (payload.type === "eligibility-field") return "민감 정보 · 개별 승인";
   if (payload.type === "narrative") return "소개";
   if (payload.type === "tags") return "핵심 역량";
@@ -853,6 +954,7 @@ function payloadLabel(payload: ResumeDocumentCandidatePayload) {
 }
 
 function payloadTitle(payload: ResumeDocumentCandidatePayload) {
+  if (payload.type === "identity") return Object.values(payload.fields).filter(Boolean).slice(0, 3).join(" · ");
   if (payload.type === "identity-field" || payload.type === "eligibility-field")
     return payload.value;
   if (payload.type === "narrative") return payload.body.slice(0, 80);
@@ -893,6 +995,36 @@ function PayloadEditor({
 }) {
   const inputClass =
     "h-10 w-full border border-border bg-background px-3 text-sm font-normal text-foreground disabled:bg-muted";
+  if (payload.type === "identity") {
+    const labels = {
+      name: "이름",
+      email: "이메일",
+      phone: "전화번호",
+      location: "주소·지역",
+      birthDate: "생년월일",
+      gender: "성별",
+      link: "링크",
+    } as const;
+    const entries = Object.entries(payload.fields) as Array<[keyof typeof labels, string]>;
+    return <div className="grid gap-3 sm:grid-cols-2">
+      {entries.map(([field, value]) => field === "birthDate"
+        ? <DateInput
+            disabled={disabled}
+            key={field}
+            label={labels[field]}
+            value={value}
+            min="1900-01-01"
+            max={new Date().toISOString().slice(0, 10)}
+            reverseYears
+            quickActions={[]}
+            onChange={(nextValue) => onChange({ ...payload, fields: { ...payload.fields, [field]: nextValue } })}
+          />
+        : <label className="grid gap-1.5 text-xs font-bold text-muted-foreground" key={field}>
+            {labels[field]}
+            <input className={inputClass} disabled={disabled} value={value} onChange={(event) => onChange({ ...payload, fields: { ...payload.fields, [field]: event.target.value } })} />
+          </label>)}
+    </div>;
+  }
   if (payload.type === "identity-field") {
     if (payload.field === "birthDate")
       return (
@@ -973,7 +1105,25 @@ function PayloadEditor({
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        제목
+        항목 유형
+        <select
+          className={inputClass}
+          disabled={disabled}
+          value={payload.itemKind}
+          onChange={(event) => onChange({ ...payload, itemKind: event.target.value as typeof payload.itemKind })}
+        >
+          <option value="work">직장 경력</option>
+          <option value="project">프로젝트 · 경력기술</option>
+          <option value="education">학력</option>
+          <option value="credential">자격</option>
+          <option value="award">수상</option>
+          <option value="activity">대외활동 · 인턴</option>
+          <option value="language">어학</option>
+          <option value="training">교육</option>
+        </select>
+      </label>
+      <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
+        {payload.itemKind === "work" ? "회사명" : payload.itemKind === "project" ? "프로젝트명" : "제목"}
         <input
           className={inputClass}
           disabled={disabled}
@@ -984,7 +1134,7 @@ function PayloadEditor({
         />
       </label>
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        기관·전공
+        {payload.itemKind === "work" ? "부서·직책" : payload.itemKind === "project" ? "역할·기술" : "기관·전공"}
         <input
           className={inputClass}
           disabled={disabled}
@@ -1019,6 +1169,8 @@ function PayloadEditor({
         />
         <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={endMonthEnabled} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, endMonth: event.target.checked ? payload.endMonth || payload.startMonth || currentLocalMonth() : "", isCurrent: event.target.checked ? false : payload.isCurrent })} /> 종료연월 있음</span>
       </label>
+      {(payload.itemKind === "work" || payload.itemKind === "project") && <label className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={payload.isCurrent} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, isCurrent: event.target.checked, endMonth: event.target.checked ? "" : payload.endMonth })} /> {payload.itemKind === "work" ? "재직 중" : "진행 중"}</label>}
+      {payload.itemKind === "project" && <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력·회사<input className={inputClass} disabled={disabled} value={payload.relatedWorkTitle ?? ""} onChange={(event) => onChange({ ...payload, relatedWorkTitle: event.target.value })} /></label>}
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground sm:col-span-2">
         설명
         <textarea

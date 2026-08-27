@@ -40,6 +40,29 @@ const IdentityFieldPayloadSchema = z.object({
   }
 });
 
+const IdentityFieldsSchema = z.object({
+  name: z.string().trim().min(1).max(2_000).optional(),
+  email: z.string().trim().min(1).max(2_000).optional(),
+  phone: z.string().trim().min(1).max(2_000).optional(),
+  location: z.string().trim().min(1).max(2_000).optional(),
+  birthDate: z.string().trim().min(1).max(2_000).optional(),
+  gender: z.string().trim().min(1).max(2_000).optional(),
+  link: z.string().trim().min(1).max(2_000).optional(),
+}).superRefine((fields, context) => {
+  if (!Object.values(fields).some(Boolean)) {
+    context.addIssue({ code: "custom", message: "At least one identity field is required" });
+  }
+  if (fields.birthDate && !isCalendarDate(fields.birthDate)) {
+    context.addIssue({ code: "custom", path: ["birthDate"], message: "Invalid birth date" });
+  }
+  if (fields.email && !z.email().safeParse(fields.email).success) {
+    context.addIssue({ code: "custom", path: ["email"], message: "Invalid email" });
+  }
+  if (fields.link && !z.url().safeParse(fields.link).success) {
+    context.addIssue({ code: "custom", path: ["link"], message: "Invalid link" });
+  }
+});
+
 const OptionalMonthSchema = z.string().trim().refine(
   (value) => value === "" || MONTH_PATTERN.test(value),
   "Invalid month",
@@ -47,6 +70,10 @@ const OptionalMonthSchema = z.string().trim().refine(
 
 export const ResumeDocumentCandidatePayloadSchema = z.union([
   IdentityFieldPayloadSchema,
+  z.object({
+    type: z.literal("identity"),
+    fields: IdentityFieldsSchema,
+  }),
   z.object({
     type: z.literal("narrative"),
     body: z.string().trim().min(1).max(20_000),
@@ -65,6 +92,7 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
     ]),
     title: z.string().trim().min(1).max(500),
     subtitle: z.string().trim().max(500).default(""),
+    relatedWorkTitle: z.string().trim().max(500).optional(),
     body: z.string().trim().max(10_000).default(""),
     startMonth: OptionalMonthSchema,
     endMonth: OptionalMonthSchema,
@@ -110,7 +138,7 @@ export function isResumeDocumentApplyModeAllowed(
 }
 
 export const resumeDocumentPayloadSectionKind = (payload: ResumeDocumentCandidatePayload): SectionKind => {
-  if (payload.type === "identity-field") return "identity";
+  if (payload.type === "identity-field" || payload.type === "identity") return "identity";
   if (payload.type === "eligibility-field") return "eligibility";
   if (payload.type === "narrative") return "narrative";
   if (payload.type === "tags") return "tags";
@@ -126,8 +154,84 @@ const STARTER_PLACEHOLDERS = new Set([
 const isEmptyValue = (value: string | undefined) => !value?.trim() || STARTER_PLACEHOLDERS.has(value.trim());
 const normalizeKey = (value: string | undefined) => value?.trim().toLocaleLowerCase("ko-KR").replace(/\s+/g, " ") ?? "";
 
+const identityEntries = (payload: Extract<ResumeDocumentCandidatePayload, { type: "identity" | "identity-field" }>) =>
+  payload.type === "identity-field"
+    ? [[payload.field, payload.value] as const]
+    : Object.entries(payload.fields) as Array<[keyof typeof payload.fields, string]>;
+
 function itemKey(item: Pick<ItemContent, "title" | "subtitle" | "startMonth" | "endMonth">) {
   return [item.title, item.subtitle, item.startMonth, item.endMonth].map(normalizeKey).join("|");
+}
+
+function textSimilarity(left: string | undefined, right: string | undefined) {
+  const tokens = (value: string | undefined) => new Set(
+    normalizeKey(value).split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 2),
+  );
+  const a = tokens(left);
+  const b = tokens(right);
+  if (a.size < 2 || b.size < 2) return 0;
+  const intersection = [...a].filter((token) => b.has(token)).length;
+  return intersection / (a.size + b.size - intersection);
+}
+
+export type ResumeImportOverlap = {
+  level: "none" | "exact" | "possible";
+  message?: string;
+};
+
+export function inspectResumeImportOverlap(
+  section: ResumeSection,
+  payload: ResumeDocumentCandidatePayload,
+): ResumeImportOverlap {
+  if (section.kind !== resumeDocumentPayloadSectionKind(payload)) return { level: "none" };
+  if (payload.type === "identity-field" || payload.type === "identity") {
+    const content = section.content as IdentityContent;
+    const entries = identityEntries(payload);
+    const matches = entries.filter(([field, value]) => field === "link"
+      ? content.links.some((link) => normalizeKey(link) === normalizeKey(value))
+      : normalizeKey(content[field]) === normalizeKey(value));
+    return matches.length === entries.length
+      ? { level: "exact", message: "인적사항에 같은 값이 이미 있습니다." }
+      : { level: "none" };
+  }
+  if (payload.type === "eligibility-field") {
+    const content = section.content as EligibilityContent;
+    return normalizeKey(content[payload.field]) === normalizeKey(payload.value)
+      ? { level: "exact", message: "같은 값이 이미 있습니다." }
+      : { level: "none" };
+  }
+  if (payload.type === "tags") {
+    const current = new Set((section.content as TagsContent).items.map(normalizeKey));
+    return payload.values.every((value) => current.has(normalizeKey(value)))
+      ? { level: "exact", message: "제안된 역량이 모두 이미 있습니다." }
+      : { level: "none" };
+  }
+  if (payload.type === "narrative") {
+    const existing = (section.content as NarrativeContent).body;
+    const currentKey = normalizeKey(existing);
+    const payloadKey = normalizeKey(payload.body);
+    if (currentKey && payloadKey && (currentKey.includes(payloadKey) || payloadKey.includes(currentKey))) {
+      return { level: "exact", message: "같은 소개 내용이 이미 있습니다." };
+    }
+    return textSimilarity(existing, payload.body) >= 0.72
+      ? { level: "possible", message: "기존 소개와 내용이 많이 겹칩니다. 개별 확인이 필요합니다." }
+      : { level: "none" };
+  }
+  const items = (section.content as ItemsContent).items;
+  if (items.some((item) => itemKey(item) === itemKey(payload))) {
+    return { level: "exact", message: "같은 제목·소속·기간의 항목이 이미 있습니다." };
+  }
+  const possible = items.some((item) => {
+    const sameTitle = normalizeKey(item.title) === normalizeKey(payload.title);
+    const samePeriod = normalizeKey(item.startMonth) === normalizeKey(payload.startMonth)
+      && normalizeKey(item.endMonth) === normalizeKey(payload.endMonth);
+    const combinedExisting = [item.title, item.subtitle, item.body].join(" ");
+    const combinedCandidate = [payload.title, payload.subtitle, payload.body].join(" ");
+    return (sameTitle && samePeriod) || textSimilarity(combinedExisting, combinedCandidate) >= 0.72;
+  });
+  return possible
+    ? { level: "possible", message: "기존 항목과 제목·기간 또는 내용이 유사합니다. 개별 확인이 필요합니다." }
+    : { level: "none" };
 }
 
 function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "item" }>, candidateKey: string): ItemContent {
@@ -136,6 +240,7 @@ function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "i
   const end = payload.isCurrent ? "현재" : endMonth;
   return {
     id: `import-${candidateKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
+    itemKind: payload.itemKind,
     meta: start && end ? `${start.replace("-", ".")} — ${end.replace("-", ".")}` : start || end,
     startMonth: payload.startMonth,
     endMonth,
@@ -143,6 +248,7 @@ function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "i
     isCurrent: payload.isCurrent,
     title: payload.title,
     subtitle: payload.subtitle,
+    relatedWorkTitle: payload.relatedWorkTitle,
     body: payload.body,
   };
 }
@@ -152,22 +258,21 @@ function applyPayloadToSection(
   command: ResumeDocumentImportCommand,
   payload: ResumeDocumentCandidatePayload,
 ) {
-  if (payload.type === "identity-field") {
+  if (payload.type === "identity-field" || payload.type === "identity") {
     const content = current.content as IdentityContent;
-    if (payload.field === "link") {
-      if (!isResumeDocumentApplyModeAllowed(payload, command.applyMode)) throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-      const existingLinks = content.links.length === 1 && content.links[0] === "https://portfolio.example.com" ? [] : content.links;
-      const links = command.applyMode === "REPLACE"
-        ? [payload.value]
-        : [...existingLinks, payload.value].filter((value, index, values) => values.indexOf(value) === index);
-      return { ...current, content: { ...content, links } };
-    }
-    const existing = content[payload.field];
-    if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(existing)) return current;
     if (!(["FILL_EMPTY", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
       throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
     }
-    return { ...current, content: { ...content, [payload.field]: payload.value } };
+    const next = identityEntries(payload).reduce<IdentityContent>((result, [field, value]) => {
+      if (field === "link") {
+        const existingLinks = result.links.length === 1 && result.links[0] === "https://portfolio.example.com" ? [] : result.links;
+        if (command.applyMode === "FILL_EMPTY" && existingLinks.length > 0) return result;
+        return { ...result, links: command.applyMode === "REPLACE" ? [value] : [value] };
+      }
+      if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(result[field])) return result;
+      return { ...result, [field]: value };
+    }, content);
+    return { ...current, content: next };
   }
   if (payload.type === "eligibility-field") {
     const content = current.content as EligibilityContent;
@@ -182,6 +287,7 @@ function applyPayloadToSection(
     const content = current.content as NarrativeContent;
     if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(content.body)) return current;
     if (command.applyMode === "MERGE" && !isEmptyValue(content.body)) {
+      if (inspectResumeImportOverlap(current, payload).level === "exact") return current;
       return { ...current, content: { body: `${content.body.trim()}\n\n${payload.body}` } };
     }
     if (!(["FILL_EMPTY", "REPLACE", "MERGE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
@@ -215,7 +321,15 @@ function applyPayloadToSection(
   if (command.applyMode !== "APPEND") throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
   const content = current.content as ItemsContent;
   const nextItem = commandItem(payload, command.candidateKey);
-  const starterTitles = new Set(["학교 · 과정", "자격 또는 수상명"]);
+  const starterTitles = new Set([
+    "회사명",
+    "이전 회사명",
+    "프로젝트명",
+    "프로젝트 또는 업무명",
+    "이전 프로젝트 또는 업무명",
+    "학교 · 과정",
+    "자격 또는 수상명",
+  ]);
   const existingItems = content.items.filter((item) => !starterTitles.has(item.title));
   const duplicate = existingItems.some((item) => itemKey(item) === itemKey(nextItem));
   return duplicate && existingItems.length === content.items.length

@@ -24,8 +24,10 @@ export type NarrativeBlockType = "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 export type NarrativeRun = { text: string; bold?: boolean };
 export type NarrativeBlock = { id: string; type: NarrativeBlockType; runs: NarrativeRun[] };
 export type NarrativeContent = { body: string; blocks?: NarrativeBlock[] };
+export type ResumeItemKind = "work" | "project" | "education" | "credential" | "award" | "activity" | "language" | "training";
 export type ItemContent = {
   id: string;
+  itemKind?: ResumeItemKind;
   meta: string;
   startMonth?: string;
   endMonth?: string;
@@ -33,6 +35,7 @@ export type ItemContent = {
   isCurrent?: boolean;
   title: string;
   subtitle: string;
+  relatedWorkTitle?: string;
   body: string;
   source?: { type: "experience-brick"; id: string };
 };
@@ -90,7 +93,7 @@ export type ResumeImportLedgerEntry = {
 };
 export type ResumeDocumentState = {
   version: 5;
-  templateRevision?: 1;
+  templateRevision?: 1 | 2;
   sharedSections: ResumeSection[];
   roleProfiles: ResumeRoleProfile[];
   variants: ResumeVariant[];
@@ -156,7 +159,7 @@ const roleCoverLetterSection = (profileId: string): ResumeSection => ({
   custom: true,
 });
 
-const builtInSectionIds = ["profile", "summary", "experience", "skills", "education", "credentials"];
+const builtInSectionIds = ["profile", "summary", "experience", "projects", "skills", "education", "credentials"];
 const defaultRoleSectionOrder = (profileId: string) => [...builtInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
 
 const starterRoleProfiles = (): ResumeRoleProfile[] => [
@@ -187,13 +190,16 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
   const roleProfiles = starterRoleProfiles();
   return {
     version: 5,
-    templateRevision: 1,
+    templateRevision: 2,
     sharedSections: [
       { id: "profile", title: "인적사항", kind: "identity", content: { name: "이름", email: "email@example.com", phone: "", location: "", gender: "", birthDate: "", links: ["https://portfolio.example.com"] } },
       { id: "summary", title: "소개", kind: "narrative", content: { body: "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요." } },
-      { id: "experience", title: "경력 · 프로젝트", kind: "items", content: { sortDirection: "latest-first", items: [
-        { id: newItemId(), meta: "2024.01 — 현재", title: "프로젝트 또는 업무명", subtitle: "회사 · 팀", body: "맡은 역할, 해결한 문제, 결과를 적어주세요." },
-        { id: newItemId(), meta: "2022.01 — 2023.12", title: "이전 프로젝트 또는 업무명", subtitle: "회사 · 팀", body: "직군에 따라 포함하거나 강조점을 바꿀 수 있는 경험입니다." },
+      { id: "experience", title: "경력", kind: "items", content: { sortDirection: "latest-first", items: [
+        { id: newItemId(), itemKind: "work", meta: "2024.01 — 현재", title: "회사명", subtitle: "부서 · 직책", body: "재직 기간의 역할과 핵심 책임을 간결하게 적어주세요." },
+        { id: newItemId(), itemKind: "work", meta: "2022.01 — 2023.12", title: "이전 회사명", subtitle: "부서 · 직책", body: "이전 직장의 역할과 핵심 책임을 간결하게 적어주세요." },
+      ] } },
+      { id: "projects", title: "프로젝트 · 경력기술", kind: "items", content: { sortDirection: "latest-first", items: [
+        { id: newItemId(), itemKind: "project", meta: "2024.01 — 현재", title: "프로젝트명", subtitle: "역할 · 사용 기술", relatedWorkTitle: "회사명 또는 연결할 경력", body: "해결한 문제, 맡은 역할, 실행 내용과 결과를 적어주세요." },
       ] } },
       { id: "skills", title: "핵심 역량", kind: "tags", content: { items: ["문제 해결", "협업", "제품 개발"] } },
       { id: "education", title: "학력", kind: "items", content: { items: [{ id: newItemId(), meta: "졸업 연도", title: "학교 · 과정", subtitle: "전공", body: "추가 내용" }] } },
@@ -529,10 +535,20 @@ export function deleteSupportVariant(state: ResumeDocumentState, variantId: stri
 export function linkExperienceBricks(state: ResumeDocumentState, bricks: ExperienceBrickReference[]) {
   const bySourceId = new Map<string, ExperienceBrickReference>();
   for (const brick of bricks) if (brick.id && !bySourceId.has(brick.id)) bySourceId.set(brick.id, brick);
+  const synchronizedSectionIds = new Set(["experience", "projects", "education", "credentials"]);
+  const existingBySourceId = new Map<string, ItemContent>();
+  for (const section of state.sharedSections) {
+    if (!synchronizedSectionIds.has(section.id) || !isItemsContent(section.content)) continue;
+    for (const item of section.content.items) {
+      const sourceId = item.source?.type === "experience-brick" ? item.source.id : null;
+      if (sourceId && !existingBySourceId.has(sourceId)) existingBySourceId.set(sourceId, item);
+    }
+  }
+  const refreshedSourceIds = new Set<string>();
   return {
     ...state,
     sharedSections: state.sharedSections.map((section) => {
-      if (section.id !== "experience" || !isItemsContent(section.content)) return section;
+      if (!synchronizedSectionIds.has(section.id) || !isItemsContent(section.content)) return section;
       const seen = new Set<string>();
       const existing = section.content.items.flatMap((item) => {
         const sourceId = item.source?.type === "experience-brick" ? item.source.id : null;
@@ -540,14 +556,35 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
         if (seen.has(sourceId)) return [];
         seen.add(sourceId);
         const refreshed = bySourceId.get(sourceId);
-        return [refreshed ? brickToItem(refreshed, item.id) : item];
+        if (!refreshed) return [item];
+        if (brickTargetSectionId(refreshed) !== section.id) return [];
+        refreshedSourceIds.add(sourceId);
+        return [brickToItem(refreshed, item.id)];
       });
       for (const brick of bySourceId.values()) {
-        if (!seen.has(brick.id)) existing.push(brickToItem(brick));
+        if (brickTargetSectionId(brick) !== section.id || refreshedSourceIds.has(brick.id)) continue;
+        refreshedSourceIds.add(brick.id);
+        existing.push(brickToItem(brick, existingBySourceId.get(brick.id)?.id));
       }
       return { ...section, content: { ...section.content, items: existing } };
     }),
   };
+}
+
+function brickTargetSectionId(brick: ExperienceBrickReference) {
+  if (brick.experienceType === "WORK") return "experience";
+  if (brick.experienceType === "EDUCATION") return "education";
+  if (brick.experienceType === "AWARD") return "credentials";
+  return "projects";
+}
+
+function brickItemKind(brick: ExperienceBrickReference): ResumeItemKind {
+  if (brick.experienceType === "WORK") return "work";
+  if (brick.experienceType === "PROJECT") return "project";
+  if (brick.experienceType === "EDUCATION") return "education";
+  if (brick.experienceType === "ACTIVITY") return "activity";
+  if (brick.experienceType === "AWARD") return "award";
+  return "project";
 }
 
 function dateToUtcMonth(value?: string | Date | null) {
@@ -561,6 +598,7 @@ function brickToItem(brick: ExperienceBrickReference, existingId?: string): Item
   const endMonth = dateToUtcMonth(brick.endDate);
   return {
     id: existingId ?? `experience-brick:${brick.id}`,
+    itemKind: brickItemKind(brick),
     meta: brick.period?.trim() || "기간 미입력",
     startMonth: dateToUtcMonth(brick.startDate),
     endMonth,
@@ -940,14 +978,112 @@ function upgradeGenericRole<T extends MigratableState>(state: T): T {
   } as T;
 }
 
+function isLegacyProjectItem(item: ItemContent) {
+  if (item.itemKind) return item.itemKind === "project" || item.itemKind === "activity";
+  return /(?:프로젝트|project)/i.test(item.title);
+}
+
+function splitLegacyExperienceContent(content: ItemsContent) {
+  const work: ItemContent[] = [];
+  const projects: ItemContent[] = [];
+  for (const item of content.items) {
+    if (isLegacyProjectItem(item)) {
+      projects.push({ ...item, itemKind: item.itemKind === "activity" ? "activity" : "project" });
+    } else {
+      work.push({ ...item, itemKind: "work" });
+    }
+  }
+  return {
+    work: { ...content, items: work },
+    projects: { sortDirection: content.sortDirection, items: projects } satisfies ItemsContent,
+    projectIds: new Set(projects.map((item) => item.id)),
+  };
+}
+
+function splitLegacyExperienceSetting(
+  settings: Record<string, SectionSetting>,
+  sharedProjectIds: ReadonlySet<string>,
+) {
+  const source = settings.experience;
+  if (!source || settings.projects) return settings;
+  const experience = { ...source };
+  const projects: SectionSetting = {
+    mode: source.mode,
+    layout: source.layout,
+    pageBreakBefore: source.pageBreakBefore,
+  };
+  const projectIds = new Set(sharedProjectIds);
+  if (source.content && isItemsContent(source.content)) {
+    const split = splitLegacyExperienceContent(source.content);
+    experience.content = split.work;
+    projects.content = split.projects;
+    for (const id of split.projectIds) projectIds.add(id);
+  }
+  if (source.itemSettings) {
+    const experienceItems: Record<string, ItemSetting> = {};
+    const projectItems: Record<string, ItemSetting> = {};
+    for (const [id, setting] of Object.entries(source.itemSettings)) {
+      const project = setting.content ? isLegacyProjectItem(setting.content) : projectIds.has(id);
+      (project ? projectItems : experienceItems)[id] = setting.content
+        ? { ...setting, content: { ...setting.content, itemKind: project ? setting.content.itemKind === "activity" ? "activity" : "project" : "work" } }
+        : setting;
+      if (project) projectIds.add(id);
+    }
+    experience.itemSettings = experienceItems;
+    projects.itemSettings = projectItems;
+  }
+  if (source.itemOrder) {
+    experience.itemOrder = source.itemOrder.filter((id) => !projectIds.has(id));
+    projects.itemOrder = source.itemOrder.filter((id) => projectIds.has(id));
+  }
+  return { ...settings, experience, projects };
+}
+
+function insertProjectsAfterExperience(order?: string[]) {
+  return order ? insertSectionId(order, "projects", "experience") : order;
+}
+
 function upgradeRoleTemplates<T extends MigratableState>(state: T): T {
-  if (state.templateRevision === 1) return state;
+  if (state.templateRevision === 2) return state;
+  const experienceIndex = state.sharedSections.findIndex((section) => section.id === "experience" && isItemsContent(section.content));
+  const existingProjects = state.sharedSections.find((section) => section.id === "projects");
+  let sharedSections = state.sharedSections;
+  let projectIds = new Set<string>();
+  if (experienceIndex >= 0 && !existingProjects) {
+    const experience = state.sharedSections[experienceIndex];
+    const split = splitLegacyExperienceContent(experience.content as ItemsContent);
+    projectIds = split.projectIds;
+    sharedSections = [...state.sharedSections];
+    sharedSections.splice(
+      experienceIndex,
+      1,
+      { ...experience, title: experience.title === "경력 · 프로젝트" ? "경력" : experience.title, content: split.work },
+      {
+        id: "projects",
+        title: "프로젝트 · 경력기술",
+        kind: "items",
+        content: split.projects,
+      },
+    );
+  }
+  const addCoverLetter = state.templateRevision === undefined;
   return {
     ...state,
-    templateRevision: 1,
-    roleProfiles: state.roleProfiles.map((profile) => profile.customSections.some((section) => section.kind === "narrative" && section.title === "자기소개서")
-      ? profile
-      : { ...profile, customSections: [...profile.customSections, roleCoverLetterSection(profile.id)] }),
+    templateRevision: 2,
+    sharedSections,
+    roleProfiles: state.roleProfiles.map((profile) => ({
+      ...profile,
+      settings: splitLegacyExperienceSetting(profile.settings, projectIds),
+      sectionOrder: insertProjectsAfterExperience(profile.sectionOrder),
+      customSections: !addCoverLetter || profile.customSections.some((section) => section.kind === "narrative" && section.title === "자기소개서")
+        ? profile.customSections
+        : [...profile.customSections, roleCoverLetterSection(profile.id)],
+    })),
+    variants: state.variants.map((variant) => ({
+      ...variant,
+      settings: splitLegacyExperienceSetting(variant.settings, projectIds),
+      sectionOrder: insertProjectsAfterExperience(variant.sectionOrder),
+    })),
   } as T;
 }
 

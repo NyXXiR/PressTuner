@@ -58,6 +58,8 @@ npm run lint
 npm run build
 ```
 
+`npm run build` loads ignored environment files from the current worktree or canonical PressTuner checkout before invoking Next.js. This keeps credential-dependent route collection working in Git worktrees without copying secrets. `npm run build:worktree` remains as an explicit alias for the same behavior.
+
 If Prisma or billing behavior changed, also mention scheduler follow-up even if you did not edit that repo in the same task.
 
 ## Avoid

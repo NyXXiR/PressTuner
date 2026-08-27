@@ -267,3 +267,18 @@ test("PDF imports stay review-first and recover approved but unapplied candidate
   assert.match(decisionRoute, /decideResumeDocumentCandidate/);
   assert.match(appliedRoute, /acknowledgeResumeDocumentCandidateApplied/);
 });
+
+test("PDF import review supports one-click bulk approval and rejection", async () => {
+  const panel = await readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8");
+  assert.match(panel, /전체 승인·반영/);
+  assert.match(panel, /전체 제외/);
+  assert.match(panel, /bulkReview/);
+});
+
+test("PDF import review groups candidates by section and isolates possible duplicates from bulk approval", async () => {
+  const panel = await readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8");
+  assert.match(panel, /섹션별 검토/);
+  assert.match(panel, /중복 가능성/);
+  assert.match(panel, /개별 확인/);
+  assert.match(panel, /inspectResumeImportOverlap/);
+});
