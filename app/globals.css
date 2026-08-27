@@ -528,7 +528,7 @@ html {
 
 @page resume-document {
   size: A4;
-  margin: 0;
+  margin: 16mm 15mm;
 }
 
 .resume-page-guides {
@@ -550,17 +550,33 @@ html {
 }
 
 .resume-document-section[data-section-kind="identity"],
+.resume-tags,
 .resume-item {
-  break-inside: avoid;
+  break-inside: avoid-page;
   page-break-inside: avoid;
 }
 
 .resume-section-heading {
-  break-after: avoid;
+  break-after: avoid-page;
   page-break-after: avoid;
 }
 
-.resume-narrative {
+.resume-group-heading,
+.resume-item-header {
+  break-after: avoid-page;
+  page-break-after: avoid;
+}
+
+.resume-item-copy,
+.resume-narrative,
+.resume-narrative > * {
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+
+.resume-item-body,
+.resume-narrative > * {
   orphans: 3;
   widows: 3;
 }
@@ -698,6 +714,8 @@ html {
   body:has(.resume-document-builder) {
     background: white !important;
     page: resume-document;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body:has(.resume-document-builder) header,
@@ -721,18 +739,26 @@ html {
 
   .resume-document-builder,
   .resume-paper {
-    width: 210mm !important;
+    width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
   }
 
+  .resume-paper-inner {
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
   .resume-page-guides {
     background-image: none !important;
   }
 
-  .resume-print-sections {
+  .resume-print-sections,
+  .resume-career-detail-groups,
+  .resume-career-detail-list,
+  .resume-narrative {
     display: block !important;
   }
 
@@ -746,8 +772,37 @@ html {
     display: block !important;
   }
 
+  .resume-career-group + .resume-career-group {
+    margin-top: 5mm;
+  }
+
+  .resume-career-detail-list > .resume-item + .resume-item,
+  .resume-unresolved-detail + .resume-unresolved-detail,
   .resume-item + .resume-item {
     margin-top: 4mm;
+  }
+
+  .resume-narrative > * + * {
+    margin-top: 2mm;
+  }
+
+  /* Grid containers fragment inconsistently across print engines. Keep the
+     two-column look while allowing an oversized item body to continue. */
+  .resume-item {
+    display: block !important;
+    position: relative;
+    padding-left: 30mm;
+  }
+
+  .resume-item-period {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 26mm;
+  }
+
+  .resume-item-copy {
+    min-width: 0;
   }
 
 }

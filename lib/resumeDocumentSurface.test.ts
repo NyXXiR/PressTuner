@@ -63,6 +63,28 @@ test("resume documents exposes simplified section actions and automatic print pa
   assert.match(styles, /\.resume-page-guides/);
 });
 
+test("resume PDF keeps formal margins and natural long-content pagination on every page", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(styles, /@page resume-document\s*\{[\s\S]*?size:\s*A4;[\s\S]*?margin:\s*16mm 15mm;/);
+  assert.match(styles, /@media print\s*\{[\s\S]*?\.resume-paper-inner\s*\{[\s\S]*?padding:\s*0\s*!important/);
+  assert.match(styles, /@media print\s*\{[\s\S]*?\.resume-document-builder,[\s\S]*?\.resume-paper\s*\{[\s\S]*?width:\s*100%\s*!important/);
+  assert.match(styles, /\.resume-group-heading[\s\S]*?break-after:\s*avoid-page/);
+  assert.match(styles, /\.resume-item-header[\s\S]*?break-after:\s*avoid-page/);
+  assert.match(styles, /\.resume-item-copy[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(styles, /\.resume-item-copy[\s\S]*?word-break:\s*keep-all/);
+  assert.match(styles, /\.resume-item-body[\s\S]*?orphans:\s*3[\s\S]*?widows:\s*3/);
+  assert.match(styles, /\.resume-narrative\s*>\s*\*[\s\S]*?orphans:\s*3[\s\S]*?widows:\s*3/);
+  assert.match(styles, /@media print\s*\{[\s\S]*?\.resume-item\s*\{[\s\S]*?position:\s*relative[\s\S]*?padding-left:\s*30mm/);
+  assert.match(source, /className="resume-item-header"/);
+  assert.match(source, /resume-item-copy/);
+  assert.match(source, /resume-group-heading/);
+  assert.match(source, /px-\[15mm\] py-\[16mm\]/);
+});
+
 test("common information explains role overrides without owning their reset action", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
 
