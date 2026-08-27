@@ -111,3 +111,51 @@ test("rejection requires a reason and never produces an application command", as
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("pending attributed career details require a reviewed stable relationship before approval", async () => {
+  const { user, candidate } = await fixture("relationship-review");
+  try {
+    const unresolvedPayload: ResumeDocumentCandidatePayload = {
+      type: "item", itemKind: "career-detail", detailType: "responsibility", title: "플랫폼 운영", subtitle: "", body: "운영 자동화", relatedWorkTitle: "샘플테크", isCurrent: false, tags: [],
+    };
+    const unresolved = await updateResumeDocumentCandidate({
+      candidateId: candidate.id, userId: user.id, payload: unresolvedPayload, targetSectionId: "careerDescriptions", applyMode: ResumeDocumentApplyMode.APPEND, expectedUpdatedAt: candidate.updatedAt,
+    });
+    assert.equal(unresolved.targetSectionId, "projects");
+    await assert.rejects(
+      decideResumeDocumentCandidate({ candidateId: candidate.id, userId: user.id, decision: "APPROVE" }),
+      (error: unknown) => (error as { code?: string }).code === "RESUME_DOCUMENT_RELATIONSHIP_REVIEW_REQUIRED",
+    );
+    const linkedPayload = { ...unresolvedPayload, relatedWorkItemId: "work-sample" };
+    await updateResumeDocumentCandidate({ candidateId: candidate.id, userId: user.id, payload: linkedPayload, targetSectionId: "projects", applyMode: ResumeDocumentApplyMode.APPEND, expectedUpdatedAt: unresolved.updatedAt });
+    const approved = await decideResumeDocumentCandidate({ candidateId: candidate.id, userId: user.id, decision: "APPROVE" });
+    assert.equal(approved.command?.targetSectionId, "projects");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("explicitly independent details approve and legacy approved-unapplied candidates remain recoverable", async () => {
+  const independentFixture = await fixture("independent-detail");
+  try {
+    const independent: ResumeDocumentCandidatePayload = { type: "item", itemKind: "career-detail", detailType: "project", title: "오픈소스", subtitle: "", body: "기여", isCurrent: false, tags: [] };
+    await updateResumeDocumentCandidate({ candidateId: independentFixture.candidate.id, userId: independentFixture.user.id, payload: independent, targetSectionId: "credentials", applyMode: ResumeDocumentApplyMode.APPEND, expectedUpdatedAt: independentFixture.candidate.updatedAt });
+    const approved = await decideResumeDocumentCandidate({ candidateId: independentFixture.candidate.id, userId: independentFixture.user.id, decision: "APPROVE" });
+    assert.equal(approved.command?.targetSectionId, "credentials");
+    assert.equal((approved.command?.payload as { itemKind?: string }).itemKind, "career-detail");
+  } finally {
+    await prisma.user.delete({ where: { id: independentFixture.user.id } });
+  }
+
+  const legacyFixture = await fixture("legacy-approved");
+  try {
+    const legacyPayload = { type: "item", itemKind: "career-description", title: "운영 책임", subtitle: "", body: "운영", relatedWorkTitle: "예전회사", isCurrent: false, tags: [] };
+    await prisma.resumeDocumentCandidate.update({ where: { id: legacyFixture.candidate.id }, data: { status: CareerCandidateStatus.APPROVED, targetSectionId: "careerDescriptions", targetSectionKind: "items", applyMode: ResumeDocumentApplyMode.APPEND, payload: legacyPayload, payloadHash: resumeDocumentPayloadHash(legacyPayload as ResumeDocumentCandidatePayload), decidedAt: new Date() } });
+    const recovered = await decideResumeDocumentCandidate({ candidateId: legacyFixture.candidate.id, userId: legacyFixture.user.id, decision: "APPROVE" });
+    assert.equal(recovered.idempotent, true);
+    assert.equal(recovered.command?.targetSectionId, "projects");
+    assert.equal((recovered.command?.payload as { itemKind?: string }).itemKind, "career-detail");
+  } finally {
+    await prisma.user.delete({ where: { id: legacyFixture.user.id } });
+  }
+});

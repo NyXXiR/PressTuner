@@ -24,7 +24,8 @@ export type NarrativeBlockType = "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 export type NarrativeRun = { text: string; bold?: boolean };
 export type NarrativeBlock = { id: string; type: NarrativeBlockType; runs: NarrativeRun[] };
 export type NarrativeContent = { body: string; blocks?: NarrativeBlock[] };
-export type ResumeItemKind = "work" | "project" | "career-description" | "education" | "credential" | "award" | "activity" | "language" | "training";
+export type CareerDetailType = "project" | "responsibility" | "improvement" | "troubleshooting";
+export type ResumeItemKind = "work" | "career-detail" | "project" | "career-description" | "education" | "credential" | "award" | "activity" | "language" | "training";
 export type ItemContent = {
   id: string;
   itemKind?: ResumeItemKind;
@@ -35,6 +36,8 @@ export type ItemContent = {
   isCurrent?: boolean;
   title: string;
   subtitle: string;
+  detailType?: CareerDetailType;
+  relatedWorkItemId?: string;
   relatedWorkTitle?: string;
   body: string;
   source?: { type: "experience-brick"; id: string };
@@ -93,7 +96,7 @@ export type ResumeImportLedgerEntry = {
 };
 export type ResumeDocumentState = {
   version: 5;
-  templateRevision?: 1 | 2 | 3;
+  templateRevision?: 1 | 2 | 3 | 4;
   sharedSections: ResumeSection[];
   roleProfiles: ResumeRoleProfile[];
   variants: ResumeVariant[];
@@ -159,7 +162,7 @@ const roleCoverLetterSection = (profileId: string): ResumeSection => ({
   custom: true,
 });
 
-const builtInSectionIds = ["profile", "summary", "experience", "projects", "careerDescriptions", "skills", "education", "credentials"];
+const builtInSectionIds = ["profile", "summary", "experience", "projects", "skills", "education", "credentials"];
 const defaultRoleSectionOrder = (profileId: string) => [...builtInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
 
 const starterRoleProfiles = (): ResumeRoleProfile[] => [
@@ -190,7 +193,7 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
   const roleProfiles = starterRoleProfiles();
   return {
     version: 5,
-    templateRevision: 3,
+    templateRevision: 4,
     sharedSections: [
       { id: "profile", title: "인적사항", kind: "identity", content: { name: "이름", email: "email@example.com", phone: "", location: "", gender: "", birthDate: "", links: ["https://portfolio.example.com"] } },
       { id: "summary", title: "소개", kind: "narrative", content: { body: "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요." } },
@@ -198,11 +201,8 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
         { id: newItemId(), itemKind: "work", meta: "2024.01 — 현재", title: "회사명", subtitle: "부서 · 직책", body: "재직 기간의 역할과 핵심 책임을 간결하게 적어주세요." },
         { id: newItemId(), itemKind: "work", meta: "2022.01 — 2023.12", title: "이전 회사명", subtitle: "부서 · 직책", body: "이전 직장의 역할과 핵심 책임을 간결하게 적어주세요." },
       ] } },
-      { id: "projects", title: "프로젝트", kind: "items", content: { sortDirection: "latest-first", items: [
-        { id: newItemId(), itemKind: "project", meta: "2024.01 — 현재", title: "프로젝트명", subtitle: "역할 · 사용 기술", relatedWorkTitle: "회사명 또는 연결할 경력", body: "해결한 문제, 맡은 역할, 실행 내용과 결과를 적어주세요." },
-      ] } },
-      { id: "careerDescriptions", title: "경력기술서", kind: "items", content: { sortDirection: "latest-first", items: [
-        { id: newItemId(), itemKind: "career-description", meta: "2024.01 — 현재", title: "경력기술 제목", subtitle: "회사 · 역할", relatedWorkTitle: "연결할 경력 또는 회사", body: "프로젝트명이 없는 직무 범위, 주요 책임, 개선 성과를 구체적으로 적어주세요." },
+      { id: "projects", title: "경력 상세", kind: "items", content: { sortDirection: "latest-first", items: [
+        { id: newItemId(), itemKind: "career-detail", detailType: "project", meta: "2024.01 — 현재", title: "프로젝트 또는 업무명", subtitle: "역할 · 사용 기술", body: "해결한 문제, 맡은 역할, 실행 내용과 결과를 적어주세요." },
       ] } },
       { id: "skills", title: "핵심 역량", kind: "tags", content: { items: ["문제 해결", "협업", "제품 개발"] } },
       { id: "education", title: "학력", kind: "items", content: { items: [{ id: newItemId(), meta: "졸업 연도", title: "학교 · 과정", subtitle: "전공", body: "추가 내용" }] } },
@@ -219,6 +219,43 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
 
 function isItemsContent(content: SectionContent): content is ItemsContent {
   return Array.isArray((content as ItemsContent).items) && (content as ItemsContent).items.every((item) => typeof item === "object");
+}
+
+export function normalizeCareerDetailItem(item: ItemContent): ItemContent {
+  if (!["career-detail", "project", "career-description", "activity"].includes(item.itemKind ?? "")) return item;
+  const detailType: CareerDetailType = item.itemKind === "career-description"
+    ? "responsibility"
+    : item.detailType ?? "project";
+  return { ...item, itemKind: "career-detail", detailType };
+}
+
+export function normalizeEmployerTitle(value: string | undefined) {
+  return value?.trim().toLocaleLowerCase("ko-KR").replace(/\s+/g, " ") ?? "";
+}
+
+export function resolveRelatedWorkItemId(workItems: readonly ItemContent[], relatedWorkTitle: string | undefined) {
+  const key = normalizeEmployerTitle(relatedWorkTitle);
+  if (!key) return undefined;
+  const matches = workItems.filter((item) => item.itemKind === "work" && normalizeEmployerTitle(item.title) === key);
+  return matches.length === 1 ? matches[0].id : undefined;
+}
+
+export function resolveCareerDetailRelation(
+  detail: ItemContent,
+  workItems: readonly ItemContent[],
+  options: { matchFallbackTitles?: boolean } = {},
+) {
+  if (detail.relatedWorkItemId) {
+    const work = workItems.find((item) => item.itemKind === "work" && item.id === detail.relatedWorkItemId);
+    return work ? { status: "linked" as const, work } : { status: "unresolved" as const };
+  }
+  if (!detail.relatedWorkTitle?.trim()) return { status: "independent" as const };
+  if (options.matchFallbackTitles) {
+    const id = resolveRelatedWorkItemId(workItems, detail.relatedWorkTitle);
+    const work = id ? workItems.find((item) => item.id === id) : undefined;
+    if (work) return { status: "linked" as const, work };
+  }
+  return { status: "unresolved" as const };
 }
 
 function orderedItems(items: ItemContent[], order?: string[]) {
@@ -547,6 +584,18 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
       if (sourceId && !existingBySourceId.has(sourceId)) existingBySourceId.set(sourceId, item);
     }
   }
+  const currentWorkItems = state.sharedSections.find((section) => section.id === "experience" && isItemsContent(section.content));
+  const workItems = (currentWorkItems && isItemsContent(currentWorkItems.content) ? currentWorkItems.content.items : [])
+    .filter((item) => item.itemKind === "work")
+    .map((item) => {
+      const sourceId = item.source?.type === "experience-brick" ? item.source.id : undefined;
+      const refreshed = sourceId ? bySourceId.get(sourceId) : undefined;
+      return refreshed?.experienceType === "WORK" ? brickToItem(refreshed, item.id) : item;
+    });
+  for (const brick of bySourceId.values()) {
+    if (brick.experienceType !== "WORK" || workItems.some((item) => item.source?.id === brick.id)) continue;
+    workItems.push(brickToItem(brick, existingBySourceId.get(brick.id)?.id));
+  }
   const refreshedSourceIds = new Set<string>();
   return {
     ...state,
@@ -562,12 +611,12 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
         if (!refreshed) return [item];
         if (brickTargetSectionId(refreshed) !== section.id) return [];
         refreshedSourceIds.add(sourceId);
-        return [brickToItem(refreshed, item.id)];
+        return [brickToItem(refreshed, item.id, workItems)];
       });
       for (const brick of bySourceId.values()) {
         if (brickTargetSectionId(brick) !== section.id || refreshedSourceIds.has(brick.id)) continue;
         refreshedSourceIds.add(brick.id);
-        existing.push(brickToItem(brick, existingBySourceId.get(brick.id)?.id));
+        existing.push(brickToItem(brick, existingBySourceId.get(brick.id)?.id, workItems));
       }
       return { ...section, content: { ...section.content, items: existing } };
     }),
@@ -583,11 +632,9 @@ function brickTargetSectionId(brick: ExperienceBrickReference) {
 
 function brickItemKind(brick: ExperienceBrickReference): ResumeItemKind {
   if (brick.experienceType === "WORK") return "work";
-  if (brick.experienceType === "PROJECT") return "project";
   if (brick.experienceType === "EDUCATION") return "education";
-  if (brick.experienceType === "ACTIVITY") return "activity";
   if (brick.experienceType === "AWARD") return "award";
-  return "project";
+  return "career-detail";
 }
 
 function dateToUtcMonth(value?: string | Date | null) {
@@ -597,9 +644,9 @@ function dateToUtcMonth(value?: string | Date | null) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function brickToItem(brick: ExperienceBrickReference, existingId?: string): ItemContent {
+function brickToItem(brick: ExperienceBrickReference, existingId?: string, workItems: readonly ItemContent[] = []): ItemContent {
   const endMonth = dateToUtcMonth(brick.endDate);
-  return {
+  const item: ItemContent = {
     id: existingId ?? `experience-brick:${brick.id}`,
     itemKind: brickItemKind(brick),
     meta: brick.period?.trim() || "기간 미입력",
@@ -612,6 +659,16 @@ function brickToItem(brick: ExperienceBrickReference, existingId?: string): Item
     body: brick.content,
     source: { type: "experience-brick", id: brick.id },
   };
+  if (item.itemKind === "career-detail") {
+    item.detailType = "project";
+    const relatedWorkTitle = brick.organization?.trim();
+    if (relatedWorkTitle) {
+      item.relatedWorkTitle = relatedWorkTitle;
+      const relatedWorkItemId = resolveRelatedWorkItemId(workItems, relatedWorkTitle);
+      if (relatedWorkItemId) item.relatedWorkItemId = relatedWorkItemId;
+    }
+  }
+  return item;
 }
 
 export function addCustomSection(state: ResumeDocumentState, variantId: string, input: { title: string; kind: SectionKind; afterSectionId?: string }) {
@@ -1047,7 +1104,7 @@ function insertProjectsAfterExperience(order?: string[]) {
 }
 
 function upgradeRoleTemplatesV2<T extends MigratableState>(state: T): T {
-  if (state.templateRevision === 2 || state.templateRevision === 3) return state;
+  if (state.templateRevision === 2 || state.templateRevision === 3 || state.templateRevision === 4) return state;
   const experienceIndex = state.sharedSections.findIndex((section) => section.id === "experience" && isItemsContent(section.content));
   const existingProjects = state.sharedSections.find((section) => section.id === "projects");
   let sharedSections = state.sharedSections;
@@ -1095,7 +1152,7 @@ function insertCareerDescriptionsAfterProjects(order?: string[]) {
 }
 
 function upgradeCareerDescriptionTemplate<T extends MigratableState>(state: T): T {
-  if (state.templateRevision === 3) return state;
+  if (state.templateRevision === 3 || state.templateRevision === 4) return state;
   const projectsIndex = state.sharedSections.findIndex((section) => section.id === "projects");
   const existingCareerDescriptions = state.sharedSections.some((section) => section.id === "careerDescriptions");
   let sharedSections = state.sharedSections.map((section) => section.id === "projects" && section.title === "프로젝트 · 경력기술"
@@ -1126,8 +1183,208 @@ function upgradeCareerDescriptionTemplate<T extends MigratableState>(state: T): 
   } as T;
 }
 
+const DEFAULT_PROJECT_TITLES = new Set(["프로젝트", "프로젝트 · 경력기술", "경력 상세"]);
+const DEFAULT_CAREER_DESCRIPTION_TITLES = new Set(["경력기술서"]);
+
+function canonicalCareerTitle(projectsTitle?: string, careerDescriptionsTitle?: string) {
+  const project = projectsTitle?.trim();
+  const career = careerDescriptionsTitle?.trim();
+  if (project && !DEFAULT_PROJECT_TITLES.has(project)) return project;
+  if (career && !DEFAULT_CAREER_DESCRIPTION_TITLES.has(career)) return career;
+  return "경력 상세";
+}
+
+function collisionSafeItemId(id: string, used: Set<string>) {
+  if (!used.has(id)) return id;
+  let index = 2;
+  let candidate = `${id}-career-detail-${index}`;
+  while (used.has(candidate)) candidate = `${id}-career-detail-${++index}`;
+  return candidate;
+}
+
+function mergeCareerContent(
+  projectsContent: SectionContent | undefined,
+  careerDescriptionsContent: SectionContent | undefined,
+  inheritedCareerIdMap: ReadonlyMap<string, string> = new Map(),
+) {
+  const projects = projectsContent && isItemsContent(projectsContent) ? projectsContent : { items: [] } satisfies ItemsContent;
+  const careerDescriptions = careerDescriptionsContent && isItemsContent(careerDescriptionsContent) ? careerDescriptionsContent : { items: [] } satisfies ItemsContent;
+  const used = new Set<string>();
+  const projectItems = projects.items.map((item) => {
+    const next = normalizeCareerDetailItem(item);
+    const id = collisionSafeItemId(next.id, used);
+    used.add(id);
+    return id === next.id ? next : { ...next, id };
+  });
+  const careerIdMap = new Map<string, string>();
+  const careerItems = careerDescriptions.items.map((item) => {
+    const next = normalizeCareerDetailItem(item);
+    const inheritedId = inheritedCareerIdMap.get(next.id);
+    const id = collisionSafeItemId(inheritedId ?? next.id, used);
+    used.add(id);
+    careerIdMap.set(next.id, id);
+    return { ...next, id };
+  });
+  const sortDirection = projects.sortDirection ?? careerDescriptions.sortDirection;
+  return {
+    content: {
+      ...projects,
+      ...(sortDirection ? { sortDirection } : {}),
+      items: [...projectItems, ...careerItems],
+    } satisfies ItemsContent,
+    careerIdMap,
+  };
+}
+
+function remapCareerItemSetting(setting: ItemSetting, id: string): ItemSetting {
+  return setting.content
+    ? { ...setting, content: { ...normalizeCareerDetailItem(setting.content), id } }
+    : setting;
+}
+
+function mergeCompatibleCareerSettings(
+  projects: SectionSetting | undefined,
+  careerDescriptions: SectionSetting | undefined,
+  careerIdMap: ReadonlyMap<string, string>,
+) {
+  if (!projects && !careerDescriptions) return undefined;
+  const projectItems = Object.fromEntries(Object.entries(projects?.itemSettings ?? {}).map(([id, setting]) => [id, remapCareerItemSetting(setting, id)]));
+  const careerItems = Object.fromEntries(Object.entries(careerDescriptions?.itemSettings ?? {}).map(([oldId, setting]) => {
+    const id = careerIdMap.get(oldId) ?? oldId;
+    return [id, remapCareerItemSetting(setting, id)];
+  }));
+  const itemOrder = [
+    ...(projects?.itemOrder ?? []),
+    ...(careerDescriptions?.itemOrder ?? []).map((id) => careerIdMap.get(id) ?? id),
+  ];
+  const title = canonicalCareerTitle(projects?.title, careerDescriptions?.title);
+  return {
+    mode: projects?.mode ?? careerDescriptions?.mode ?? "inherit",
+    layout: projects?.layout ?? careerDescriptions?.layout ?? "standard",
+    ...((projects?.pageBreakBefore ?? careerDescriptions?.pageBreakBefore) !== undefined
+      ? { pageBreakBefore: projects?.pageBreakBefore ?? careerDescriptions?.pageBreakBefore }
+      : {}),
+    ...(title === "경력 상세" ? {} : { title }),
+    ...(Object.keys(projectItems).length || Object.keys(careerItems).length ? { itemSettings: { ...projectItems, ...careerItems } } : {}),
+    ...(itemOrder.length ? { itemOrder: [...new Set(itemOrder)] } : {}),
+  } satisfies SectionSetting;
+}
+
+function hasSectionLevelCareerOverride(setting: SectionSetting | undefined) {
+  return Boolean(setting && (setting.mode !== "inherit" || setting.content !== undefined));
+}
+
+function materializeCareerSetting(
+  projectsSection: ResumeSection,
+  careerDescriptionsSection: ResumeSection | undefined,
+  projectsSetting: SectionSetting | undefined,
+  careerDescriptionsSetting: SectionSetting | undefined,
+  projectsResolved: ReturnType<typeof resolveSection>,
+  careerDescriptionsResolved: ReturnType<typeof resolveSection> | undefined,
+  careerIdMap: ReadonlyMap<string, string>,
+) {
+  if (!projectsSetting && !careerDescriptionsSetting) return undefined;
+  if (!hasSectionLevelCareerOverride(projectsSetting) && !hasSectionLevelCareerOverride(careerDescriptionsSetting)) {
+    return mergeCompatibleCareerSettings(projectsSetting, careerDescriptionsSetting, careerIdMap);
+  }
+  const bothHidden = projectsResolved.mode === "hidden" && (!careerDescriptionsResolved || careerDescriptionsResolved.mode === "hidden");
+  const merged = mergeCareerContent(
+    projectsResolved.mode === "hidden" ? undefined : projectsResolved.content,
+    !careerDescriptionsResolved || careerDescriptionsResolved.mode === "hidden" ? undefined : careerDescriptionsResolved.content,
+    careerIdMap,
+  );
+  const title = canonicalCareerTitle(projectsSetting?.title, careerDescriptionsSetting?.title);
+  return {
+    mode: bothHidden ? "hidden" : "override",
+    layout: projectsSetting?.layout ?? careerDescriptionsSetting?.layout ?? projectsSection.layout ?? careerDescriptionsSection?.layout ?? "standard",
+    ...((projectsSetting?.pageBreakBefore ?? careerDescriptionsSetting?.pageBreakBefore) !== undefined
+      ? { pageBreakBefore: projectsSetting?.pageBreakBefore ?? careerDescriptionsSetting?.pageBreakBefore }
+      : {}),
+    ...(title === "경력 상세" ? {} : { title }),
+    ...(!bothHidden ? { content: merged.content } : {}),
+  } satisfies SectionSetting;
+}
+
+function remapCareerSectionOrder(order?: string[]) {
+  if (!order) return order;
+  const next: string[] = [];
+  let inserted = false;
+  for (const id of order) {
+    if (id === "projects" || id === "careerDescriptions") {
+      if (!inserted) next.push("projects");
+      inserted = true;
+    } else if (!next.includes(id)) next.push(id);
+  }
+  return next;
+}
+
+export function upgradeCareerDepthTemplate<T extends MigratableState>(state: T): T {
+  if (state.templateRevision === 4) return state;
+  const oldProjects = state.sharedSections.find((section) => section.id === "projects" && isItemsContent(section.content));
+  const oldCareerDescriptions = state.sharedSections.find((section) => section.id === "careerDescriptions" && isItemsContent(section.content));
+  const projectsSection: ResumeSection = oldProjects ?? {
+    id: "projects",
+    title: "경력 상세",
+    kind: "items",
+    content: { sortDirection: "latest-first", items: [] },
+  };
+  const sharedMerge = mergeCareerContent(oldProjects?.content, oldCareerDescriptions?.content);
+  const canonicalProjects: ResumeSection = {
+    ...projectsSection,
+    title: canonicalCareerTitle(oldProjects?.title, oldCareerDescriptions?.title),
+    content: sharedMerge.content,
+  };
+  let inserted = false;
+  const sharedSections = state.sharedSections.flatMap((section) => {
+    if (section.id !== "projects" && section.id !== "careerDescriptions") return [section];
+    if (inserted) return [];
+    inserted = true;
+    return [canonicalProjects];
+  });
+  if (!inserted) {
+    const experienceIndex = sharedSections.findIndex((section) => section.id === "experience");
+    sharedSections.splice(experienceIndex >= 0 ? experienceIndex + 1 : sharedSections.length, 0, canonicalProjects);
+  }
+
+  const roleProfiles = state.roleProfiles.map((profile) => {
+    const projectsSetting = profile.settings.projects;
+    const careerSetting = profile.settings.careerDescriptions;
+    const projectsResolved = resolveSection(projectsSection, profile);
+    const careerResolved = oldCareerDescriptions ? resolveSection(oldCareerDescriptions, profile) : undefined;
+    const mergedSetting = materializeCareerSetting(projectsSection, oldCareerDescriptions, projectsSetting, careerSetting, projectsResolved, careerResolved, sharedMerge.careerIdMap);
+    const settings = { ...profile.settings };
+    delete settings.careerDescriptions;
+    if (mergedSetting) settings.projects = mergedSetting;
+    else delete settings.projects;
+    return { ...profile, settings, sectionOrder: remapCareerSectionOrder(profile.sectionOrder) };
+  });
+  const variants = state.variants.map((variant) => {
+    const originalProfile = state.roleProfiles.find((profile) => profile.id === variant.roleProfileId) ?? state.roleProfiles[0];
+    const projectsSetting = variant.settings.projects;
+    const careerSetting = variant.settings.careerDescriptions;
+    const projectsResolved = resolveSection(projectsSection, originalProfile, variant);
+    const careerResolved = oldCareerDescriptions ? resolveSection(oldCareerDescriptions, originalProfile, variant) : undefined;
+    const mergedSetting = materializeCareerSetting(projectsSection, oldCareerDescriptions, projectsSetting, careerSetting, projectsResolved, careerResolved, sharedMerge.careerIdMap);
+    const settings = { ...variant.settings };
+    delete settings.careerDescriptions;
+    if (mergedSetting) settings.projects = mergedSetting;
+    else delete settings.projects;
+    return { ...variant, settings, sectionOrder: remapCareerSectionOrder(variant.sectionOrder) };
+  });
+  return {
+    ...state,
+    templateRevision: 4,
+    sharedSections,
+    roleProfiles,
+    variants,
+    importLedger: Array.isArray(state.importLedger)
+      ? state.importLedger.map((entry) => entry.targetSectionId === "careerDescriptions" ? { ...entry, targetSectionId: "projects" } : entry)
+      : state.importLedger,
+  } as T;
+}
+
 function upgradeRoleTemplates<T extends MigratableState>(state: T): T {
-  return upgradeCareerDescriptionTemplate(upgradeRoleTemplatesV2(state));
+  return upgradeCareerDepthTemplate(upgradeCareerDescriptionTemplate(upgradeRoleTemplatesV2(state)));
 }
 
 export function parseResumeDocumentState(raw: string | null): ResumeDocumentState | null {

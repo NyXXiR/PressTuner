@@ -10,6 +10,7 @@ import {
 } from "./model";
 import {
   applyResumeImportCommand,
+  importedResumeItemId,
   inspectResumeImportOverlap,
   ResumeDocumentCandidatePayloadSchema,
   type ResumeDocumentImportCommand,
@@ -79,7 +80,16 @@ test("identity facts can be reviewed and applied as one section candidate", () =
   );
 });
 
-test("candidate payload schema accepts the item groups found in JobKorea resumes", () => {
+test("candidate payload schema accepts canonical details and normalizes legacy detail kinds", () => {
+  for (const detailType of ["project", "responsibility", "improvement", "troubleshooting"] as const) {
+    const parsed = ResumeDocumentCandidatePayloadSchema.parse({
+      type: "item", itemKind: "career-detail", detailType, title: `${detailType} title`, subtitle: "", body: "", tags: [],
+    });
+    assert.equal(parsed.type, "item");
+    if (parsed.type !== "item") assert.fail("Expected item");
+    assert.equal(parsed.itemKind, "career-detail");
+    assert.equal(parsed.detailType, detailType);
+  }
   for (const itemKind of [
     "work",
     "project",
@@ -104,11 +114,11 @@ test("candidate payload schema accepts the item groups found in JobKorea resumes
     });
     assert.equal(parsed.type, "item");
     if (parsed.type !== "item") assert.fail("Expected an item payload");
-    assert.equal(parsed.itemKind, itemKind);
+    assert.equal(parsed.itemKind, ["project", "career-description", "activity"].includes(itemKind) ? "career-detail" : itemKind);
   }
 });
 
-test("career-description candidates apply only to the dedicated common section", () => {
+test("legacy career-description candidates apply to canonical career details", () => {
   const payload = {
     type: "item" as const,
     itemKind: "career-description" as const,
@@ -128,8 +138,8 @@ test("career-description candidates apply only to the dedicated common section",
     applyMode: "APPEND",
     payload,
   }));
-  const items = (applied.sharedSections.find((section) => section.id === "careerDescriptions")!.content as { items: Array<{ itemKind?: string }> }).items;
-  assert.equal(items.find((item) => item.itemKind === "career-description")?.itemKind, "career-description");
+  const items = (applied.sharedSections.find((section) => section.id === "projects")!.content as { items: Array<{ itemKind?: string; detailType?: string }> }).items;
+  assert.equal(items.find((item) => item.itemKind === "career-detail")?.detailType, "responsibility");
   assert.throws(() => applyResumeImportCommand(createResumeDocumentSeed(), command({
     candidateKey: "document:career-description-wrong",
     payloadHash: "career-description-wrong",
@@ -300,7 +310,7 @@ test("PDF item append preserves experience presentation metadata and projects en
     },
   }));
   const appendedContent = appended.sharedSections.find((section) => section.id === "experience")!.content as {
-    items: Array<{ title: string; endMonthEnabled?: boolean }>;
+    items: Array<{ title: string; endMonthEnabled?: boolean; itemKind?: string }>;
     sortDirection?: string;
     careerDurationOverrideMonths?: number;
   };
@@ -352,15 +362,79 @@ test("work and project candidates remain distinct after they are applied", () =>
   const projectItem = ((withProject.sharedSections.find((section) => section.id === "projects")!.content as { items: Array<{ title: string; itemKind?: string; relatedWorkTitle?: string }> }).items)
     .find((item) => item.title === "결제 전환 프로젝트");
   assert.equal(workItem?.itemKind, "work");
-  assert.equal(projectItem?.itemKind, "project");
+  assert.equal(projectItem?.itemKind, "career-detail");
   assert.equal(projectItem?.relatedWorkTitle, "샘플테크");
 });
 
-test("commands cannot be applied to an incompatible section", () => {
+test("career detail application uses deterministic ids and validates stable parent ids", () => {
+  const seed = createResumeDocumentSeed();
+  const experience = seed.sharedSections.find((section) => section.id === "experience")!.content as { items: Array<{ id: string; itemKind?: string; meta: string; title: string; subtitle: string; body: string }> };
+  experience.items = [{ id: "work-sample", itemKind: "work", meta: "", title: "샘플테크", subtitle: "개발자", body: "경력 요약" }];
+  const base = {
+    type: "item" as const,
+    itemKind: "career-detail" as const,
+    detailType: "improvement" as const,
+    title: "배포 개선",
+    subtitle: "플랫폼",
+    body: "배포 시간을 줄였습니다.",
+    startMonth: "2024-01",
+    endMonth: "2024-06",
+    isCurrent: false,
+    tags: [],
+  };
+  const linked = applyResumeImportCommand(seed, command({
+    candidateKey: "document:detail-linked", payloadHash: "detail-linked", targetSectionId: "projects", applyMode: "APPEND",
+    payload: { ...base, relatedWorkItemId: "work-sample", relatedWorkTitle: "샘플테크" },
+  }));
+  const linkedItem = ((linked.sharedSections.find((section) => section.id === "projects")!.content as { items: Array<{ id: string; relatedWorkItemId?: string }> }).items).find((item) => item.id === importedResumeItemId("document:detail-linked"));
+  assert.equal(linkedItem?.relatedWorkItemId, "work-sample");
+
+  const stale = applyResumeImportCommand(seed, command({
+    candidateKey: "document:detail-stale", payloadHash: "detail-stale", targetSectionId: "careerDescriptions", applyMode: "APPEND",
+    payload: { ...base, relatedWorkItemId: "missing", relatedWorkTitle: "예전회사" },
+  }));
+  const staleItem = ((stale.sharedSections.find((section) => section.id === "projects")!.content as { items: Array<{ id: string; relatedWorkItemId?: string; relatedWorkTitle?: string }> }).items).find((item) => item.id === importedResumeItemId("document:detail-stale"));
+  assert.equal(staleItem?.relatedWorkItemId, undefined);
+  assert.equal(staleItem?.relatedWorkTitle, "예전회사");
+  assert.equal(stale.importLedger.at(-1)?.targetSectionId, "projects");
+});
+
+test("linked detail narrative duplicates are compared against the parent employment summary", () => {
+  const seed = createResumeDocumentSeed();
+  const experience = seed.sharedSections.find((section) => section.id === "experience")!;
+  experience.content = { items: [{ id: "work-a", itemKind: "work", meta: "", title: "샘플테크", subtitle: "개발자", body: "결제 장애율을 분석하고 자동 복구 절차를 운영했습니다." }] };
+  const projects = seed.sharedSections.find((section) => section.id === "projects")!;
+  const exactPayload = ResumeDocumentCandidatePayloadSchema.parse({ type: "item", itemKind: "career-detail", detailType: "troubleshooting", title: "결제 안정화", subtitle: "", body: "결제 장애율을 분석하고 자동 복구 절차를 운영했습니다.", relatedWorkItemId: "work-a", relatedWorkTitle: "샘플테크", tags: [] });
+  assert.equal(inspectResumeImportOverlap(projects, exactPayload, seed.sharedSections).level, "exact");
+  const similarPayload = ResumeDocumentCandidatePayloadSchema.parse({ ...exactPayload, title: "결제 운영 개선", body: "결제 장애율을 분석하고 자동 복구 절차를 개선했습니다." });
+  assert.equal(inspectResumeImportOverlap(projects, similarPayload, seed.sharedSections).level, "possible");
+  const applied = applyResumeImportCommand(seed, command({ candidateKey: "document:duplicate-detail", payloadHash: "duplicate-detail", targetSectionId: "projects", applyMode: "APPEND", payload: exactPayload }));
+  assert.equal((applied.sharedSections.find((section) => section.id === "projects")!.content as { items: Array<{ title: string }> }).items.some((item) => item.title === "결제 안정화"), false);
+});
+
+test("commands reject incompatible section kinds but allow manual routing among item sections", () => {
   assert.throws(
     () => applyResumeImportCommand(createResumeDocumentSeed(), command({ targetSectionId: "summary" })),
     /RESUME_IMPORT_SECTION_KIND_MISMATCH/,
   );
+  const routed = applyResumeImportCommand(createResumeDocumentSeed(), command({
+    candidateKey: "document:manual-route",
+    payloadHash: "manual-route",
+    targetSectionId: "credentials",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "career-detail",
+      detailType: "project",
+      title: "개인 오픈소스",
+      subtitle: "메인테이너",
+      body: "릴리스 자동화를 개선했습니다.",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const credentials = routed.sharedSections.find((section) => section.id === "credentials")!.content as ItemsContent;
+  assert.equal(credentials.items.at(-1)?.title, "개인 오픈소스");
 });
 
 test("item candidates can be routed into role and support-version custom sections", () => {

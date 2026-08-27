@@ -8,6 +8,7 @@ import {
 
 import {
   ResumeDocumentCandidatePayloadSchema,
+  canonicalResumeDocumentTargetSectionId,
   isResumeDocumentApplyModeAllowed,
   resumeDocumentPayloadSectionKind,
   type ResumeDocumentCandidatePayload,
@@ -25,6 +26,33 @@ const candidateInclude = {
 
 export function resumeDocumentPayloadHash(payload: ResumeDocumentCandidatePayload) {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
+
+const builtInSectionKinds = new Map<string, ReturnType<typeof resumeDocumentPayloadSectionKind>>([
+  ["profile", "identity"],
+  ["summary", "narrative"],
+  ["experience", "items"],
+  ["projects", "items"],
+  ["skills", "tags"],
+  ["education", "items"],
+  ["credentials", "items"],
+  ["eligibility", "eligibility"],
+]);
+
+function assertBuiltInTargetCompatibility(payload: ResumeDocumentCandidatePayload, targetSectionId: string) {
+  const canonicalTarget = canonicalResumeDocumentTargetSectionId(targetSectionId);
+  const targetKind = builtInSectionKinds.get(canonicalTarget);
+  if (targetKind && resumeDocumentPayloadSectionKind(payload) !== targetKind) {
+    throw serviceError(400, "RESUME_DOCUMENT_SECTION_KIND_MISMATCH", "Built-in section is not compatible with the candidate payload");
+  }
+  return canonicalTarget;
+}
+
+function assertCareerRelationshipReviewed(payload: ResumeDocumentCandidatePayload) {
+  if (payload.type !== "item" || payload.itemKind !== "career-detail") return;
+  if (payload.relatedWorkTitle?.trim() && !payload.relatedWorkItemId?.trim()) {
+    throw serviceError(400, "RESUME_DOCUMENT_RELATIONSHIP_REVIEW_REQUIRED", "Career detail relationship must be linked or explicitly independent");
+  }
 }
 
 export async function listResumeDocumentCandidates(input: {
@@ -66,7 +94,8 @@ export async function updateResumeDocumentCandidate(input: {
     const payload = input.payload === undefined
       ? ResumeDocumentCandidatePayloadSchema.parse(current.payload)
       : ResumeDocumentCandidatePayloadSchema.parse(input.payload);
-    const targetSectionId = input.targetSectionId?.trim() || current.targetSectionId;
+    const requestedTargetSectionId = input.targetSectionId?.trim() || current.targetSectionId;
+    const targetSectionId = assertBuiltInTargetCompatibility(payload, requestedTargetSectionId);
     const applyMode = input.applyMode ?? current.applyMode;
     if (!isResumeDocumentApplyModeAllowed(payload, applyMode)) {
       throw serviceError(400, "RESUME_DOCUMENT_APPLY_MODE_INVALID", "Apply mode is not compatible with the candidate payload");
@@ -105,7 +134,7 @@ function applicationCommand(candidate: {
   return {
     candidateKey: `document:${candidate.id}`,
     payloadHash: candidate.payloadHash,
-    targetSectionId: candidate.targetSectionId,
+    targetSectionId: canonicalResumeDocumentTargetSectionId(candidate.targetSectionId),
     applyMode: candidate.applyMode,
     payload: ResumeDocumentCandidatePayloadSchema.parse(candidate.payload),
     appliedAt: (candidate.decidedAt ?? new Date()).toISOString(),
@@ -155,6 +184,10 @@ export async function decideResumeDocumentCandidate(input: {
     const approvedPayload = ResumeDocumentCandidatePayloadSchema.parse(current.payload);
     if (!isResumeDocumentApplyModeAllowed(approvedPayload, current.applyMode)) {
       throw serviceError(400, "RESUME_DOCUMENT_APPLY_MODE_INVALID", "Apply mode is not compatible with the candidate payload");
+    }
+    if (wanted === CareerCandidateStatus.APPROVED) {
+      assertBuiltInTargetCompatibility(approvedPayload, current.targetSectionId);
+      assertCareerRelationshipReviewed(approvedPayload);
     }
     const decidedAt = new Date();
     const claim = await tx.resumeDocumentCandidate.updateMany({

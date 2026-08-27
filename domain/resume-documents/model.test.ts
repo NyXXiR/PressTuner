@@ -61,7 +61,7 @@ test("the default flow has a directly editable role resume and no support versio
 
 test("every starter role resume includes its own editable self-introduction section", () => {
   const state = createResumeDocumentSeed();
-  assert.equal(state.templateRevision, 3);
+  assert.equal(state.templateRevision, 4);
   for (const profile of state.roleProfiles) {
     const coverLetter = profile.customSections.find((section) => section.title === "자기소개서");
     assert.ok(coverLetter);
@@ -83,7 +83,7 @@ test("existing V4 storage receives the role template once without resurrecting a
   const legacy = createResumeDocumentSeed();
   const withoutRevision = { ...legacy, templateRevision: undefined, roleProfiles: legacy.roleProfiles.map((profile) => ({ ...profile, customSections: [] })) };
   const upgraded = parseResumeDocumentState(JSON.stringify(withoutRevision))!;
-  assert.equal(upgraded.templateRevision, 3);
+  assert.equal(upgraded.templateRevision, 4);
   assert.ok(upgraded.roleProfiles.every((profile) => profile.customSections.some((section) => section.title === "자기소개서")));
 
   const deleted = { ...upgraded, roleProfiles: upgraded.roleProfiles.map((profile) => ({ ...profile, customSections: [] })) };
@@ -376,23 +376,20 @@ test("fresh documents start with service planning, full-stack, and AI engineerin
   assert.equal(state.activeRoleProfileId, state.roleProfiles[0].id);
 });
 
-test("fresh documents keep employment, projects, and career descriptions in three common sections", () => {
+test("fresh documents keep employment and career details in two common sections", () => {
   const state = createResumeDocumentSeed();
   const experience = state.sharedSections.find((section) => section.id === "experience")!;
   const projects = state.sharedSections.find((section) => section.id === "projects")!;
-  const careerDescriptions = state.sharedSections.find((section) => section.id === "careerDescriptions")!;
   assert.equal(experience.title, "경력");
-  assert.equal(projects.title, "프로젝트");
-  assert.equal(careerDescriptions.title, "경력기술서");
+  assert.equal(projects.title, "경력 상세");
   assert.ok(state.sharedSections.indexOf(projects) === state.sharedSections.indexOf(experience) + 1);
-  assert.ok(state.sharedSections.indexOf(careerDescriptions) === state.sharedSections.indexOf(projects) + 1);
+  assert.equal(state.sharedSections.some((section) => section.id === "careerDescriptions"), false);
   assert.ok((experience.content as ItemsContent).items.every((item) => item.itemKind === "work"));
-  assert.ok((projects.content as ItemsContent).items.every((item) => item.itemKind === "project"));
-  assert.ok((careerDescriptions.content as ItemsContent).items.every((item) => item.itemKind === "career-description"));
-  for (const profile of state.roleProfiles) assert.ok(profile.sectionOrder?.includes("careerDescriptions"));
+  assert.ok((projects.content as ItemsContent).items.every((item) => item.itemKind === "career-detail"));
+  for (const profile of state.roleProfiles) assert.equal(profile.sectionOrder?.includes("careerDescriptions"), false);
 });
 
-test("revision 2 documents gain an empty career-description section without moving projects", () => {
+test("revision 2 documents migrate projects directly into canonical career details", () => {
   const state = createResumeDocumentSeed();
   state.templateRevision = 2;
   state.sharedSections = state.sharedSections.filter((section) => section.id !== "careerDescriptions");
@@ -402,17 +399,76 @@ test("revision 2 documents gain an empty career-description section without movi
   for (const profile of state.roleProfiles) profile.sectionOrder = profile.sectionOrder?.filter((id) => id !== "careerDescriptions");
 
   const migrated = parseResumeDocumentState(JSON.stringify(state))!;
-  assert.equal(migrated.templateRevision, 3);
-  assert.equal(migrated.sharedSections.find((section) => section.id === "projects")?.title, "프로젝트");
+  assert.equal(migrated.templateRevision, 4);
+  assert.equal(migrated.sharedSections.find((section) => section.id === "projects")?.title, "경력 상세");
   assert.deepEqual(
     (migrated.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items.map((item) => item.id),
     ["kept-project"],
   );
-  assert.deepEqual(
-    (migrated.sharedSections.find((section) => section.id === "careerDescriptions")!.content as ItemsContent).items,
-    [],
-  );
-  assert.ok(migrated.roleProfiles.every((profile) => profile.sectionOrder?.includes("careerDescriptions")));
+  assert.equal(migrated.sharedSections.some((section) => section.id === "careerDescriptions"), false);
+  assert.equal((migrated.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items[0].itemKind, "career-detail");
+});
+
+test("revision 3 career buckets merge without item loss and rewrite collisions, layers, orders, and ledger targets", () => {
+  const state = createResumeDocumentSeed();
+  state.templateRevision = 3;
+  const projects = state.sharedSections.find((section) => section.id === "projects")!;
+  projects.title = "대표 프로젝트";
+  projects.content = { sortDirection: "oldest-first", items: [
+    { id: "collision", itemKind: "project", meta: "", title: "프로젝트 A", subtitle: "", body: "공통 프로젝트" },
+  ] };
+  state.sharedSections.splice(state.sharedSections.indexOf(projects) + 1, 0, {
+    id: "careerDescriptions",
+    title: "경력기술서",
+    kind: "items",
+    content: { sortDirection: "latest-first", items: [
+      { id: "collision", itemKind: "career-description", meta: "", title: "책임 A", subtitle: "", body: "공통 책임" },
+      { id: "detail-b", itemKind: "career-description", meta: "", title: "개선 B", subtitle: "", body: "공통 개선" },
+    ] },
+  });
+  const profile = state.roleProfiles[0];
+  profile.sectionOrder = ["profile", "careerDescriptions", "projects", "summary"];
+  profile.settings.projects = { mode: "override", layout: "cards", content: { items: [
+    { id: "collision", itemKind: "project", meta: "", title: "프로젝트 A", subtitle: "", body: "직군 프로젝트" },
+  ] } };
+  profile.settings.careerDescriptions = { mode: "override", layout: "compact", content: { items: [
+    { id: "collision", itemKind: "career-description", meta: "", title: "책임 A", subtitle: "", body: "직군 책임" },
+  ] } };
+  const itemTailoredProfile = state.roleProfiles[1];
+  itemTailoredProfile.settings.projects = { mode: "inherit", layout: "standard", itemSettings: { collision: { mode: "hidden" } }, itemOrder: ["collision"] };
+  itemTailoredProfile.settings.careerDescriptions = { mode: "inherit", layout: "standard", itemSettings: { "detail-b": { mode: "override", content: { id: "detail-b", itemKind: "career-description", meta: "", title: "개선 B", subtitle: "", body: "직군별 개선" } } }, itemOrder: ["detail-b", "collision"] };
+  state.variants.push({
+    id: "support-a", name: "A사", company: "A사", role: "", roleProfileId: profile.id,
+    sectionOrder: ["careerDescriptions", "summary", "projects"], customSections: [],
+    settings: {
+      projects: { mode: "hidden", layout: "standard" },
+      careerDescriptions: { mode: "override", layout: "standard", content: { items: [{ id: "detail-b", itemKind: "career-description", meta: "", title: "개선 B", subtitle: "", body: "지원본 개선" }] } },
+    },
+  });
+  state.activeVariantId = "support-a";
+  state.importLedger = [{ candidateKey: "legacy", payloadHash: "hash", targetSectionId: "careerDescriptions", appliedAt: "2026-01-01T00:00:00.000Z" }];
+
+  const migrated = parseResumeDocumentState(JSON.stringify(state))!;
+  const canonical = migrated.sharedSections.find((section) => section.id === "projects")!;
+  const items = (canonical.content as ItemsContent).items;
+  assert.equal(migrated.templateRevision, 4);
+  assert.equal(canonical.title, "대표 프로젝트");
+  assert.deepEqual(items.map((item) => item.title), ["프로젝트 A", "책임 A", "개선 B"]);
+  assert.equal(new Set(items.map((item) => item.id)).size, items.length);
+  assert.ok(items.every((item) => item.itemKind === "career-detail"));
+  assert.deepEqual(profile.sectionOrder && migrated.roleProfiles[0].sectionOrder?.slice(0, 3), ["profile", "projects", "summary"]);
+  const resolved = resolveSection(canonical, migrated.roleProfiles[0]).content as ItemsContent;
+  assert.deepEqual(resolved.items.map((item) => item.body), ["직군 프로젝트", "직군 책임"]);
+  const itemTailored = resolveSection(canonical, migrated.roleProfiles[1]).content as ItemsContent;
+  assert.deepEqual(itemTailored.items.map((item) => [item.title, item.body]), [["개선 B", "직군별 개선"], ["책임 A", "공통 책임"]]);
+  assert.equal(migrated.roleProfiles[1].settings.careerDescriptions, undefined);
+  assert.equal(migrated.roleProfiles[1].settings.projects.itemSettings?.collision?.mode, "hidden");
+  const support = migrated.variants[0];
+  assert.deepEqual((resolveSection(canonical, migrated.roleProfiles[0], support).content as ItemsContent).items.map((item) => item.body), ["지원본 개선"]);
+  assert.deepEqual(support.sectionOrder, ["projects", "summary"]);
+  assert.equal(support.settings.careerDescriptions, undefined);
+  assert.equal(migrated.importLedger[0].targetSectionId, "projects");
+  assert.deepEqual(parseResumeDocumentState(JSON.stringify(migrated)), migrated);
 });
 
 test("stored mixed experience items are classified and moved into the project section", () => {
@@ -433,7 +489,7 @@ test("stored mixed experience items are classified and moved into the project se
   const workItems = (migrated.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items;
   const projectItems = (migrated.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items;
   assert.deepEqual(workItems.map((item) => [item.id, item.itemKind]), [["work", "work"], ["legacy-work", "work"]]);
-  assert.deepEqual(projectItems.map((item) => [item.id, item.itemKind]), [["project", "project"], ["legacy-project", "project"]]);
+  assert.deepEqual(projectItems.map((item) => [item.id, item.itemKind]), [["project", "career-detail"], ["legacy-project", "career-detail"]]);
   assert.equal((migrated.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).careerDurationOverrideMonths, 62);
   assert.ok(migrated.roleProfiles.every((profile) => profile.sectionOrder?.includes("projects")));
 });
@@ -851,7 +907,8 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
   assert.equal(items[0].body, "유지");
   assert.deepEqual(projectItems.at(-2), {
     id: "stable-local",
-    itemKind: "project",
+    itemKind: "career-detail",
+    detailType: "project",
     meta: "legacy A",
     startMonth: "2024-03",
     endMonth: "2025-05",
@@ -859,6 +916,7 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
     isCurrent: false,
     title: "새 A",
     subtitle: "회사 · 리드",
+    relatedWorkTitle: "회사",
     body: "갱신 A",
     source: { type: "experience-brick", id: "brick-a" },
   });

@@ -1,4 +1,4 @@
-import type { ItemContent } from "./model";
+import { resolveCareerDetailRelation, type ItemContent } from "./model";
 
 export type ExperienceSortDirection = "latest-first" | "oldest-first";
 
@@ -100,4 +100,42 @@ export function formatCareerDuration(totalMonths: number): string {
     .filter(Boolean)
     .join(" ");
   return `총 경력 ${parts}`;
+}
+
+export type CareerDetailGroup = {
+  work: ItemContent;
+  details: ItemContent[];
+};
+
+export function groupCareerDetails(
+  workItems: readonly ItemContent[],
+  detailItems: readonly ItemContent[],
+  options: {
+    workSortDirection?: ExperienceSortDirection;
+    detailSortDirection?: ExperienceSortDirection;
+    matchFallbackTitles?: boolean;
+  } = {},
+) {
+  const sortedWorks = sortExperienceItems(
+    workItems.filter((item) => !item.itemKind || item.itemKind === "work"),
+    options.workSortDirection,
+  );
+  const sortedDetails = sortExperienceItems(
+    detailItems.map((item) => item.itemKind === "career-detail" ? item : { ...item, itemKind: "career-detail" as const }),
+    options.detailSortDirection,
+  );
+  const detailsByWorkId = new Map(sortedWorks.map((work) => [work.id, [] as ItemContent[]]));
+  const independentDetails: ItemContent[] = [];
+  const unresolvedDetails: ItemContent[] = [];
+  for (const detail of sortedDetails) {
+    const relation = resolveCareerDetailRelation(detail, sortedWorks, { matchFallbackTitles: options.matchFallbackTitles });
+    if (relation.status === "linked") detailsByWorkId.get(relation.work.id)?.push(detail);
+    else if (relation.status === "independent") independentDetails.push(detail);
+    else unresolvedDetails.push(detail);
+  }
+  return {
+    employmentGroups: sortedWorks.map((work) => ({ work, details: detailsByWorkId.get(work.id) ?? [] })),
+    independentDetails,
+    unresolvedDetails,
+  };
 }

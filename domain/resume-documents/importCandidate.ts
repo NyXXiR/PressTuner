@@ -82,6 +82,7 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
     type: z.literal("item"),
     itemKind: z.enum([
       "work",
+      "career-detail",
       "project",
       "career-description",
       "education",
@@ -91,9 +92,11 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
       "language",
       "training",
     ]),
+    detailType: z.enum(["project", "responsibility", "improvement", "troubleshooting"]).optional(),
     title: z.string().trim().min(1).max(500),
     subtitle: z.string().trim().max(500).default(""),
     relatedWorkTitle: z.string().trim().max(500).optional(),
+    relatedWorkItemId: z.string().trim().min(1).max(500).optional(),
     body: z.string().trim().max(10_000).default(""),
     startMonth: OptionalMonthSchema,
     endMonth: OptionalMonthSchema,
@@ -103,6 +106,16 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
     if (value.startMonth && value.endMonth && value.startMonth > value.endMonth) {
       context.addIssue({ code: "custom", path: ["endMonth"], message: "End month precedes start month" });
     }
+    if (value.itemKind === "career-detail" && !value.detailType) {
+      context.addIssue({ code: "custom", path: ["detailType"], message: "Career detail type is required" });
+    }
+  }).transform((value) => {
+    if (!["project", "career-description", "activity"].includes(value.itemKind)) return value;
+    return {
+      ...value,
+      itemKind: "career-detail" as const,
+      detailType: value.itemKind === "career-description" ? "responsibility" as const : "project" as const,
+    };
   }),
   z.object({
     type: z.literal("tags"),
@@ -146,6 +159,21 @@ export const resumeDocumentPayloadSectionKind = (payload: ResumeDocumentCandidat
   return "items";
 };
 
+export function canonicalResumeDocumentTargetSectionId(targetSectionId: string) {
+  return targetSectionId === "careerDescriptions" ? "projects" : targetSectionId;
+}
+
+export function expectedBuiltInResumeSectionId(payload: ResumeDocumentCandidatePayload) {
+  if (payload.type === "identity-field" || payload.type === "identity") return "profile";
+  if (payload.type === "eligibility-field") return "eligibility";
+  if (payload.type === "narrative") return "summary";
+  if (payload.type === "tags") return "skills";
+  if (payload.itemKind === "work") return "experience";
+  if (payload.itemKind === "career-detail") return "projects";
+  if (payload.itemKind === "education") return "education";
+  return "credentials";
+}
+
 const STARTER_PLACEHOLDERS = new Set([
   "이름",
   "email@example.com",
@@ -183,6 +211,7 @@ export type ResumeImportOverlap = {
 export function inspectResumeImportOverlap(
   section: ResumeSection,
   payload: ResumeDocumentCandidatePayload,
+  relatedSections: readonly ResumeSection[] = [],
 ): ResumeImportOverlap {
   if (section.kind !== resumeDocumentPayloadSectionKind(payload)) return { level: "none" };
   if (payload.type === "identity-field" || payload.type === "identity") {
@@ -219,6 +248,20 @@ export function inspectResumeImportOverlap(
       : { level: "none" };
   }
   const items = (section.content as ItemsContent).items;
+  if (payload.itemKind === "career-detail" && payload.relatedWorkItemId) {
+    const experience = relatedSections.find((item) => item.id === "experience" && item.kind === "items");
+    const parent = experience && (experience.content as ItemsContent).items.find((item) => item.id === payload.relatedWorkItemId);
+    if (parent) {
+      const parentBody = normalizeKey(parent.body);
+      const detailBody = normalizeKey(payload.body);
+      if (parentBody && detailBody && (parentBody === detailBody || parentBody.includes(detailBody))) {
+        return { level: "exact", message: "연결된 경력 요약에 같은 상세 내용이 이미 있습니다." };
+      }
+      if (textSimilarity(parent.body, payload.body) >= 0.72) {
+        return { level: "possible", message: "연결된 경력 요약과 내용이 유사합니다. 개별 확인이 필요합니다." };
+      }
+    }
+  }
   if (items.some((item) => itemKey(item) === itemKey(payload))) {
     return { level: "exact", message: "같은 제목·소속·기간의 항목이 이미 있습니다." };
   }
@@ -235,12 +278,16 @@ export function inspectResumeImportOverlap(
     : { level: "none" };
 }
 
+export function importedResumeItemId(candidateKey: string) {
+  return `import-${candidateKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "item" }>, candidateKey: string): ItemContent {
   const start = payload.startMonth ?? "";
   const endMonth = payload.isCurrent ? "" : payload.endMonth ?? "";
   const end = payload.isCurrent ? "현재" : endMonth;
   return {
-    id: `import-${candidateKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
+    id: importedResumeItemId(candidateKey),
     itemKind: payload.itemKind,
     meta: start && end ? `${start.replace("-", ".")} — ${end.replace("-", ".")}` : start || end,
     startMonth: payload.startMonth,
@@ -249,6 +296,8 @@ function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "i
     isCurrent: payload.isCurrent,
     title: payload.title,
     subtitle: payload.subtitle,
+    detailType: payload.detailType,
+    relatedWorkItemId: payload.relatedWorkItemId,
     relatedWorkTitle: payload.relatedWorkTitle,
     body: payload.body,
   };
@@ -344,17 +393,37 @@ function applyPayload(
   command: ResumeDocumentImportCommand,
   payload: ResumeDocumentCandidatePayload,
 ) {
+  const targetSectionId = canonicalResumeDocumentTargetSectionId(command.targetSectionId);
+  const normalizedCommand = targetSectionId === command.targetSectionId ? command : { ...command, targetSectionId };
+  let normalizedPayload = payload;
+  if (payload.type === "item" && payload.itemKind === "career-detail") {
+    const experience = state.sharedSections.find((section) => section.id === "experience" && section.kind === "items");
+    const workItems = experience ? (experience.content as ItemsContent).items : [];
+    const parent = payload.relatedWorkItemId
+      ? workItems.find((item) => item.itemKind === "work" && item.id === payload.relatedWorkItemId)
+      : undefined;
+    normalizedPayload = {
+      ...payload,
+      relatedWorkItemId: parent?.id,
+      relatedWorkTitle: payload.relatedWorkTitle || parent?.title || undefined,
+    };
+    if (parent) {
+      const parentBody = normalizeKey(parent.body);
+      const detailBody = normalizeKey(payload.body);
+      if (parentBody && detailBody && (parentBody === detailBody || parentBody.includes(detailBody))) return state;
+    }
+  }
   const matchingSections = [
     ...state.sharedSections,
     ...state.roleProfiles.flatMap((profile) => profile.customSections),
     ...state.variants.flatMap((variant) => variant.customSections),
-  ].filter((section) => section.id === command.targetSectionId);
+  ].filter((section) => section.id === targetSectionId);
   if (matchingSections.length === 0) throw new Error("RESUME_IMPORT_SECTION_NOT_FOUND");
   if (matchingSections.length > 1) throw new Error("RESUME_IMPORT_SECTION_AMBIGUOUS");
   const section = matchingSections[0];
-  if (section.kind !== resumeDocumentPayloadSectionKind(payload)) throw new Error("RESUME_IMPORT_SECTION_KIND_MISMATCH");
+  if (section.kind !== resumeDocumentPayloadSectionKind(normalizedPayload)) throw new Error("RESUME_IMPORT_SECTION_KIND_MISMATCH");
   const update = (current: ResumeSection) => current.id === section.id
-    ? applyPayloadToSection(current, command, payload)
+    ? applyPayloadToSection(current, normalizedCommand, normalizedPayload)
     : current;
   return {
     ...state,
@@ -384,7 +453,9 @@ export function applyResumeImportCommand(
   if (!input.candidateKey.trim() || !input.payloadHash.trim() || !input.appliedAt.trim()) {
     throw new Error("RESUME_IMPORT_COMMAND_INVALID");
   }
-  const applied = applyPayload(state, input, payload);
+  const targetSectionId = canonicalResumeDocumentTargetSectionId(input.targetSectionId);
+  const command = targetSectionId === input.targetSectionId ? input : { ...input, targetSectionId };
+  const applied = applyPayload(state, command, payload);
   return {
     ...applied,
     importLedger: [
@@ -392,7 +463,7 @@ export function applyResumeImportCommand(
       {
         candidateKey: input.candidateKey,
         payloadHash: input.payloadHash,
-        targetSectionId: input.targetSectionId,
+        targetSectionId,
         appliedAt: input.appliedAt,
       },
     ],

@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateInput } from "@/components/ui/DateInput";
 import {
   inspectResumeImportOverlap,
+  importedResumeItemId,
   ResumeDocumentCandidatePayloadSchema,
   type ResumeImportOverlap,
   type ResumeDocumentApplyMode,
@@ -23,9 +24,11 @@ import {
   type ResumeDocumentImportCommand,
 } from "@/domain/resume-documents/importCandidate";
 import type {
+  ItemContent,
   ResumeSection,
   SectionKind,
 } from "@/domain/resume-documents/model";
+import { formatItemPeriod, normalizeEmployerTitle } from "@/domain/resume-documents/model";
 import {
   INITIAL_IMPORT_POLL_DELAY_MS,
   canLoadImportCandidates,
@@ -123,10 +126,12 @@ function validateCandidates(value: unknown): Candidate[] {
 
 export function ResumeDocumentImportPanel({
   sections,
+  workItems,
   onApply,
   onClose,
 }: {
   sections: ResumeSection[];
+  workItems: ItemContent[];
   onApply: (command: ResumeDocumentImportCommand) => void;
   onClose: () => void;
 }) {
@@ -479,6 +484,7 @@ export function ResumeDocumentImportPanel({
               <ReviewList
                 candidates={candidates}
                 sections={sections}
+                workItems={workItems}
                 onApply={onApply}
                 onRefresh={() => void refresh()}
               />
@@ -520,6 +526,23 @@ const candidateDraft = (candidate: Candidate): CandidateDraft => ({
   targetSectionId: candidate.targetSectionId,
   applyMode: candidate.applyMode,
 });
+
+function isUnresolvedCareerDetail(payload: ResumeDocumentCandidatePayload, workItems: readonly ItemContent[] = []) {
+  return payload.type === "item"
+    && payload.itemKind === "career-detail"
+    && Boolean(payload.relatedWorkTitle?.trim())
+    && (!payload.relatedWorkItemId || !workItems.some((item) => item.id === payload.relatedWorkItemId));
+}
+
+function suggestCareerDetailRelationship(draft: CandidateDraft, workItems: readonly ItemContent[]): CandidateDraft {
+  const payload = draft.payload;
+  if (payload.type !== "item" || payload.itemKind !== "career-detail" || payload.relatedWorkItemId || !payload.relatedWorkTitle?.trim()) return draft;
+  const key = normalizeEmployerTitle(payload.relatedWorkTitle);
+  const matches = workItems.filter((item) => normalizeEmployerTitle(item.title) === key);
+  return matches.length === 1
+    ? { ...draft, payload: { ...payload, relatedWorkItemId: matches[0].id, relatedWorkTitle: matches[0].title } }
+    : draft;
+}
 
 async function applyAndAcknowledgeCandidate(
   candidate: Candidate,
@@ -583,11 +606,13 @@ async function rejectCandidate(candidate: Candidate) {
 function ReviewList({
   candidates,
   sections,
+  workItems: currentWorkItems,
   onApply,
   onRefresh,
 }: {
   candidates: Candidate[];
   sections: ResumeSection[];
+  workItems: ItemContent[];
   onApply: (command: ResumeDocumentImportCommand) => void;
   onRefresh: () => void;
 }) {
@@ -600,14 +625,33 @@ function ReviewList({
       (candidate.status === "APPROVED" && !candidate.appliedAt),
   );
   const pending = visible.filter((candidate) => candidate.status === "PENDING");
-  const reviewItems = visible.map((candidate) => {
+  const existingWorkItems = currentWorkItems.filter((item) => item.itemKind === "work");
+  const pendingWorkItems = visible.flatMap((candidate) => {
     const draft = drafts[candidate.id] ?? candidateDraft(candidate);
+    const payload = draft.payload;
+    if (payload.type !== "item" || payload.itemKind !== "work") return [];
+    return [{
+      id: importedResumeItemId(`document:${candidate.id}`),
+      itemKind: "work" as const,
+      meta: "",
+      startMonth: payload.startMonth,
+      endMonth: payload.endMonth,
+      isCurrent: payload.isCurrent,
+      title: payload.title,
+      subtitle: payload.subtitle,
+      body: payload.body,
+    } satisfies ItemContent];
+  });
+  const workItems = [...existingWorkItems, ...pendingWorkItems];
+  const reviewItems = visible.map((candidate) => {
+    const draft = suggestCareerDetailRelationship(drafts[candidate.id] ?? candidateDraft(candidate), workItems);
     const section = sections.find((item) => item.id === draft.targetSectionId);
     return {
       candidate,
       draft,
       section,
-      overlap: section ? inspectResumeImportOverlap(section, draft.payload) : { level: "none" } as ResumeImportOverlap,
+      overlap: section ? inspectResumeImportOverlap(section, draft.payload, sections) : { level: "none" } as ResumeImportOverlap,
+      relationshipUnresolved: isUnresolvedCareerDetail(draft.payload, workItems),
     };
   });
   const groups = [...reviewItems.reduce((result, item) => {
@@ -617,7 +661,14 @@ function ReviewList({
     result.set(key, group);
     return result;
   }, new Map<string, typeof reviewItems>()).entries()];
-  const safeToBulkApprove = reviewItems.filter((item) => item.overlap.level !== "possible");
+  const baseSafeToBulkApprove = reviewItems.filter((item) => item.overlap.level !== "possible" && !item.relationshipUnresolved);
+  const existingWorkIds = new Set(existingWorkItems.map((item) => item.id));
+  const safeFutureWorkIds = new Set(baseSafeToBulkApprove.flatMap(({ candidate, draft, overlap }) => draft.payload.type === "item" && draft.payload.itemKind === "work" && overlap.level === "none"
+    ? [importedResumeItemId(`document:${candidate.id}`)]
+    : []));
+  const safeToBulkApprove = baseSafeToBulkApprove
+    .filter(({ draft }) => draft.payload.type !== "item" || draft.payload.itemKind !== "career-detail" || !draft.payload.relatedWorkItemId || existingWorkIds.has(draft.payload.relatedWorkItemId) || safeFutureWorkIds.has(draft.payload.relatedWorkItemId))
+    .sort((left, right) => Number(right.draft.payload.type === "item" && right.draft.payload.itemKind === "work") - Number(left.draft.payload.type === "item" && left.draft.payload.itemKind === "work"));
   const possibleDuplicateCount = reviewItems.length - safeToBulkApprove.length;
   const runReview = async (
     decision: "approve" | "reject",
@@ -684,7 +735,7 @@ function ReviewList({
       <div className="grid gap-4">
         {groups.map(([sectionId, items]) => {
           const sectionTitle = items[0]?.section?.title ?? "알 수 없는 섹션";
-          const safeItems = items.filter((item) => item.overlap.level !== "possible");
+          const safeItems = items.filter((item) => item.overlap.level !== "possible" && !item.relationshipUnresolved && (item.draft.payload.type !== "item" || item.draft.payload.itemKind !== "career-detail" || !item.draft.payload.relatedWorkItemId || existingWorkIds.has(item.draft.payload.relatedWorkItemId)));
           const pendingItems = items.filter(({ candidate }) => candidate.status === "PENDING");
           return <section className="border-2 border-border bg-muted/10 p-3 sm:p-4" key={sectionId}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -704,6 +755,7 @@ function ReviewList({
                 onRefresh={onRefresh}
                 overlap={overlap}
                 sections={sections}
+                workItems={workItems}
               />)}
             </div>
           </section>;
@@ -717,6 +769,7 @@ function CandidateCard({
   candidate,
   draft,
   sections,
+  workItems,
   onApply,
   onDraftChange,
   onRefresh,
@@ -725,6 +778,7 @@ function CandidateCard({
   candidate: Candidate;
   draft: CandidateDraft;
   sections: ResumeSection[];
+  workItems: ItemContent[];
   onApply: (command: ResumeDocumentImportCommand) => void;
   onDraftChange: (draft: CandidateDraft) => void;
   onRefresh: () => void;
@@ -745,6 +799,7 @@ function CandidateCard({
   );
   const approvedUnapplied =
     candidate.status === "APPROVED" && !candidate.appliedAt;
+  const relationshipUnresolved = isUnresolvedCareerDetail(payload, workItems);
 
   const approve = async () => {
     setBusy(true);
@@ -794,6 +849,7 @@ function CandidateCard({
         </div>
       </div>
       {overlap.message && <p className={`mt-3 border p-3 text-[11px] font-bold leading-5 ${overlap.level === "possible" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>{overlap.message}</p>}
+      {relationshipUnresolved && <p className="mt-3 border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-900">연결 확인 필요 · 연결 경력을 선택하거나 독립 프로젝트로 변경해 주세요.</p>}
       {candidate.warnings.length > 0 && (
         <ul className="mt-3 border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900">
           {candidate.warnings.map((warning) => (
@@ -852,6 +908,7 @@ function CandidateCard({
         <PayloadEditor
           disabled={approvedUnapplied}
           payload={payload}
+          workItems={workItems}
           onChange={(payload) => onDraftChange({ ...draft, payload })}
         />
       </div>
@@ -888,7 +945,7 @@ function CandidateCard({
         )}
         <button
           className="h-10 bg-primary px-4 text-xs font-bold text-primary-foreground disabled:opacity-50"
-          disabled={busy}
+          disabled={busy || relationshipUnresolved}
           onClick={() => void approve()}
         >
           {busy
@@ -942,6 +999,7 @@ function payloadLabel(payload: ResumeDocumentCandidatePayload) {
   if (payload.type === "tags") return "핵심 역량";
   const labels = {
     work: "경력",
+    "career-detail": "경력 상세",
     project: "프로젝트",
     "career-description": "경력기술서",
     education: "학력",
@@ -988,10 +1046,12 @@ function applyModeOptions(
 function PayloadEditor({
   payload,
   disabled,
+  workItems,
   onChange,
 }: {
   payload: ResumeDocumentCandidatePayload;
   disabled: boolean;
+  workItems: ItemContent[];
   onChange: (payload: ResumeDocumentCandidatePayload) => void;
 }) {
   const inputClass =
@@ -1111,21 +1171,22 @@ function PayloadEditor({
           className={inputClass}
           disabled={disabled}
           value={payload.itemKind}
-          onChange={(event) => onChange({ ...payload, itemKind: event.target.value as typeof payload.itemKind })}
+          onChange={(event) => {
+            const itemKind = event.target.value as typeof payload.itemKind;
+            onChange({ ...payload, itemKind, ...(itemKind === "career-detail" ? { detailType: payload.detailType ?? "project" } : { detailType: undefined, relatedWorkItemId: undefined, relatedWorkTitle: undefined }) });
+          }}
         >
           <option value="work">직장 경력</option>
-          <option value="project">프로젝트</option>
-          <option value="career-description">경력기술서</option>
+          <option value="career-detail">경력 상세</option>
           <option value="education">학력</option>
           <option value="credential">자격</option>
           <option value="award">수상</option>
-          <option value="activity">대외활동 · 인턴</option>
           <option value="language">어학</option>
           <option value="training">교육</option>
         </select>
       </label>
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        {payload.itemKind === "work" ? "회사명" : payload.itemKind === "project" ? "프로젝트명" : payload.itemKind === "career-description" ? "경력기술 제목" : "제목"}
+        {payload.itemKind === "work" ? "회사명" : payload.itemKind === "career-detail" ? "상세 제목" : "제목"}
         <input
           className={inputClass}
           disabled={disabled}
@@ -1136,7 +1197,7 @@ function PayloadEditor({
         />
       </label>
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        {payload.itemKind === "work" ? "부서·직책" : payload.itemKind === "project" ? "역할·기술" : payload.itemKind === "career-description" ? "회사·역할" : "기관·전공"}
+        {payload.itemKind === "work" ? "부서·직책" : payload.itemKind === "career-detail" ? "역할·기술" : "기관·전공"}
         <input
           className={inputClass}
           disabled={disabled}
@@ -1171,8 +1232,14 @@ function PayloadEditor({
         />
         <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={endMonthEnabled} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, endMonth: event.target.checked ? payload.endMonth || payload.startMonth || currentLocalMonth() : "", isCurrent: event.target.checked ? false : payload.isCurrent })} /> 종료연월 있음</span>
       </label>
-      {(payload.itemKind === "work" || payload.itemKind === "project" || payload.itemKind === "career-description") && <label className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={payload.isCurrent} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, isCurrent: event.target.checked, endMonth: event.target.checked ? "" : payload.endMonth })} /> {payload.itemKind === "work" ? "재직 중" : "진행 중"}</label>}
-      {(payload.itemKind === "project" || payload.itemKind === "career-description") && <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력·회사<input className={inputClass} disabled={disabled} value={payload.relatedWorkTitle ?? ""} onChange={(event) => onChange({ ...payload, relatedWorkTitle: event.target.value })} /></label>}
+      {(payload.itemKind === "work" || payload.itemKind === "career-detail") && <label className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={payload.isCurrent} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, isCurrent: event.target.checked, endMonth: event.target.checked ? "" : payload.endMonth })} /> {payload.itemKind === "work" ? "재직 중" : "진행 중"}</label>}
+      {payload.itemKind === "career-detail" && <>
+        <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<select className={inputClass} disabled={disabled} value={payload.detailType} onChange={(event) => onChange({ ...payload, detailType: event.target.value as typeof payload.detailType })}><option value="project">프로젝트</option><option value="responsibility">상시 책임</option><option value="improvement">개선</option><option value="troubleshooting">문제 해결</option></select></label>
+        <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력<select className={inputClass} disabled={disabled} value={payload.relatedWorkItemId && workItems.some((item) => item.id === payload.relatedWorkItemId) ? payload.relatedWorkItemId : payload.relatedWorkTitle ? "__unresolved" : ""} onChange={(event) => {
+          const work = workItems.find((item) => item.id === event.target.value);
+          onChange(work ? { ...payload, relatedWorkItemId: work.id, relatedWorkTitle: work.title } : { ...payload, relatedWorkItemId: undefined, relatedWorkTitle: undefined });
+        }}><option value="">독립 프로젝트</option>{payload.relatedWorkTitle && !workItems.some((item) => item.id === payload.relatedWorkItemId) && <option disabled value="__unresolved">연결 확인 필요 · {payload.relatedWorkTitle}</option>}{workItems.map((work) => <option key={work.id} value={work.id}>{work.title} · {work.subtitle} · {formatItemPeriod(work)}</option>)}</select></label>
+      </>}
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground sm:col-span-2">
         설명
         <textarea
