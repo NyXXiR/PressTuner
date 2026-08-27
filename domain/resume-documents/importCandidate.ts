@@ -132,12 +132,14 @@ function itemKey(item: Pick<ItemContent, "title" | "subtitle" | "startMonth" | "
 
 function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "item" }>, candidateKey: string): ItemContent {
   const start = payload.startMonth ?? "";
-  const end = payload.isCurrent ? "현재" : payload.endMonth ?? "";
+  const endMonth = payload.isCurrent ? "" : payload.endMonth ?? "";
+  const end = payload.isCurrent ? "현재" : endMonth;
   return {
     id: `import-${candidateKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
     meta: start && end ? `${start.replace("-", ".")} — ${end.replace("-", ".")}` : start || end,
     startMonth: payload.startMonth,
-    endMonth: payload.endMonth,
+    endMonth,
+    endMonthEnabled: Boolean(endMonth),
     isCurrent: payload.isCurrent,
     title: payload.title,
     subtitle: payload.subtitle,
@@ -218,7 +220,7 @@ function applyPayloadToSection(
   const duplicate = existingItems.some((item) => itemKey(item) === itemKey(nextItem));
   return duplicate && existingItems.length === content.items.length
     ? current
-    : { ...current, content: { items: duplicate ? existingItems : [...existingItems, nextItem] } };
+    : { ...current, content: { ...content, items: duplicate ? existingItems : [...existingItems, nextItem] } };
 }
 
 function applyPayload(

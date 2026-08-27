@@ -155,6 +155,39 @@ test("tags merge in stable order and item append deduplicates normalized content
   assert.equal(twice.importLedger.length, 3);
 });
 
+test("PDF item append preserves experience presentation metadata and projects end-month state", () => {
+  const state = createResumeDocumentSeed();
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  const content = experience.content as { items: unknown[]; sortDirection?: string; careerDurationOverrideMonths?: number };
+  content.sortDirection = "oldest-first";
+  content.careerDurationOverrideMonths = 74;
+  const appended = applyResumeImportCommand(state, command({
+    candidateKey: "document:work-1",
+    payloadHash: "work-1",
+    targetSectionId: "experience",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "work",
+      title: "신규 경력",
+      subtitle: "회사",
+      body: "성과",
+      startMonth: "2024-01",
+      endMonth: "2024-12",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const appendedContent = appended.sharedSections.find((section) => section.id === "experience")!.content as {
+    items: Array<{ title: string; endMonthEnabled?: boolean }>;
+    sortDirection?: string;
+    careerDurationOverrideMonths?: number;
+  };
+  assert.equal(appendedContent.sortDirection, "oldest-first");
+  assert.equal(appendedContent.careerDurationOverrideMonths, 74);
+  assert.equal(appendedContent.items.find((item) => item.title === "신규 경력")?.endMonthEnabled, true);
+});
+
 test("commands cannot be applied to an incompatible section", () => {
   assert.throws(
     () => applyResumeImportCommand(createResumeDocumentSeed(), command({ targetSectionId: "summary" })),

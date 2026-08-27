@@ -29,13 +29,18 @@ export type ItemContent = {
   meta: string;
   startMonth?: string;
   endMonth?: string;
+  endMonthEnabled?: boolean;
   isCurrent?: boolean;
   title: string;
   subtitle: string;
   body: string;
   source?: { type: "experience-brick"; id: string };
 };
-export type ItemsContent = { items: ItemContent[] };
+export type ItemsContent = {
+  items: ItemContent[];
+  sortDirection?: "latest-first" | "oldest-first";
+  careerDurationOverrideMonths?: number;
+};
 export type TagsContent = { items: string[] };
 export type SectionContent = IdentityContent | EligibilityContent | NarrativeContent | ItemsContent | TagsContent;
 
@@ -186,7 +191,7 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
     sharedSections: [
       { id: "profile", title: "인적사항", kind: "identity", content: { name: "이름", email: "email@example.com", phone: "", location: "", gender: "", birthDate: "", links: ["https://portfolio.example.com"] } },
       { id: "summary", title: "소개", kind: "narrative", content: { body: "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요." } },
-      { id: "experience", title: "경력 · 프로젝트", kind: "items", content: { items: [
+      { id: "experience", title: "경력 · 프로젝트", kind: "items", content: { sortDirection: "latest-first", items: [
         { id: newItemId(), meta: "2024.01 — 현재", title: "프로젝트 또는 업무명", subtitle: "회사 · 팀", body: "맡은 역할, 해결한 문제, 결과를 적어주세요." },
         { id: newItemId(), meta: "2022.01 — 2023.12", title: "이전 프로젝트 또는 업무명", subtitle: "회사 · 팀", body: "직군에 따라 포함하거나 강조점을 바꿀 수 있는 경험입니다." },
       ] } },
@@ -237,7 +242,7 @@ function applyLayeredItemSettings(
   }).filter((item): item is ItemContent => item !== null);
   items = orderedItems(items, roleSetting?.itemOrder);
   items = orderedItems(items, documentSetting?.itemOrder);
-  return { items };
+  return { ...content, items };
 }
 
 function roleBase(section: ResumeSection, profile?: ResumeRoleProfile) {
@@ -290,10 +295,14 @@ export function resolveSectionTitle(section: ResumeSection, profile?: ResumeRole
     || section.title;
 }
 
-export function formatItemPeriod(item: Pick<ItemContent, "meta" | "startMonth" | "endMonth" | "isCurrent">) {
+export function isItemEndMonthEnabled(item: Pick<ItemContent, "endMonth" | "endMonthEnabled">) {
+  return item.endMonthEnabled ?? Boolean(item.endMonth);
+}
+
+export function formatItemPeriod(item: Pick<ItemContent, "meta" | "startMonth" | "endMonth" | "endMonthEnabled" | "isCurrent">) {
   const formatMonth = (value?: string) => value?.trim().replace("-", ".") ?? "";
   const start = formatMonth(item.startMonth);
-  const end = item.isCurrent ? "현재" : formatMonth(item.endMonth);
+  const end = item.isCurrent ? "현재" : isItemEndMonthEnabled(item) ? formatMonth(item.endMonth) : "";
   if (start && end) return `${start} — ${end}`;
   return start || end || item.meta;
 }
@@ -536,7 +545,7 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
       for (const brick of bySourceId.values()) {
         if (!seen.has(brick.id)) existing.push(brickToItem(brick));
       }
-      return { ...section, content: { items: existing } };
+      return { ...section, content: { ...section.content, items: existing } };
     }),
   };
 }
@@ -549,11 +558,13 @@ function dateToUtcMonth(value?: string | Date | null) {
 }
 
 function brickToItem(brick: ExperienceBrickReference, existingId?: string): ItemContent {
+  const endMonth = dateToUtcMonth(brick.endDate);
   return {
     id: existingId ?? `experience-brick:${brick.id}`,
     meta: brick.period?.trim() || "기간 미입력",
     startMonth: dateToUtcMonth(brick.startDate),
-    endMonth: dateToUtcMonth(brick.endDate),
+    endMonth,
+    endMonthEnabled: Boolean(endMonth) && !brick.isCurrent,
     isCurrent: Boolean(brick.isCurrent),
     title: brick.title,
     subtitle: [brick.organization, brick.roleTitle].filter(Boolean).join(" · ") || [brick.experienceType, ...(brick.tags ?? [])].filter(Boolean).join(" · "),

@@ -198,6 +198,54 @@ test("resume page estimate measures print-like content without editor chrome", a
   assert.match(styles, /\.resume-print-header\s*\{[\s\S]*?break-inside:\s*avoid/);
 });
 
+test("experience presentation exposes persisted sort and duration controls in printable output", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+
+  for (const label of ["최신순", "오래된순", "수동 순서", "자동 계산", "직접 입력", "경력 연", "경력 개월"]) {
+    assert.match(source, new RegExp(label));
+  }
+  assert.match(source, /sortExperienceItems/);
+  assert.match(source, /resolveCareerDurationMonths/);
+  assert.match(source, /formatCareerDuration/);
+  assert.match(source, /data-experience-duration/);
+  assert.match(source, /justify-between/);
+  const durationNode = source.match(/<[^>]+data-experience-duration[^>]*>/)?.[0];
+  assert.ok(durationNode);
+  assert.doesNotMatch(durationNode, /print:hidden|resume-section-controls/);
+});
+
+test("all item editors expose explicit end-month controls with experience mutual exclusion", async () => {
+  const [builder, panel] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.ok((builder.match(/종료연월 있음/g) ?? []).length >= 2);
+  assert.match(builder, /endMonthEnabled/);
+  assert.match(builder, /isItemEndMonthEnabled/);
+  assert.match(builder, /endMonth: ""/);
+  assert.match(builder, /isCurrent: false/);
+  assert.match(panel, /종료연월 있음/);
+  assert.match(panel, /disabled={disabled \|\| !endMonthEnabled}/);
+  assert.match(panel, /endMonth: event\.target\.checked[\s\S]*?: ""/);
+});
+
+test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8");
+  assert.match(source, /`\/api\/resume\/documents\/imports\/\$\{selectedId\}`/);
+  assert.match(source, /AbortController/);
+  assert.match(source, /document\.visibilityState/);
+  assert.match(source, /visibilitychange/);
+  assert.match(source, /window\.setTimeout/);
+  assert.match(source, /shouldPollImport/);
+  assert.match(source, /nextImportPollDelay/);
+  assert.match(source, /canLoadImportCandidates/);
+  assert.doesNotMatch(source, /setInterval/);
+
+  const pollingEffect = source.match(/const poll = async \(\) => \{[\s\S]*?visibilitychange[\s\S]*?\}, \[[^\]]*selectedId[^\]]*\]\);/)?.[0];
+  assert.ok(pollingEffect);
+  assert.doesNotMatch(pollingEffect, /"\/api\/resume\/documents\/imports"/);
+});
+
 test("PDF imports stay review-first and recover approved but unapplied candidates", async () => {
   const [builder, panel, decisionRoute, appliedRoute] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),

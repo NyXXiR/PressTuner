@@ -16,6 +16,7 @@ import {
   duplicateVariant,
   formatItemPeriod,
   inspectResumeReadiness,
+  isItemEndMonthEnabled,
   linkExperienceBricks,
   narrativeCharacterCount,
   narrativePlainText,
@@ -161,7 +162,67 @@ test("list items can be rewritten, hidden, reordered, and restored at role and v
 test("structured year-month periods format ranges and in-progress experience", () => {
   assert.equal(formatItemPeriod({ meta: "", startMonth: "2024-01", endMonth: "2025-03", isCurrent: false }), "2024.01 — 2025.03");
   assert.equal(formatItemPeriod({ meta: "", startMonth: "2024-01", endMonth: "", isCurrent: true }), "2024.01 — 현재");
+  assert.equal(formatItemPeriod({ meta: "한 날짜", startMonth: "2024-01", endMonth: "2025-03", endMonthEnabled: false }), "2024.01");
   assert.equal(formatItemPeriod({ meta: "졸업 연도" }), "졸업 연도");
+  assert.equal(isItemEndMonthEnabled({ endMonth: "2025-03" }), true);
+  assert.equal(isItemEndMonthEnabled({ endMonth: "2025-03", endMonthEnabled: false }), false);
+});
+
+test("pre-feature V5 item metadata remains optional while stored order is unchanged", () => {
+  const state = createResumeDocumentSeed();
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  const content = experience.content as ItemsContent;
+  delete content.sortDirection;
+  delete content.careerDurationOverrideMonths;
+  content.items.reverse();
+
+  const parsed = parseResumeDocumentState(JSON.stringify(state))!;
+  const parsedContent = parsed.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent;
+  assert.equal(parsed.version, 5);
+  assert.equal(parsedContent.sortDirection, undefined);
+  assert.equal(parsedContent.careerDurationOverrideMonths, undefined);
+  assert.deepEqual(parsedContent.items.map((item) => item.id), content.items.map((item) => item.id));
+});
+
+test("experience metadata round-trips and survives layered item resolution", () => {
+  const state = createResumeDocumentSeed();
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  const content = experience.content as ItemsContent;
+  content.sortDirection = "oldest-first";
+  content.careerDurationOverrideMonths = 62;
+  const [first, second] = content.items;
+  let tailored = updateRoleProfileItemSetting(state, state.activeRoleProfileId, experience.id, first.id, {
+    mode: "override",
+    content: { ...first, body: "직군 내용" },
+  });
+  tailored = updateRoleProfileItemSetting(tailored, state.activeRoleProfileId, experience.id, second.id, { mode: "hidden" });
+  tailored = updateRoleProfileSectionSetting(tailored, state.activeRoleProfileId, experience.id, { itemOrder: [second.id, first.id] });
+
+  const parsed = parseResumeDocumentState(JSON.stringify(tailored))!;
+  const parsedExperience = parsed.sharedSections.find((section) => section.id === "experience")!;
+  const resolved = resolveSection(parsedExperience, parsed.roleProfiles[0]).content as ItemsContent;
+  assert.equal(resolved.sortDirection, "oldest-first");
+  assert.equal(resolved.careerDurationOverrideMonths, 62);
+  assert.deepEqual(resolved.items.map((item) => item.id), [first.id]);
+  assert.equal(resolved.items[0].body, "직군 내용");
+});
+
+test("experience brick synchronization retains section presentation metadata", () => {
+  const state = createResumeDocumentSeed();
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  (experience.content as ItemsContent).sortDirection = "oldest-first";
+  (experience.content as ItemsContent).careerDurationOverrideMonths = 38;
+  const synced = linkExperienceBricks(state, [{
+    id: "metadata-brick",
+    title: "메타데이터 보존",
+    content: "동기화",
+    startDate: "2024-01-01T00:00:00.000Z",
+    endDate: "2024-06-01T00:00:00.000Z",
+  }]);
+  const syncedContent = synced.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent;
+  assert.equal(syncedContent.sortDirection, "oldest-first");
+  assert.equal(syncedContent.careerDurationOverrideMonths, 38);
+  assert.equal(syncedContent.items.at(-1)?.endMonthEnabled, true);
 });
 
 test("role custom sections belong to the role resume and are inherited by support versions", () => {
@@ -729,6 +790,7 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
     meta: "legacy A",
     startMonth: "2024-03",
     endMonth: "2025-05",
+    endMonthEnabled: true,
     isCurrent: false,
     title: "새 A",
     subtitle: "회사 · 리드",
@@ -739,6 +801,7 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
   assert.equal(items[3].subtitle, "ACTIVITY · 협업");
   assert.equal(items[3].startMonth, "2023-01");
   assert.equal(items[3].isCurrent, true);
+  assert.equal(items[3].endMonthEnabled, false);
   assert.deepEqual(linkExperienceBricks(synced, bricks), synced);
 });
 

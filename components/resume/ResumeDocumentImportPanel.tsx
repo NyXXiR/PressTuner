@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DateInput } from "@/components/ui/DateInput";
 import {
@@ -24,14 +24,14 @@ import type {
   ResumeSection,
   SectionKind,
 } from "@/domain/resume-documents/model";
+import {
+  INITIAL_IMPORT_POLL_DELAY_MS,
+  canLoadImportCandidates,
+  nextImportPollDelay,
+  shouldPollImport,
+  type ImportStatus,
+} from "@/domain/resume-documents/importPollingPolicy";
 
-type ImportStatus =
-  | "WAITING_SOURCE"
-  | "QUEUED"
-  | "EXTRACTING"
-  | "REVIEW_REQUIRED"
-  | "COMPLETE"
-  | "FAILED";
 type ResumeImport = {
   id: string;
   status: ImportStatus;
@@ -72,11 +72,6 @@ type Candidate = {
   evidence: Evidence[];
 };
 
-const processingStatuses = new Set<ImportStatus>([
-  "WAITING_SOURCE",
-  "QUEUED",
-  "EXTRACTING",
-]);
 const statusLabel: Record<ImportStatus, string> = {
   WAITING_SOURCE: "PDF 원문 분석 대기",
   QUEUED: "AI 분석 대기",
@@ -94,6 +89,15 @@ function errorMessage(value: unknown) {
     if (typeof error?.code === "string") return error.code;
   }
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+function isAbortError(value: unknown) {
+  return value instanceof DOMException && value.name === "AbortError";
+}
+
+function currentLocalMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -131,68 +135,158 @@ export function ResumeDocumentImportPanel({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const selected = imports.find((item) => item.id === selectedId) ?? null;
+  const detailControllerRef = useRef<AbortController | null>(null);
+  const candidateControllerRef = useRef<AbortController | null>(null);
+  const automaticallyLoadedImportRef = useRef<string | null>(null);
+  const selectedStatusRef = useRef<ImportStatus | null>(selected?.status ?? null);
+  const selectedSourceStatusRef = useRef<string | null>(selected?.source.status ?? null);
+  selectedStatusRef.current = selected?.status ?? null;
+  selectedSourceStatusRef.current = selected?.source.status ?? null;
 
-  const loadImports = useCallback(async (preferredId?: string) => {
-    const payload = await jsonRequest<{ imports: ResumeImport[] }>(
-      "/api/resume/documents/imports",
-    );
-    setImports(payload.imports);
-    setSelectedId(
-      (current) => preferredId ?? current ?? payload.imports[0]?.id ?? null,
-    );
-    return payload.imports;
+  const upsertImport = useCallback((nextImport: ResumeImport) => {
+    setImports((current) => {
+      const index = current.findIndex((item) => item.id === nextImport.id);
+      if (index < 0) return [nextImport, ...current];
+      return current.map((item) => item.id === nextImport.id ? nextImport : item);
+    });
   }, []);
 
   const loadCandidates = useCallback(async (importId: string) => {
-    const payload = await jsonRequest<{ candidates: unknown }>(
-      `/api/resume/documents/candidates?importId=${encodeURIComponent(importId)}`,
-    );
-    setCandidates(validateCandidates(payload.candidates));
+    candidateControllerRef.current?.abort();
+    const controller = new AbortController();
+    candidateControllerRef.current = controller;
+    try {
+      const payload = await jsonRequest<{ candidates: unknown }>(
+        `/api/resume/documents/candidates?importId=${encodeURIComponent(importId)}`,
+        { signal: controller.signal },
+      );
+      if (!controller.signal.aborted) setCandidates(validateCandidates(payload.candidates));
+    } finally {
+      if (candidateControllerRef.current === controller) candidateControllerRef.current = null;
+    }
+  }, []);
+
+  const loadImportDetail = useCallback(async (importId: string) => {
+    detailControllerRef.current?.abort();
+    const controller = new AbortController();
+    detailControllerRef.current = controller;
+    try {
+      const payload = await jsonRequest<{ import: ResumeImport }>(
+        `/api/resume/documents/imports/${importId}`,
+        { signal: controller.signal },
+      );
+      if (!controller.signal.aborted) {
+        selectedStatusRef.current = payload.import.status;
+        selectedSourceStatusRef.current = payload.import.source.status;
+        upsertImport(payload.import);
+      }
+      return payload.import;
+    } finally {
+      if (detailControllerRef.current === controller) detailControllerRef.current = null;
+    }
+  }, [upsertImport]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void jsonRequest<{ imports: ResumeImport[] }>("/api/resume/documents/imports", { signal: controller.signal })
+      .then((payload) => {
+        setImports(payload.imports);
+        setSelectedId((current) => current ?? payload.imports[0]?.id ?? null);
+      })
+      .catch((cause) => {
+        if (!isAbortError(cause)) setError(cause instanceof Error ? cause.message : "가져오기 목록을 불러오지 못했습니다.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void loadImports()
-      .catch(
-        (cause) =>
-          !cancelled &&
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "가져오기 목록을 불러오지 못했습니다.",
-          ),
-      )
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
+    candidateControllerRef.current?.abort();
+    automaticallyLoadedImportRef.current = null;
+    setCandidates([]);
+    return () => candidateControllerRef.current?.abort();
+  }, [selectedId]);
+
+  useEffect(() => {
+    const selectedStatus = selected?.status;
+    if (!selectedId || !selectedStatus || !canLoadImportCandidates(selectedStatus) || automaticallyLoadedImportRef.current === selectedId) return;
+    void loadCandidates(selectedId)
+      .then(() => { automaticallyLoadedImportRef.current = selectedId; })
+      .catch((cause) => {
+        if (!isAbortError(cause)) setError(cause instanceof Error ? cause.message : "후보를 불러오지 못했습니다.");
+      });
+  }, [loadCandidates, selected?.status, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    let stopped = false;
+    let timer: number | null = null;
+    let delay = INITIAL_IMPORT_POLL_DELAY_MS;
+    let previousStatus = selectedStatusRef.current;
+    const clearTimer = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = null;
     };
-  }, [loadImports]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setCandidates([]);
-      return;
-    }
-    void loadCandidates(selectedId).catch((cause) =>
-      setError(
-        cause instanceof Error ? cause.message : "후보를 불러오지 못했습니다.",
-      ),
-    );
-  }, [loadCandidates, selectedId]);
-
-  useEffect(() => {
-    if (!selected || !processingStatuses.has(selected.status)) return;
-    const timer = window.setInterval(() => {
-      void loadImports(selected.id)
-        .then((items) => {
-          const next = items.find((item) => item.id === selected.id);
-          if (next && !processingStatuses.has(next.status))
-            void loadCandidates(next.id);
-        })
-        .catch(() => undefined);
-    }, 2_000);
-    return () => window.clearInterval(timer);
-  }, [loadCandidates, loadImports, selected]);
+    const schedule = (wait: number) => {
+      clearTimer();
+      if (!stopped && document.visibilityState === "visible") {
+        timer = window.setTimeout(() => { void poll(); }, wait);
+      }
+    };
+    const poll = async () => {
+      clearTimer();
+      const currentStatus = selectedStatusRef.current;
+      const sourceStatus = selectedSourceStatusRef.current;
+      if (stopped || document.visibilityState !== "visible" || !currentStatus || !sourceStatus || !shouldPollImport(currentStatus, sourceStatus)) return;
+      detailControllerRef.current?.abort();
+      const controller = new AbortController();
+      detailControllerRef.current = controller;
+      try {
+        const payload = await jsonRequest<{ import: ResumeImport }>(
+          `/api/resume/documents/imports/${selectedId}`,
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted || stopped) return;
+        const nextImport = payload.import;
+        delay = nextImportPollDelay(delay, previousStatus ?? currentStatus, nextImport.status);
+        previousStatus = nextImport.status;
+        selectedStatusRef.current = nextImport.status;
+        selectedSourceStatusRef.current = nextImport.source.status;
+        upsertImport(nextImport);
+        if (shouldPollImport(nextImport.status, nextImport.source.status)) schedule(delay);
+      } catch (cause) {
+        if (isAbortError(cause)) {
+          const status = selectedStatusRef.current;
+          const sourceStatus = selectedSourceStatusRef.current;
+          if (!stopped && document.visibilityState === "visible" && status && sourceStatus && shouldPollImport(status, sourceStatus)) schedule(delay);
+          return;
+        }
+        setError(cause instanceof Error ? cause.message : "가져오기 상태를 확인하지 못했습니다.");
+        delay = nextImportPollDelay(delay, currentStatus, currentStatus);
+        schedule(delay);
+      } finally {
+        if (detailControllerRef.current === controller) detailControllerRef.current = null;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        clearTimer();
+        detailControllerRef.current?.abort();
+        return;
+      }
+      void poll();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const status = selectedStatusRef.current;
+    const sourceStatus = selectedSourceStatusRef.current;
+    if (status && sourceStatus && shouldPollImport(status, sourceStatus)) schedule(delay);
+    return () => {
+      stopped = true;
+      clearTimer();
+      detailControllerRef.current?.abort();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [selected?.source.status, selected?.status, selectedId, upsertImport]);
 
   const upload = async (file?: File) => {
     if (!file) return;
@@ -205,7 +299,8 @@ export function ResumeDocumentImportPanel({
         "/api/resume/documents/imports",
         { method: "POST", body: formData },
       );
-      await loadImports(payload.import.id);
+      upsertImport(payload.import);
+      setSelectedId(payload.import.id);
       setCandidates([]);
     } catch (cause) {
       setError(
@@ -231,7 +326,7 @@ export function ResumeDocumentImportPanel({
           { method: "POST" },
         );
       }
-      await loadImports(selected.id);
+      await loadImportDetail(selected.id);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "다시 시도하지 못했습니다.",
@@ -241,7 +336,11 @@ export function ResumeDocumentImportPanel({
 
   const refresh = async () => {
     if (!selectedId) return;
-    await Promise.all([loadImports(selectedId), loadCandidates(selectedId)]);
+    try {
+      await Promise.all([loadImportDetail(selectedId), loadCandidates(selectedId)]);
+    } catch (cause) {
+      if (!isAbortError(cause)) setError(cause instanceof Error ? cause.message : "가져오기 내용을 새로 고치지 못했습니다.");
+    }
   };
 
   const failed =
@@ -362,7 +461,7 @@ export function ResumeDocumentImportPanel({
                   <RotateCcw className="h-4 w-4" /> 다시 시도
                 </button>
               </div>
-            ) : processingStatuses.has(selected.status) ? (
+            ) : shouldPollImport(selected.status, selected.source.status) ? (
               <div className="grid min-h-64 place-items-center border border-primary/25 bg-primary/5 text-center">
                 <div>
                   <LoaderCircle className="mx-auto h-8 w-8 animate-spin text-primary" />
@@ -870,6 +969,7 @@ function PayloadEditor({
         />
       </label>
     );
+  const endMonthEnabled = Boolean(payload.endMonth);
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
@@ -910,13 +1010,14 @@ function PayloadEditor({
         종료 연월
         <input
           className={inputClass}
-          disabled={disabled}
+          disabled={disabled || !endMonthEnabled}
           type="month"
           value={payload.endMonth ?? ""}
           onChange={(event) =>
             onChange({ ...payload, endMonth: event.target.value })
           }
         />
+        <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={endMonthEnabled} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, endMonth: event.target.checked ? payload.endMonth || payload.startMonth || currentLocalMonth() : "", isCurrent: event.target.checked ? false : payload.isCurrent })} /> 종료연월 있음</span>
       </label>
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground sm:col-span-2">
         설명
