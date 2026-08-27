@@ -112,3 +112,53 @@ test("service renders blank and legacy item month strings without mutating the s
     await pdf.destroy();
   }
 });
+
+test("long career items move their opening together and still split when they exceed a page", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  const filler = Array.from({ length: 32 }, (_, index) =>
+    `채움-${String(index + 1).padStart(2, "0")} 페이지 배치를 확인하기 위한 충분히 긴 문장입니다. 내용의 높이를 안정적으로 확보합니다.`,
+  ).join("\n");
+  const longCareerDetail = Array.from({ length: 50 }, (_, index) =>
+    `상세-${String(index + 1).padStart(2, "0")} 문제를 분석하고 해결한 결과를 동료가 확인할 수 있도록 기록했습니다.`,
+  ).join("\n");
+  snapshot.sections = [
+    { id: "intro", title: "앞선 내용", kind: "narrative", layout: "standard", content: { body: filler } },
+    {
+      id: "experience",
+      title: "경력 상세",
+      kind: "items",
+      layout: "standard",
+      content: {
+        items: [{
+          id: "long-career-item",
+          itemKind: "activity",
+          meta: "2024",
+          title: "긴 경력 항목",
+          subtitle: "플랫폼 개선",
+          body: longCareerDetail,
+        }],
+      },
+    },
+  ];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const pageTexts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+    }
+
+    const openingPage = pageTexts.findIndex((text) => text.includes("긴 경력 항목"));
+    const endingPage = pageTexts.findIndex((text) => text.includes("상세-50"));
+    assert.ok(openingPage > 0, "career item opening should move away from an undersized remainder");
+    for (const marker of ["상세-01", "상세-02", "상세-03", "상세-04"]) {
+      assert.ok(pageTexts[openingPage]?.includes(marker), `career item opening should keep ${marker} with its heading`);
+    }
+    assert.ok(endingPage > openingPage, "an oversized career item should continue naturally on a later page");
+  } finally {
+    await pdf.destroy();
+  }
+});

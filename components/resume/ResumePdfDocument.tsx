@@ -18,6 +18,8 @@ const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const narrativeSizes: Record<NarrativeBlockType, number> = { p: 9.5, h1: 18, h2: 15.5, h3: 13.5, h4: 12, h5: 11, h6: 10 };
+const ITEM_BODY_ORPHANS = 4;
+const ITEM_BODY_WIDOWS = 3;
 
 type ReactPdfRenderer = typeof import("@react-pdf/renderer");
 
@@ -130,15 +132,28 @@ function EligibilitySection({ section }: { section: Extract<ResumePdfSection, { 
 
 function ResumeItem({ item, detailLabel }: { item: ItemContent; detailLabel?: string }) {
   const compact = item.body.length <= 700;
+  const subtitle = [item.relatedWorkTitle, item.subtitle].filter(Boolean).join(" · ");
+  if (!compact) {
+    const headingLines = 1 + (detailLabel ? 1 : 0) + (subtitle ? 1 : 0);
+    return <View style={styles.item} wrap>
+      <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
+      <Text orphans={headingLines + ITEM_BODY_ORPHANS} style={styles.itemCopy} widows={ITEM_BODY_WIDOWS}>
+        {detailLabel ? <Text style={styles.detailType}>{detailLabel}{"\n"}</Text> : null}
+        <Text style={styles.itemTitle}>{item.title || "제목 미입력"}</Text>
+        {subtitle ? <Text style={styles.itemSubtitle}>{"\n"}{subtitle}</Text> : null}
+        <Text style={styles.itemBody}>{"\n"}{item.body}</Text>
+      </Text>
+    </View>;
+  }
   return <View style={styles.item} wrap={!compact}>
     <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
     <View style={styles.itemCopy}>
-      <View minPresenceAhead={28} wrap={false}>
+      <View wrap={false}>
         {detailLabel ? <Text style={styles.detailType}>{detailLabel}</Text> : null}
         <Text style={styles.itemTitle}>{item.title || "제목 미입력"}</Text>
-        {[item.relatedWorkTitle, item.subtitle].filter(Boolean).length ? <Text style={styles.itemSubtitle}>{[item.relatedWorkTitle, item.subtitle].filter(Boolean).join(" · ")}</Text> : null}
+        {subtitle ? <Text style={styles.itemSubtitle}>{subtitle}</Text> : null}
       </View>
-      {item.body ? <Text orphans={3} style={styles.itemBody} widows={3}>{item.body}</Text> : <EmptyCopy />}
+      {item.body ? <Text style={styles.itemBody}>{item.body}</Text> : <EmptyCopy />}
     </View>
   </View>;
 }
