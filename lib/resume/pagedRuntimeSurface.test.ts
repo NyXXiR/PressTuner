@@ -32,6 +32,8 @@ test("npm lifecycles prepare the self-contained same-origin Paged.js runtime", a
   }
   assert.match(prepareScript, /require\.resolve\(["']pagedjs["']\)[\s\S]*\.\.\/dist\/paged\.min\.js/u);
   assert.match(prepareScript, /public[\/]vendor[\/]paged\.min\.js/u);
+  assert.match(prepareScript, /offsetParent/u, "the vendored runtime must patch Paged.js's nullable layout parent assumption");
+  assert.match(prepareScript, /parentElement/u, "the patch must measure the page content's direct layout container when offsetParent is null");
   assert.match(gitignore, /^\/public\/vendor\/paged\.min\.js$/mu);
 });
 

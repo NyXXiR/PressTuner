@@ -107,7 +107,7 @@ h3.resume-group-heading { font-size: 11px; font-weight: 900; }
 .resume-pdf-eyebrow { margin: 0; color: #2563eb; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
 .resume-pdf-status { margin: 5px 0 0; color: #475569; font-size: 12px; }
 .resume-pdf-source { position: fixed; top: 0; left: -100000px; width: 174mm; opacity: 0; pointer-events: none; }
-.resume-pdf-pagination-stage { position: absolute; top: 0; left: -100000px; width: 210mm; min-height: 297mm; visibility: hidden; pointer-events: none; }
+.resume-pdf-pagination-stage { position: absolute; top: 0; left: -100000px; width: 210mm; min-height: 297mm; overflow: hidden; opacity: 0; pointer-events: none; }
 .resume-pdf-output { min-height: 240px; padding: 24px 0; overflow: auto; }
 .resume-pdf-page.pagedjs_page { width: 210mm !important; height: 297mm !important; margin: 0 auto 24px !important; background: #fff; box-shadow: 0 10px 30px rgb(15 23 42 / .22); }
 .resume-pdf-page .pagedjs_sheet,

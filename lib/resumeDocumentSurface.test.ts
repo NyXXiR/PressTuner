@@ -82,7 +82,8 @@ test("resume PDF uses a dedicated stylesheet with exact geometry and print isola
   assert.match(styles, /\.resume-group-heading[\s\S]*?break-after:\s*avoid/);
   assert.match(styles, /\.resume-item[\s\S]*?break-inside:\s*avoid/);
   assert.match(styles, /\.resume-section-opening[\s\S]*?page-break-inside:\s*avoid/);
-  assert.match(styles, /\.resume-pdf-pagination-stage[\s\S]*?visibility:\s*hidden/);
+  assert.match(styles, /\.resume-pdf-pagination-stage[\s\S]*?opacity:\s*0/);
+  assert.doesNotMatch(styles, /\.resume-pdf-pagination-stage[^}]*visibility:\s*hidden/);
   assert.doesNotMatch(adapter, /import\("pagedjs"\)/);
   assert.match(adapter, /PAGED_RUNTIME_SOURCE = "\/vendor\/paged\.min\.js"/);
   assert.match(adapter, /document\.createElement\("script"\)/);

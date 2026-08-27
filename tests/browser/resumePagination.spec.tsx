@@ -22,11 +22,16 @@ test.beforeAll(async () => {
   ], { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 });
   const css = await readFile(path.resolve("public/styles/resume-print.css"), "utf8");
   const paged = await readFile(path.resolve("public/vendor/paged.min.js"), "utf8");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/styles/resume-print.css"></head><body><button>${chromeSentinel}</button><div id="source">${printable}</div><div class="resume-pdf-dialog-root"><section class="resume-pdf-dialog-panel"><div class="resume-pdf-dialog-chrome">${dialogSentinel}<p id="ready-status"></p></div><div id="output" class="resume-pdf-output" style="display:none"></div></section></div><script src="/vendor/paged.min.js"></script><script>void (async()=>{const stage=document.createElement('div');stage.className='resume-pdf-pagination-stage';document.body.appendChild(stage);try{const previewer=new PagedModule.Previewer();const flow=await previewer.preview(document.querySelector('#source .resume-printable-document'),['/styles/resume-print.css'],stage);previewer.chunker.pages.forEach(page=>page.removeListeners());const output=document.querySelector('#output');output.replaceChildren(...stage.childNodes);stage.remove();const pages=[...output.querySelectorAll('.pagedjs_page')];pages.forEach((page,index)=>{page.classList.add('resume-pdf-page');page.dataset.resumePageNumber=String(index+1);page.setAttribute('aria-label',String(index+1)+'페이지');});window.resumePreviewPages=pages;output.style.display='';document.querySelector('#ready-status').textContent='정확히 '+pages.length+'페이지';document.body.classList.add('resume-pagination-ready');document.body.dataset.pageCount=String(flow.total);}catch(error){stage.remove();document.body.dataset.previewError=String(error);}})();</script></body></html>`;
+  const createHtml = (forceNullOffsetParent: boolean) => {
+    const offsetParentRegression = forceNullOffsetParent
+      ? `<script>const nativeOffsetParent=Object.getOwnPropertyDescriptor(HTMLElement.prototype,'offsetParent').get;Object.defineProperty(HTMLElement.prototype,'offsetParent',{configurable:true,get(){if(this.classList.contains('pagedjs_page_content'))return null;return nativeOffsetParent.call(this);}});</script>`
+      : "";
+    return `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/styles/resume-print.css"></head><body><button>${chromeSentinel}</button><div id="source">${printable}</div><div class="resume-pdf-dialog-root"><section class="resume-pdf-dialog-panel"><div class="resume-pdf-dialog-chrome">${dialogSentinel}<p id="ready-status"></p></div><div id="output" class="resume-pdf-output" style="display:none"></div></section></div>${offsetParentRegression}<script src="/vendor/paged.min.js"></script><script>void (async()=>{const stage=document.createElement('div');stage.className='resume-pdf-pagination-stage';document.body.appendChild(stage);try{const previewer=new PagedModule.Previewer();const flow=await previewer.preview(document.querySelector('#source .resume-printable-document'),['/styles/resume-print.css'],stage);previewer.chunker.pages.forEach(page=>page.removeListeners());const output=document.querySelector('#output');output.replaceChildren(...stage.childNodes);stage.remove();const pages=[...output.querySelectorAll('.pagedjs_page')];pages.forEach((page,index)=>{page.classList.add('resume-pdf-page');page.dataset.resumePageNumber=String(index+1);page.setAttribute('aria-label',String(index+1)+'페이지');});window.resumePreviewPages=pages;output.style.display='';document.querySelector('#ready-status').textContent='정확히 '+pages.length+'페이지';document.body.classList.add('resume-pagination-ready');document.body.dataset.pageCount=String(flow.total);}catch(error){stage.remove();document.body.dataset.previewError=String(error);document.body.dataset.previewStack=error instanceof Error?error.stack||'':'';}})();</script></body></html>`;
+  };
   server = createServer((request, response) => {
     if (request.url === "/styles/resume-print.css") { response.setHeader("content-type", "text/css"); response.end(css); return; }
     if (request.url === "/vendor/paged.min.js") { response.setHeader("content-type", "text/javascript"); response.end(paged); return; }
-    response.setHeader("content-type", "text/html; charset=utf-8"); response.end(html);
+    response.setHeader("content-type", "text/html; charset=utf-8"); response.end(createHtml(request.url === "/null-offset-parent"));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -117,4 +122,14 @@ test("Paged.js preview preserves A4 geometry, safe boundaries, and PDF parity", 
   const text = extracted.text.join("\n");
   expect(text).not.toContain(chromeSentinel);
   expect(text).not.toContain(dialogSentinel);
+});
+
+test("Paged.js preview tolerates a null page-content offsetParent", async ({ page }) => {
+  await page.goto(`${origin}/null-offset-parent`);
+  await page.locator("body.resume-pagination-ready, body[data-preview-error]").waitFor();
+
+  const previewError = await page.evaluate(() => document.body.dataset.previewError ?? null);
+  const previewStack = await page.evaluate(() => document.body.dataset.previewStack ?? null);
+  expect(previewError, previewStack ?? undefined).toBeNull();
+  await expect(page.locator("body.resume-pagination-ready")).toHaveAttribute("data-page-count", /[2-9]|\d{2,}/);
 });
