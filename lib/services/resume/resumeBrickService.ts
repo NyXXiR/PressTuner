@@ -288,7 +288,7 @@ export async function listAllExperienceBricks(userId: string) {
   }
 
   const items = await prisma.experienceBrick.findMany({
-    where: { userId, memoryStatus: { not: CareerExperienceStatus.ARCHIVED } },
+    where: { userId, memoryStatus: CareerExperienceStatus.CONFIRMED },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -302,6 +302,9 @@ export async function listAllExperienceBricks(userId: string) {
       source: true,
       createdAt: true,
       originalText: true,
+      organization: true,
+      roleTitle: true,
+      experienceType: true,
     },
   });
 

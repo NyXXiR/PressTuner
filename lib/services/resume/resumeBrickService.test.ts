@@ -7,6 +7,8 @@ import {
   CareerCandidateOrigin,
   CareerCandidateStatus,
   CareerEvidenceOrigin,
+  CareerExperienceStatus,
+  CareerExperienceType,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -19,6 +21,7 @@ import {
   batchCreateExperienceBricks,
   createExperienceBrick,
   deleteExperienceBrick,
+  listAllExperienceBricks,
   updateExperienceBrick,
 } from "./resumeBrickService";
 
@@ -32,6 +35,83 @@ async function createTestUser(label: string) {
     },
   });
 }
+
+test("bulk resume projection returns only the current user's confirmed experiences with rendering fields", async () => {
+  const [owner, other] = await Promise.all([
+    createTestUser("bulk-owner"),
+    createTestUser("bulk-other"),
+  ]);
+  const startDate = new Date("2023-02-20T18:00:00.000Z");
+  const endDate = new Date("2024-03-20T18:00:00.000Z");
+  try {
+    const confirmed = await prisma.experienceBrick.create({
+      data: {
+        userId: owner.id,
+        title: "Confirmed project",
+        content: "Shipped the confirmed project",
+        organization: "brieFFlow",
+        roleTitle: "Product engineer",
+        experienceType: CareerExperienceType.PROJECT,
+        period: "2023.02 - 2024.03",
+        startDate,
+        endDate,
+        isCurrent: false,
+        tags: ["Next.js", "AI"],
+        memoryStatus: CareerExperienceStatus.CONFIRMED,
+      },
+    });
+    await Promise.all([
+      prisma.experienceBrick.create({
+        data: {
+          userId: owner.id,
+          title: "Needs review",
+          content: "Must stay out",
+          tags: [],
+          memoryStatus: CareerExperienceStatus.NEEDS_REVIEW,
+        },
+      }),
+      prisma.experienceBrick.create({
+        data: {
+          userId: owner.id,
+          title: "Archived",
+          content: "Must stay out",
+          tags: [],
+          memoryStatus: CareerExperienceStatus.ARCHIVED,
+        },
+      }),
+      prisma.experienceBrick.create({
+        data: {
+          userId: other.id,
+          title: "Foreign confirmed",
+          content: "Must stay isolated",
+          tags: [],
+          memoryStatus: CareerExperienceStatus.CONFIRMED,
+        },
+      }),
+    ]);
+
+    const items = await listAllExperienceBricks(owner.id);
+    assert.equal(items.length, 1);
+    assert.deepEqual(items[0], {
+      id: confirmed.id,
+      title: "Confirmed project",
+      content: "Shipped the confirmed project",
+      organization: "brieFFlow",
+      roleTitle: "Product engineer",
+      experienceType: CareerExperienceType.PROJECT,
+      period: "2023.02 - 2024.03",
+      startDate,
+      endDate,
+      isCurrent: false,
+      tags: ["Next.js", "AI"],
+      source: confirmed.source,
+      createdAt: confirmed.createdAt,
+      originalText: null,
+    });
+  } finally {
+    await prisma.user.deleteMany({ where: { id: { in: [owner.id, other.id] } } });
+  }
+});
 
 test("legacy raw create queues a DIRECT_INPUT CREATE candidate with server-derived period", async () => {
   const user = await createTestUser("create");

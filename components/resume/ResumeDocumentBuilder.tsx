@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
 import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import Image from "next/image";
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RESUME_DOCUMENT_STORAGE_KEY,
   addCustomSection,
@@ -47,6 +47,7 @@ import {
   updateSharedSectionOrder,
   updateSharedSectionTitle,
   type ExperienceBrickReference,
+  type EligibilityContent,
   type IdentityContent,
   type ItemContent,
   type ItemMode,
@@ -65,11 +66,16 @@ import {
   type SectionMode,
   type TagsContent,
 } from "@/domain/resume-documents/model";
+import { DateInput } from "@/components/ui/DateInput";
+import { formatDateOnly } from "@/components/ui/dateOnly";
+import { applyResumeImportCommand, type ResumeDocumentImportCommand } from "@/domain/resume-documents/importCandidate";
+import { ResumeDocumentImportPanel } from "@/components/resume/ResumeDocumentImportPanel";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
-const kinds: Record<SectionKind, string> = { identity: "인적사항", narrative: "소개글", items: "경력·학력 등 목록", tags: "역량·키워드" };
+const kinds: Record<SectionKind, string> = { identity: "인적사항", eligibility: "병역·보훈 등 자격", narrative: "소개글", items: "경력·학력 등 목록", tags: "역량·키워드" };
 const sectionKindGuidance: Record<SectionKind, string> = {
   identity: "연락처와 기본 정보를 한눈에 보여주는 프로필 형식",
+  eligibility: "병역·보훈·장애·취업보호 정보를 정리하는 자격 형식",
   narrative: "문단 중심으로 소개와 핵심역량을 설명하는 글 형식",
   items: "기간과 항목을 나란히 정리하는 경력·학력 형식",
   tags: "짧은 키워드를 모아 빠르게 훑어보는 역량 형식",
@@ -95,6 +101,7 @@ export function ResumeDocumentBuilder() {
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [itemEditor, setItemEditor] = useState<ItemEditorState | null>(null);
   const [experienceDialogOpen, setExperienceDialogOpen] = useState(false);
+  const [importPanelOpen, setImportPanelOpen] = useState(false);
   const [sharedSectionDialogOpen, setSharedSectionDialogOpen] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [newSectionKind, setNewSectionKind] = useState<SectionKind>("items");
@@ -106,6 +113,11 @@ export function ResumeDocumentBuilder() {
   const [hydrated, setHydrated] = useState(false);
   const [storageStatus, setStorageStatus] = useState<"loading" | "saved" | "error">("loading");
   const paperRef = useRef<HTMLElement>(null);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -124,17 +136,26 @@ export function ResumeDocumentBuilder() {
     return () => window.cancelAnimationFrame(frame);
   }, [hydrated, state]);
   useEffect(() => {
-    if (!draft && !insertAfterId && !itemEditor && !experienceDialogOpen && !readinessOpen && !sharedSectionDialogOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setItemEditor(null); setExperienceDialogOpen(false); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
+    if (!draft && !insertAfterId && !itemEditor && !experienceDialogOpen && !importPanelOpen && !readinessOpen && !sharedSectionDialogOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setItemEditor(null); setExperienceDialogOpen(false); setImportPanelOpen(false); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [draft, experienceDialogOpen, insertAfterId, itemEditor, readinessOpen, sharedSectionDialogOpen]);
+  }, [draft, experienceDialogOpen, importPanelOpen, insertAfterId, itemEditor, readinessOpen, sharedSectionDialogOpen]);
 
   const active = useMemo(() => state.variants.find((item) => item.id === state.activeVariantId), [state]);
   const activeProfile = useMemo(() => state.roleProfiles.find((item) => item.id === (active?.roleProfileId ?? state.activeRoleProfileId)) ?? state.roleProfiles[0], [active?.roleProfileId, state.activeRoleProfileId, state.roleProfiles]);
   const roleVariants = useMemo(() => state.variants.filter((item) => item.roleProfileId === activeProfile?.id), [activeProfile?.id, state.variants]);
   const orderedSections = useMemo(() => activeProfile ? orderResumeSections(state.sharedSections, activeProfile, active) : state.sharedSections, [active, activeProfile, state.sharedSections]);
   const readinessIssues = useMemo(() => inspectResumeReadiness(state, activeProfile?.id ?? "", active?.id), [active?.id, activeProfile?.id, state]);
+  const syncExperienceBricks = useCallback((items: ExperienceBrickReference[]) => {
+    setState((current) => linkExperienceBricks(current, items));
+  }, []);
+  const applyApprovedImport = useCallback((command: ResumeDocumentImportCommand) => {
+    const next = applyResumeImportCommand(stateRef.current, command);
+    localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, JSON.stringify(next));
+    stateRef.current = next;
+    setState(next);
+  }, []);
   useEffect(() => {
     if (view !== "resume" || !paperRef.current) return;
     const paper = paperRef.current;
@@ -201,7 +222,7 @@ export function ResumeDocumentBuilder() {
       <header className="resume-builder-chrome border-b-2 border-foreground pb-5">
         <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
           <div><p className="flex items-center gap-2 text-[11px] font-bold tracking-[.18em] text-primary"><FileText className="h-4 w-4" /> RESUME DOCUMENTS</p><h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">이력서 문서 편집</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">공통 정보를 직군별 이력서로 다듬으세요. 같은 직군에 여러 장이 필요할 때만 회사별 지원 버전을 추가할 수 있습니다.</p></div>
-          {view === "resume" && <div className="flex flex-wrap gap-2"><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setReadinessOpen(true)}><ClipboardCheck className="h-4 w-4" /> 작성 상태 점검{readinessIssues.length > 0 && <span className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{readinessIssues.length}</span>}</button><button className="inline-flex h-11 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={() => void document.fonts.ready.then(() => window.print())}><Printer className="h-4 w-4" /> PDF로 저장</button></div>}
+          {view === "resume" && <div className="flex flex-wrap gap-2"><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setImportPanelOpen(true)}><FileUp className="h-4 w-4" /> PDF로 채우기</button><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setReadinessOpen(true)}><ClipboardCheck className="h-4 w-4" /> 작성 상태 점검{readinessIssues.length > 0 && <span className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{readinessIssues.length}</span>}</button><button className="inline-flex h-11 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={() => void document.fonts.ready.then(() => window.print())}><Printer className="h-4 w-4" /> PDF로 저장</button></div>}
         </div>
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div aria-label="이력서 문서 화면" className="flex flex-wrap border border-border bg-background p-1" role="tablist"><Tab active={view === "resume"} onClick={() => setView("resume")}>직군 이력서</Tab><Tab active={view === "shared"} onClick={() => setView("shared")}>공통 정보</Tab></div>
@@ -245,7 +266,8 @@ export function ResumeDocumentBuilder() {
       {insertAfterId && <AddSectionDialog afterTitle={orderedSections.find((section) => section.id === insertAfterId)?.title ?? "선택한 섹션"} kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setInsertAfterId(null)} onAdd={createCustom} />}
       {sharedSectionDialogOpen && <AddSectionDialog afterTitle="공통 정보 마지막" kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setSharedSectionDialogOpen(false)} onAdd={createShared} />}
       {itemEditor && <ItemTailoringDialog profile={activeProfile} variant={itemEditor.scope === "document" ? active : undefined} scope={itemEditor.scope} section={itemEditor.section} onState={setState} onClose={() => setItemEditor(null)} />}
-      {experienceDialogOpen && <LocalExperienceDialog onClose={() => setExperienceDialogOpen(false)} onLink={(brick) => { setState((current) => linkExperienceBricks(current, [brick])); setExperienceDialogOpen(false); }} />}
+      {experienceDialogOpen && <ExperienceBrickSyncDialog onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} />}
+      {importPanelOpen && <ResumeDocumentImportPanel sections={state.sharedSections} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} />}
     </div>
   );
@@ -274,6 +296,7 @@ function NewSupportVersion({ onAdd }: { onAdd: (name: string, company: string) =
 
 function contentSummary(section: ResumeSection) {
   if (section.kind === "identity") { const value = section.content as IdentityContent; return [value.name, value.email, value.phone, value.location, ...value.links].filter(Boolean).join(" · "); }
+  if (section.kind === "eligibility") { const value = section.content as EligibilityContent; return [value.militaryStatus, value.veteranStatus, value.disabilityStatus, value.employmentProtectionStatus].filter(Boolean).join(" · "); }
   if (section.kind === "narrative") return narrativePlainText(section.content as NarrativeContent);
   if (section.kind === "tags") return (section.content as TagsContent).items.join(" · ");
   return (section.content as ItemsContent).items.map((item) => [formatItemPeriod(item), item.title, item.subtitle].filter(Boolean).join(" · ")).join("\n");
@@ -284,7 +307,7 @@ function SharedManager({ sections, profiles, onAdd, onDelete, onEdit, onLinkExpe
 
 function SharedSortableCard({ section, index, overridingProfiles, onDelete, onEdit, onLinkExperience }: { section: ResumeSection; index: number; overridingProfiles: ResumeRoleProfile[]; onDelete: () => void; onEdit: () => void; onLinkExperience?: () => void }) {
   const dragControls = useDragControls();
-  return <Reorder.Item className="border border-border bg-card" dragControls={dragControls} dragListener={false} value={section.id} whileDrag={{ scale: 1.01, zIndex: 20 }}><article className="grid items-center gap-4 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]"><button aria-label={`${section.title} 공통 정보 순서 이동`} className="grid h-12 w-12 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-5 w-5" /></button><span className="grid h-12 w-12 place-items-center bg-foreground text-sm font-black text-background"><span><small className="block text-[8px] font-bold tracking-widest">PDF</small>{String(index + 1).padStart(2, "0")}</span></span><div className="min-w-0"><p className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-primary"><LayoutTemplate className="h-3.5 w-3.5" /> 공통 정보</p><h3 className="mt-1 text-lg font-extrabold" data-common-section-title>{section.title}</h3><p className="mt-1 line-clamp-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{contentSummary(section) || "아직 작성된 내용이 없습니다."}</p></div><div className="flex flex-wrap gap-2 sm:justify-end"><button className="inline-flex h-10 items-center justify-center gap-2 border border-border bg-background px-3 text-xs font-bold hover:text-primary" onClick={onEdit}><Edit3 className="h-4 w-4" /> 내용 편집</button>{onLinkExperience && <button className="inline-flex h-10 items-center justify-center gap-2 border border-primary/40 bg-primary/5 px-3 text-xs font-bold text-primary" onClick={onLinkExperience}><Plus className="h-4 w-4" /> 경험 추가</button>}<button aria-label={`${section.title} 공통 섹션 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 bg-background text-red-600" onClick={onDelete}><Trash2 className="h-4 w-4" /></button></div></article>{overridingProfiles.length > 0 && <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-950"><p className="text-xs font-extrabold">{overridingProfiles.map((profile) => profile.name).join(", ")}에서는 직군 맞춤 상태라 공통 정보 변경이 반영되지 않습니다. 되돌리기는 해당 이력서 섹션의 더보기에서 할 수 있습니다.</p></div>}</Reorder.Item>;
+  return <Reorder.Item className="border border-border bg-card" dragControls={dragControls} dragListener={false} value={section.id} whileDrag={{ scale: 1.01, zIndex: 20 }}><article className="grid items-center gap-4 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]"><button aria-label={`${section.title} 공통 정보 순서 이동`} className="grid h-12 w-12 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-5 w-5" /></button><span className="grid h-12 w-12 place-items-center bg-foreground text-sm font-black text-background"><span><small className="block text-[8px] font-bold tracking-widest">PDF</small>{String(index + 1).padStart(2, "0")}</span></span><div className="min-w-0"><p className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-primary"><LayoutTemplate className="h-3.5 w-3.5" /> 공통 정보</p><h3 className="mt-1 text-lg font-extrabold" data-common-section-title>{section.title}</h3><p className="mt-1 line-clamp-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{contentSummary(section) || "아직 작성된 내용이 없습니다."}</p></div><div className="flex flex-wrap gap-2 sm:justify-end"><button className="inline-flex h-10 items-center justify-center gap-2 border border-border bg-background px-3 text-xs font-bold hover:text-primary" onClick={onEdit}><Edit3 className="h-4 w-4" /> 내용 편집</button>{onLinkExperience && <button className="inline-flex h-10 items-center justify-center gap-2 border border-primary/40 bg-primary/5 px-3 text-xs font-bold text-primary" onClick={onLinkExperience}><Plus className="h-4 w-4" /> 확정 경험 일괄 가져오기·동기화</button>}<button aria-label={`${section.title} 공통 섹션 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 bg-background text-red-600" onClick={onDelete}><Trash2 className="h-4 w-4" /></button></div></article>{overridingProfiles.length > 0 && <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-950"><p className="text-xs font-extrabold">{overridingProfiles.map((profile) => profile.name).join(", ")}에서는 직군 맞춤 상태라 공통 정보 변경이 반영되지 않습니다. 되돌리기는 해당 이력서 섹션의 더보기에서 할 수 있습니다.</p></div>}</Reorder.Item>;
 }
 
 export function RoleProfileManager({ profile, profiles, sections, onActive, onAdd, onDelete, onProfile, onSetting, onEdit, onItems }: { profile: ResumeRoleProfile; profiles: ResumeRoleProfile[]; sections: ResumeSection[]; onActive: (profileId: string) => void; onAdd: (name: string, roleTitle: string) => void; onDelete: () => void; onProfile: (patch: Partial<Pick<ResumeRoleProfile, "name" | "roleTitle">>) => void; onSetting: (sectionId: string, patch: Parameters<typeof updateRoleProfileSectionSetting>[3]) => void; onEdit: (section: ResumeSection) => void; onItems: (section: ResumeSection) => void }) {
@@ -308,8 +331,15 @@ function SectionBody({ section, content, layout }: { section: ResumeSection; con
   if (section.kind === "identity") {
     const value = content as IdentityContent;
     const contactItems = [value.email, value.phone, value.location, ...value.links].filter(Boolean) as string[];
-    const factItems = [value.birthDate && `생년월일 ${value.birthDate}`, value.gender && `성별 ${value.gender}`, value.militaryStatus && `병역 ${value.militaryStatus}`, value.veteranStatus && `보훈 ${value.veteranStatus}`, value.disabilityStatus && `장애 ${value.disabilityStatus}`, value.employmentProtectionStatus && `취업보호 ${value.employmentProtectionStatus}`].filter(Boolean) as string[];
+    const factItems = [value.birthDate && `생년월일 ${value.birthDate}`, value.gender && `성별 ${value.gender}`].filter(Boolean) as string[];
     return <div className={cx("resume-identity grid items-end gap-6", value.photo ? "grid-cols-[minmax(0,1fr)_24mm]" : "grid-cols-1", layout === "cards" && "border border-slate-200 p-4")} data-photo-position="right"><div className="min-w-0"><div className={cx("resume-identity-heading grid items-end gap-4", layout === "compact" ? "grid-cols-1" : "grid-cols-[1fr_auto]")}><h2 className="text-3xl font-black tracking-[-.05em]">{value.name}</h2>{contactItems.length > 0 && <div className={cx("resume-contact text-[9px] leading-5 text-slate-500", layout !== "compact" && "text-right")}>{contactItems.map((item) => <p key={item}>{item}</p>)}</div>}</div>{factItems.length > 0 && <div className="resume-facts mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-200 pt-2 text-[8px] text-slate-500">{factItems.map((item) => <span key={item}>{item}</span>)}</div>}</div>{value.photo && <Image alt={`${value.name || "지원자"} 증명사진`} className="h-[32mm] w-[24mm] justify-self-end border border-slate-200 object-cover" height={640} src={value.photo} unoptimized width={480} />}</div>;
+  }
+  if (section.kind === "eligibility") {
+    const value = content as EligibilityContent;
+    const factItems = [value.militaryStatus && `병역 ${value.militaryStatus}`, value.veteranStatus && `보훈 ${value.veteranStatus}`, value.disabilityStatus && `장애 ${value.disabilityStatus}`, value.employmentProtectionStatus && `취업보호 ${value.employmentProtectionStatus}`].filter(Boolean) as string[];
+    return factItems.length > 0
+      ? <div className="resume-facts flex flex-wrap gap-x-4 gap-y-1 text-[8px] text-slate-500">{factItems.map((item) => <span key={item}>{item}</span>)}</div>
+      : <p className="text-[9px] text-slate-400">선택한 정보가 없습니다.</p>;
   }
   if (section.kind === "narrative") return <NarrativeBody content={content as NarrativeContent} layout={layout} />;
   if (section.kind === "tags") return <div className="flex flex-wrap gap-2">{(content as TagsContent).items.map((item, index) => <span className={cx("text-[10px] font-bold", layout === "cards" ? "border border-slate-300 px-3 py-2" : layout === "compact" ? "border-b border-slate-300" : "bg-slate-100 px-3 py-1.5")} key={`${item}-${index}`}>{item}</span>)}</div>;
@@ -534,7 +564,22 @@ function IdentityPhotoField({ value, onChange }: { value: IdentityContent; onCha
 function StructuredEditor({ section, content, onChange }: { section: ResumeSection; content: SectionContent; onChange: (content: SectionContent) => void }) {
   if (section.kind === "identity") {
     const value = content as IdentityContent;
-    return <div className="grid gap-4"><IdentityPhotoField value={value} onChange={(photo) => onChange({ ...value, ...photo })} /><fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">기본 연락 정보 · 공통</legend><div className="grid gap-4 sm:grid-cols-2"><Field label="이름" value={value.name} onChange={(name) => onChange({ ...value, name })} /><Field label="이메일" value={value.email} onChange={(email) => onChange({ ...value, email })} /><Field label="전화번호" type="tel" value={value.phone ?? ""} onChange={(phone) => onChange({ ...value, phone })} /><Field label="거주 지역" placeholder="예: 서울 양천구" value={value.location ?? ""} onChange={(location) => onChange({ ...value, location })} /></div></fieldset><fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">신상·자격 정보 · 공통</legend><div className="grid gap-4 sm:grid-cols-2"><Field label="생년월일" type="date" value={value.birthDate ?? ""} onChange={(birthDate) => onChange({ ...value, birthDate })} /><SelectField label="성별" options={["남성", "여성", "기타"]} value={value.gender} onChange={(gender) => onChange({ ...value, gender })} /><SelectField label="병역 여부" options={["군필", "미필", "복무 중", "면제", "해당 없음"]} value={value.militaryStatus} onChange={(militaryStatus) => onChange({ ...value, militaryStatus })} /><SelectField label="보훈 대상" options={["대상", "비대상"]} value={value.veteranStatus} onChange={(veteranStatus) => onChange({ ...value, veteranStatus })} /><SelectField label="장애 여부" options={["해당", "해당 없음"]} value={value.disabilityStatus} onChange={(disabilityStatus) => onChange({ ...value, disabilityStatus })} /><SelectField label="취업보호 대상" options={["대상", "비대상"]} value={value.employmentProtectionStatus} onChange={(employmentProtectionStatus) => onChange({ ...value, employmentProtectionStatus })} /></div></fieldset><ListEditor label="링크" addLabel="링크 추가" items={value.links} placeholder="https://..." onChange={(links) => onChange({ ...value, links })} /></div>;
+    const localToday = formatDateOnly(new Date());
+    return <div className="grid gap-4"><IdentityPhotoField value={value} onChange={(photo) => onChange({ ...value, ...photo })} /><fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">기본 연락 정보 · 공통</legend><div className="grid gap-4 sm:grid-cols-2"><Field label="이름" value={value.name} onChange={(name) => onChange({ ...value, name })} /><Field label="이메일" value={value.email} onChange={(email) => onChange({ ...value, email })} /><Field label="전화번호" type="tel" value={value.phone ?? ""} onChange={(phone) => onChange({ ...value, phone })} /><Field label="거주 지역" placeholder="예: 서울 양천구" value={value.location ?? ""} onChange={(location) => onChange({ ...value, location })} /></div></fieldset><fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">신상 정보 · 공통</legend><div className="grid gap-4 sm:grid-cols-2"><DateInput
+      label="생년월일"
+      value={value.birthDate ?? ""}
+      onChange={(birthDate) => onChange({ ...value, birthDate })}
+      min="1900-01-01"
+      max={localToday}
+      startMonth="1900-01-01"
+      endMonth={localToday}
+      reverseYears
+      quickActions={[]}
+    /><SelectField label="성별" options={["남성", "여성", "기타"]} value={value.gender} onChange={(gender) => onChange({ ...value, gender })} /></div></fieldset><ListEditor label="링크" addLabel="링크 추가" items={value.links} placeholder="https://..." onChange={(links) => onChange({ ...value, links })} /></div>;
+  }
+  if (section.kind === "eligibility") {
+    const value = content as EligibilityContent;
+    return <fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">병역 · 보훈 · 장애 · 취업보호</legend><p className="mb-4 text-[11px] leading-5 text-muted-foreground">중요도가 낮은 공통 사실로 관리하며 기본 PDF의 마지막 섹션에 표시합니다.</p><div className="grid gap-4 sm:grid-cols-2"><SelectField label="병역 여부" options={["군필", "미필", "복무 중", "면제", "해당 없음"]} value={value.militaryStatus} onChange={(militaryStatus) => onChange({ ...value, militaryStatus })} /><SelectField label="보훈 대상" options={["대상", "비대상"]} value={value.veteranStatus} onChange={(veteranStatus) => onChange({ ...value, veteranStatus })} /><SelectField label="장애 여부" options={["해당", "해당 없음"]} value={value.disabilityStatus} onChange={(disabilityStatus) => onChange({ ...value, disabilityStatus })} /><SelectField label="취업보호 대상" options={["대상", "비대상"]} value={value.employmentProtectionStatus} onChange={(employmentProtectionStatus) => onChange({ ...value, employmentProtectionStatus })} /></div></fieldset>;
   }
   if (section.kind === "narrative") return <RichNarrativeEditor content={content as NarrativeContent} onChange={onChange} />;
   if (section.kind === "tags") { const value = content as TagsContent; return <ListEditor label="항목" addLabel="항목 추가" items={value.items} placeholder="예: 문제 해결" onChange={(items) => onChange({ items })} />; }
@@ -579,18 +624,43 @@ function ItemTailoringDialog({ profile, variant, scope, section, onState, onClos
     [nextOrder[index], nextOrder[target]] = [nextOrder[target], nextOrder[index]];
     return scope === "role" ? updateRoleProfileSectionSetting(current, profile.id, section.id, { itemOrder: nextOrder }) : variant ? updateSectionSetting(current, variant.id, section.id, { itemOrder: nextOrder }) : current;
   });
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-modal="true" className="my-auto w-full max-w-4xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">{scope === "role" ? `${profile.name} 직군 이력서` : `${profile.name} → ${variant?.name}`}</p><h2 className="mt-1 text-xl font-extrabold">{section.title} {section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">항목마다 상위 단계 사용, 재작성, 숨김을 선택하고 순서를 바꿀 수 있습니다.</p></div><button aria-label="항목 편집 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header><div className="max-h-[70vh] space-y-3 overflow-y-auto p-5">{ordered.map((item, index) => { const itemSetting = setting?.itemSettings?.[item.id]; const mode = itemSetting?.mode ?? "inherit"; const editable = itemSetting?.content ?? (scope === "document" ? parentById.get(item.id) : item) ?? item; return <article className="border border-border bg-card p-4" key={item.id}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-extrabold">{item.title || `항목 ${index + 1}`}</p>{item.source && <p className="mt-1 text-[10px] font-bold text-primary">로컬 경험 참조 · {item.source.id}</p>}</div><div className="flex gap-1"><button aria-label={`${item.title} 위로`} className="grid h-9 w-9 place-items-center border border-border" disabled={index === 0} onClick={() => move(item.id, -1)}><ArrowUp className="h-3.5 w-3.5" /></button><button aria-label={`${item.title} 아래로`} className="grid h-9 w-9 place-items-center border border-border" disabled={index === ordered.length - 1} onClick={() => move(item.id, 1)}><ArrowDown className="h-3.5 w-3.5" /></button><select aria-label={`${item.title} 항목 방식`} className="h-9 border border-border bg-background px-2 text-xs font-bold" value={mode} onChange={(event) => updateMode(item, event.target.value as ItemMode)}><option value="inherit">{scope === "role" ? "공통 정보 사용" : "직군 이력서 사용"}</option><option value="override">이 단계에서 재작성</option><option value="hidden">이 단계에서 숨김</option></select></div></div>{mode === "override" && <div className="mt-4 grid gap-3 sm:grid-cols-2"><MonthField label="시작 연월" value={editable.startMonth} onChange={(startMonth) => updateContent(item.id, { startMonth })} /><MonthField label="종료 연월" value={editable.endMonth} disabled={section.id === "experience" && editable.isCurrent} onChange={(endMonth) => updateContent(item.id, { endMonth })} />{section.id === "experience" && <label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={Boolean(editable.isCurrent)} type="checkbox" onChange={(event) => updateContent(item.id, { isCurrent: event.target.checked, endMonth: event.target.checked ? "" : editable.endMonth })} /> 재직 중</label>}<Field label="제목" value={editable.title} onChange={(title) => updateContent(item.id, { title })} /><Field label="조직·부제" value={editable.subtitle} onChange={(subtitle) => updateContent(item.id, { subtitle })} /><div className="sm:col-span-2"><TextArea label="강조 설명" value={editable.body} onChange={(body) => updateContent(item.id, { body })} /></div></div>}</article>; })}</div><footer className="flex justify-between gap-3 border-t border-border bg-muted/30 p-4"><p className="text-xs text-muted-foreground">변경 사항은 이 브라우저의 로컬 저장소에 자동 저장됩니다.</p><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={onClose}>완료</button></footer></section></div>;
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-modal="true" className="my-auto w-full max-w-4xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">{scope === "role" ? `${profile.name} 직군 이력서` : `${profile.name} → ${variant?.name}`}</p><h2 className="mt-1 text-xl font-extrabold">{section.title} {section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">항목마다 상위 단계 사용, 재작성, 현재 이력서에서 제외를 선택하고 순서를 바꿀 수 있습니다.</p></div><button aria-label="항목 편집 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header><div className="max-h-[70vh] space-y-3 overflow-y-auto p-5">{ordered.map((item, index) => { const itemSetting = setting?.itemSettings?.[item.id]; const mode = itemSetting?.mode ?? "inherit"; const editable = itemSetting?.content ?? (scope === "document" ? parentById.get(item.id) : item) ?? item; return <article className="border border-border bg-card p-4" key={item.id}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-extrabold">{item.title || `항목 ${index + 1}`}</p>{item.source && <p className="mt-1 text-[10px] font-bold text-primary">경력기술서 연동 · {item.source.id}</p>}</div><div className="flex gap-1"><button aria-label={`${item.title} 위로`} className="grid h-9 w-9 place-items-center border border-border" disabled={index === 0} onClick={() => move(item.id, -1)}><ArrowUp className="h-3.5 w-3.5" /></button><button aria-label={`${item.title} 아래로`} className="grid h-9 w-9 place-items-center border border-border" disabled={index === ordered.length - 1} onClick={() => move(item.id, 1)}><ArrowDown className="h-3.5 w-3.5" /></button><select aria-label={`${item.title} 항목 방식`} className="h-9 border border-border bg-background px-2 text-xs font-bold" value={mode} onChange={(event) => updateMode(item, event.target.value as ItemMode)}><option value="inherit">{scope === "role" ? "공통 정보 사용" : "직군 이력서 사용"}</option><option value="override">이 단계에서 재작성</option><option value="hidden">{scope === "role" ? "현재 직군 이력서에서 제외" : "현재 지원 이력서에서 제외"}</option></select></div></div>{mode === "override" && <div className="mt-4 grid gap-3 sm:grid-cols-2"><MonthField label="시작 연월" value={editable.startMonth} onChange={(startMonth) => updateContent(item.id, { startMonth })} /><MonthField label="종료 연월" value={editable.endMonth} disabled={section.id === "experience" && editable.isCurrent} onChange={(endMonth) => updateContent(item.id, { endMonth })} />{section.id === "experience" && <label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={Boolean(editable.isCurrent)} type="checkbox" onChange={(event) => updateContent(item.id, { isCurrent: event.target.checked, endMonth: event.target.checked ? "" : editable.endMonth })} /> 재직 중</label>}<Field label="제목" value={editable.title} onChange={(title) => updateContent(item.id, { title })} /><Field label="조직·부제" value={editable.subtitle} onChange={(subtitle) => updateContent(item.id, { subtitle })} /><div className="sm:col-span-2"><TextArea label="강조 설명" value={editable.body} onChange={(body) => updateContent(item.id, { body })} /></div></div>}</article>; })}</div><footer className="flex justify-between gap-3 border-t border-border bg-muted/30 p-4"><p className="text-xs text-muted-foreground">변경 사항은 이 브라우저의 로컬 저장소에 자동 저장됩니다.</p><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={onClose}>완료</button></footer></section></div>;
 }
 
-function LocalExperienceDialog({ onClose, onLink }: { onClose: () => void; onLink: (brick: ExperienceBrickReference) => void }) {
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [period, setPeriod] = useState("");
-  const [organization, setOrganization] = useState("");
-  const [roleTitle, setRoleTitle] = useState("");
-  const [tags, setTags] = useState("");
-  const link = () => onLink({ id: `local-${Date.now()}`, title: title.trim(), content: content.trim(), period: period.trim(), organization: organization.trim(), roleTitle: roleTitle.trim(), tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean) });
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-modal="true" className="my-auto w-full max-w-2xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between border-b border-border p-5"><div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">LOCAL PROTOTYPE</p><h2 className="mt-1 text-xl font-extrabold">로컬 경험 참조 추가</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">이번 단계에서는 DB에 연결하지 않고 로컬 문서 상태에 참조 스냅샷만 저장합니다.</p></div><button aria-label="로컬 경험 추가 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header><div className="grid gap-4 p-5 sm:grid-cols-2"><Field label="경험 제목" value={title} onChange={setTitle} /><Field label="기간" placeholder="2024.01 — 현재" value={period} onChange={setPeriod} /><Field label="조직" value={organization} onChange={setOrganization} /><Field label="당시 역할" value={roleTitle} onChange={setRoleTitle} /><div className="sm:col-span-2"><TextArea label="사실과 성과" value={content} onChange={setContent} /></div><div className="sm:col-span-2"><Field label="태그(쉼표 구분)" value={tags} onChange={setTags} /></div></div><footer className="flex justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onClose}>취소</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-40" disabled={!title.trim() || !content.trim()} onClick={link}>원본 경력에 참조 추가</button></footer></section></div>;
+function ExperienceBrickSyncDialog({ onClose, onSync }: { onClose: () => void; onSync: (bricks: ExperienceBrickReference[]) => void }) {
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<"loading" | "success" | "empty" | "error">("loading");
+  const [syncedCount, setSyncedCount] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStatus("loading");
+    const load = async () => {
+      try {
+        const response = await fetch("/api/resume/bricks/all", { cache: "no-store", signal: controller.signal });
+        const payload: unknown = await response.json().catch(() => null);
+        const items = typeof payload === "object" && payload !== null && "items" in payload && Array.isArray(payload.items)
+          ? payload.items as ExperienceBrickReference[]
+          : null;
+        if (!response.ok || !items) throw new Error("invalid-response");
+        if (items.length === 0) {
+          setSyncedCount(0);
+          setStatus("empty");
+          return;
+        }
+        onSync(items);
+        setSyncedCount(items.length);
+        setStatus("success");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setStatus("error");
+      }
+    };
+    void load();
+    return () => controller.abort();
+  }, [attempt, onSync]);
+
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="experience-sync-title" aria-modal="true" className="resume-dialog-panel my-auto w-full max-w-2xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">경력기술서 프로젝트 동기화</p><h2 className="mt-1 text-xl font-extrabold" id="experience-sync-title">확정 경험 일괄 가져오기</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">확정된 경력·프로젝트를 공통 섹션에 한 번에 동기화합니다. 수동 항목과 서버에서 사라진 기존 스냅샷은 삭제하지 않습니다.</p></div><button aria-label="경력 프로젝트 동기화 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header><div aria-live="polite" className="min-h-36 p-5">{status === "loading" && <p className="border border-primary/30 bg-primary/5 p-4 text-sm font-bold text-primary">확정 경험을 불러오는 중입니다…</p>}{status === "success" && <div className="border border-primary/30 bg-primary/5 p-4"><p className="font-extrabold">확정 경험 {syncedCount}개를 동기화했습니다.</p><p className="mt-2 text-xs leading-5 text-muted-foreground">각 직군·지원 이력서의 경험 선택·편집에서 순서, 재작성, 제외 여부를 따로 관리할 수 있습니다.</p></div>}{status === "empty" && <p className="border border-border bg-muted/30 p-4 text-sm font-bold">동기화할 확정 경험이 없습니다.</p>}{status === "error" && <div className="border border-red-200 bg-red-50 p-4 text-red-700"><p className="text-sm font-extrabold">경력 프로젝트를 불러오지 못했습니다.</p><p className="mt-1 text-xs">로그인 상태와 네트워크를 확인한 뒤 다시 시도해 주세요.</p><button className="mt-4 h-9 border border-red-300 bg-white px-3 text-xs font-bold" onClick={() => setAttempt((value) => value + 1)}>다시 시도</button></div>}</div><footer className="resume-dialog-footer flex justify-end border-t border-border bg-muted/30 p-4"><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={onClose}>닫기</button></footer></section></div>;
 }
 
 function ReadinessDialog({ issues, onClose }: { issues: ResumeReadinessIssue[]; onClose: () => void }) {
@@ -600,6 +670,7 @@ function ReadinessDialog({ issues, onClose }: { issues: ResumeReadinessIssue[]; 
 function AddSectionDialog({ afterTitle, kind, title, onKind, onTitle, onCancel, onAdd }: { afterTitle: string; kind: SectionKind; title: string; onKind: (kind: SectionKind) => void; onTitle: (title: string) => void; onCancel: () => void; onAdd: () => void }) {
   const previews: Record<SectionKind, React.ReactNode> = {
     identity: <div className="flex items-end justify-between"><span className="h-4 w-20 bg-slate-800" /><span className="grid gap-1"><i className="h-1 w-14 bg-slate-300" /><i className="h-1 w-10 bg-slate-300" /></span></div>,
+    eligibility: <div className="flex flex-wrap gap-2"><i className="h-4 w-12 bg-slate-200" /><i className="h-4 w-12 bg-slate-200" /><i className="h-4 w-12 bg-slate-200" /></div>,
     narrative: <div className="grid gap-1"><i className="h-1 w-full bg-slate-400" /><i className="h-1 w-5/6 bg-slate-300" /><i className="h-1 w-2/3 bg-slate-300" /></div>,
     items: <div className="grid gap-2"><span className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><i className="h-2 bg-slate-700" /></span><span className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><i className="h-2 bg-slate-500" /></span></div>,
     tags: <div className="flex gap-2"><i className="h-5 w-12 bg-slate-200" /><i className="h-5 w-16 bg-slate-200" /><i className="h-5 w-10 bg-slate-200" /></div>,

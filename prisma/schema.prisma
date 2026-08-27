@@ -229,6 +229,30 @@ enum CareerCandidateStatus {
   REJECTED
 }
 
+enum ResumeDocumentImportStatus {
+  WAITING_SOURCE
+  QUEUED
+  EXTRACTING
+  REVIEW_REQUIRED
+  COMPLETE
+  FAILED
+}
+
+enum ResumeDocumentCandidateKind {
+  IDENTITY_FIELD
+  NARRATIVE
+  ITEM
+  TAGS
+  ELIGIBILITY_FIELD
+}
+
+enum ResumeDocumentApplyMode {
+  FILL_EMPTY
+  APPEND
+  MERGE
+  REPLACE
+}
+
 enum CareerCaptureStatus {
   PENDING
   APPLIED
@@ -772,17 +796,20 @@ model User {
   advancedPressAiDebugTransitions              PressAiDebugTransition[]  @relation("PressAiDebugTransitionAdvancedBy")
 
   // ✅ 자소서 관련 역참조
-  experienceBricks              ExperienceBrick[]
-  applications                  Application[]
-  careerSources                 CareerSource[]
-  careerCandidates              CareerExperienceCandidate[]    @relation("CareerCandidateOwner")
-  reviewedCareerCandidates      CareerExperienceCandidate[]    @relation("CareerCandidateReviewer")
-  careerCaptureProposals        CareerCaptureProposal[]
-  careerFinalAnswerCaptureTasks CareerFinalAnswerCaptureTask[]
-  careerFacts                   CareerFact[]
-  careerGroundings              CareerAnswerGrounding[]
-  careerVerifications           CareerAnswerVerification[]
-  careerVerificationOverrides   CareerVerificationOverride[]
+  experienceBricks                 ExperienceBrick[]
+  applications                     Application[]
+  careerSources                    CareerSource[]
+  careerCandidates                 CareerExperienceCandidate[]    @relation("CareerCandidateOwner")
+  reviewedCareerCandidates         CareerExperienceCandidate[]    @relation("CareerCandidateReviewer")
+  careerCaptureProposals           CareerCaptureProposal[]
+  careerFinalAnswerCaptureTasks    CareerFinalAnswerCaptureTask[]
+  careerFacts                      CareerFact[]
+  careerGroundings                 CareerAnswerGrounding[]
+  careerVerifications              CareerAnswerVerification[]
+  careerVerificationOverrides      CareerVerificationOverride[]
+  resumeDocumentImports            ResumeDocumentImport[]
+  resumeDocumentCandidates         ResumeDocumentCandidate[]      @relation("ResumeDocumentCandidateOwner")
+  reviewedResumeDocumentCandidates ResumeDocumentCandidate[]      @relation("ResumeDocumentCandidateReviewer")
 
   @@index([label])
   @@map("user")
@@ -1604,9 +1631,10 @@ model CareerSource {
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 
-  user       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chunks     CareerSourceChunk[]
-  candidates CareerExperienceCandidate[]
+  user                  User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks                CareerSourceChunk[]
+  candidates            CareerExperienceCandidate[]
+  resumeDocumentImports ResumeDocumentImport[]
 
   @@index([userId, deletedAt, createdAt])
   @@index([userId, status, updatedAt])
@@ -1632,13 +1660,95 @@ model CareerSourceChunk {
   createdAt      DateTime                     @default(now()) @map("created_at")
   updatedAt      DateTime                     @updatedAt @map("updated_at")
 
-  source            CareerSource              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  candidateEvidence CareerCandidateEvidence[]
-  factEvidence      CareerFactEvidence[]
+  source                          CareerSource                      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  candidateEvidence               CareerCandidateEvidence[]
+  factEvidence                    CareerFactEvidence[]
+  resumeDocumentCandidateEvidence ResumeDocumentCandidateEvidence[]
 
   @@unique([sourceId, ordinal])
   @@index([userId, sourceId, pageStart])
   @@map("career_source_chunk")
+}
+
+model ResumeDocumentImport {
+  id                     String                     @id @default(cuid()) @map("id")
+  userId                 String                     @map("user_id")
+  sourceId               String                     @map("source_id")
+  status                 ResumeDocumentImportStatus @default(WAITING_SOURCE) @map("status")
+  processingVersion      Int                        @default(0) @map("processing_version")
+  processingAttemptToken String?                    @map("processing_attempt_token")
+  candidateCount         Int                        @default(0) @map("candidate_count")
+  extractorVersion       String?                    @map("extractor_version")
+  errorCode              String?                    @map("error_code")
+  errorMessage           String?                    @map("error_message") @db.Text
+  queuedAt               DateTime?                  @map("queued_at")
+  processingStartedAt    DateTime?                  @map("processing_started_at")
+  reviewReadyAt          DateTime?                  @map("review_ready_at")
+  completedAt            DateTime?                  @map("completed_at")
+  failedAt               DateTime?                  @map("failed_at")
+  createdAt              DateTime                   @default(now()) @map("created_at")
+  updatedAt              DateTime                   @updatedAt @map("updated_at")
+
+  user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source     CareerSource              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  candidates ResumeDocumentCandidate[]
+
+  @@index([userId, status, createdAt])
+  @@index([sourceId, status])
+  @@map("resume_document_import")
+}
+
+model ResumeDocumentCandidate {
+  id                     String                      @id @default(cuid()) @map("id")
+  importId               String                      @map("import_id")
+  userId                 String                      @map("user_id")
+  kind                   ResumeDocumentCandidateKind @map("kind")
+  recommendedSectionId   String                      @map("recommended_section_id")
+  targetSectionId        String                      @map("target_section_id")
+  targetSectionKind      String                      @map("target_section_kind")
+  applyMode              ResumeDocumentApplyMode     @map("apply_mode")
+  payload                Json                        @map("payload")
+  payloadHash            String                      @map("payload_hash")
+  confidence             Float                       @default(0) @map("confidence")
+  warnings               String[]                    @default([]) @map("warnings")
+  status                 CareerCandidateStatus       @default(PENDING) @map("status")
+  reviewedByUserId       String?                     @map("reviewed_by_user_id")
+  decidedAt              DateTime?                   @map("decided_at")
+  rejectionReason        String?                     @map("rejection_reason") @db.Text
+  appliedAt              DateTime?                   @map("applied_at")
+  appliedPayloadHash     String?                     @map("applied_payload_hash")
+  appliedDocumentVersion Int?                        @map("applied_document_version")
+  createdAt              DateTime                    @default(now()) @map("created_at")
+  updatedAt              DateTime                    @updatedAt @map("updated_at")
+
+  importTask ResumeDocumentImport              @relation(fields: [importId], references: [id], onDelete: Cascade)
+  user       User                              @relation("ResumeDocumentCandidateOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer   User?                             @relation("ResumeDocumentCandidateReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  evidence   ResumeDocumentCandidateEvidence[]
+
+  @@index([userId, status, createdAt])
+  @@index([importId, status])
+  @@index([userId, appliedAt, status])
+  @@map("resume_document_candidate")
+}
+
+model ResumeDocumentCandidateEvidence {
+  id            String   @id @default(cuid()) @map("id")
+  candidateId   String   @map("candidate_id")
+  sourceChunkId String?  @map("source_chunk_id")
+  fieldPath     String   @map("field_path")
+  valueHash     String?  @map("value_hash")
+  excerpt       String   @map("excerpt") @db.Text
+  pageStart     Int?     @map("page_start")
+  pageEnd       Int?     @map("page_end")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  candidate   ResumeDocumentCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  sourceChunk CareerSourceChunk?      @relation(fields: [sourceChunkId], references: [id], onDelete: SetNull)
+
+  @@index([candidateId, fieldPath])
+  @@index([sourceChunkId])
+  @@map("resume_document_candidate_evidence")
 }
 
 model CareerCaptureProposal {

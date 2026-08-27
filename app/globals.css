@@ -802,3 +802,87 @@ html {
 .dark .wongoji .bg-card::before {
   content: none;
 }
+
+/* Shared DateInput calendar: keep DayPicker contained within the field popover. */
+.date-input__popover {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 80;
+  width: min(22rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 18px 45px hsl(var(--foreground) / 0.16);
+  padding: 0.75rem;
+}
+
+.date-input__calendar {
+  --rdp-accent-color: hsl(var(--primary));
+  --rdp-accent-background-color: hsl(var(--primary) / 0.12);
+  --rdp-day-height: 2.25rem;
+  --rdp-day-width: 2.25rem;
+  --rdp-day_button-height: 2.125rem;
+  --rdp-day_button-width: 2.125rem;
+  --rdp-selected-border: 2px solid hsl(var(--primary));
+  margin: 0 auto;
+  color: hsl(var(--foreground));
+  font-size: 0.875rem;
+}
+
+.date-input__calendar .rdp-dropdown_root {
+  min-width: 4.75rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  padding: 0.375rem 0.5rem;
+}
+
+.date-input__calendar .rdp-dropdown_root:hover {
+  border-color: hsl(var(--primary));
+}
+
+.date-input__calendar .rdp-dropdown:focus-visible ~ .rdp-caption_label,
+.date-input__calendar .rdp-day_button:focus-visible,
+.date-input__calendar .rdp-button_previous:focus-visible,
+.date-input__calendar .rdp-button_next:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.date-input__calendar .rdp-selected .rdp-day_button {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.date-input__calendar .rdp-day_button:not(:disabled):hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.date-input__calendar .rdp-selected .rdp-day_button:not(:disabled):hover {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .date-input__popover {
+  box-shadow: 0 18px 45px rgb(0 0 0 / 0.45);
+}
+
+@media screen and (max-width: 480px) {
+  .date-input__popover {
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5rem;
+  }
+
+  .date-input__calendar {
+    --rdp-day-height: 2rem;
+    --rdp-day-width: 2rem;
+    --rdp-day_button-height: 1.875rem;
+    --rdp-day_button-width: 1.875rem;
+    font-size: 0.8125rem;
+  }
+}

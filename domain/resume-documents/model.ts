@@ -1,6 +1,6 @@
 export type SectionMode = "inherit" | "override" | "hidden";
 export type SectionLayout = "standard" | "compact" | "cards";
-export type SectionKind = "identity" | "narrative" | "items" | "tags";
+export type SectionKind = "identity" | "eligibility" | "narrative" | "items" | "tags";
 export type ItemMode = "inherit" | "override" | "hidden";
 
 export type IdentityContent = {
@@ -10,13 +10,15 @@ export type IdentityContent = {
   location?: string;
   gender?: string;
   birthDate?: string;
+  links: string[];
+  photo?: string;
+  photoName?: string;
+};
+export type EligibilityContent = {
   militaryStatus?: string;
   veteranStatus?: string;
   disabilityStatus?: string;
   employmentProtectionStatus?: string;
-  links: string[];
-  photo?: string;
-  photoName?: string;
 };
 export type NarrativeBlockType = "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 export type NarrativeRun = { text: string; bold?: boolean };
@@ -35,7 +37,7 @@ export type ItemContent = {
 };
 export type ItemsContent = { items: ItemContent[] };
 export type TagsContent = { items: string[] };
-export type SectionContent = IdentityContent | NarrativeContent | ItemsContent | TagsContent;
+export type SectionContent = IdentityContent | EligibilityContent | NarrativeContent | ItemsContent | TagsContent;
 
 export type ResumeSection = {
   id: string;
@@ -75,14 +77,21 @@ export type ResumeVariant = {
   sectionOrder?: string[];
   customSections: ResumeSection[];
 };
+export type ResumeImportLedgerEntry = {
+  candidateKey: string;
+  payloadHash: string;
+  targetSectionId: string;
+  appliedAt: string;
+};
 export type ResumeDocumentState = {
-  version: 4;
+  version: 5;
   templateRevision?: 1;
   sharedSections: ResumeSection[];
   roleProfiles: ResumeRoleProfile[];
   variants: ResumeVariant[];
   activeVariantId: string | null;
   activeRoleProfileId: string;
+  importLedger: ResumeImportLedgerEntry[];
 };
 
 export type ResumeReadinessIssueCode = "missing-name" | "missing-email" | "invalid-email" | "invalid-link" | "missing-role" | "missing-company" | "empty-section" | "missing-item-title" | "missing-item-body" | "reversed-period";
@@ -107,6 +116,11 @@ type VersionThreeState = {
   activeVariantId: string;
   activeRoleProfileId: string;
 };
+type VersionFourState = Omit<ResumeDocumentState, "version" | "importLedger"> & {
+  version: 4;
+  importLedger?: ResumeImportLedgerEntry[];
+};
+type LegacyIdentityContent = IdentityContent & EligibilityContent;
 
 export type ExperienceBrickReference = {
   id: string;
@@ -115,6 +129,10 @@ export type ExperienceBrickReference = {
   period?: string | null;
   organization?: string | null;
   roleTitle?: string | null;
+  experienceType?: string | null;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
+  isCurrent?: boolean;
   tags?: string[];
 };
 
@@ -133,14 +151,18 @@ const roleCoverLetterSection = (profileId: string): ResumeSection => ({
   custom: true,
 });
 
+const builtInSectionIds = ["profile", "summary", "experience", "skills", "education", "credentials"];
+const defaultRoleSectionOrder = (profileId: string) => [...builtInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
+
 const starterRoleProfiles = (): ResumeRoleProfile[] => [
-  { id: "role-service-planning", name: "서비스기획", roleTitle: "서비스 기획자", settings: {}, customSections: [roleCoverLetterSection("role-service-planning")] },
-  { id: "role-fullstack", name: "풀스택", roleTitle: "풀스택 엔지니어", settings: {}, customSections: [roleCoverLetterSection("role-fullstack")] },
-  { id: "role-ai-engineer", name: "AI 엔지니어", roleTitle: "AI 엔지니어", settings: {}, customSections: [roleCoverLetterSection("role-ai-engineer")] },
+  { id: "role-service-planning", name: "서비스기획", roleTitle: "서비스 기획자", settings: {}, sectionOrder: defaultRoleSectionOrder("role-service-planning"), customSections: [roleCoverLetterSection("role-service-planning")] },
+  { id: "role-fullstack", name: "풀스택", roleTitle: "풀스택 엔지니어", settings: {}, sectionOrder: defaultRoleSectionOrder("role-fullstack"), customSections: [roleCoverLetterSection("role-fullstack")] },
+  { id: "role-ai-engineer", name: "AI 엔지니어", roleTitle: "AI 엔지니어", settings: {}, sectionOrder: defaultRoleSectionOrder("role-ai-engineer"), customSections: [roleCoverLetterSection("role-ai-engineer")] },
 ];
 
 export function emptySectionContent(kind: SectionKind): SectionContent {
-  if (kind === "identity") return { name: "", email: "", phone: "", location: "", gender: "", birthDate: "", militaryStatus: "", veteranStatus: "", disabilityStatus: "", employmentProtectionStatus: "", links: [] };
+  if (kind === "identity") return { name: "", email: "", phone: "", location: "", gender: "", birthDate: "", links: [] };
+  if (kind === "eligibility") return { militaryStatus: "", veteranStatus: "", disabilityStatus: "", employmentProtectionStatus: "" };
   if (kind === "narrative") return { body: "" };
   if (kind === "tags") return { items: [] };
   return { items: [] as ItemContent[] };
@@ -159,10 +181,10 @@ export function narrativeCharacterCount(content: NarrativeContent) {
 export function createResumeDocumentSeed(): ResumeDocumentState {
   const roleProfiles = starterRoleProfiles();
   return {
-    version: 4,
+    version: 5,
     templateRevision: 1,
     sharedSections: [
-      { id: "profile", title: "인적사항", kind: "identity", content: { name: "이름", email: "email@example.com", phone: "", location: "", gender: "", birthDate: "", militaryStatus: "", veteranStatus: "", disabilityStatus: "", employmentProtectionStatus: "", links: ["https://portfolio.example.com"] } },
+      { id: "profile", title: "인적사항", kind: "identity", content: { name: "이름", email: "email@example.com", phone: "", location: "", gender: "", birthDate: "", links: ["https://portfolio.example.com"] } },
       { id: "summary", title: "소개", kind: "narrative", content: { body: "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요." } },
       { id: "experience", title: "경력 · 프로젝트", kind: "items", content: { items: [
         { id: newItemId(), meta: "2024.01 — 현재", title: "프로젝트 또는 업무명", subtitle: "회사 · 팀", body: "맡은 역할, 해결한 문제, 결과를 적어주세요." },
@@ -171,11 +193,13 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
       { id: "skills", title: "핵심 역량", kind: "tags", content: { items: ["문제 해결", "협업", "제품 개발"] } },
       { id: "education", title: "학력", kind: "items", content: { items: [{ id: newItemId(), meta: "졸업 연도", title: "학교 · 과정", subtitle: "전공", body: "추가 내용" }] } },
       { id: "credentials", title: "자격 · 수상", kind: "items", content: { items: [{ id: newItemId(), meta: "취득 연도", title: "자격 또는 수상명", subtitle: "발급 · 주관", body: "" }] } },
+      { id: "eligibility", title: "병역 · 보훈 · 장애 · 취업보호", kind: "eligibility", content: { militaryStatus: "", veteranStatus: "", disabilityStatus: "", employmentProtectionStatus: "" } },
     ],
     roleProfiles,
     variants: [],
     activeVariantId: null,
     activeRoleProfileId: roleProfiles[0].id,
+    importLedger: [],
   };
 }
 
@@ -352,7 +376,25 @@ export function updateSharedSectionOrder(state: ResumeDocumentState, sectionOrde
     byId.delete(id);
     return [section];
   });
-  return { ...state, sharedSections: [...ordered, ...byId.values()] };
+  const sharedSections = [...ordered, ...byId.values()];
+  const previousSharedIds = state.sharedSections.map((section) => section.id);
+  const roleProfiles = state.roleProfiles.map((profile) => {
+    const inheritedDefault = [
+      ...previousSharedIds.filter((id) => id !== "eligibility"),
+      ...profile.customSections.map((section) => section.id),
+      ...(previousSharedIds.includes("eligibility") ? ["eligibility"] : []),
+    ];
+    if (!profile.sectionOrder || profile.sectionOrder.join("\u0000") !== inheritedDefault.join("\u0000")) return profile;
+    return {
+      ...profile,
+      sectionOrder: [
+        ...sharedSections.map((section) => section.id).filter((id) => id !== "eligibility"),
+        ...profile.customSections.map((section) => section.id),
+        ...(sharedSections.some((section) => section.id === "eligibility") ? ["eligibility"] : []),
+      ],
+    };
+  });
+  return { ...state, sharedSections, roleProfiles };
 }
 
 export function updateSharedSectionTitle(state: ResumeDocumentState, sectionId: string, title: string) {
@@ -428,7 +470,7 @@ export function resetSupportVariantSectionToRole(state: ResumeDocumentState, var
 
 export function createRoleProfile(state: ResumeDocumentState, input: { name: string; roleTitle: string }) {
   const id = newId("role");
-  const profile: ResumeRoleProfile = { id, name: input.name.trim() || "새 직군", roleTitle: input.roleTitle.trim() || "지원 직무", settings: {}, customSections: [roleCoverLetterSection(id)] };
+  const profile: ResumeRoleProfile = { id, name: input.name.trim() || "새 직군", roleTitle: input.roleTitle.trim() || "지원 직무", settings: {}, sectionOrder: [...state.sharedSections.map((section) => section.id).filter((sectionId) => sectionId !== "eligibility"), `role-cover-letter-${id}`, ...(state.sharedSections.some((section) => section.id === "eligibility") ? ["eligibility"] : [])], customSections: [roleCoverLetterSection(id)] };
   return { ...state, roleProfiles: [...state.roleProfiles, profile], activeRoleProfileId: profile.id, activeVariantId: null };
 }
 
@@ -476,7 +518,8 @@ export function deleteSupportVariant(state: ResumeDocumentState, variantId: stri
 }
 
 export function linkExperienceBricks(state: ResumeDocumentState, bricks: ExperienceBrickReference[]) {
-  const bySourceId = new Map(bricks.map((brick) => [brick.id, brick]));
+  const bySourceId = new Map<string, ExperienceBrickReference>();
+  for (const brick of bricks) if (brick.id && !bySourceId.has(brick.id)) bySourceId.set(brick.id, brick);
   return {
     ...state,
     sharedSections: state.sharedSections.map((section) => {
@@ -484,11 +527,13 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
       const seen = new Set<string>();
       const existing = section.content.items.flatMap((item) => {
         const sourceId = item.source?.type === "experience-brick" ? item.source.id : null;
-        if (!sourceId || !bySourceId.has(sourceId) || seen.has(sourceId)) return [item];
+        if (!sourceId) return [item];
+        if (seen.has(sourceId)) return [];
         seen.add(sourceId);
-        return [brickToItem(bySourceId.get(sourceId)!, item.id)];
+        const refreshed = bySourceId.get(sourceId);
+        return [refreshed ? brickToItem(refreshed, item.id) : item];
       });
-      for (const brick of bricks) {
+      for (const brick of bySourceId.values()) {
         if (!seen.has(brick.id)) existing.push(brickToItem(brick));
       }
       return { ...section, content: { items: existing } };
@@ -496,12 +541,22 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
   };
 }
 
+function dateToUtcMonth(value?: string | Date | null) {
+  if (!value) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function brickToItem(brick: ExperienceBrickReference, existingId?: string): ItemContent {
   return {
     id: existingId ?? `experience-brick:${brick.id}`,
     meta: brick.period?.trim() || "기간 미입력",
+    startMonth: dateToUtcMonth(brick.startDate),
+    endMonth: dateToUtcMonth(brick.endDate),
+    isCurrent: Boolean(brick.isCurrent),
     title: brick.title,
-    subtitle: [brick.organization, brick.roleTitle].filter(Boolean).join(" · ") || (brick.tags ?? []).join(" · "),
+    subtitle: [brick.organization, brick.roleTitle].filter(Boolean).join(" · ") || [brick.experienceType, ...(brick.tags ?? [])].filter(Boolean).join(" · "),
     body: brick.content,
     source: { type: "experience-brick", id: brick.id },
   };
@@ -515,10 +570,15 @@ export function addCustomSection(state: ResumeDocumentState, variantId: string, 
       ...state,
       variants: state.variants.map((variant) => {
         if (variant.id !== variantId) return variant;
-        const order = [...(variant.sectionOrder ?? [...state.sharedSections, ...variant.customSections].map((item) => item.id))];
+        const profile = state.roleProfiles.find((item) => item.id === variant.roleProfileId);
+        const order = profile ? orderResumeSections(state.sharedSections, profile, variant).map((item) => item.id) : [...state.sharedSections, ...variant.customSections].map((item) => item.id);
         const afterIndex = input.afterSectionId ? order.indexOf(input.afterSectionId) : -1;
         if (afterIndex >= 0) order.splice(afterIndex + 1, 0, id);
-        else order.push(id);
+        else {
+          const footerIndex = order.indexOf("eligibility");
+          if (footerIndex >= 0) order.splice(footerIndex, 0, id);
+          else order.push(id);
+        }
         return { ...variant, customSections: [...variant.customSections, section], sectionOrder: order };
       }),
     },
@@ -534,10 +594,14 @@ export function addRoleCustomSection(state: ResumeDocumentState, profileId: stri
       ...state,
       roleProfiles: state.roleProfiles.map((profile) => {
         if (profile.id !== profileId) return profile;
-        const order = [...(profile.sectionOrder ?? [...state.sharedSections, ...profile.customSections].map((item) => item.id))];
+        const order = orderResumeSections(state.sharedSections, profile).map((item) => item.id);
         const afterIndex = input.afterSectionId ? order.indexOf(input.afterSectionId) : -1;
         if (afterIndex >= 0) order.splice(afterIndex + 1, 0, id);
-        else order.push(id);
+        else {
+          const footerIndex = order.indexOf("eligibility");
+          if (footerIndex >= 0) order.splice(footerIndex, 0, id);
+          else order.push(id);
+        }
         return { ...profile, customSections: [...profile.customSections, section], sectionOrder: order };
       }),
     },
@@ -654,6 +718,7 @@ export function inspectResumeReadiness(state: ResumeDocumentState, profileId: st
       });
       continue;
     }
+    if (section.kind === "eligibility") continue;
     if (section.kind === "narrative") {
       if (!narrativePlainText(content as NarrativeContent).trim()) add({ code: "empty-section", sectionId: section.id, message: `${title}: 내용이 비어 있습니다.` });
       continue;
@@ -751,7 +816,7 @@ function migrateVersionTwo(value: VersionTwoState, identityRole = ""): VersionTh
   return { version: 3, sharedSections, roleProfiles: safeProfiles, variants: safeVariants, activeVariantId, activeRoleProfileId: active.roleProfileId };
 }
 
-function migrateVersionThree(value: VersionThreeState): ResumeDocumentState | null {
+function migrateVersionThree(value: VersionThreeState): VersionFourState | null {
   if (!value.roleProfiles.length) return null;
   const implicitIds = new Set<string>();
   const roleProfiles = value.roleProfiles.map((profile) => {
@@ -781,7 +846,73 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function upgradeGenericRole(state: ResumeDocumentState): ResumeDocumentState {
+function splitLegacyIdentityContent(content: SectionContent) {
+  const legacy = content as LegacyIdentityContent;
+  const {
+    militaryStatus,
+    veteranStatus,
+    disabilityStatus,
+    employmentProtectionStatus,
+    ...identity
+  } = legacy;
+  return {
+    identity: identity as IdentityContent,
+    eligibility: { militaryStatus, veteranStatus, disabilityStatus, employmentProtectionStatus } satisfies EligibilityContent,
+  };
+}
+
+function migrateLayeredIdentitySettings(settings: Record<string, SectionSetting>, identityId: string) {
+  const identitySetting = settings[identityId];
+  if (!identitySetting) return settings;
+  const nextIdentity = { ...identitySetting };
+  const eligibilitySetting = { ...identitySetting };
+  delete eligibilitySetting.title;
+  if (identitySetting.content !== undefined) {
+    const split = splitLegacyIdentityContent(identitySetting.content);
+    nextIdentity.content = split.identity;
+    eligibilitySetting.content = split.eligibility;
+  } else {
+    delete eligibilitySetting.content;
+  }
+  return { ...settings, [identityId]: nextIdentity, eligibility: eligibilitySetting };
+}
+
+function migrateVersionFour(value: VersionFourState): ResumeDocumentState {
+  const identitySection = value.sharedSections.find((section) => section.kind === "identity");
+  const splitShared = identitySection
+    ? splitLegacyIdentityContent(identitySection.content)
+    : { identity: undefined, eligibility: emptySectionContent("eligibility") as EligibilityContent };
+  const sharedSections = value.sharedSections
+    .filter((section) => section.id !== "eligibility")
+    .map((section) => section.id === identitySection?.id ? { ...section, content: splitShared.identity! } : section);
+  sharedSections.push({
+    id: "eligibility",
+    title: "병역 · 보훈 · 장애 · 취업보호",
+    kind: "eligibility",
+    content: splitShared.eligibility,
+  });
+
+  const roleProfiles = value.roleProfiles.map((profile) => ({
+    ...profile,
+    settings: identitySection ? migrateLayeredIdentitySettings(profile.settings, identitySection.id) : profile.settings,
+    sectionOrder: [...orderResumeSections(value.sharedSections, profile).map((section) => section.id).filter((id) => id !== "eligibility"), "eligibility"],
+  }));
+  const variants = value.variants.map((variant) => {
+    const profile = value.roleProfiles.find((item) => item.id === variant.roleProfileId) ?? value.roleProfiles[0];
+    return {
+      ...variant,
+      settings: identitySection ? migrateLayeredIdentitySettings(variant.settings, identitySection.id) : variant.settings,
+      sectionOrder: profile
+        ? [...orderResumeSections(value.sharedSections, profile, variant).map((section) => section.id).filter((id) => id !== "eligibility"), "eligibility"]
+        : [...(variant.sectionOrder ?? []), "eligibility"],
+    };
+  });
+  return { ...value, version: 5, sharedSections, roleProfiles, variants, importLedger: value.importLedger ?? [] };
+}
+
+type MigratableState = ResumeDocumentState | VersionFourState;
+
+function upgradeGenericRole<T extends MigratableState>(state: T): T {
   const profile = state.roleProfiles[0];
   const generic = state.roleProfiles.length === 1
     && profile?.roleTitle === "지원 직무"
@@ -795,10 +926,10 @@ function upgradeGenericRole(state: ResumeDocumentState): ResumeDocumentState {
     roleProfiles,
     variants: state.variants.map((variant) => variant.roleProfileId === profile.id ? { ...variant, roleProfileId: roleProfiles[0].id } : variant),
     activeRoleProfileId: roleProfiles[0].id,
-  };
+  } as T;
 }
 
-function upgradeRoleTemplates(state: ResumeDocumentState): ResumeDocumentState {
+function upgradeRoleTemplates<T extends MigratableState>(state: T): T {
   if (state.templateRevision === 1) return state;
   return {
     ...state,
@@ -806,7 +937,7 @@ function upgradeRoleTemplates(state: ResumeDocumentState): ResumeDocumentState {
     roleProfiles: state.roleProfiles.map((profile) => profile.customSections.some((section) => section.kind === "narrative" && section.title === "자기소개서")
       ? profile
       : { ...profile, customSections: [...profile.customSections, roleCoverLetterSection(profile.id)] }),
-  };
+  } as T;
 }
 
 export function parseResumeDocumentState(raw: string | null): ResumeDocumentState | null {
@@ -821,29 +952,44 @@ export function parseResumeDocumentState(raw: string | null): ResumeDocumentStat
         if (section.kind === "identity") identityRole = migrated.role;
         return { ...section, content: migrated.content };
       });
-      return migrateVersionThree(migrateVersionTwo({ version: 2, sharedSections, variants: legacy.variants.map((variant) => ({ ...variant, customSections: [], settings: Object.fromEntries(Object.entries(variant.settings).map(([sectionId, setting]) => {
+      const versionFour = migrateVersionThree(migrateVersionTwo({ version: 2, sharedSections, variants: legacy.variants.map((variant) => ({ ...variant, customSections: [], settings: Object.fromEntries(Object.entries(variant.settings).map(([sectionId, setting]) => {
         const section = legacy.sharedSections.find((item) => item.id === sectionId);
         const content = setting.content !== undefined && section ? migrateLegacyContent({ ...section, content: setting.content }).content : undefined;
         return [sectionId, { ...setting, content }];
       })) })), activeVariantId: legacy.activeVariantId }, identityRole));
+      return versionFour ? migrateVersionFour(upgradeGenericRole(versionFour)) : null;
     }
     if (value.version === 2) {
       const oldIdentity = (value.sharedSections as VersionTwoState["sharedSections"]).find((section) => section.kind === "identity")?.content as (IdentityContent & { role?: string }) | undefined;
-      return migrateVersionThree(migrateVersionTwo(value as VersionTwoState, oldIdentity?.role ?? ""));
+      const versionFour = migrateVersionThree(migrateVersionTwo(value as VersionTwoState, oldIdentity?.role ?? ""));
+      return versionFour ? migrateVersionFour(upgradeGenericRole(versionFour)) : null;
     }
     if (value.version === 3) {
       if (!Array.isArray(value.roleProfiles) || typeof value.activeRoleProfileId !== "string" || typeof value.activeVariantId !== "string") return null;
-      return migrateVersionThree(value as VersionThreeState);
+      const versionFour = migrateVersionThree(value as VersionThreeState);
+      return versionFour ? migrateVersionFour(upgradeGenericRole(versionFour)) : null;
     }
-    if (value.version !== 4 || !Array.isArray(value.roleProfiles) || typeof value.activeRoleProfileId !== "string" || (value.activeVariantId !== null && typeof value.activeVariantId !== "string")) return null;
-    const state = value as unknown as ResumeDocumentState;
+    if ((value.version !== 4 && value.version !== 5) || !Array.isArray(value.roleProfiles) || typeof value.activeRoleProfileId !== "string" || (value.activeVariantId !== null && typeof value.activeVariantId !== "string")) return null;
+    const state = value as unknown as MigratableState;
     if (state.activeVariantId !== null && !state.variants.some((item) => isRecord(item) && item.id === state.activeVariantId)) return null;
     if (!state.roleProfiles.some((item) => isRecord(item) && item.id === state.activeRoleProfileId)) return null;
-    return upgradeRoleTemplates(upgradeGenericRole({
+    const normalized = upgradeRoleTemplates(upgradeGenericRole({
       ...state,
       roleProfiles: state.roleProfiles.map((profile) => ({ ...profile, settings: isRecord(profile.settings) ? profile.settings : {}, customSections: Array.isArray(profile.customSections) ? profile.customSections : [] })),
       variants: state.variants.map((variant) => ({ ...variant, roleProfileId: state.roleProfiles.some((profile) => profile.id === variant.roleProfileId) ? variant.roleProfileId : state.roleProfiles[0].id, customSections: Array.isArray(variant.customSections) ? variant.customSections : [], settings: isRecord(variant.settings) ? variant.settings : {} })),
-    }));
+    } as MigratableState));
+    if (normalized.version === 4) return migrateVersionFour(normalized);
+    return {
+      ...normalized,
+      importLedger: Array.isArray(normalized.importLedger)
+        ? normalized.importLedger.filter((entry): entry is ResumeImportLedgerEntry =>
+          isRecord(entry)
+          && typeof entry.candidateKey === "string"
+          && typeof entry.payloadHash === "string"
+          && typeof entry.targetSectionId === "string"
+          && typeof entry.appliedAt === "string")
+        : [],
+    };
   } catch {
     return null;
   }

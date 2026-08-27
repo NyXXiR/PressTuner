@@ -31,8 +31,9 @@ test("resume documents keeps a simple local-only role flow with optional support
   assert.match(source, /DOMParser/);
   assert.match(source, /parseNarrativeClipboard/);
   assert.match(source, /localStorage\.setItem/);
-  assert.match(source, /LOCAL PROTOTYPE/);
-  assert.doesNotMatch(source, /\/api\/resume\/bricks/);
+  assert.doesNotMatch(source, /LOCAL PROTOTYPE/);
+  assert.doesNotMatch(source, /local-\$\{Date\.now\(\)\}/);
+  assert.match(source, /\/api\/resume\/bricks\/all/);
   assert.doesNotMatch(source, /prisma/i);
 });
 
@@ -111,16 +112,57 @@ test("identity rendering places an optional profile photo on the right", async (
   assert.match(source, /justify-self-end/);
 });
 
-test("shared identity editor exposes reusable contact and eligibility facts", async () => {
+test("identity keeps reusable contact, birth date, and gender fields", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
 
-  for (const label of ["전화번호", "거주 지역", "성별", "생년월일", "병역 여부", "보훈 대상", "장애 여부", "취업보호 대상"]) {
+  for (const label of ["전화번호", "거주 지역", "성별", "생년월일"]) {
     assert.match(source, new RegExp(label));
   }
-  assert.match(source, /type="date"/);
+  assert.match(source, /import \{ DateInput \} from "@\/components\/ui\/DateInput"/);
+  assert.match(source, /const localToday = formatDateOnly\(new Date\(\)\)/);
+  const birthDateField = source.match(/<DateInput\s+label="생년월일"[\s\S]*?\/>/)?.[0];
+  assert.ok(birthDateField);
+  assert.match(birthDateField, /min="1900-01-01"/);
+  assert.match(birthDateField, /max=\{localToday\}/);
+  assert.match(birthDateField, /startMonth="1900-01-01"/);
+  assert.match(birthDateField, /endMonth=\{localToday\}/);
+  assert.match(birthDateField, /reverseYears/);
+  assert.match(birthDateField, /quickActions=\{\[\]\}/);
+  assert.doesNotMatch(source, /<Field\s+label="생년월일"\s+type="date"/);
+});
+
+test("eligibility is a dedicated normal section and owns the four moved facts", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(source, /type EligibilityContent/);
+  assert.match(source, /section\.kind === "eligibility"/);
+  assert.match(source, /병역 · 보훈 · 장애 · 취업보호/);
+  for (const label of ["병역 여부", "보훈 대상", "장애 여부", "취업보호 대상"]) {
+    assert.match(source, new RegExp(label));
+  }
   assert.match(source, /군필/);
   assert.match(source, /비대상/);
-  assert.match(source, /employmentProtectionStatus/);
+  assert.match(source, /eligibility[\s\S]*섹션 숨기기|섹션 숨기기[\s\S]*eligibility/);
+  assert.match(source, /eligibility[\s\S]*PDF 순서|PDF 순서[\s\S]*eligibility/);
+});
+
+test("confirmed experience bricks have accessible bulk sync states and retry", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(source, /fetch\("\/api\/resume\/bricks\/all", \{ cache: "no-store"/);
+  assert.match(source, /AbortController/);
+  assert.match(source, /aria-live="polite"/);
+  for (const phrase of ["불러오는 중", "동기화했습니다", "동기화할 확정 경험이 없습니다", "다시 시도", "일괄 가져오기", "동기화"]) {
+    assert.match(source, new RegExp(phrase));
+  }
+  assert.match(source, /현재 (?:직군|지원) 이력서에서 제외/);
+  assert.doesNotMatch(source, /로컬 경험 참조 추가/);
+  assert.doesNotMatch(source, /태그\(쉼표 구분\)/);
+});
+
+test("the bulk API route stays authenticated and delegates projection to the service", async () => {
+  const route = await readFile(new URL("../app/api/resume/bricks/all/route.ts", import.meta.url), "utf8");
+  assert.match(route, /requireTeamContext\(\)/);
+  assert.match(route, /listAllExperienceBricks\(user\.id\)/);
+  assert.doesNotMatch(route, /prisma/i);
 });
 
 test("resume documents explains section formats and keeps mobile editing controls readable", async () => {
@@ -154,4 +196,24 @@ test("resume page estimate measures print-like content without editor chrome", a
   assert.match(source, /resume-print-measure/);
   assert.match(styles, /\.resume-print-measure \.resume-section-controls/);
   assert.match(styles, /\.resume-print-header\s*\{[\s\S]*?break-inside:\s*avoid/);
+});
+
+test("PDF imports stay review-first and recover approved but unapplied candidates", async () => {
+  const [builder, panel, decisionRoute, appliedRoute] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/decision/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/applied/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(builder, /PDF로 채우기/);
+  assert.match(builder, /applyResumeImportCommand/);
+  assert.match(builder, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
+  assert.match(panel, /AI는 섹션별 후보만 만듭니다/);
+  assert.match(panel, /확인하고 반영/);
+  assert.match(panel, /문서 반영 다시 시도/);
+  assert.match(panel, /PDF 원문 근거/);
+  assert.match(panel, /경력 보관함/);
+  assert.match(decisionRoute, /decideResumeDocumentCandidate/);
+  assert.match(appliedRoute, /acknowledgeResumeDocumentCandidateApplied/);
 });

@@ -52,7 +52,7 @@ function roleContext() {
 
 test("the default flow has a directly editable role resume and no support version", () => {
   const { state, profile } = roleContext();
-  assert.equal(state.version, 4);
+  assert.equal(state.version, 5);
   assert.equal(state.variants.length, 0);
   assert.equal(state.activeVariantId, null);
   assert.equal(resolveDocumentRole(profile), "서비스 기획자");
@@ -226,7 +226,7 @@ test("version 3 implicit base variants migrate into role resumes while company v
     ],
   });
   const migrated = parseResumeDocumentState(versionThree)!;
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.activeVariantId, null);
   assert.equal(migrated.variants.length, 1);
   assert.equal(migrated.variants[0].company, "A사");
@@ -237,7 +237,7 @@ test("version 3 implicit base variants migrate into role resumes while company v
 test("legacy delimiter state still migrates to a role resume", () => {
   const legacy = JSON.stringify({ version: 1, activeVariantId: "base", sharedSections: [{ id: "profile", title: "인적사항", kind: "identity", content: "홍길동 | 개발자 | hi@example.com\nhttps://example.com" }], variants: [{ id: "base", name: "기본", company: "", role: "백엔드 개발자", settings: {} }] });
   const migrated = parseResumeDocumentState(legacy)!;
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.variants.length, 0);
   assert.equal(resolveDocumentRole(migrated.roleProfiles[0]), "백엔드 개발자");
   assert.deepEqual(migrated.sharedSections[0].content, { name: "홍길동", email: "hi@example.com", links: ["https://example.com"] });
@@ -258,7 +258,7 @@ test("shared edits continue to flow into inherited role resumes", () => {
   assert.deepEqual(resolveSection(summary, profile).content, { body: "새 공통 소개" });
 });
 
-test("shared personal facts flow through role and support resumes and survive local storage", () => {
+test("shared identity and eligibility facts flow through role and support resumes and survive local storage", () => {
   const { state, profile } = roleContext();
   const identity = state.sharedSections.find((section) => section.id === "profile")!;
   const details: IdentityContent = {
@@ -267,18 +267,25 @@ test("shared personal facts flow through role and support resumes and survive lo
     location: "서울 양천구",
     gender: "남성",
     birthDate: "1992-01-01",
+  };
+  const shared = updateSharedSection(updateSharedSection(state, identity.id, details), "eligibility", {
     militaryStatus: "군필",
     veteranStatus: "비대상",
     disabilityStatus: "비대상",
     employmentProtectionStatus: "비대상",
-  };
-  const shared = updateSharedSection(state, identity.id, details);
+  });
   const role = shared.roleProfiles[0];
   assert.deepEqual(resolveSection(shared.sharedSections[0], role).content, details);
 
   const withSupport = createSupportVariant(shared, profile.id, { name: "A사", company: "A사" });
   assert.deepEqual(resolveSection(withSupport.sharedSections[0], withSupport.roleProfiles[0], withSupport.variants[0]).content, details);
   assert.deepEqual(parseResumeDocumentState(JSON.stringify(withSupport))!.sharedSections[0].content, details);
+  assert.deepEqual(parseResumeDocumentState(JSON.stringify(withSupport))!.sharedSections.find((section) => section.id === "eligibility")!.content, {
+    militaryStatus: "군필",
+    veteranStatus: "비대상",
+    disabilityStatus: "비대상",
+    employmentProtectionStatus: "비대상",
+  });
 });
 
 test("common information order becomes the inherited PDF order", () => {
@@ -287,7 +294,7 @@ test("common information order becomes the inherited PDF order", () => {
   const coverLetterId = state.roleProfiles[0].customSections[0].id;
   const reordered = updateSharedSectionOrder(state, ["summary", "profile", ...ids.slice(2), "summary", "unknown"]);
   assert.deepEqual(reordered.sharedSections.map((section) => section.id), ["summary", "profile", ...ids.slice(2)]);
-  assert.deepEqual(orderResumeSections(reordered.sharedSections, reordered.roleProfiles[0]).map((section) => section.id), ["summary", "profile", ...ids.slice(2), coverLetterId]);
+  assert.deepEqual(orderResumeSections(reordered.sharedSections, reordered.roleProfiles[0]).map((section) => section.id), ["summary", "profile", ...ids.slice(2, -1), coverLetterId, "eligibility"]);
 });
 
 test("role metadata can be edited", () => {
@@ -517,4 +524,239 @@ test("a support override reset removes content and title so the role resume beco
   assert.equal(reset.variants[0].settings.summary, undefined);
   assert.equal(resolveSectionTitle(section, reset.roleProfiles[0], reset.variants[0]), "직군 소개");
   assert.deepEqual(resolveSection(section, reset.roleProfiles[0], reset.variants[0]).content, { body: "직군 내용" });
+});
+
+test("V4 identity facts migrate into a dedicated V5 eligibility footer across every layer", () => {
+  const v4 = {
+    version: 4,
+    templateRevision: 1,
+    activeRoleProfileId: "role-a",
+    activeVariantId: "variant-a",
+    sharedSections: [
+      {
+        id: "profile",
+        title: "인적사항",
+        kind: "identity",
+        content: {
+          name: "공통 이름",
+          email: "common@example.com",
+          birthDate: "1990-01-01",
+          gender: "여성",
+          militaryStatus: "공통 병역",
+          veteranStatus: "공통 보훈",
+          disabilityStatus: "공통 장애",
+          employmentProtectionStatus: "공통 취업보호",
+          links: [],
+        },
+      },
+      { id: "experience", title: "경력 · 프로젝트", kind: "items", content: { items: [] } },
+    ],
+    roleProfiles: [
+      {
+        id: "role-a",
+        name: "직군 A",
+        roleTitle: "개발자",
+        sectionOrder: ["profile", "experience", "role-letter"],
+        customSections: [{ id: "role-letter", title: "자기소개서", kind: "narrative", content: { body: "직군 소개" }, custom: true }],
+        settings: {
+          profile: {
+            mode: "override",
+            layout: "cards",
+            title: "지원자",
+            content: {
+              name: "직군 이름",
+              email: "role@example.com",
+              birthDate: "1991-02-02",
+              gender: "남성",
+              militaryStatus: "직군 병역",
+              veteranStatus: "직군 보훈",
+              disabilityStatus: "직군 장애",
+              employmentProtectionStatus: "직군 취업보호",
+              links: [],
+            },
+          },
+        },
+      },
+      {
+        id: "role-hidden",
+        name: "숨김 직군",
+        roleTitle: "기획자",
+        sectionOrder: ["profile", "experience"],
+        customSections: [],
+        settings: { profile: { mode: "hidden", layout: "standard", title: "숨긴 인적사항" } },
+      },
+    ],
+    variants: [
+      {
+        id: "variant-a",
+        name: "A사",
+        company: "A사",
+        role: "",
+        roleProfileId: "role-a",
+        sectionOrder: ["experience", "profile", "role-letter", "variant-letter"],
+        customSections: [{ id: "variant-letter", title: "지원 동기", kind: "narrative", content: { body: "A사 동기" }, custom: true }],
+        settings: {
+          profile: {
+            mode: "override",
+            layout: "compact",
+            content: {
+              name: "지원 이름",
+              email: "variant@example.com",
+              militaryStatus: "지원 병역",
+              veteranStatus: "지원 보훈",
+              disabilityStatus: "지원 장애",
+              employmentProtectionStatus: "지원 취업보호",
+              links: [],
+            },
+          },
+        },
+      },
+      {
+        id: "variant-hidden",
+        name: "숨김 지원본",
+        company: "B사",
+        role: "",
+        roleProfileId: "role-a",
+        sectionOrder: ["profile", "experience"],
+        customSections: [],
+        settings: { profile: { mode: "hidden", layout: "standard" } },
+      },
+    ],
+  };
+
+  const migrated = parseResumeDocumentState(JSON.stringify(v4))!;
+  assert.equal(migrated.version, 5);
+  const profile = migrated.sharedSections.find((section) => section.id === "profile")!;
+  const eligibility = migrated.sharedSections.find((section) => section.id === "eligibility")!;
+  assert.equal(eligibility.kind, "eligibility");
+  assert.equal(eligibility.title, "병역 · 보훈 · 장애 · 취업보호");
+  assert.deepEqual(eligibility.content, {
+    militaryStatus: "공통 병역",
+    veteranStatus: "공통 보훈",
+    disabilityStatus: "공통 장애",
+    employmentProtectionStatus: "공통 취업보호",
+  });
+  for (const key of ["militaryStatus", "veteranStatus", "disabilityStatus", "employmentProtectionStatus"]) {
+    assert.equal(key in profile.content, false);
+  }
+
+  const role = migrated.roleProfiles.find((item) => item.id === "role-a")!;
+  assert.equal(role.settings.profile.title, "지원자");
+  assert.equal("militaryStatus" in role.settings.profile.content!, false);
+  assert.deepEqual(role.settings.eligibility.content, {
+    militaryStatus: "직군 병역",
+    veteranStatus: "직군 보훈",
+    disabilityStatus: "직군 장애",
+    employmentProtectionStatus: "직군 취업보호",
+  });
+  assert.equal(role.settings.eligibility.title, undefined);
+  assert.equal(migrated.roleProfiles.find((item) => item.id === "role-hidden")!.settings.eligibility.mode, "hidden");
+
+  const variant = migrated.variants.find((item) => item.id === "variant-a")!;
+  assert.deepEqual(variant.settings.eligibility.content, {
+    militaryStatus: "지원 병역",
+    veteranStatus: "지원 보훈",
+    disabilityStatus: "지원 장애",
+    employmentProtectionStatus: "지원 취업보호",
+  });
+  assert.equal(migrated.variants.find((item) => item.id === "variant-hidden")!.settings.eligibility.mode, "hidden");
+  assert.equal(role.sectionOrder!.at(-1), "eligibility");
+  assert.equal(variant.sectionOrder!.at(-1), "eligibility");
+});
+
+test("V1, V2, and V3 storage all finish the migration chain at V5", () => {
+  const v1 = { version: 1, activeVariantId: "base", sharedSections: [{ id: "profile", title: "인적사항", kind: "identity", content: "홍길동 | 개발자 | hi@example.com" }], variants: [{ id: "base", name: "기본", company: "", role: "개발자", settings: {} }] };
+  const v2 = { version: 2, activeVariantId: "base", sharedSections: [{ id: "profile", title: "인적사항", kind: "identity", content: { name: "홍길동", email: "hi@example.com", role: "개발자", links: [] } }], variants: [{ id: "base", name: "기본", company: "", role: "개발자", settings: {}, customSections: [] }] };
+  const v3 = { version: 3, activeRoleProfileId: "role-a", activeVariantId: "base", sharedSections: [{ id: "profile", title: "인적사항", kind: "identity", content: { name: "홍길동", email: "hi@example.com", links: [] } }], roleProfiles: [{ id: "role-a", name: "개발", roleTitle: "개발자", settings: {} }], variants: [{ id: "base", name: "기본", company: "", role: "", roleProfileId: "role-a", settings: {}, customSections: [] }] };
+  for (const fixture of [v1, v2, v3]) {
+    const migrated = parseResumeDocumentState(JSON.stringify(fixture))!;
+    assert.equal(migrated.version, 5);
+    assert.equal(migrated.sharedSections.at(-1)?.id, "eligibility");
+  }
+});
+
+test("parsing V5 does not recreate an intentionally deleted eligibility section", () => {
+  const state = deleteSharedSection(createResumeDocumentSeed(), "eligibility");
+  const parsed = parseResumeDocumentState(JSON.stringify(state))!;
+  assert.equal(parsed.version, 5);
+  assert.equal(parsed.sharedSections.some((section) => section.id === "eligibility"), false);
+});
+
+test("fresh roles and support versions keep custom sections before the eligibility footer", () => {
+  let state = createResumeDocumentSeed();
+  assert.equal(state.version, 5);
+  for (const profile of state.roleProfiles) {
+    assert.equal(orderResumeSections(state.sharedSections, profile).at(-1)?.id, "eligibility");
+  }
+  const profile = state.roleProfiles[0];
+  const roleAdded = addRoleCustomSection(state, profile.id, { title: "직군 추가", kind: "narrative" });
+  state = createSupportVariant(roleAdded.state, profile.id, { name: "A사", company: "A사" });
+  const variant = state.variants[0];
+  const supportAdded = addCustomSection(state, variant.id, { title: "지원 추가", kind: "narrative" });
+  const ordered = orderResumeSections(supportAdded.state.sharedSections, supportAdded.state.roleProfiles[0], supportAdded.state.variants[0]);
+  assert.equal(ordered.at(-1)?.id, "eligibility");
+  assert.ok(ordered.findIndex((section) => section.id === roleAdded.section.id) < ordered.length - 1);
+  assert.ok(ordered.findIndex((section) => section.id === supportAdded.section.id) < ordered.length - 1);
+
+  const hidden = updateSectionSetting(supportAdded.state, variant.id, "eligibility", { mode: "hidden" });
+  const eligibility = hidden.sharedSections.find((section) => section.id === "eligibility")!;
+  assert.equal(resolveSection(eligibility, hidden.roleProfiles[0], hidden.variants[0]).mode, "hidden");
+  const moved = updateSectionOrder(hidden, variant.id, ["eligibility", ...ordered.map((section) => section.id)]);
+  assert.equal(orderResumeSections(moved.sharedSections, moved.roleProfiles[0], moved.variants[0])[0].id, "eligibility");
+});
+
+test("bulk brick synchronization is deterministic, non-destructive, and refreshes only returned snapshots", () => {
+  const state = createResumeDocumentSeed();
+  const experience = state.sharedSections.find((section) => section.id === "experience")!;
+  experience.content = { items: [
+    { id: "manual", meta: "직접 입력", title: "수동 프로젝트", subtitle: "", body: "유지" },
+    { id: "stable-local", meta: "이전", title: "기존 A", subtitle: "", body: "이전 A", source: { type: "experience-brick", id: "brick-a" } },
+    { id: "duplicate-local", meta: "중복", title: "중복 A", subtitle: "", body: "삭제될 중복", source: { type: "experience-brick", id: "brick-a" } },
+    { id: "stale-local", meta: "보존", title: "서버에 없는 B", subtitle: "", body: "그대로", source: { type: "experience-brick", id: "brick-missing" } },
+  ] };
+  const bricks = [
+    { id: "brick-a", title: "새 A", content: "갱신 A", organization: "회사", roleTitle: "리드", experienceType: "PROJECT", startDate: "2024-03-31T23:59:59.000Z", endDate: "2025-05-01T00:00:00.000Z", isCurrent: false, period: "legacy A", tags: ["TypeScript"] },
+    { id: "brick-a", title: "무시될 중복", content: "무시", organization: null, roleTitle: null, experienceType: "WORK", startDate: null, endDate: null, isCurrent: true, period: null, tags: [] },
+    { id: "brick-new", title: "새 B", content: "추가 B", organization: null, roleTitle: null, experienceType: "ACTIVITY", startDate: "2023-01-15T00:00:00.000Z", endDate: null, isCurrent: true, period: "2023.01 - Present", tags: ["협업"] },
+  ];
+
+  const synced = linkExperienceBricks(state, bricks);
+  const items = (synced.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items;
+  assert.deepEqual(items.map((item) => item.id), ["manual", "stable-local", "stale-local", "experience-brick:brick-new"]);
+  assert.equal(items[0].body, "유지");
+  assert.deepEqual(items[1], {
+    id: "stable-local",
+    meta: "legacy A",
+    startMonth: "2024-03",
+    endMonth: "2025-05",
+    isCurrent: false,
+    title: "새 A",
+    subtitle: "회사 · 리드",
+    body: "갱신 A",
+    source: { type: "experience-brick", id: "brick-a" },
+  });
+  assert.equal(items[2].body, "그대로");
+  assert.equal(items[3].subtitle, "ACTIVITY · 협업");
+  assert.equal(items[3].startMonth, "2023-01");
+  assert.equal(items[3].isCurrent, true);
+  assert.deepEqual(linkExperienceBricks(synced, bricks), synced);
+});
+
+test("repeated brick syncs preserve independent role and support item tailoring", () => {
+  const seeded = linkExperienceBricks(createResumeDocumentSeed(), [{ id: "brick-a", title: "A", content: "공통", organization: "회사", roleTitle: "개발", experienceType: "WORK", startDate: null, endDate: null, isCurrent: false, period: null, tags: [] }]);
+  const profile = seeded.roleProfiles[0];
+  const item = ((seeded.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items).find((value) => value.source?.id === "brick-a")!;
+  let tailored = updateRoleProfileItemSetting(seeded, profile.id, "experience", item.id, { mode: "override", content: { ...item, body: "직군 설명" } });
+  tailored = updateRoleProfileSectionSetting(tailored, profile.id, "experience", { itemOrder: [item.id] });
+  tailored = createSupportVariant(tailored, profile.id, { name: "A사", company: "A사" });
+  const variant = tailored.variants[0];
+  tailored = updateDocumentItemSetting(tailored, variant.id, "experience", item.id, { mode: "hidden" });
+  tailored = updateSectionSetting(tailored, variant.id, "experience", { itemOrder: [item.id] });
+
+  const synced = linkExperienceBricks(tailored, [{ id: "brick-a", title: "A 갱신", content: "공통 갱신", organization: "회사", roleTitle: "개발", experienceType: "WORK", startDate: null, endDate: null, isCurrent: false, period: null, tags: [] }]);
+  assert.deepEqual(synced.roleProfiles[0].settings.experience, tailored.roleProfiles[0].settings.experience);
+  assert.deepEqual(synced.variants[0].settings.experience, tailored.variants[0].settings.experience);
+  const section = synced.sharedSections.find((value) => value.id === "experience")!;
+  assert.equal((resolveSection(section, synced.roleProfiles[0]).content as ItemsContent).items.find((value) => value.id === item.id)!.body, "직군 설명");
+  assert.equal((resolveSection(section, synced.roleProfiles[0], synced.variants[0]).content as ItemsContent).items.some((value) => value.id === item.id), false);
 });

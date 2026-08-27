@@ -57,3 +57,15 @@ export async function enqueueCareerExperience(input: {
     ...input,
   });
 }
+
+export async function enqueueResumeDocumentImport(input: {
+  importId: string;
+  sourceId: string;
+  userId: string;
+  processingVersion: number;
+}) {
+  await enqueue("/internal/career-memory/enqueue", {
+    type: "extract-resume-document",
+    ...input,
+  });
+}
