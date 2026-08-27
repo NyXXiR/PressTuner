@@ -14,17 +14,18 @@ let server: Server;
 let origin: string;
 
 test.beforeAll(async () => {
+  await execFileAsync(process.execPath, [path.resolve("scripts/prepare-pagedjs-runtime.mjs")], { cwd: process.cwd() });
   const { stdout: printable } = await execFileAsync(process.execPath, [
     "--import",
     "tsx",
     path.resolve("tests/fixtures/resumePaginationFixture.tsx"),
   ], { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 });
   const css = await readFile(path.resolve("public/styles/resume-print.css"), "utf8");
-  const paged = await readFile(path.resolve("node_modules/pagedjs/dist/paged.js"), "utf8");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/styles/resume-print.css"></head><body><button>${chromeSentinel}</button><div id="source">${printable}</div><div class="resume-pdf-dialog-root"><section class="resume-pdf-dialog-panel"><div class="resume-pdf-dialog-chrome">${dialogSentinel}<p id="ready-status"></p></div><div id="output" class="resume-pdf-output"></div></section></div><script src="/paged.js"></script><script>void (async()=>{const flow=await new Paged.Previewer().preview(document.querySelector('#source .resume-printable-document'),['/styles/resume-print.css'],document.querySelector('#output'));const pages=[...document.querySelectorAll('#output .pagedjs_page')];pages.forEach((page,index)=>{page.classList.add('resume-pdf-page');page.dataset.resumePageNumber=String(index+1);page.setAttribute('aria-label',String(index+1)+'페이지');});window.resumePreviewPages=pages;document.querySelector('#ready-status').textContent='정확히 '+pages.length+'페이지';document.body.classList.add('resume-pagination-ready');document.body.dataset.pageCount=String(flow.total);})();</script></body></html>`;
+  const paged = await readFile(path.resolve("public/vendor/paged.min.js"), "utf8");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/styles/resume-print.css"></head><body><button>${chromeSentinel}</button><div id="source">${printable}</div><div class="resume-pdf-dialog-root"><section class="resume-pdf-dialog-panel"><div class="resume-pdf-dialog-chrome">${dialogSentinel}<p id="ready-status"></p></div><div id="output" class="resume-pdf-output"></div></section></div><script src="/vendor/paged.min.js"></script><script>void (async()=>{const flow=await new PagedModule.Previewer().preview(document.querySelector('#source .resume-printable-document'),['/styles/resume-print.css'],document.querySelector('#output'));const pages=[...document.querySelectorAll('#output .pagedjs_page')];pages.forEach((page,index)=>{page.classList.add('resume-pdf-page');page.dataset.resumePageNumber=String(index+1);page.setAttribute('aria-label',String(index+1)+'페이지');});window.resumePreviewPages=pages;document.querySelector('#ready-status').textContent='정확히 '+pages.length+'페이지';document.body.classList.add('resume-pagination-ready');document.body.dataset.pageCount=String(flow.total);})();</script></body></html>`;
   server = createServer((request, response) => {
     if (request.url === "/styles/resume-print.css") { response.setHeader("content-type", "text/css"); response.end(css); return; }
-    if (request.url === "/paged.js") { response.setHeader("content-type", "text/javascript"); response.end(paged); return; }
+    if (request.url === "/vendor/paged.min.js") { response.setHeader("content-type", "text/javascript"); response.end(paged); return; }
     response.setHeader("content-type", "text/html; charset=utf-8"); response.end(html);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

@@ -24,6 +24,7 @@ const eslintConfig = defineConfig([
     "ai-service/.venv/**",
     "ai-service/.pytest_cache/**",
     "ai-service/.ruff_cache/**",
+    "public/vendor/paged.min.js",
   ]),
 ]);
 

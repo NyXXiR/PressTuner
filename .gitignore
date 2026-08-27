@@ -57,6 +57,7 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 /blob-report/
+/public/vendor/paged.min.js
 
 # isolated Python candidate runtime
 /ai-service/.venv/

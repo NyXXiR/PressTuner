@@ -5,6 +5,67 @@ export type PagedResumePreviewRun = {
   dispose: () => void;
 };
 
+type PagedFlow = { total: number };
+type PagedPreviewer = { preview: (source: HTMLElement, stylesheets: string[], output: HTMLElement) => Promise<PagedFlow> };
+type PagedPreviewerConstructor = new () => PagedPreviewer;
+
+declare global {
+  interface Window {
+    PagedModule?: { Previewer?: PagedPreviewerConstructor };
+  }
+}
+
+const PAGED_RUNTIME_SOURCE = "/vendor/paged.min.js";
+const PAGED_RUNTIME_SELECTOR = 'script[data-presstuner-pagedjs-runtime="true"]';
+let pagedRuntimePromise: Promise<PagedPreviewerConstructor> | null = null;
+
+function loadedPreviewer() {
+  return window.PagedModule?.Previewer;
+}
+
+function loadPagedPreviewer(): Promise<PagedPreviewerConstructor> {
+  const loaded = loadedPreviewer();
+  if (loaded) return Promise.resolve(loaded);
+  if (pagedRuntimePromise) return pagedRuntimePromise;
+
+  const pending = new Promise<PagedPreviewerConstructor>((resolve, reject) => {
+    let script = document.querySelector<HTMLScriptElement>(PAGED_RUNTIME_SELECTOR);
+    const created = !script;
+    if (!script) {
+      script = document.createElement("script");
+      script.src = PAGED_RUNTIME_SOURCE;
+      script.async = true;
+      script.dataset.presstunerPagedjsRuntime = "true";
+    }
+
+    const cleanup = () => {
+      script.removeEventListener("load", handleLoad);
+      script.removeEventListener("error", handleError);
+    };
+    const handleLoad = () => {
+      cleanup();
+      const Previewer = loadedPreviewer();
+      if (Previewer) resolve(Previewer);
+      else reject(new Error("PDF 미리보기 런타임을 초기화하지 못했습니다."));
+    };
+    const handleError = () => {
+      cleanup();
+      script.remove();
+      reject(new Error("PDF 미리보기 런타임을 불러오지 못했습니다."));
+    };
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    if (created) document.head.appendChild(script);
+  });
+
+  pagedRuntimePromise = pending;
+  void pending.catch(() => {
+    if (pagedRuntimePromise === pending) pagedRuntimePromise = null;
+  });
+  return pending;
+}
+
 async function waitForImages(root: ParentNode) {
   const images = Array.from(root.querySelectorAll("img"));
   await Promise.all(images.map(async (image) => {
@@ -29,7 +90,7 @@ export async function createPagedResumePreview(source: HTMLElement, output: HTML
   await waitForAssets(source);
   const existingHeadNodes = new Set(document.head.querySelectorAll("style, link[rel='stylesheet']"));
   try {
-    const { Previewer } = await import("pagedjs");
+    const Previewer = await loadPagedPreviewer();
     const previewer = new Previewer();
     const flow = await previewer.preview(source, ["/styles/resume-print.css"], output);
     await waitForAssets(output);
