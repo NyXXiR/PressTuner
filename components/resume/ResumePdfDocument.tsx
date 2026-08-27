@@ -18,7 +18,7 @@ const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const narrativeSizes: Record<NarrativeBlockType, number> = { p: 9.5, h1: 18, h2: 15.5, h3: 13.5, h4: 12, h5: 11, h6: 10 };
-const ITEM_BODY_ORPHANS = 4;
+const ITEM_OPENING_BODY_UNITS = 360;
 const ITEM_BODY_WIDOWS = 3;
 
 type ReactPdfRenderer = typeof import("@react-pdf/renderer");
@@ -59,7 +59,10 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   photo: { width: mm(24), height: mm(32), objectFit: "cover", borderWidth: mm(0.2), borderColor: "#e2e8f0" },
   empty: { color: "#94a3b8", fontSize: 9 },
   item: { flexDirection: "row", gap: mm(4), marginBottom: mm(4) },
+  itemFlow: { marginBottom: mm(4) },
+  itemRow: { flexDirection: "row", gap: mm(4) },
   itemPeriod: { width: mm(26), flexShrink: 0, color: "#64748b", fontSize: 8.5, fontWeight: 700 },
+  itemPeriodSpacer: { width: mm(26), flexShrink: 0 },
   itemCopy: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
   detailType: { color: "#ea580c", fontSize: 7.5, fontWeight: 800 },
   itemTitle: { fontSize: 10.5, fontWeight: 800 },
@@ -130,22 +133,44 @@ function EligibilitySection({ section }: { section: Extract<ResumePdfSection, { 
     : <EmptyCopy>선택한 정보가 없습니다.</EmptyCopy>}</View>;
 }
 
+function splitItemBodyOpening(body: string): [opening: string, continuation: string] {
+  let units = 0;
+  let index = 0;
+  let nearbyBoundary = 0;
+  for (const character of body) {
+    index += character.length;
+    units += /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Extended_Pictographic}]/u.test(character) ? 2 : 1;
+    if (units >= ITEM_OPENING_BODY_UNITS * 0.9 && /[\s.,;:!?\u2026\u00b7•。！？、]/u.test(character)) nearbyBoundary = index;
+    if (units >= ITEM_OPENING_BODY_UNITS) {
+      const splitAt = nearbyBoundary || index;
+      return [body.slice(0, splitAt), body.slice(splitAt)];
+    }
+  }
+  return [body, ""];
+}
+
 function ResumeItem({ item, detailLabel }: { item: ItemContent; detailLabel?: string }) {
   const compact = item.body.length <= 700;
   const subtitle = [item.relatedWorkTitle, item.subtitle].filter(Boolean).join(" · ");
   if (!compact) {
-    const headingLines = 1 + (detailLabel ? 1 : 0) + (subtitle ? 1 : 0);
-    return <View style={styles.item} wrap>
-      <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
-      <Text orphans={headingLines + ITEM_BODY_ORPHANS} style={styles.itemCopy} widows={ITEM_BODY_WIDOWS}>
-        {detailLabel ? <Text style={styles.detailType}>{detailLabel}{"\n"}</Text> : null}
-        <Text style={styles.itemTitle}>{item.title || "제목 미입력"}</Text>
-        {subtitle ? <Text style={styles.itemSubtitle}>{"\n"}{subtitle}</Text> : null}
-        <Text style={styles.itemBody}>{"\n"}{item.body}</Text>
-      </Text>
+    const [openingBody, continuationBody] = splitItemBodyOpening(item.body);
+    return <View style={styles.itemFlow} wrap>
+      <View style={styles.itemRow} wrap={false}>
+        <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
+        <View style={styles.itemCopy}>
+          {detailLabel ? <Text style={styles.detailType}>{detailLabel}</Text> : null}
+          <Text style={styles.itemTitle}>{item.title || "제목 미입력"}</Text>
+          {subtitle ? <Text style={styles.itemSubtitle}>{subtitle}</Text> : null}
+          <Text style={styles.itemBody}>{openingBody}</Text>
+        </View>
+      </View>
+      {continuationBody ? <View style={styles.itemRow}>
+        <View style={styles.itemPeriodSpacer} />
+        <Text orphans={ITEM_BODY_WIDOWS} style={styles.itemCopy} widows={ITEM_BODY_WIDOWS}>{continuationBody}</Text>
+      </View> : null}
     </View>;
   }
-  return <View style={styles.item} wrap={!compact}>
+  return <View style={styles.item} wrap={false}>
     <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
     <View style={styles.itemCopy}>
       <View wrap={false}>
