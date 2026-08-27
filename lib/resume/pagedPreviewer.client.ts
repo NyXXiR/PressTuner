@@ -6,7 +6,10 @@ export type PagedResumePreviewRun = {
 };
 
 type PagedFlow = { total: number };
-type PagedPreviewer = { preview: (source: HTMLElement, stylesheets: string[], output: HTMLElement) => Promise<PagedFlow> };
+type PagedPreviewer = {
+  chunker?: { pages?: Array<{ removeListeners?: () => void }> };
+  preview: (source: HTMLElement, stylesheets: string[], output: HTMLElement) => Promise<PagedFlow>;
+};
 type PagedPreviewerConstructor = new () => PagedPreviewer;
 
 declare global {
@@ -85,14 +88,27 @@ async function waitForAssets(root: ParentNode) {
   await waitForImages(root);
 }
 
+function createPaginationStage() {
+  const stage = document.createElement("div");
+  stage.className = "resume-pdf-pagination-stage";
+  stage.setAttribute("aria-hidden", "true");
+  document.body.appendChild(stage);
+  return stage;
+}
+
 export async function createPagedResumePreview(source: HTMLElement, output: HTMLElement): Promise<PagedResumePreviewRun> {
   output.replaceChildren();
   await waitForAssets(source);
   const existingHeadNodes = new Set(document.head.querySelectorAll("style, link[rel='stylesheet']"));
+  const stage = createPaginationStage();
   try {
     const Previewer = await loadPagedPreviewer();
     const previewer = new Previewer();
-    const flow = await previewer.preview(source, ["/styles/resume-print.css"], output);
+    const flow = await previewer.preview(source, ["/styles/resume-print.css"], stage);
+    await waitForAssets(stage);
+    previewer.chunker?.pages?.forEach((page) => page.removeListeners?.());
+    output.replaceChildren(...Array.from(stage.childNodes));
+    stage.remove();
     await waitForAssets(output);
     const pages = Array.from(output.querySelectorAll<HTMLElement>(".pagedjs_page"));
     if (pages.length < 1 || flow.total !== pages.length) {
@@ -116,6 +132,7 @@ export async function createPagedResumePreview(source: HTMLElement, output: HTML
       },
     };
   } catch (error) {
+    stage.remove();
     output.replaceChildren();
     Array.from(document.head.querySelectorAll<HTMLElement>("style, link[rel='stylesheet']"))
       .filter((node) => !existingHeadNodes.has(node))

@@ -12,6 +12,10 @@ test("resume preview keeps Paged.js outside the Turbopack client module graph", 
   assert.match(adapter, /\/vendor\/paged\.min\.js/u);
   assert.match(adapter, /document\.createElement\(["']script["']\)/u);
   assert.match(adapter, /window\.PagedModule/u);
+  assert.match(adapter, /document\.body\.appendChild\(stage\)/u);
+  assert.match(adapter, /preview\(source, \["\/styles\/resume-print\.css"\], stage\)/u);
+  assert.match(adapter, /output\.replaceChildren\(\.\.\.Array\.from\(stage\.childNodes\)\)/u);
+  assert.match(adapter, /removeListeners/u);
 });
 
 test("npm lifecycles prepare the self-contained same-origin Paged.js runtime", async () => {
