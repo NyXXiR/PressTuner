@@ -216,31 +216,30 @@ test("career detail sections use ample remaining space and may continue across l
   }
 });
 
-test("career detail openings move when the current page remainder is too small", { timeout: 30_000 }, async () => {
+test("section openings use the same protection when the current page remainder is too small", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
-  const filler = Array.from({ length: 32 }, (_, index) =>
+  const filler = Array.from({ length: 36 }, (_, index) =>
     `공간채움-${String(index + 1).padStart(2, "0")} 앞선 내용을 충분히 설명하여 현재 페이지 아래쪽의 남은 공간을 작게 만듭니다.`,
   ).join("\n");
-  const careerDetail = Array.from({ length: 18 }, (_, index) =>
+  const itemBody = Array.from({ length: 18 }, (_, index) =>
     `조건부시작-${String(index + 1).padStart(2, "0")} 문제와 해결 과정, 측정 가능한 결과를 구체적으로 기록했습니다.`,
   ).join("\n");
   snapshot.relatedWorkItems = [];
   snapshot.sections = [
     { id: "summary", title: "앞선 긴 내용", kind: "narrative", layout: "standard", content: { body: filler } },
     {
-      id: "projects",
-      title: "경력 상세",
+      id: "education",
+      title: "학력",
       kind: "items",
       layout: "compact",
       content: {
         items: [{
-          id: "conditional-detail",
-          itemKind: "career-detail",
-          detailType: "improvement",
+          id: "conditional-education",
+          itemKind: "education",
           meta: "2025",
-          title: "남은 공간에 따라 이동하는 프로젝트",
-          subtitle: "서비스 안정화",
-          body: careerDetail,
+          title: "남은 공간에 따라 이동하는 학력 항목",
+          subtitle: "컴퓨터공학과",
+          body: itemBody,
         }],
       },
     },
@@ -256,10 +255,11 @@ test("career detail openings move when the current page remainder is too small",
       pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
     }
 
-    const sectionPage = pageTexts.findIndex((text) => text.includes("경력 상세"));
-    assert.ok(sectionPage > 0, "career detail should move when its meaningful opening does not fit");
+    const sectionPage = pageTexts.findIndex((text) => text.includes("학력"));
+    assert.ok(sectionPage > 0, "any section should move when its meaningful opening does not fit");
+    assert.ok(pageTexts[sectionPage]?.includes("남은 공간에 따라 이동하는 학력 항목"));
     assert.ok(pageTexts[sectionPage]?.includes("조건부시작-01"));
-    assert.ok(pageTexts[sectionPage]?.includes("조건부시작-04"));
+    assert.ok(pageTexts[sectionPage]?.includes("조건부시작-02"));
   } finally {
     await pdf.destroy();
   }
