@@ -267,7 +267,7 @@ export function ResumeDocumentBuilder() {
       {sharedSectionDialogOpen && <AddSectionDialog afterTitle="공통 정보 마지막" kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setSharedSectionDialogOpen(false)} onAdd={createShared} />}
       {itemEditor && <ItemTailoringDialog profile={activeProfile} variant={itemEditor.scope === "document" ? active : undefined} scope={itemEditor.scope} section={itemEditor.section} onState={setState} onClose={() => setItemEditor(null)} />}
       {experienceDialogOpen && <ExperienceBrickSyncDialog onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} />}
-      {importPanelOpen && <ResumeDocumentImportPanel sections={state.sharedSections} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
+      {importPanelOpen && <ResumeDocumentImportPanel sections={orderedSections} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} />}
     </div>
   );

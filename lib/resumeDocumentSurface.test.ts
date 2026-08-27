@@ -214,6 +214,8 @@ test("PDF imports stay review-first and recover approved but unapplied candidate
   assert.match(panel, /문서 반영 다시 시도/);
   assert.match(panel, /PDF 원문 근거/);
   assert.match(panel, /경력 보관함/);
+  assert.match(panel, /추천일 뿐이며 승인 전에 바꿀 수 있습니다/);
+  assert.match(builder, /sections=\{orderedSections\}/);
   assert.match(decisionRoute, /decideResumeDocumentCandidate/);
   assert.match(appliedRoute, /acknowledgeResumeDocumentCandidateApplied/);
 });

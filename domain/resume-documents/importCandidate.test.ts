@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createResumeDocumentSeed, parseResumeDocumentState } from "./model";
+import {
+  addCustomSection,
+  addRoleCustomSection,
+  createResumeDocumentSeed,
+  createSupportVariant,
+  parseResumeDocumentState,
+} from "./model";
 import {
   applyResumeImportCommand,
   ResumeDocumentCandidatePayloadSchema,
@@ -44,6 +50,34 @@ test("candidate payload schema normalizes supported date values and rejects inva
       value: "data:image/png;base64,unsafe",
     }),
   );
+});
+
+test("candidate payload schema accepts the item groups found in JobKorea resumes", () => {
+  for (const itemKind of [
+    "work",
+    "project",
+    "education",
+    "credential",
+    "award",
+    "activity",
+    "language",
+    "training",
+  ] as const) {
+    const parsed = ResumeDocumentCandidatePayloadSchema.parse({
+      type: "item",
+      itemKind,
+      title: `${itemKind} title`,
+      subtitle: "organization",
+      body: "details",
+      startMonth: "2020-01",
+      endMonth: "2020-12",
+      isCurrent: false,
+      tags: [],
+    });
+    assert.equal(parsed.type, "item");
+    if (parsed.type !== "item") assert.fail("Expected an item payload");
+    assert.equal(parsed.itemKind, itemKind);
+  }
 });
 
 test("FILL_EMPTY treats starter placeholders as empty but never overwrites real content", () => {
@@ -126,6 +160,69 @@ test("commands cannot be applied to an incompatible section", () => {
     () => applyResumeImportCommand(createResumeDocumentSeed(), command({ targetSectionId: "summary" })),
     /RESUME_IMPORT_SECTION_KIND_MISMATCH/,
   );
+});
+
+test("item candidates can be routed into role and support-version custom sections", () => {
+  const seed = createResumeDocumentSeed();
+  const roleCustom = addRoleCustomSection(seed, seed.activeRoleProfileId, {
+    title: "선택 프로젝트",
+    kind: "items",
+    afterSectionId: "experience",
+  });
+  const withRoleItem = applyResumeImportCommand(roleCustom.state, command({
+    candidateKey: "document:role-project",
+    payloadHash: "role-project",
+    targetSectionId: roleCustom.section.id,
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "project",
+      title: "결제 전환 프로젝트",
+      subtitle: "샘플테크",
+      body: "전환 흐름을 개선했습니다.",
+      startMonth: "2023-01",
+      endMonth: "2023-06",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const roleItems = withRoleItem.roleProfiles
+    .find((profile) => profile.id === seed.activeRoleProfileId)!
+    .customSections.find((section) => section.id === roleCustom.section.id)!
+    .content as { items: Array<{ title: string }> };
+  assert.deepEqual(roleItems.items.map((item) => item.title), ["결제 전환 프로젝트"]);
+
+  const withVariant = createSupportVariant(withRoleItem, seed.activeRoleProfileId, {
+    name: "A사 지원",
+    company: "A사",
+  });
+  const variantCustom = addCustomSection(withVariant, withVariant.activeVariantId!, {
+    title: "주요 수상",
+    kind: "items",
+    afterSectionId: "credentials",
+  });
+  const withAward = applyResumeImportCommand(variantCustom.state, command({
+    candidateKey: "document:variant-award",
+    payloadHash: "variant-award",
+    targetSectionId: variantCustom.section.id,
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "award",
+      title: "서비스 혁신 대상",
+      subtitle: "테스트협회",
+      body: "대상 수상",
+      startMonth: "2024-05",
+      endMonth: "",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const variantItems = withAward.variants
+    .find((variant) => variant.id === withVariant.activeVariantId)!
+    .customSections.find((section) => section.id === variantCustom.section.id)!
+    .content as { items: Array<{ title: string }> };
+  assert.deepEqual(variantItems.items.map((item) => item.title), ["서비스 혁신 대상"]);
 });
 
 test("stored states without an import ledger load with an empty ledger", () => {

@@ -7,6 +7,7 @@ import type {
   ItemsContent,
   NarrativeContent,
   ResumeDocumentState,
+  ResumeSection,
   SectionKind,
   TagsContent,
 } from "./model";
@@ -52,7 +53,16 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
   }),
   z.object({
     type: z.literal("item"),
-    itemKind: z.enum(["education", "credential"]),
+    itemKind: z.enum([
+      "work",
+      "project",
+      "education",
+      "credential",
+      "award",
+      "activity",
+      "language",
+      "training",
+    ]),
     title: z.string().trim().min(1).max(500),
     subtitle: z.string().trim().max(500).default(""),
     body: z.string().trim().max(10_000).default(""),
@@ -135,88 +145,111 @@ function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "i
   };
 }
 
+function applyPayloadToSection(
+  current: ResumeSection,
+  command: ResumeDocumentImportCommand,
+  payload: ResumeDocumentCandidatePayload,
+) {
+  if (payload.type === "identity-field") {
+    const content = current.content as IdentityContent;
+    if (payload.field === "link") {
+      if (!isResumeDocumentApplyModeAllowed(payload, command.applyMode)) throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
+      const existingLinks = content.links.length === 1 && content.links[0] === "https://portfolio.example.com" ? [] : content.links;
+      const links = command.applyMode === "REPLACE"
+        ? [payload.value]
+        : [...existingLinks, payload.value].filter((value, index, values) => values.indexOf(value) === index);
+      return { ...current, content: { ...content, links } };
+    }
+    const existing = content[payload.field];
+    if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(existing)) return current;
+    if (!(["FILL_EMPTY", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
+      throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
+    }
+    return { ...current, content: { ...content, [payload.field]: payload.value } };
+  }
+  if (payload.type === "eligibility-field") {
+    const content = current.content as EligibilityContent;
+    const existing = content[payload.field];
+    if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(existing)) return current;
+    if (!(["FILL_EMPTY", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
+      throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
+    }
+    return { ...current, content: { ...content, [payload.field]: payload.value } };
+  }
+  if (payload.type === "narrative") {
+    const content = current.content as NarrativeContent;
+    if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(content.body)) return current;
+    if (command.applyMode === "MERGE" && !isEmptyValue(content.body)) {
+      return { ...current, content: { body: `${content.body.trim()}\n\n${payload.body}` } };
+    }
+    if (!(["FILL_EMPTY", "REPLACE", "MERGE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
+      throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
+    }
+    return { ...current, content: { body: payload.body } };
+  }
+  if (payload.type === "tags") {
+    if (!(["APPEND", "MERGE", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
+      throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
+    }
+    const content = current.content as TagsContent;
+    const starterTags = ["문제 해결", "협업", "제품 개발"];
+    const existingItems = content.items.length === starterTags.length && content.items.every((item, index) => item === starterTags[index])
+      ? []
+      : content.items;
+    const values = command.applyMode === "REPLACE" ? payload.values : [...existingItems, ...payload.values];
+    const seen = new Set<string>();
+    return {
+      ...current,
+      content: {
+        items: values.filter((value) => {
+          const key = normalizeKey(value);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }),
+      },
+    };
+  }
+  if (command.applyMode !== "APPEND") throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
+  const content = current.content as ItemsContent;
+  const nextItem = commandItem(payload, command.candidateKey);
+  const starterTitles = new Set(["학교 · 과정", "자격 또는 수상명"]);
+  const existingItems = content.items.filter((item) => !starterTitles.has(item.title));
+  const duplicate = existingItems.some((item) => itemKey(item) === itemKey(nextItem));
+  return duplicate && existingItems.length === content.items.length
+    ? current
+    : { ...current, content: { items: duplicate ? existingItems : [...existingItems, nextItem] } };
+}
+
 function applyPayload(
   state: ResumeDocumentState,
   command: ResumeDocumentImportCommand,
   payload: ResumeDocumentCandidatePayload,
 ) {
-  const section = state.sharedSections.find((item) => item.id === command.targetSectionId);
-  if (!section) throw new Error("RESUME_IMPORT_SECTION_NOT_FOUND");
+  const matchingSections = [
+    ...state.sharedSections,
+    ...state.roleProfiles.flatMap((profile) => profile.customSections),
+    ...state.variants.flatMap((variant) => variant.customSections),
+  ].filter((section) => section.id === command.targetSectionId);
+  if (matchingSections.length === 0) throw new Error("RESUME_IMPORT_SECTION_NOT_FOUND");
+  if (matchingSections.length > 1) throw new Error("RESUME_IMPORT_SECTION_AMBIGUOUS");
+  const section = matchingSections[0];
   if (section.kind !== resumeDocumentPayloadSectionKind(payload)) throw new Error("RESUME_IMPORT_SECTION_KIND_MISMATCH");
-
-  const sharedSections = state.sharedSections.map((current) => {
-    if (current.id !== section.id) return current;
-    if (payload.type === "identity-field") {
-      const content = current.content as IdentityContent;
-      if (payload.field === "link") {
-        if (!isResumeDocumentApplyModeAllowed(payload, command.applyMode)) throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-        const existingLinks = content.links.length === 1 && content.links[0] === "https://portfolio.example.com" ? [] : content.links;
-        const links = command.applyMode === "REPLACE"
-          ? [payload.value]
-          : [...existingLinks, payload.value].filter((value, index, values) => values.indexOf(value) === index);
-        return { ...current, content: { ...content, links } };
-      }
-      const existing = content[payload.field];
-      if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(existing)) return current;
-      if (!(["FILL_EMPTY", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
-        throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-      }
-      return { ...current, content: { ...content, [payload.field]: payload.value } };
-    }
-    if (payload.type === "eligibility-field") {
-      const content = current.content as EligibilityContent;
-      const existing = content[payload.field];
-      if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(existing)) return current;
-      if (!(["FILL_EMPTY", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
-        throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-      }
-      return { ...current, content: { ...content, [payload.field]: payload.value } };
-    }
-    if (payload.type === "narrative") {
-      const content = current.content as NarrativeContent;
-      if (command.applyMode === "FILL_EMPTY" && !isEmptyValue(content.body)) return current;
-      if (command.applyMode === "MERGE" && !isEmptyValue(content.body)) {
-        return { ...current, content: { body: `${content.body.trim()}\n\n${payload.body}` } };
-      }
-      if (!(["FILL_EMPTY", "REPLACE", "MERGE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
-        throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-      }
-      return { ...current, content: { body: payload.body } };
-    }
-    if (payload.type === "tags") {
-      if (!(["APPEND", "MERGE", "REPLACE"] as ResumeDocumentApplyMode[]).includes(command.applyMode)) {
-        throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-      }
-      const content = current.content as TagsContent;
-      const starterTags = ["문제 해결", "협업", "제품 개발"];
-      const existingItems = content.items.length === starterTags.length && content.items.every((item, index) => item === starterTags[index])
-        ? []
-        : content.items;
-      const values = command.applyMode === "REPLACE" ? payload.values : [...existingItems, ...payload.values];
-      const seen = new Set<string>();
-      return {
-        ...current,
-        content: {
-          items: values.filter((value) => {
-            const key = normalizeKey(value);
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          }),
-        },
-      };
-    }
-    if (command.applyMode !== "APPEND") throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
-    const content = current.content as ItemsContent;
-    const nextItem = commandItem(payload, command.candidateKey);
-    const starterTitles = new Set(["학교 · 과정", "자격 또는 수상명"]);
-    const existingItems = content.items.filter((item) => !starterTitles.has(item.title));
-    const duplicate = existingItems.some((item) => itemKey(item) === itemKey(nextItem));
-    return duplicate && existingItems.length === content.items.length
-      ? current
-      : { ...current, content: { items: duplicate ? existingItems : [...existingItems, nextItem] } };
-  });
-  return { ...state, sharedSections };
+  const update = (current: ResumeSection) => current.id === section.id
+    ? applyPayloadToSection(current, command, payload)
+    : current;
+  return {
+    ...state,
+    sharedSections: state.sharedSections.map(update),
+    roleProfiles: state.roleProfiles.map((profile) => ({
+      ...profile,
+      customSections: profile.customSections.map(update),
+    })),
+    variants: state.variants.map((variant) => ({
+      ...variant,
+      customSections: variant.customSections.map(update),
+    })),
+  };
 }
 
 export function applyResumeImportCommand(

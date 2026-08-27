@@ -266,8 +266,8 @@ export function ResumeDocumentImportPanel({
               PDF 내용 검토 후 채우기
             </h2>
             <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-              AI는 섹션별 후보만 만듭니다. 내용을 확인하고 승인한 항목만 공통
-              정보에 반영됩니다.
+              AI는 섹션별 후보만 만듭니다. 내용을 확인하고 승인한 항목만 선택한
+              섹션에 반영됩니다. 추천 섹션은 추천일 뿐이며 승인 전에 바꿀 수 있습니다.
             </p>
           </div>
           <button
@@ -386,14 +386,15 @@ export function ResumeDocumentImportPanel({
         </div>
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 p-4">
           <p className="text-xs text-muted-foreground">
-            경력·프로젝트는 사실 근거를 유지하기 위해{" "}
+            경력·프로젝트는 이 화면에서 문서 섹션에 반영할 수 있고, 장기 경력
+            기억 후보는 별도로{" "}
             <Link
               className="font-bold text-primary underline"
               href="/resume/bricks"
             >
               경력 보관함
             </Link>
-            에서 승인한 뒤 문서에 연결합니다.
+            에서 승인할 수 있습니다.
           </p>
           <button
             className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground"
@@ -429,7 +430,7 @@ function ReviewList({
         <Check className="mx-auto h-8 w-8 text-primary" />
         <p className="mt-3 font-extrabold">검토할 문서 후보가 없습니다.</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          경력·프로젝트 후보는 경력 보관함에서 이어서 검토할 수 있습니다.
+          모든 후보를 처리했거나 문서에서 근거가 있는 항목을 찾지 못했습니다.
         </p>
       </div>
     );
@@ -438,7 +439,7 @@ function ReviewList({
       <div className="mb-4">
         <h3 className="text-lg font-extrabold">승인 대기 {visible.length}개</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          추천 섹션과 현재 내용을 비교한 뒤 항목별로 결정하세요.
+          추천 섹션과 현재 내용을 비교하고, 필요하면 반영할 섹션을 바꾼 뒤 항목별로 결정하세요.
         </p>
       </div>
       <div className="grid gap-4">
@@ -615,6 +616,9 @@ function CandidateCard({
               </option>
             ))}
           </select>
+          <span className="font-normal leading-5 text-muted-foreground">
+            추천일 뿐이며 승인 전에 바꿀 수 있습니다. 같은 형식의 섹션만 표시됩니다.
+          </span>
         </label>
         <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
           반영 방식
@@ -637,7 +641,7 @@ function CandidateCard({
       {currentSection && (
         <div className="mt-3 border border-border bg-muted/20 p-3">
           <p className="text-[10px] font-extrabold text-muted-foreground">
-            현재 공통 정보
+            선택한 섹션의 현재 내용
           </p>
           <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-foreground">
             {sectionPreview(currentSection)}
@@ -736,7 +740,17 @@ function payloadLabel(payload: ResumeDocumentCandidatePayload) {
   if (payload.type === "eligibility-field") return "민감 정보 · 개별 승인";
   if (payload.type === "narrative") return "소개";
   if (payload.type === "tags") return "핵심 역량";
-  return payload.itemKind === "education" ? "학력" : "자격 · 교육";
+  const labels = {
+    work: "경력",
+    project: "프로젝트",
+    education: "학력",
+    credential: "자격",
+    award: "수상",
+    activity: "대외활동 · 인턴",
+    language: "어학",
+    training: "교육",
+  } as const;
+  return labels[payload.itemKind];
 }
 
 function payloadTitle(payload: ResumeDocumentCandidatePayload) {
