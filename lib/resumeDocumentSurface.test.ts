@@ -64,6 +64,8 @@ test("resume documents exposes simplified section actions and exact paged previe
   for (const phrase of ["PDF 미리보기를 만드는 중", "페이지 미리보기 완료", "다시 시도", "인쇄 대화상자를 여는 중"]) {
     assert.match(dialog, new RegExp(phrase));
   }
+  assert.match(dialog, /startResumePrintLifecycle/);
+  assert.doesNotMatch(dialog, /finally\s*\{\s*finish\(\)/);
 });
 
 test("resume PDF uses a dedicated stylesheet with exact geometry and print isolation", async () => {

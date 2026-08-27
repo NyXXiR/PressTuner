@@ -7,13 +7,14 @@ import { createPortal } from "react-dom";
 import { ResumePrintableDocument, type ResumePrintableDocumentProps } from "@/components/resume/ResumePrintableDocument";
 import { createPagedResumePreview, type PagedResumePreviewRun } from "@/lib/resume/pagedPreviewer.client";
 import { createResumePdfPreviewState, resumePdfPreviewReducer } from "@/components/resume/resumePdfPreviewState";
+import { startResumePrintLifecycle, type ResumePrintLifecycle } from "@/components/resume/resumePrintLifecycle";
 
 export function ResumePdfPreviewDialog({ snapshot, onClose }: { snapshot: ResumePrintableDocumentProps; onClose: () => void }) {
   const [state, dispatch] = useReducer(resumePdfPreviewReducer, undefined, () => createResumePdfPreviewState());
   const sourceRef = useRef<HTMLDivElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
   const runRef = useRef<PagedResumePreviewRun | null>(null);
-  const printFrameRef = useRef<number | null>(null);
+  const printLifecycleRef = useRef<ResumePrintLifecycle | null>(null);
 
   useEffect(() => {
     const source = sourceRef.current?.querySelector<HTMLElement>(".resume-printable-document");
@@ -41,13 +42,13 @@ export function ResumePdfPreviewDialog({ snapshot, onClose }: { snapshot: Resume
   }, [onClose]);
 
   useEffect(() => () => {
-    if (printFrameRef.current !== null) window.cancelAnimationFrame(printFrameRef.current);
-    document.body.classList.remove("resume-pdf-printing");
+    printLifecycleRef.current?.cancel();
     runRef.current?.dispose();
   }, []);
 
   const close = () => {
-    document.body.classList.remove("resume-pdf-printing");
+    printLifecycleRef.current?.cancel();
+    printLifecycleRef.current = null;
     runRef.current?.dispose();
     runRef.current = null;
     onClose();
@@ -55,20 +56,18 @@ export function ResumePdfPreviewDialog({ snapshot, onClose }: { snapshot: Resume
   const print = () => {
     if (state.status !== "ready" || !state.pageCount || !runRef.current) return;
     dispatch({ type: "print" });
-    document.body.classList.add("resume-pdf-printing");
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      document.body.classList.remove("resume-pdf-printing");
-      window.removeEventListener("afterprint", finish);
-      dispatch({ type: "print-finished" });
-    };
-    window.addEventListener("afterprint", finish, { once: true });
-    printFrameRef.current = window.requestAnimationFrame(() => {
-      printFrameRef.current = null;
-      try { window.print(); }
-      finally { finish(); }
+    printLifecycleRef.current = startResumePrintLifecycle({
+      addAfterPrintListener: (listener) => window.addEventListener("afterprint", listener, { once: true }),
+      removeAfterPrintListener: (listener) => window.removeEventListener("afterprint", listener),
+      requestFrame: (callback) => window.requestAnimationFrame(callback),
+      cancelFrame: (id) => window.cancelAnimationFrame(id),
+      print: () => window.print(),
+      setPrinting: (active) => document.body.classList.toggle("resume-pdf-printing", active),
+      onFinished: () => {
+        printLifecycleRef.current = null;
+        dispatch({ type: "print-finished" });
+      },
+      onError: (error) => console.error("Resume PDF print failed", error),
     });
   };
 
