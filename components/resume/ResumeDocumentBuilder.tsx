@@ -75,10 +75,7 @@ import {
   ResumeEditorHeader,
   ResumeEditorSection,
 } from "@/components/resume/ResumeEditorDocument";
-import {
-  resumePdfSnapshotSchema,
-  type ResumePdfSnapshot,
-} from "@/domain/resume-documents/pdfSnapshot";
+import type { ResumePdfSnapshot } from "@/domain/resume-documents/pdfSnapshot";
 import {
   calculateAutomaticCareerDurationMonths,
   normalizeCareerDurationOverride,
@@ -181,15 +178,18 @@ export function ResumeDocumentBuilder() {
       layout: resolved.layout,
       hidden: resolved.mode === "hidden",
     };
-  });
-  const openPdfPreview = () => setPdfSnapshot(resumePdfSnapshotSchema.parse({
-    company: active?.company || activeProfile.name,
-    currentMonth: currentLocalMonth(),
-    documentName: active?.name || `${activeProfile.name} 이력서`,
-    relatedWorkItems: resolvedWorkItems,
-    role: resolveDocumentRole(activeProfile, active),
-    sections: printableSections,
-  }));
+  }) as ResumePdfSnapshot["sections"];
+  const openPdfPreview = () => {
+    const snapshot: ResumePdfSnapshot = {
+      company: active?.company || activeProfile.name,
+      currentMonth: currentLocalMonth(),
+      documentName: active?.name || `${activeProfile.name} 이력서`,
+      relatedWorkItems: resolvedWorkItems,
+      role: resolveDocumentRole(activeProfile, active),
+      sections: printableSections,
+    };
+    setPdfSnapshot(snapshot);
+  };
   const updateActive = (patch: Partial<NonNullable<typeof active>>) => active && setState((current) => ({ ...current, variants: current.variants.map((item) => item.id === active.id ? { ...item, ...patch } : item) }));
   const setting = (sectionId: string, patch: Parameters<typeof updateSectionSetting>[3]) => setState((current) => active ? updateSectionSetting(current, active.id, sectionId, patch) : updateRoleProfileSectionSetting(current, activeProfile.id, sectionId, patch));
   const openEditor = (scope: EditDraft["scope"], section: ResumeSection, content: SectionContent) => {

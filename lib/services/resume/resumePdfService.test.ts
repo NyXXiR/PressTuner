@@ -86,3 +86,29 @@ test("service renders the deterministic Korean snapshot as a parseable multi-pag
     await pdf.destroy();
   }
 });
+
+test("service renders blank and legacy item month strings without mutating the shared fixture", { timeout: 30_000 }, async () => {
+  const originalFixture = structuredClone(resumePdfFixture);
+  const legacySnapshot = structuredClone(resumePdfFixture);
+  const experience = legacySnapshot.sections.find((section) => section.id === "experience");
+  assert.ok(experience?.kind === "items");
+  experience.content.items[0].startMonth = "";
+  experience.content.items[0].endMonth = "종료 시점 미상";
+  experience.content.items[0].endMonthEnabled = true;
+  experience.content.items[1].startMonth = "입사 시점 미상";
+  experience.content.items[1].endMonth = "";
+  experience.content.items[1].endMonthEnabled = false;
+
+  const generated = await generateResumePdf(legacySnapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const extracted = await extractText(pdf, { mergePages: true });
+    const text = Array.isArray(extracted.text) ? extracted.text.join("\n") : extracted.text;
+
+    assert.ok(text.includes("종료 시점 미상"));
+    assert.ok(text.includes("입사 시점 미상"));
+    assert.deepEqual(resumePdfFixture, originalFixture);
+  } finally {
+    await pdf.destroy();
+  }
+});

@@ -34,6 +34,14 @@ test("browser graph requests one Blob resource and never imports the server rend
   assert.match(dialog, /<a download=\{resource\.filename\} href=\{resource\.url\}/u);
 });
 
+test("browser builder passes its typed PDF snapshot directly without runtime schema parsing", async () => {
+  const builder = await source("components/resume/ResumeDocumentBuilder.tsx");
+
+  assert.doesNotMatch(builder, /resumePdfSnapshotSchema/u);
+  assert.match(builder, /const snapshot: ResumePdfSnapshot = \{/u);
+  assert.match(builder, /setPdfSnapshot\(snapshot\)/u);
+});
+
 test("resume surface has no browser pagination or native-print infrastructure", async () => {
   const files = [
     "components/resume/ResumeDocumentBuilder.tsx",
