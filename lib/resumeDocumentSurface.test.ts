@@ -37,10 +37,11 @@ test("resume documents keeps a simple local-only role flow with optional support
   assert.doesNotMatch(source, /prisma/i);
 });
 
-test("resume documents exposes simplified section actions and automatic print pagination", async () => {
-  const [source, styles] = await Promise.all([
+test("resume documents exposes simplified section actions and exact paged preview", async () => {
+  const [source, printable, dialog] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumePrintableDocument.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumePdfPreviewDialog.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(source, /지원 버전 복제/);
@@ -53,36 +54,42 @@ test("resume documents exposes simplified section actions and automatic print pa
   assert.doesNotMatch(source, /표시 스타일/);
   assert.doesNotMatch(source, /다음 페이지에서 시작/);
   assert.doesNotMatch(source, /resume-page-break/);
-  assert.match(source, /예상 \{pageCount\}페이지/);
-  assert.match(styles, /\.resume-document-section\s*\{[\s\S]*?break-inside:\s*auto/);
-  assert.match(styles, /\.resume-section-heading\s*\{[\s\S]*?break-after:\s*avoid/);
-  assert.match(styles, /\.resume-item\s*\{[\s\S]*?break-inside:\s*avoid/);
-  assert.match(styles, /\.resume-items\s*\{[\s\S]*?display:\s*block/);
-  assert.match(styles, /\.resume-print-sections\s*\{[\s\S]*?display:\s*block/);
-  assert.match(styles, /\.resume-print-section\s*\{[\s\S]*?transform:\s*none\s*!important/);
-  assert.match(styles, /\.resume-page-guides/);
+  assert.match(source, /ResumePdfPreviewDialog/);
+  assert.match(source, /저장 미리보기에서 정확한 페이지 수/);
+  assert.doesNotMatch(source, /예상 \{pageCount\}페이지/);
+  assert.match(printable, /data-resume-section-id/);
+  assert.match(printable, /data-resume-item-id/);
+  assert.match(printable, /data-resume-paragraph-id/);
+  assert.doesNotMatch(printable, /<button|<input|Reorder|framer-motion|onClick/);
+  for (const phrase of ["PDF 미리보기를 만드는 중", "페이지 미리보기 완료", "다시 시도", "인쇄 대화상자를 여는 중"]) {
+    assert.match(dialog, new RegExp(phrase));
+  }
 });
 
-test("resume PDF keeps formal margins and natural long-content pagination on every page", async () => {
-  const [source, styles] = await Promise.all([
+test("resume PDF uses a dedicated stylesheet with exact geometry and print isolation", async () => {
+  const [source, styles, adapter, layout] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles/resume-print.css", import.meta.url), "utf8"),
+    readFile(new URL("../lib/resume/pagedPreviewer.client.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(styles, /@page resume-document\s*\{[\s\S]*?size:\s*A4;[\s\S]*?margin:\s*16mm 15mm;/);
-  assert.match(styles, /@media print\s*\{[\s\S]*?\.resume-paper-inner\s*\{[\s\S]*?padding:\s*0\s*!important/);
-  assert.match(styles, /@media print\s*\{[\s\S]*?\.resume-document-builder,[\s\S]*?\.resume-paper\s*\{[\s\S]*?width:\s*100%\s*!important/);
-  assert.match(styles, /\.resume-group-heading[\s\S]*?break-after:\s*avoid-page/);
-  assert.match(styles, /\.resume-item-header[\s\S]*?break-after:\s*avoid-page/);
-  assert.match(styles, /\.resume-item-copy[\s\S]*?overflow-wrap:\s*anywhere/);
-  assert.match(styles, /\.resume-item-copy[\s\S]*?word-break:\s*keep-all/);
-  assert.match(styles, /\.resume-item-body[\s\S]*?orphans:\s*3[\s\S]*?widows:\s*3/);
-  assert.match(styles, /\.resume-narrative\s*>\s*\*[\s\S]*?orphans:\s*3[\s\S]*?widows:\s*3/);
-  assert.match(styles, /@media print\s*\{[\s\S]*?\.resume-item\s*\{[\s\S]*?position:\s*relative[\s\S]*?padding-left:\s*30mm/);
-  assert.match(source, /className="resume-item-header"/);
-  assert.match(source, /resume-item-copy/);
-  assert.match(source, /resume-group-heading/);
-  assert.match(source, /px-\[15mm\] py-\[16mm\]/);
+  assert.match(styles, /@page resume-document\s*\{[\s\S]*?size:\s*210mm 297mm;[\s\S]*?margin:\s*16mm 18mm;/);
+  assert.match(styles, /\.resume-pdf-page[\s\S]*?width:\s*210mm[\s\S]*?height:\s*297mm/);
+  assert.match(styles, /\.pagedjs_page_content[\s\S]*?width:\s*174mm[\s\S]*?height:\s*265mm/);
+  assert.match(styles, /@media print[\s\S]*?@page\s*\{[\s\S]*?margin:\s*0/);
+  assert.match(styles, /body\.resume-pdf-printing[\s\S]*?\.resume-pdf-page/);
+  assert.match(styles, /\.resume-group-heading[\s\S]*?break-after:\s*avoid/);
+  assert.match(styles, /\.resume-item[\s\S]*?break-inside:\s*avoid/);
+  assert.match(styles, /\.resume-section-opening[\s\S]*?page-break-inside:\s*avoid/);
+  assert.match(adapter, /import\("pagedjs"\)/);
+  assert.match(adapter, /new Previewer/);
+  assert.match(adapter, /preview\(source, \["\/styles\/resume-print\.css"\], output\)/);
+  assert.doesNotMatch(adapter, /PagedConfig|PagedPolyfill|paged\.polyfill/);
+  assert.doesNotMatch(source, /window\.print\(\)/);
+  assert.doesNotMatch(source, /measurePrintedPageCount|ResizeObserver|estimateResumePrintPageCount/);
+  assert.match(source, /px-\[18mm\] py-\[16mm\]/);
+  assert.match(layout, /\/styles\/resume-print\.css/);
 });
 
 test("common information explains role overrides without owning their reset action", async () => {
@@ -127,11 +134,11 @@ test("inherited section editors default to a compact current-only footer target 
 });
 
 test("identity rendering places an optional profile photo on the right", async () => {
-  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  const source = await readFile(new URL("../components/resume/ResumePrintableDocument.tsx", import.meta.url), "utf8");
 
   assert.match(source, /data-photo-position="right"/);
-  assert.match(source, /grid-cols-\[minmax\(0,1fr\)_24mm\]/);
-  assert.match(source, /justify-self-end/);
+  assert.match(source, /resume-profile-photo/);
+  assert.match(source, /resume-identity-copy/);
 });
 
 test("identity keeps reusable contact, birth date, and gender fields", async () => {
@@ -207,31 +214,32 @@ test("resume documents explains section formats and keeps mobile editing control
   assert.match(styles, /\.resume-paper \.resume-item\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
-test("resume page estimate measures print-like content without editor chrome", async () => {
-  const [source, styles] = await Promise.all([
+test("resume paged source remains local-state based without measurement clones", async () => {
+  const [source, printable] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumePrintableDocument.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(source, /measurePrintedPageCount/);
-  assert.match(source, /cloneNode\(true\)/);
-  assert.match(source, /resume-print-measure/);
-  assert.match(styles, /\.resume-print-measure \.resume-section-controls/);
-  assert.match(styles, /\.resume-print-header\s*\{[\s\S]*?break-inside:\s*avoid/);
+  assert.match(source, /RESUME_DOCUMENT_STORAGE_KEY/);
+  assert.match(source, /localStorage\.setItem/);
+  assert.doesNotMatch(printable, /localStorage|RESUME_DOCUMENT_STORAGE_KEY|fetch\(/);
+  assert.doesNotMatch(source, /cloneNode\(true\)|resume-print-measure/);
 });
 
 test("experience presentation exposes persisted sort and duration controls in printable output", async () => {
-  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  const [source, printable] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumePrintableDocument.tsx", import.meta.url), "utf8"),
+  ]);
 
   for (const label of ["최신순", "오래된순", "수동 순서", "자동 계산", "직접 입력", "경력 연", "경력 개월"]) {
     assert.match(source, new RegExp(label));
   }
-  assert.match(source, /sortExperienceItems/);
-  assert.match(source, /resolveCareerDurationMonths/);
-  assert.match(source, /formatCareerDuration/);
-  assert.match(source, /data-experience-duration/);
-  assert.match(source, /justify-between/);
-  const durationNode = source.match(/<[^>]+data-experience-duration[^>]*>/)?.[0];
+  assert.match(printable, /sortExperienceItems/);
+  assert.match(printable, /resolveCareerDurationMonths/);
+  assert.match(printable, /formatCareerDuration/);
+  assert.match(printable, /data-experience-duration/);
+  const durationNode = printable.match(/<[^>]+data-experience-duration[^>]*>/)?.[0];
   assert.ok(durationNode);
   assert.doesNotMatch(durationNode, /print:hidden|resume-section-controls/);
 });

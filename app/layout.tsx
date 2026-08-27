@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+/* eslint-disable @next/next/no-css-tags -- Paged.js requires this same-origin public stylesheet URL. */
 import "@daypicker/react/style.css";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -80,6 +81,7 @@ export default function RootLayout({
 
   return (
     <html lang="ko" suppressHydrationWarning>
+      <head><link href="/styles/resume-print.css" rel="stylesheet" /></head>
       <body className="antialiased">
         <PostHogProvider
           apiKey={posthogConfig.apiKey}

@@ -1,0 +1,130 @@
+@page resume-document {
+  size: 210mm 297mm;
+  margin: 16mm 18mm;
+}
+
+.resume-printable-document {
+  page: resume-document;
+  box-sizing: border-box;
+  width: 174mm;
+  color: #0f172a;
+  background: #fff;
+  font-family: Arial, "Noto Sans KR", sans-serif;
+  font-size: 10px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.resume-print-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-bottom: 8mm;
+  padding-bottom: 3mm;
+  border-bottom: 0.6mm solid #0f172a;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.resume-print-header p,
+.resume-document-section p,
+.resume-document-section h2,
+.resume-document-section h3 {
+  margin: 0;
+}
+
+.resume-print-company { color: #64748b; font-size: 9px; font-weight: 700; letter-spacing: .18em; }
+.resume-print-role { margin-top: 1mm !important; font-size: 14px; font-weight: 900; }
+.resume-print-document-name { color: #64748b; font-size: 11px; font-weight: 700; }
+.resume-print-sections { display: block; }
+.resume-document-section { margin-bottom: 7mm; break-inside: avoid; page-break-inside: avoid; }
+.resume-document-section[data-resume-splittable="true"] { break-inside: auto; }
+.resume-document-section:last-child { margin-bottom: 0; }
+.resume-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 4mm; margin-bottom: 3mm !important; padding-bottom: 1.5mm; border-bottom: .3mm solid #0f172a; font-size: 13px; font-weight: 900; break-after: avoid; page-break-after: avoid; }
+h2.resume-section-heading { display: block; }
+.resume-section-heading [data-experience-duration] { color: #475569; font-size: 9px; font-weight: 700; }
+.resume-section-opening { break-inside: avoid; page-break-inside: avoid; }
+
+.resume-identity { display: flex; align-items: flex-end; justify-content: space-between; gap: 6mm; break-inside: avoid; page-break-inside: avoid; }
+.resume-identity-copy { min-width: 0; flex: 1; }
+.resume-identity-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 4mm; }
+.resume-identity-heading h2 { font-size: 28px; font-weight: 900; letter-spacing: -.05em; }
+.resume-contact { color: #64748b; font-size: 9px; line-height: 1.65; text-align: right; }
+.resume-facts { display: flex; flex-wrap: wrap; gap: 1mm 4mm; margin-top: 3mm; padding-top: 2mm; border-top: .2mm solid #e2e8f0; color: #64748b; font-size: 8px; }
+.resume-profile-photo { width: 24mm; height: 32mm; flex: 0 0 auto; border: .2mm solid #e2e8f0; object-fit: cover; }
+.resume-empty-copy { color: #94a3b8; font-size: 9px; }
+
+.resume-items,
+.resume-career-detail-groups,
+.resume-career-detail-list,
+.resume-narrative { display: block; }
+.resume-item { position: relative; min-height: 8mm; padding-left: 30mm; break-inside: avoid; page-break-inside: avoid; }
+.resume-item + .resume-item,
+.resume-career-detail-list > .resume-item + .resume-item { margin-top: 4mm; }
+.resume-items-continuation,
+.resume-career-detail-groups-continuation { margin-top: 4mm; }
+.resume-item-period { position: absolute; top: 0; left: 0; width: 26mm; color: #64748b; font-size: 9px; font-weight: 700; }
+.resume-item-copy { min-width: 0; }
+.resume-item-header,
+.resume-group-heading { break-after: avoid; page-break-after: avoid; }
+.resume-item-title { font-size: 11px; font-weight: 900; }
+.resume-item-subtitle,
+.resume-detail-type { color: #ea580c; font-size: 9px; font-weight: 700; }
+.resume-detail-type { font-size: 8px; font-weight: 800; }
+.resume-item-body { margin-top: 1mm !important; color: #475569; font-size: 9px; line-height: 1.65; white-space: pre-line; orphans: 3; widows: 3; }
+.resume-career-group { padding-left: 3mm; border-left: .5mm solid #cbd5e1; }
+.resume-career-group + .resume-career-group { margin-top: 5mm; }
+.resume-group-heading { margin-bottom: 3mm; }
+.resume-group-heading h3,
+h3.resume-group-heading { font-size: 11px; font-weight: 900; }
+.resume-group-heading p { color: #64748b; font-size: 9px; font-weight: 700; }
+.resume-warning { color: #b45309; }
+
+.resume-tags { display: flex; flex-wrap: wrap; gap: 2mm; break-inside: avoid; page-break-inside: avoid; }
+.resume-tags span { padding: 1.5mm 3mm; background: #f1f5f9; font-size: 10px; font-weight: 700; }
+.resume-narrative > * { margin: 0; white-space: pre-line; break-inside: avoid; page-break-inside: avoid; orphans: 3; widows: 3; }
+.resume-narrative > * + * { margin-top: 2mm; }
+.resume-narrative-continuation { margin-top: 2mm; }
+.resume-narrative-p { color: #334155; font-size: 10px; line-height: 1.7; }
+.resume-narrative-h1 { font-size: 20px; line-height: 1.2; font-weight: 900; }
+.resume-narrative-h2 { font-size: 17px; line-height: 1.2; font-weight: 900; }
+.resume-narrative-h3 { font-size: 15px; line-height: 1.2; font-weight: 800; }
+.resume-narrative-h4 { font-size: 13px; line-height: 1.2; font-weight: 800; }
+.resume-narrative-h5 { font-size: 12px; line-height: 1.2; font-weight: 700; }
+.resume-narrative-h6 { font-size: 11px; line-height: 1.2; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.resume-layout-cards { padding: 4mm; border: .2mm solid #e2e8f0; background: #f8fafc; }
+
+.resume-pdf-dialog-root { position: fixed; z-index: 200; inset: 0; overflow: auto; padding: 24px; background: rgb(15 23 42 / .78); }
+.resume-pdf-dialog-panel { width: min(100%, 980px); min-height: calc(100vh - 48px); margin: 0 auto; background: #f1f5f9; box-shadow: 0 24px 70px rgb(0 0 0 / .35); }
+.resume-pdf-dialog-chrome { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; background: #fff; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
+.resume-pdf-dialog-chrome h2 { margin: 2px 0 0; font-size: 20px; }
+.resume-pdf-dialog-chrome button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid #94a3b8; color: #0f172a; background: #fff; font-weight: 700; }
+.resume-pdf-dialog-chrome button:disabled { opacity: .45; }
+.resume-pdf-dialog-chrome svg { width: 16px; height: 16px; }
+.resume-pdf-dialog-chrome:last-child { justify-content: flex-end; border-top: 1px solid #cbd5e1; border-bottom: 0; }
+.resume-pdf-eyebrow { margin: 0; color: #2563eb; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.resume-pdf-status { margin: 5px 0 0; color: #475569; font-size: 12px; }
+.resume-pdf-source { position: fixed; top: 0; left: -100000px; width: 174mm; opacity: 0; pointer-events: none; }
+.resume-pdf-output { min-height: 240px; padding: 24px 0; overflow: auto; }
+.resume-pdf-page.pagedjs_page { width: 210mm !important; height: 297mm !important; margin: 0 auto 24px !important; background: #fff; box-shadow: 0 10px 30px rgb(15 23 42 / .22); }
+.resume-pdf-page .pagedjs_sheet,
+.resume-pdf-page .pagedjs_pagebox { width: 210mm !important; height: 297mm !important; }
+.resume-pdf-page .pagedjs_pagebox { position: relative !important; }
+.resume-pdf-page .pagedjs_area { position: absolute !important; top: 16mm !important; left: 18mm !important; width: 174mm !important; height: 265mm !important; }
+.resume-pdf-page .pagedjs_page_content { width: 174mm !important; height: 265mm !important; }
+
+@media print {
+  @page { size: 210mm 297mm; margin: 0; }
+  body:not(.resume-pdf-printing):has(.resume-document-builder) > * { display: none !important; }
+  body.resume-pdf-printing { margin: 0 !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.resume-pdf-printing > :not(.resume-pdf-dialog-root) { display: none !important; }
+  body.resume-pdf-printing .resume-pdf-dialog-root { position: static !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
+  body.resume-pdf-printing .resume-pdf-dialog-panel { width: auto !important; min-height: 0 !important; margin: 0 !important; background: #fff !important; box-shadow: none !important; }
+  body.resume-pdf-printing .resume-pdf-dialog-chrome,
+  body.resume-pdf-printing .resume-pdf-source { display: none !important; }
+  body.resume-pdf-printing .resume-pdf-output { display: block !important; min-height: 0 !important; padding: 0 !important; overflow: visible !important; }
+  body.resume-pdf-printing .resume-pdf-page { margin: 0 !important; box-shadow: none !important; break-after: page; }
+  body.resume-pdf-printing .resume-pdf-page:last-child { break-after: auto; }
+}

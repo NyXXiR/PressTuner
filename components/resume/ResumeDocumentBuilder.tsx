@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowUp, Check, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
 import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import Image from "next/image";
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RESUME_DOCUMENT_STORAGE_KEY,
   addCustomSection,
@@ -63,7 +63,6 @@ import {
   type ResumeSection,
   type SectionContent,
   type SectionKind,
-  type SectionLayout,
   type SectionMode,
   type TagsContent,
 } from "@/domain/resume-documents/model";
@@ -71,15 +70,16 @@ import { DateInput } from "@/components/ui/DateInput";
 import { formatDateOnly } from "@/components/ui/dateOnly";
 import { applyResumeImportCommand, type ResumeDocumentImportCommand } from "@/domain/resume-documents/importCandidate";
 import { ResumeDocumentImportPanel } from "@/components/resume/ResumeDocumentImportPanel";
+import { ResumePdfPreviewDialog } from "@/components/resume/ResumePdfPreviewDialog";
+import {
+  ResumePrintableHeader,
+  ResumePrintableSection,
+  type ResumePrintableDocumentProps,
+} from "@/components/resume/ResumePrintableDocument";
 import {
   calculateAutomaticCareerDurationMonths,
-  formatCareerDuration,
-  groupCareerDetails,
   normalizeCareerDurationOverride,
-  resolveCareerDurationMonths,
-  sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
-import { estimateResumePrintPageCount } from "@/domain/resume-documents/printLayout";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
 const kinds: Record<SectionKind, string> = { identity: "인적사항", eligibility: "병역·보훈 등 자격", narrative: "소개글", items: "경력·학력 등 목록", tags: "역량·키워드" };
@@ -102,22 +102,6 @@ const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experien
 const acceptsExperienceBricks = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 
-function measurePrintedPageCount(paper: HTMLElement) {
-  const printClone = paper.cloneNode(true) as HTMLElement;
-  printClone.classList.add("resume-print-measure");
-  document.body.append(printClone);
-  const inner = printClone.querySelector<HTMLElement>(".resume-paper-inner");
-  const innerStyle = inner ? window.getComputedStyle(inner) : null;
-  const pixelValue = (value: string | undefined) => Number.parseFloat(value ?? "") || 0;
-  const verticalPadding = innerStyle
-    ? pixelValue(innerStyle.paddingTop) + pixelValue(innerStyle.paddingBottom)
-    : 0;
-  const contentHeight = Math.max(0, (inner?.scrollHeight ?? printClone.scrollHeight) - verticalPadding);
-  const pageCount = estimateResumePrintPageCount(contentHeight, printClone.clientWidth);
-  printClone.remove();
-  return pageCount;
-}
-
 export function ResumeDocumentBuilder() {
   const [state, setState] = useState<ResumeDocumentState>(() => createResumeDocumentSeed());
   const [view, setView] = useState<"resume" | "shared">("resume");
@@ -132,10 +116,9 @@ export function ResumeDocumentBuilder() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [readinessOpen, setReadinessOpen] = useState(false);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
-  const [pageCount, setPageCount] = useState(1);
+  const [pdfSnapshot, setPdfSnapshot] = useState<ResumePrintableDocumentProps | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [storageStatus, setStorageStatus] = useState<"loading" | "saved" | "error">("loading");
-  const paperRef = useRef<HTMLElement>(null);
   const stateRef = useRef(state);
 
   useEffect(() => {
@@ -185,16 +168,25 @@ export function ResumeDocumentBuilder() {
     stateRef.current = next;
     setState(next);
   }, []);
-  useEffect(() => {
-    if (view !== "resume" || !paperRef.current) return;
-    const paper = paperRef.current;
-    const update = () => setPageCount(measurePrintedPageCount(paper));
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(paper);
-    return () => observer.disconnect();
-  }, [state, view]);
   if (!activeProfile) return null;
+  const printableSections = orderedSections.map((section) => {
+    const resolved = resolveSection(section, activeProfile, active);
+    return {
+      ...section,
+      title: resolveSectionTitle(section, activeProfile, active),
+      content: resolved.content,
+      layout: resolved.layout,
+      hidden: resolved.mode === "hidden",
+    };
+  });
+  const openPdfPreview = () => setPdfSnapshot({
+    company: active?.company || activeProfile.name,
+    currentMonth: currentLocalMonth(),
+    documentName: active?.name || `${activeProfile.name} 이력서`,
+    relatedWorkItems: resolvedWorkItems,
+    role: resolveDocumentRole(activeProfile, active),
+    sections: printableSections,
+  });
   const updateActive = (patch: Partial<NonNullable<typeof active>>) => active && setState((current) => ({ ...current, variants: current.variants.map((item) => item.id === active.id ? { ...item, ...patch } : item) }));
   const setting = (sectionId: string, patch: Parameters<typeof updateSectionSetting>[3]) => setState((current) => active ? updateSectionSetting(current, active.id, sectionId, patch) : updateRoleProfileSectionSetting(current, activeProfile.id, sectionId, patch));
   const openEditor = (scope: EditDraft["scope"], section: ResumeSection, content: SectionContent) => {
@@ -251,7 +243,7 @@ export function ResumeDocumentBuilder() {
       <header className="resume-builder-chrome border-b-2 border-foreground pb-5">
         <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
           <div><p className="flex items-center gap-2 text-[11px] font-bold tracking-[.18em] text-primary"><FileText className="h-4 w-4" /> RESUME DOCUMENTS</p><h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">이력서 문서 편집</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">공통 정보를 직군별 이력서로 다듬으세요. 같은 직군에 여러 장이 필요할 때만 회사별 지원 버전을 추가할 수 있습니다.</p></div>
-          {view === "resume" && <div className="flex flex-wrap gap-2"><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setImportPanelOpen(true)}><FileUp className="h-4 w-4" /> PDF로 채우기</button><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setReadinessOpen(true)}><ClipboardCheck className="h-4 w-4" /> 작성 상태 점검{readinessIssues.length > 0 && <span className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{readinessIssues.length}</span>}</button><button className="inline-flex h-11 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={() => void document.fonts.ready.then(() => window.print())}><Printer className="h-4 w-4" /> PDF로 저장</button></div>}
+          {view === "resume" && <div className="flex flex-wrap gap-2"><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setImportPanelOpen(true)}><FileUp className="h-4 w-4" /> PDF로 채우기</button><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setReadinessOpen(true)}><ClipboardCheck className="h-4 w-4" /> 작성 상태 점검{readinessIssues.length > 0 && <span className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{readinessIssues.length}</span>}</button><button className="inline-flex h-11 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" disabled={!hydrated} onClick={openPdfPreview}><Printer className="h-4 w-4" /> PDF로 저장</button></div>}
         </div>
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div aria-label="이력서 문서 화면" className="flex flex-wrap border border-border bg-background p-1" role="tablist"><Tab active={view === "resume"} onClick={() => setView("resume")}>직군 이력서</Tab><Tab active={view === "shared"} onClick={() => setView("shared")}>공통 정보</Tab></div>
@@ -274,7 +266,7 @@ export function ResumeDocumentBuilder() {
             <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-extrabold">{active ? "지원 버전" : "직군 이력서"} 전용 섹션</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">원하는 섹션 아래의 추가 버튼을 누르세요.</p></div>
             <p aria-live="polite" className={cx("mt-6 flex items-center gap-1.5 border-t border-border pt-4 text-[11px]", storageStatus === "error" ? "text-red-600" : "text-muted-foreground")}><Check className={cx("h-3.5 w-3.5", storageStatus === "error" ? "text-red-600" : "text-primary")} /> {storageStatus === "error" ? "자동 저장에 실패했습니다. 내용을 별도로 보관해 주세요." : storageStatus === "saved" ? "이 브라우저에 자동 저장됐습니다." : "저장 내용을 불러오는 중입니다."}</p>
           </aside>
-          <div className="resume-preview-shell min-w-0"><div className="resume-builder-chrome mb-3 flex flex-wrap items-center justify-between gap-2 border border-primary/25 bg-primary/5 px-4 py-3 text-xs"><span className="font-bold text-primary"><span className="hidden md:inline">A4 페이지 경계가 점선으로 표시됩니다.</span><span className="md:hidden">모바일 편집 보기 · PDF는 A4로 저장됩니다.</span></span><span className="font-extrabold">예상 {pageCount}페이지</span></div><article className="resume-paper resume-page-guides mx-auto w-full max-w-[210mm] bg-white text-slate-950 shadow-xl" ref={paperRef}><div className="resume-paper-inner min-h-[297mm] px-[15mm] py-[16mm]"><div className="resume-print-header resume-print-target mb-8 flex items-end justify-between border-b-2 border-slate-950 pb-3"><div><p className="text-[9px] font-bold tracking-widest text-slate-500">{active?.company || activeProfile.name}</p><p className="mt-1 text-sm font-black">{resolveDocumentRole(activeProfile, active)}</p></div><p className="text-xs font-bold text-slate-500">{active?.name || `${activeProfile.name} 이력서`}</p></div><p className="resume-reorder-help mb-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><GripVertical className="h-3.5 w-3.5" /> 핸들을 끌어 현재 단계의 섹션 순서를 바꿀 수 있습니다.</p><Reorder.Group axis="y" className="resume-print-sections grid gap-7" onReorder={(sectionOrder) => setState((current) => active ? updateSectionOrder(current, active.id, sectionOrder) : updateRoleProfileSectionOrder(current, activeProfile.id, sectionOrder))} values={orderedSections.map((section) => section.id)}>{orderedSections.map((section) => {
+          <div className="resume-preview-shell min-w-0"><div className="resume-builder-chrome mb-3 flex flex-wrap items-center justify-between gap-2 border border-primary/25 bg-primary/5 px-4 py-3 text-xs"><span className="font-bold text-primary"><span className="hidden md:inline">편집 화면은 A4에 가깝게 표시됩니다.</span><span className="md:hidden">모바일 편집 보기 · PDF는 A4로 저장됩니다.</span></span><span className="font-extrabold">저장 미리보기에서 정확한 페이지 수를 확인하세요.</span></div><article className="resume-paper resume-page-guides mx-auto w-full max-w-[210mm] bg-white text-slate-950 shadow-xl"><div className="resume-paper-inner min-h-[297mm] px-[18mm] py-[16mm]"><ResumePrintableHeader company={active?.company || activeProfile.name} documentName={active?.name || `${activeProfile.name} 이력서`} role={resolveDocumentRole(activeProfile, active)} /><p className="resume-reorder-help mb-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><GripVertical className="h-3.5 w-3.5" /> 핸들을 끌어 현재 단계의 섹션 순서를 바꿀 수 있습니다.</p><Reorder.Group axis="y" className="resume-print-sections grid gap-7" onReorder={(sectionOrder) => setState((current) => active ? updateSectionOrder(current, active.id, sectionOrder) : updateRoleProfileSectionOrder(current, activeProfile.id, sectionOrder))} values={orderedSections.map((section) => section.id)}>{orderedSections.map((section) => {
             const resolved = resolveSection(section, activeProfile, active);
             const title = resolveSectionTitle(section, activeProfile, active);
             const roleCustom = activeProfile.customSections.some((item) => item.id === section.id);
@@ -287,7 +279,7 @@ export function ResumeDocumentBuilder() {
               if (keepsCustomization) setting(section.id, { mode: "override" });
               else resetToParent();
             };
-            return <SortableSection key={section.id} sectionId={section.id}>{(dragControls) => <>{resolved.mode === "hidden" ? <HiddenSection section={{ ...section, title }} dragControls={dragControls} onShow={restoreVisibility} /> : <DocumentSection dragControls={dragControls} section={{ ...section, title }} content={resolved.content} relatedWorkItems={resolvedWorkItems} source={resolved.source} onHide={!section.custom ? () => setting(section.id, { mode: "hidden" }) : undefined} onReset={canReset ? () => window.confirm(`${active ? "이 지원 버전의 맞춤 내용" : "이 직군 이력서의 맞춤 내용"}을 버리고 ${active ? "직군 이력서" : "공통 정보"}로 되돌릴까요?`) && resetToParent() : undefined} resetLabel={active ? "직군 이력서로 되돌리기" : "공통 정보로 되돌리기"} onEdit={() => openEditor(roleCustom ? active ? "variant" : "role-custom" : variantCustom ? "variant-custom" : active ? "variant" : "role", section, resolved.content)} onItems={section.kind === "items" && !section.custom ? () => setItemEditor({ scope: active ? "document" : "role", section }) : undefined} onPromote={section.custom ? () => promoteCustom(section, variantCustom ? "variant" : "role") : undefined} deletePending={pendingDeleteId === section.id} onDelete={section.custom && (!roleCustom || !active) ? () => pendingDeleteId === section.id ? removeCustom(section) : setPendingDeleteId(section.id) : undefined} />}<button className="resume-section-controls mt-3 inline-flex h-9 w-full items-center justify-center gap-2 border border-dashed border-slate-300 bg-white text-[10px] font-bold text-slate-500 hover:border-orange-400 hover:text-orange-600" onClick={() => { setInsertAfterId(section.id); setNewSectionTitle(""); }}><Plus className="h-3.5 w-3.5" /> {title} 뒤에 새 섹션 추가</button></>}</SortableSection>;
+            return <SortableSection key={section.id} sectionId={section.id}>{(dragControls) => <>{resolved.mode === "hidden" ? <HiddenSection section={{ ...section, title }} dragControls={dragControls} onShow={restoreVisibility} /> : <DocumentSection dragControls={dragControls} section={{ ...section, title, layout: resolved.layout }} content={resolved.content} relatedWorkItems={resolvedWorkItems} source={resolved.source} onHide={!section.custom ? () => setting(section.id, { mode: "hidden" }) : undefined} onReset={canReset ? () => window.confirm(`${active ? "이 지원 버전의 맞춤 내용" : "이 직군 이력서의 맞춤 내용"}을 버리고 ${active ? "직군 이력서" : "공통 정보"}로 되돌릴까요?`) && resetToParent() : undefined} resetLabel={active ? "직군 이력서로 되돌리기" : "공통 정보로 되돌리기"} onEdit={() => openEditor(roleCustom ? active ? "variant" : "role-custom" : variantCustom ? "variant-custom" : active ? "variant" : "role", section, resolved.content)} onItems={section.kind === "items" && !section.custom ? () => setItemEditor({ scope: active ? "document" : "role", section }) : undefined} onPromote={section.custom ? () => promoteCustom(section, variantCustom ? "variant" : "role") : undefined} deletePending={pendingDeleteId === section.id} onDelete={section.custom && (!roleCustom || !active) ? () => pendingDeleteId === section.id ? removeCustom(section) : setPendingDeleteId(section.id) : undefined} />}<button className="resume-section-controls mt-3 inline-flex h-9 w-full items-center justify-center gap-2 border border-dashed border-slate-300 bg-white text-[10px] font-bold text-slate-500 hover:border-orange-400 hover:text-orange-600" onClick={() => { setInsertAfterId(section.id); setNewSectionTitle(""); }}><Plus className="h-3.5 w-3.5" /> {title} 뒤에 새 섹션 추가</button></>}</SortableSection>;
           })}</Reorder.Group></div></article></div>
         </div>
       )}
@@ -298,6 +290,7 @@ export function ResumeDocumentBuilder() {
       {experienceDialogOpen && <ExperienceBrickSyncDialog onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} />}
       {importPanelOpen && <ResumeDocumentImportPanel sections={orderedSections} workItems={resolvedWorkItems} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} />}
+      {pdfSnapshot && <ResumePdfPreviewDialog onClose={() => setPdfSnapshot(null)} snapshot={pdfSnapshot} />}
     </div>
   );
 }
@@ -353,52 +346,9 @@ function HiddenSection({ dragControls, onShow, section }: { dragControls: DragCo
 function DocumentSection({ section, content, relatedWorkItems, source, onHide, onReset, resetLabel, onEdit, onItems, onPromote, onDelete, deletePending, dragControls }: { section: ResumeSection; content: SectionContent; relatedWorkItems: ItemContent[]; source: "shared" | "role" | "document"; onHide?: () => void; onReset?: () => void; resetLabel: string; onEdit: () => void; onItems?: () => void; onPromote?: () => void; onDelete?: () => void; deletePending?: boolean; dragControls: DragControls }) {
   const sourceLabel = source === "shared" ? "공통 정보" : source === "role" ? "직군 이력서" : "지원 버전 맞춤";
   const hasMoreActions = Boolean(onReset || onItems || onPromote || onDelete);
-  const experienceContent = section.id === "experience" && section.kind === "items"
-    ? content as ItemsContent
-    : null;
-  const careerDuration = experienceContent
-    ? formatCareerDuration(resolveCareerDurationMonths(
-      experienceContent.items,
-      experienceContent.careerDurationOverrideMonths,
-      currentLocalMonth(),
-    ))
-    : null;
-  return <section className="resume-document-section" data-section-kind={section.kind}><div className="resume-section-controls mb-2 flex items-center justify-between gap-2 border border-dashed border-slate-300 bg-slate-50 p-2"><span className="flex min-w-0 items-center gap-2"><DragHandle dragControls={dragControls} title={section.title} /><span className={cx("truncate border px-2 py-1 text-[10px] font-extrabold", source === "document" ? "border-orange-300 bg-orange-50 text-orange-700" : source === "role" ? "border-primary/30 bg-primary/5 text-primary" : "border-slate-300 bg-white text-slate-600")}>{section.custom ? "현재 단계 전용" : sourceLabel}</span></span><div className="flex shrink-0 items-center gap-1">{onHide && <button aria-label={`${section.title} 섹션 숨기기`} className="grid h-10 w-10 place-items-center border border-slate-300 bg-white text-slate-500 hover:border-primary hover:text-primary sm:h-8 sm:w-8" onClick={onHide} title="섹션 숨기기"><EyeOff className="h-4 w-4" /></button>}<button className="inline-flex h-10 items-center gap-2 border border-slate-400 bg-white px-3 text-xs font-bold hover:border-primary hover:text-primary sm:h-8" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /> 편집</button>{hasMoreActions && <details className="relative"><summary aria-label={`${section.title} 섹션 더보기`} className="grid h-10 w-10 cursor-pointer list-none place-items-center border border-slate-300 bg-white sm:h-8 sm:w-8"><MoreHorizontal className="h-4 w-4" /></summary><div className="absolute right-0 z-40 mt-1 grid w-60 gap-3 border border-slate-300 bg-white p-3 text-slate-700 shadow-xl">{onReset && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onReset}><RotateCcw className="mr-1 inline h-3.5 w-3.5" /> {resetLabel}</button>}{onItems && <button className="h-9 border border-orange-300 bg-white px-2 text-xs font-bold text-orange-700" onClick={onItems}>{section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</button>}{onPromote && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onPromote}><LayoutTemplate className="mr-1 inline h-3.5 w-3.5" /> 공통 섹션으로 전환</button>}{onDelete && <button aria-label={deletePending ? `${section.title} 섹션 삭제 확인` : `${section.title} 섹션 삭제`} className="h-9 border border-red-200 bg-white px-2 text-xs font-bold text-red-600" onClick={onDelete}>{deletePending ? "정말 삭제" : "섹션 삭제"}</button>}</div></details>}</div></div>{section.kind !== "identity" && (careerDuration ? <div className="resume-section-heading mb-3 flex items-end justify-between gap-4 border-b border-slate-900 pb-1.5"><h2 className="text-[13px] font-black">{section.title}</h2><p className="text-[10px] font-bold text-slate-600" data-experience-duration>{careerDuration}</p></div> : <h2 className="resume-section-heading mb-3 border-b border-slate-900 pb-1.5 text-[13px] font-black">{section.title}</h2>)}<SectionBody section={section} content={content} layout="standard" relatedWorkItems={relatedWorkItems} /></section>;
+  return <div><div className="resume-section-controls mb-2 flex items-center justify-between gap-2 border border-dashed border-slate-300 bg-slate-50 p-2"><span className="flex min-w-0 items-center gap-2"><DragHandle dragControls={dragControls} title={section.title} /><span className={cx("truncate border px-2 py-1 text-[10px] font-extrabold", source === "document" ? "border-orange-300 bg-orange-50 text-orange-700" : source === "role" ? "border-primary/30 bg-primary/5 text-primary" : "border-slate-300 bg-white text-slate-600")}>{section.custom ? "현재 단계 전용" : sourceLabel}</span></span><div className="flex shrink-0 items-center gap-1">{onHide && <button aria-label={`${section.title} 섹션 숨기기`} className="grid h-10 w-10 place-items-center border border-slate-300 bg-white text-slate-500 hover:border-primary hover:text-primary sm:h-8 sm:w-8" onClick={onHide} title="섹션 숨기기"><EyeOff className="h-4 w-4" /></button>}<button className="inline-flex h-10 items-center gap-2 border border-slate-400 bg-white px-3 text-xs font-bold hover:border-primary hover:text-primary sm:h-8" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /> 편집</button>{hasMoreActions && <details className="relative"><summary aria-label={`${section.title} 섹션 더보기`} className="grid h-10 w-10 cursor-pointer list-none place-items-center border border-slate-300 bg-white sm:h-8 sm:w-8"><MoreHorizontal className="h-4 w-4" /></summary><div className="absolute right-0 z-40 mt-1 grid w-60 gap-3 border border-slate-300 bg-white p-3 text-slate-700 shadow-xl">{onReset && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onReset}><RotateCcw className="mr-1 inline h-3.5 w-3.5" /> {resetLabel}</button>}{onItems && <button className="h-9 border border-orange-300 bg-white px-2 text-xs font-bold text-orange-700" onClick={onItems}>{section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</button>}{onPromote && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onPromote}><LayoutTemplate className="mr-1 inline h-3.5 w-3.5" /> 공통 섹션으로 전환</button>}{onDelete && <button aria-label={deletePending ? `${section.title} 섹션 삭제 확인` : `${section.title} 섹션 삭제`} className="h-9 border border-red-200 bg-white px-2 text-xs font-bold text-red-600" onClick={onDelete}>{deletePending ? "정말 삭제" : "섹션 삭제"}</button>}</div></details>}</div></div><ResumePrintableSection currentMonth={currentLocalMonth()} relatedWorkItems={relatedWorkItems} section={{ ...section, content, layout: section.layout ?? "standard" }} /></div>;
 }
 
-function SectionBody({ section, content, layout, relatedWorkItems = [] }: { section: ResumeSection; content: SectionContent; layout: SectionLayout; relatedWorkItems?: ItemContent[] }) {
-  if (section.kind === "identity") {
-    const value = content as IdentityContent;
-    const contactItems = [value.email, value.phone, value.location, ...value.links].filter(Boolean) as string[];
-    const factItems = [value.birthDate && `생년월일 ${value.birthDate}`, value.gender && `성별 ${value.gender}`].filter(Boolean) as string[];
-    return <div className={cx("resume-identity grid items-end gap-6", value.photo ? "grid-cols-[minmax(0,1fr)_24mm]" : "grid-cols-1", layout === "cards" && "border border-slate-200 p-4")} data-photo-position="right"><div className="min-w-0"><div className={cx("resume-identity-heading grid items-end gap-4", layout === "compact" ? "grid-cols-1" : "grid-cols-[1fr_auto]")}><h2 className="text-3xl font-black tracking-[-.05em]">{value.name}</h2>{contactItems.length > 0 && <div className={cx("resume-contact text-[9px] leading-5 text-slate-500", layout !== "compact" && "text-right")}>{contactItems.map((item) => <p key={item}>{item}</p>)}</div>}</div>{factItems.length > 0 && <div className="resume-facts mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-200 pt-2 text-[8px] text-slate-500">{factItems.map((item) => <span key={item}>{item}</span>)}</div>}</div>{value.photo && <Image alt={`${value.name || "지원자"} 증명사진`} className="h-[32mm] w-[24mm] justify-self-end border border-slate-200 object-cover" height={640} src={value.photo} unoptimized width={480} />}</div>;
-  }
-  if (section.kind === "eligibility") {
-    const value = content as EligibilityContent;
-    const factItems = [value.militaryStatus && `병역 ${value.militaryStatus}`, value.veteranStatus && `보훈 ${value.veteranStatus}`, value.disabilityStatus && `장애 ${value.disabilityStatus}`, value.employmentProtectionStatus && `취업보호 ${value.employmentProtectionStatus}`].filter(Boolean) as string[];
-    return factItems.length > 0
-      ? <div className="resume-facts flex flex-wrap gap-x-4 gap-y-1 text-[8px] text-slate-500">{factItems.map((item) => <span key={item}>{item}</span>)}</div>
-      : <p className="text-[9px] text-slate-400">선택한 정보가 없습니다.</p>;
-  }
-  if (section.kind === "narrative") return <NarrativeBody content={content as NarrativeContent} layout={layout} />;
-  if (section.kind === "tags") return <div className="resume-tags flex flex-wrap gap-2">{(content as TagsContent).items.map((item, index) => <span className={cx("text-[10px] font-bold", layout === "cards" ? "border border-slate-300 px-3 py-2" : layout === "compact" ? "border-b border-slate-300" : "bg-slate-100 px-3 py-1.5")} key={`${item}-${index}`}>{item}</span>)}</div>;
-  const itemContent = content as ItemsContent;
-  if (section.id === "projects") {
-    const grouped = groupCareerDetails(relatedWorkItems, itemContent.items, { detailSortDirection: itemContent.sortDirection });
-    const detailArticle = (item: ItemContent) => <article className="resume-item grid grid-cols-[26mm_1fr] gap-4" key={item.id}><p className="resume-item-period text-[9px] font-bold text-slate-500">{formatItemPeriod(item)}</p><div className="resume-item-copy min-w-0"><div className="resume-item-header"><p className="text-[8px] font-extrabold text-orange-600">{detailTypeLabels[item.detailType ?? "project"]}</p><h3 className="resume-item-title text-[11px] font-black">{item.title}</h3><p className="resume-item-subtitle text-[9px] font-bold text-orange-600">{item.subtitle}</p></div><p className="resume-item-body mt-1 whitespace-pre-line text-[9px] leading-5 text-slate-600">{item.body}</p></div></article>;
-    return <div className="resume-career-detail-groups grid gap-5">{grouped.employmentGroups.filter((group) => group.details.length).map((group) => <section className="resume-career-group border-l-2 border-slate-300 pl-3" key={group.work.id}><div className="resume-group-heading"><h3 className="text-[11px] font-black">{group.work.title}</h3><p className="text-[9px] font-bold text-slate-500">{group.work.subtitle} · {formatItemPeriod(group.work)}</p></div><div className="resume-career-detail-list mt-3 grid gap-3">{group.details.map(detailArticle)}</div></section>)}{grouped.independentDetails.length > 0 && <section className="resume-career-group"><h3 className="resume-group-heading mb-3 text-[10px] font-black text-slate-600">독립 프로젝트</h3><div className="resume-career-detail-list grid gap-4">{grouped.independentDetails.map(detailArticle)}</div></section>}{grouped.unresolvedDetails.length > 0 && <section className="resume-career-group"><h3 className="resume-group-heading mb-3 text-[10px] font-black text-amber-700">연결 확인 필요</h3><div className="resume-career-detail-list grid gap-4">{grouped.unresolvedDetails.map((item) => <div className="resume-unresolved-detail" key={item.id}><p className="resume-item-header mb-1 text-[8px] font-bold text-amber-700">{item.relatedWorkTitle}</p>{detailArticle(item)}</div>)}</div></section>}</div>;
-  }
-  const items = isCareerTimelineSectionId(section.id)
-    ? sortExperienceItems(itemContent.items, itemContent.sortDirection)
-    : itemContent.items;
-  return <div className={cx("resume-items grid", layout === "cards" ? "grid-cols-2 gap-3" : layout === "compact" ? "gap-2" : "gap-4")}>{items.map((item) => <article className={cx("resume-item", layout === "cards" && "border border-slate-200 p-3", layout === "standard" && "grid grid-cols-[26mm_1fr] gap-4")} key={item.id}><p className="resume-item-period text-[9px] font-bold text-slate-500">{formatItemPeriod(item)}</p><div className="resume-item-copy min-w-0"><div className="resume-item-header"><h3 className="resume-item-title text-[11px] font-black">{item.title}</h3><p className="resume-item-subtitle text-[9px] font-bold text-orange-600">{[item.relatedWorkTitle, item.subtitle].filter(Boolean).join(" · ")}</p></div><p className="resume-item-body mt-1 whitespace-pre-line text-[9px] leading-5 text-slate-600">{item.body}</p></div></article>)}</div>;
-}
-
-function NarrativeBody({ content, layout }: { content: NarrativeContent; layout: SectionLayout }) {
-  if (!content.blocks?.length) return <p className={cx("resume-narrative whitespace-pre-line text-[10px] text-slate-700", layout === "compact" ? "leading-5" : "leading-6", layout === "cards" && "border border-slate-200 bg-slate-50 p-4")}>{content.body}</p>;
-  const textStyles: Record<NarrativeBlockType, string> = { p: "text-[10px] leading-6", h1: "text-[20px] font-black leading-tight", h2: "text-[17px] font-black leading-tight", h3: "text-[15px] font-extrabold leading-tight", h4: "text-[13px] font-extrabold leading-tight", h5: "text-[12px] font-bold leading-tight", h6: "text-[11px] font-bold uppercase tracking-wide" };
-  return <div className={cx("resume-narrative grid gap-2 text-slate-700", layout === "compact" && "gap-1", layout === "cards" && "border border-slate-200 bg-slate-50 p-4")}>{content.blocks.map((block) => createElement(block.type, { className: textStyles[block.type], key: block.id }, block.runs.map((run, index) => run.bold ? <strong key={index}>{run.text}</strong> : run.text)))}</div>;
-}
 
 function createNarrativeBlockElement(block: NarrativeBlock) {
   const element = document.createElement(block.type);
