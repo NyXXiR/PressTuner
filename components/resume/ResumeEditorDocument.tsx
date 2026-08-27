@@ -24,36 +24,22 @@ import {
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
 
-export type PrintableResumeSection = ResumeSection & { hidden?: boolean };
+export type ResumeEditorSection = ResumeSection & { hidden?: boolean };
 
-export type ResumePrintableDocumentProps = {
+export type ResumeEditorHeaderProps = {
   company: string;
   documentName: string;
   role: string;
-  sections: PrintableResumeSection[];
-  relatedWorkItems: ItemContent[];
-  currentMonth?: string;
 };
 
-export function ResumePrintableHeader({ company, documentName, role }: Pick<ResumePrintableDocumentProps, "company" | "documentName" | "role">) {
+export function ResumeEditorHeader({ company, documentName, role }: ResumeEditorHeaderProps) {
   return <header className="resume-print-header"><div><p className="resume-print-company">{company}</p><p className="resume-print-role">{role}</p></div><p className="resume-print-document-name">{documentName}</p></header>;
 }
 
-export function ResumePrintableDocument({ company, currentMonth, documentName, relatedWorkItems, role, sections }: ResumePrintableDocumentProps) {
-  return <article className="resume-printable-document">
-    <ResumePrintableHeader company={company} documentName={documentName} role={role} />
-    <div className="resume-print-sections">
-      {sections.filter((section) => !section.hidden).map((section) => (
-        <ResumePrintableSection currentMonth={currentMonth} key={section.id} relatedWorkItems={relatedWorkItems} section={section} />
-      ))}
-    </div>
-  </article>;
-}
-
-export function ResumePrintableSection({ currentMonth, relatedWorkItems = [], section }: {
+export function ResumeEditorSection({ currentMonth, relatedWorkItems = [], section }: {
   currentMonth?: string;
   relatedWorkItems?: ItemContent[];
-  section: PrintableResumeSection;
+  section: ResumeEditorSection;
 }) {
   if (section.hidden) return null;
   const content = section.content;
@@ -79,7 +65,7 @@ function ResumePrintableSectionBody({ content, heading, layout, relatedWorkItems
   heading: ReactNode;
   layout: SectionLayout;
   relatedWorkItems: ItemContent[];
-  section: PrintableResumeSection;
+  section: ResumeEditorSection;
 }) {
   if (section.kind === "identity") return <IdentityBody content={content as IdentityContent} layout={layout} />;
   if (section.kind === "eligibility") return <div className="resume-section-opening">{heading}<EligibilityBody content={content as EligibilityContent} /></div>;

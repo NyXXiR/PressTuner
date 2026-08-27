@@ -72,10 +72,13 @@ import { applyResumeImportCommand, type ResumeDocumentImportCommand } from "@/do
 import { ResumeDocumentImportPanel } from "@/components/resume/ResumeDocumentImportPanel";
 import { ResumePdfPreviewDialog } from "@/components/resume/ResumePdfPreviewDialog";
 import {
-  ResumePrintableHeader,
-  ResumePrintableSection,
-  type ResumePrintableDocumentProps,
-} from "@/components/resume/ResumePrintableDocument";
+  ResumeEditorHeader,
+  ResumeEditorSection,
+} from "@/components/resume/ResumeEditorDocument";
+import {
+  resumePdfSnapshotSchema,
+  type ResumePdfSnapshot,
+} from "@/domain/resume-documents/pdfSnapshot";
 import {
   calculateAutomaticCareerDurationMonths,
   normalizeCareerDurationOverride,
@@ -116,7 +119,7 @@ export function ResumeDocumentBuilder() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [readinessOpen, setReadinessOpen] = useState(false);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
-  const [pdfSnapshot, setPdfSnapshot] = useState<ResumePrintableDocumentProps | null>(null);
+  const [pdfSnapshot, setPdfSnapshot] = useState<ResumePdfSnapshot | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [storageStatus, setStorageStatus] = useState<"loading" | "saved" | "error">("loading");
   const stateRef = useRef(state);
@@ -179,14 +182,14 @@ export function ResumeDocumentBuilder() {
       hidden: resolved.mode === "hidden",
     };
   });
-  const openPdfPreview = () => setPdfSnapshot({
+  const openPdfPreview = () => setPdfSnapshot(resumePdfSnapshotSchema.parse({
     company: active?.company || activeProfile.name,
     currentMonth: currentLocalMonth(),
     documentName: active?.name || `${activeProfile.name} 이력서`,
     relatedWorkItems: resolvedWorkItems,
     role: resolveDocumentRole(activeProfile, active),
     sections: printableSections,
-  });
+  }));
   const updateActive = (patch: Partial<NonNullable<typeof active>>) => active && setState((current) => ({ ...current, variants: current.variants.map((item) => item.id === active.id ? { ...item, ...patch } : item) }));
   const setting = (sectionId: string, patch: Parameters<typeof updateSectionSetting>[3]) => setState((current) => active ? updateSectionSetting(current, active.id, sectionId, patch) : updateRoleProfileSectionSetting(current, activeProfile.id, sectionId, patch));
   const openEditor = (scope: EditDraft["scope"], section: ResumeSection, content: SectionContent) => {
@@ -266,7 +269,7 @@ export function ResumeDocumentBuilder() {
             <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-extrabold">{active ? "지원 버전" : "직군 이력서"} 전용 섹션</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">원하는 섹션 아래의 추가 버튼을 누르세요.</p></div>
             <p aria-live="polite" className={cx("mt-6 flex items-center gap-1.5 border-t border-border pt-4 text-[11px]", storageStatus === "error" ? "text-red-600" : "text-muted-foreground")}><Check className={cx("h-3.5 w-3.5", storageStatus === "error" ? "text-red-600" : "text-primary")} /> {storageStatus === "error" ? "자동 저장에 실패했습니다. 내용을 별도로 보관해 주세요." : storageStatus === "saved" ? "이 브라우저에 자동 저장됐습니다." : "저장 내용을 불러오는 중입니다."}</p>
           </aside>
-          <div className="resume-preview-shell min-w-0"><div className="resume-builder-chrome mb-3 flex flex-wrap items-center justify-between gap-2 border border-primary/25 bg-primary/5 px-4 py-3 text-xs"><span className="font-bold text-primary"><span className="hidden md:inline">편집 화면은 A4에 가깝게 표시됩니다.</span><span className="md:hidden">모바일 편집 보기 · PDF는 A4로 저장됩니다.</span></span><span className="font-extrabold">저장 미리보기에서 정확한 페이지 수를 확인하세요.</span></div><article className="resume-paper resume-page-guides mx-auto w-full max-w-[210mm] bg-white text-slate-950 shadow-xl"><div className="resume-paper-inner min-h-[297mm] px-[18mm] py-[16mm]"><ResumePrintableHeader company={active?.company || activeProfile.name} documentName={active?.name || `${activeProfile.name} 이력서`} role={resolveDocumentRole(activeProfile, active)} /><p className="resume-reorder-help mb-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><GripVertical className="h-3.5 w-3.5" /> 핸들을 끌어 현재 단계의 섹션 순서를 바꿀 수 있습니다.</p><Reorder.Group axis="y" className="resume-print-sections grid gap-7" onReorder={(sectionOrder) => setState((current) => active ? updateSectionOrder(current, active.id, sectionOrder) : updateRoleProfileSectionOrder(current, activeProfile.id, sectionOrder))} values={orderedSections.map((section) => section.id)}>{orderedSections.map((section) => {
+          <div className="resume-preview-shell min-w-0"><div className="resume-builder-chrome mb-3 flex flex-wrap items-center justify-between gap-2 border border-primary/25 bg-primary/5 px-4 py-3 text-xs"><span className="font-bold text-primary"><span className="hidden md:inline">편집 화면은 A4에 가깝게 표시됩니다.</span><span className="md:hidden">모바일 편집 보기 · PDF는 A4로 저장됩니다.</span></span><span className="font-extrabold">저장 미리보기에서 정확한 페이지 수를 확인하세요.</span></div><article className="resume-paper resume-page-guides mx-auto w-full max-w-[210mm] bg-white text-slate-950 shadow-xl"><div className="resume-paper-inner min-h-[297mm] px-[18mm] py-[16mm]"><ResumeEditorHeader company={active?.company || activeProfile.name} documentName={active?.name || `${activeProfile.name} 이력서`} role={resolveDocumentRole(activeProfile, active)} /><p className="resume-reorder-help mb-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><GripVertical className="h-3.5 w-3.5" /> 핸들을 끌어 현재 단계의 섹션 순서를 바꿀 수 있습니다.</p><Reorder.Group axis="y" className="resume-print-sections grid gap-7" onReorder={(sectionOrder) => setState((current) => active ? updateSectionOrder(current, active.id, sectionOrder) : updateRoleProfileSectionOrder(current, activeProfile.id, sectionOrder))} values={orderedSections.map((section) => section.id)}>{orderedSections.map((section) => {
             const resolved = resolveSection(section, activeProfile, active);
             const title = resolveSectionTitle(section, activeProfile, active);
             const roleCustom = activeProfile.customSections.some((item) => item.id === section.id);
@@ -346,7 +349,7 @@ function HiddenSection({ dragControls, onShow, section }: { dragControls: DragCo
 function DocumentSection({ section, content, relatedWorkItems, source, onHide, onReset, resetLabel, onEdit, onItems, onPromote, onDelete, deletePending, dragControls }: { section: ResumeSection; content: SectionContent; relatedWorkItems: ItemContent[]; source: "shared" | "role" | "document"; onHide?: () => void; onReset?: () => void; resetLabel: string; onEdit: () => void; onItems?: () => void; onPromote?: () => void; onDelete?: () => void; deletePending?: boolean; dragControls: DragControls }) {
   const sourceLabel = source === "shared" ? "공통 정보" : source === "role" ? "직군 이력서" : "지원 버전 맞춤";
   const hasMoreActions = Boolean(onReset || onItems || onPromote || onDelete);
-  return <div><div className="resume-section-controls mb-2 flex items-center justify-between gap-2 border border-dashed border-slate-300 bg-slate-50 p-2"><span className="flex min-w-0 items-center gap-2"><DragHandle dragControls={dragControls} title={section.title} /><span className={cx("truncate border px-2 py-1 text-[10px] font-extrabold", source === "document" ? "border-orange-300 bg-orange-50 text-orange-700" : source === "role" ? "border-primary/30 bg-primary/5 text-primary" : "border-slate-300 bg-white text-slate-600")}>{section.custom ? "현재 단계 전용" : sourceLabel}</span></span><div className="flex shrink-0 items-center gap-1">{onHide && <button aria-label={`${section.title} 섹션 숨기기`} className="grid h-10 w-10 place-items-center border border-slate-300 bg-white text-slate-500 hover:border-primary hover:text-primary sm:h-8 sm:w-8" onClick={onHide} title="섹션 숨기기"><EyeOff className="h-4 w-4" /></button>}<button className="inline-flex h-10 items-center gap-2 border border-slate-400 bg-white px-3 text-xs font-bold hover:border-primary hover:text-primary sm:h-8" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /> 편집</button>{hasMoreActions && <details className="relative"><summary aria-label={`${section.title} 섹션 더보기`} className="grid h-10 w-10 cursor-pointer list-none place-items-center border border-slate-300 bg-white sm:h-8 sm:w-8"><MoreHorizontal className="h-4 w-4" /></summary><div className="absolute right-0 z-40 mt-1 grid w-60 gap-3 border border-slate-300 bg-white p-3 text-slate-700 shadow-xl">{onReset && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onReset}><RotateCcw className="mr-1 inline h-3.5 w-3.5" /> {resetLabel}</button>}{onItems && <button className="h-9 border border-orange-300 bg-white px-2 text-xs font-bold text-orange-700" onClick={onItems}>{section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</button>}{onPromote && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onPromote}><LayoutTemplate className="mr-1 inline h-3.5 w-3.5" /> 공통 섹션으로 전환</button>}{onDelete && <button aria-label={deletePending ? `${section.title} 섹션 삭제 확인` : `${section.title} 섹션 삭제`} className="h-9 border border-red-200 bg-white px-2 text-xs font-bold text-red-600" onClick={onDelete}>{deletePending ? "정말 삭제" : "섹션 삭제"}</button>}</div></details>}</div></div><ResumePrintableSection currentMonth={currentLocalMonth()} relatedWorkItems={relatedWorkItems} section={{ ...section, content, layout: section.layout ?? "standard" }} /></div>;
+  return <div><div className="resume-section-controls mb-2 flex items-center justify-between gap-2 border border-dashed border-slate-300 bg-slate-50 p-2"><span className="flex min-w-0 items-center gap-2"><DragHandle dragControls={dragControls} title={section.title} /><span className={cx("truncate border px-2 py-1 text-[10px] font-extrabold", source === "document" ? "border-orange-300 bg-orange-50 text-orange-700" : source === "role" ? "border-primary/30 bg-primary/5 text-primary" : "border-slate-300 bg-white text-slate-600")}>{section.custom ? "현재 단계 전용" : sourceLabel}</span></span><div className="flex shrink-0 items-center gap-1">{onHide && <button aria-label={`${section.title} 섹션 숨기기`} className="grid h-10 w-10 place-items-center border border-slate-300 bg-white text-slate-500 hover:border-primary hover:text-primary sm:h-8 sm:w-8" onClick={onHide} title="섹션 숨기기"><EyeOff className="h-4 w-4" /></button>}<button className="inline-flex h-10 items-center gap-2 border border-slate-400 bg-white px-3 text-xs font-bold hover:border-primary hover:text-primary sm:h-8" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /> 편집</button>{hasMoreActions && <details className="relative"><summary aria-label={`${section.title} 섹션 더보기`} className="grid h-10 w-10 cursor-pointer list-none place-items-center border border-slate-300 bg-white sm:h-8 sm:w-8"><MoreHorizontal className="h-4 w-4" /></summary><div className="absolute right-0 z-40 mt-1 grid w-60 gap-3 border border-slate-300 bg-white p-3 text-slate-700 shadow-xl">{onReset && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onReset}><RotateCcw className="mr-1 inline h-3.5 w-3.5" /> {resetLabel}</button>}{onItems && <button className="h-9 border border-orange-300 bg-white px-2 text-xs font-bold text-orange-700" onClick={onItems}>{section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</button>}{onPromote && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onPromote}><LayoutTemplate className="mr-1 inline h-3.5 w-3.5" /> 공통 섹션으로 전환</button>}{onDelete && <button aria-label={deletePending ? `${section.title} 섹션 삭제 확인` : `${section.title} 섹션 삭제`} className="h-9 border border-red-200 bg-white px-2 text-xs font-bold text-red-600" onClick={onDelete}>{deletePending ? "정말 삭제" : "섹션 삭제"}</button>}</div></details>}</div></div><ResumeEditorSection currentMonth={currentLocalMonth()} relatedWorkItems={relatedWorkItems} section={{ ...section, content, layout: section.layout ?? "standard" }} /></div>;
 }
 
 

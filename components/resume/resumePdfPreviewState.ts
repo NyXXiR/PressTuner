@@ -1,19 +1,17 @@
 export type ResumePdfPreviewState = {
-  status: "loading" | "ready" | "error" | "printing";
-  generation: number;
+  status: "generating" | "ready" | "error";
+  attemptId: number;
   pageCount: number | null;
   error: string | null;
 };
 
 export type ResumePdfPreviewAction =
-  | { type: "ready"; generation: number; pageCount: number }
-  | { type: "error"; generation: number; error: string }
-  | { type: "retry" }
-  | { type: "print" }
-  | { type: "print-finished" };
+  | { type: "ready"; attemptId: number; pageCount: number }
+  | { type: "error"; attemptId: number; error: string }
+  | { type: "retry" };
 
-export function createResumePdfPreviewState(generation = 1): ResumePdfPreviewState {
-  return { status: "loading", generation, pageCount: null, error: null };
+export function createResumePdfPreviewState(attemptId = 1): ResumePdfPreviewState {
+  return { status: "generating", attemptId, pageCount: null, error: null };
 }
 
 export function resumePdfPreviewReducer(
@@ -21,21 +19,13 @@ export function resumePdfPreviewReducer(
   action: ResumePdfPreviewAction,
 ): ResumePdfPreviewState {
   if (action.type === "retry") {
-    return state.status === "error"
-      ? createResumePdfPreviewState(state.generation + 1)
-      : state;
+    return createResumePdfPreviewState(state.attemptId + 1);
   }
-  if (action.type === "print") {
-    return state.status === "ready" ? { ...state, status: "printing" } : state;
-  }
-  if (action.type === "print-finished") {
-    return state.status === "printing" ? { ...state, status: "ready" } : state;
-  }
-  if (state.status !== "loading" || action.generation !== state.generation) return state;
+  if (state.status !== "generating" || action.attemptId !== state.attemptId) return state;
   if (action.type === "ready") {
     return Number.isInteger(action.pageCount) && action.pageCount > 0
-      ? { status: "ready", generation: state.generation, pageCount: action.pageCount, error: null }
-      : { status: "error", generation: state.generation, pageCount: null, error: "Invalid generated page count" };
+      ? { status: "ready", attemptId: state.attemptId, pageCount: action.pageCount, error: null }
+      : { status: "error", attemptId: state.attemptId, pageCount: null, error: "Invalid generated page count" };
   }
-  return { status: "error", generation: state.generation, pageCount: null, error: action.error };
+  return { status: "error", attemptId: state.attemptId, pageCount: null, error: action.error };
 }
