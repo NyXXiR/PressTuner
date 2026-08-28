@@ -36,9 +36,9 @@ function estimatedGlyphWidth(character: string, fontSize: number) {
   return fontSize * 0.45;
 }
 
-function withSimpleLineWrap(text: string, fontSize: number, layout: ResumePdfSection["layout"]) {
+function withSimpleLineWrap(text: string, fontSize: number, layout: ResumePdfSection["layout"], width?: number) {
   const horizontalInset = layout === "cards" ? mm(8) : 0;
-  const availableWidth = mm(RESUME_PDF_CONTENT_WIDTH_MM) - horizontalInset - 1;
+  const availableWidth = width ?? mm(RESUME_PDF_CONTENT_WIDTH_MM) - horizontalInset - 1;
   return text.replace(UNINTERRUPTED_TEXT, (run) => {
     let lineWidth = 0;
     let wrapped = "";
@@ -87,10 +87,10 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   identityCopy: { flexGrow: 1, flexShrink: 1 },
   identityHeading: { marginBottom: mm(3) },
   name: { fontSize: 25, fontWeight: 800, letterSpacing: -1 },
-  contactGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: mm(5), rowGap: mm(2) },
-  contactItem: { width: "47%" },
-  contactLabel: { color: "#94a3b8", fontSize: 6.5, fontWeight: 800, letterSpacing: 0.7, marginBottom: mm(0.4) },
-  contactValue: { color: "#334155", fontSize: 8.5, lineHeight: 1.4 },
+  contactGrid: { gap: mm(1.5) },
+  contactItem: { flexDirection: "row", alignItems: "flex-start", gap: mm(3) },
+  contactLabel: { width: mm(18), flexShrink: 0, color: "#94a3b8", fontSize: 6.5, fontWeight: 800, letterSpacing: 0.7, paddingTop: mm(0.6) },
+  contactValue: { flexGrow: 1, flexShrink: 1, color: "#334155", fontSize: 8.5, lineHeight: 1.4 },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(3), paddingTop: mm(2), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: 8 },
   photo: { width: mm(25), height: mm(33), objectFit: "cover", borderWidth: mm(0.3), borderColor: "#cbd5e1" },
   empty: { color: "#94a3b8", fontSize: 9 },
@@ -153,6 +153,7 @@ function IdentitySection({ section }: { section: Extract<ResumePdfSection, { kin
     ...content.links.filter(Boolean).map((value) => ({ label: "LINK", value })),
   ].filter(Boolean) as Array<{ label: string; value: string }>;
   const facts = [content.birthDate && `생년월일 ${content.birthDate}`, content.gender && `성별 ${content.gender}`].filter(Boolean) as string[];
+  const contactValueWidth = mm(RESUME_PDF_CONTENT_WIDTH_MM - (content.photo ? 32 : 0) - 21);
   // eslint-disable-next-line jsx-a11y/alt-text -- React PDF's Image primitive has no HTML alt prop.
   const photo = content.photo ? <Image src={content.photo} style={styles.photo} /> : null;
   return <View style={styles.identity} wrap={false}>
@@ -160,7 +161,7 @@ function IdentitySection({ section }: { section: Extract<ResumePdfSection, { kin
       <View style={styles.identityHeading}>
         <Text style={styles.name}>{content.name || "이름 미입력"}</Text>
       </View>
-      {contacts.length ? <View style={styles.contactGrid}>{contacts.map((contact, index) => <View key={`${contact.label}-${contact.value}-${index}`} style={styles.contactItem}><Text style={styles.contactLabel}>{contact.label}</Text><Text style={styles.contactValue}>{contact.value}</Text></View>)}</View> : null}
+      {contacts.length ? <View style={styles.contactGrid}>{contacts.map((contact, index) => <View key={`${contact.label}-${contact.value}-${index}`} style={styles.contactItem}><Text style={styles.contactLabel}>{contact.label}</Text><Text style={styles.contactValue}>{withSimpleLineWrap(contact.value, 8.5, section.layout, contactValueWidth)}</Text></View>)}</View> : null}
       {facts.length ? <View style={styles.facts}>{facts.map((fact) => <Text key={fact}>{fact}</Text>)}</View> : null}
     </View>
     {photo}

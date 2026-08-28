@@ -120,6 +120,36 @@ test("identity facts rule keeps a safe vertical gap below the name", { timeout: 
   }
 });
 
+test("long identity contacts wrap before the profile photo and page margin", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.sections = snapshot.sections.filter((section) => section.id === "profile");
+  const profile = snapshot.sections[0];
+  assert.equal(profile?.kind, "identity");
+  if (profile?.kind !== "identity") return;
+  profile.content.email = `very-long-address-${"x".repeat(80)}@example.com`;
+  profile.content.links = [`https://portfolio.example.com/${"long-path-".repeat(18)}`];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const page = await pdf.getPage(1);
+    const content = await page.getTextContent();
+    const textItems = content.items.filter((item) => "str" in item);
+    const name = textItems.find((item) => item.str === "홍길동");
+    const facts = textItems.find((item) => item.str === "생년월일 1990-01-02");
+    assert.ok(name && facts);
+    const contacts = textItems.filter((item) => item.transform[5] < name.transform[5] && item.transform[5] > facts.transform[5]);
+    assert.ok(contacts.some((item) => item.str.includes("very-long-address")));
+    assert.ok(contacts.some((item) => item.str.includes("portfolio.example.com")));
+    const photoLeft = points(A4_WIDTH_MM - RESUME_PAGE_MARGIN_RIGHT_MM - 25 - 7);
+    for (const item of contacts) {
+      assert.ok(item.transform[4] + item.width <= photoLeft + 2, `identity contact crossed into the photo column: ${item.str}`);
+    }
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("highlight sections render two bordered cards on the same PDF row", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   snapshot.sections = [{
