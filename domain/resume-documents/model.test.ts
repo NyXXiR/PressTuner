@@ -15,6 +15,7 @@ import {
   deleteSharedSection,
   duplicateVariant,
   formatItemPeriod,
+  inspectExperienceBrickSync,
   inspectResumeReadiness,
   isItemEndMonthEnabled,
   linkExperienceBricks,
@@ -953,6 +954,29 @@ test("bulk brick synchronization is deterministic, non-destructive, and refreshe
   assert.equal(projectItems.at(-1)?.isCurrent, true);
   assert.equal(projectItems.at(-1)?.endMonthEnabled, false);
   assert.deepEqual(linkExperienceBricks(synced, bricks), synced);
+});
+
+test("experience brick sync can be inspected and selectively applied before changing the document", () => {
+  const original = createResumeDocumentSeed();
+  const work = { id: "brick-work", title: "플랫폼 개발", content: "기존 원문", organization: "A사", roleTitle: "개발", experienceType: "WORK", startDate: null, endDate: null, isCurrent: false, period: null, tags: [] };
+  const project = { id: "brick-project", title: "배포 개선", content: "배포 시간을 단축", organization: "A사", roleTitle: null, experienceType: "PROJECT", startDate: null, endDate: null, isCurrent: false, period: null, tags: [] };
+
+  assert.deepEqual(inspectExperienceBrickSync(original, [work, project]).map((change) => change.status), ["new", "new"]);
+
+  const withWork = linkExperienceBricks(original, [work]);
+  const changedWork = { ...work, content: "새 원문으로 교체" };
+  const preview = inspectExperienceBrickSync(withWork, [changedWork, project]);
+  assert.equal(preview[0]?.status, "update");
+  assert.equal(preview[0]?.current?.body, "기존 원문");
+  assert.equal(preview[0]?.next?.body, "새 원문으로 교체");
+  assert.equal(preview[1]?.status, "new");
+
+  const projectOnly = linkExperienceBricks(withWork, [project]);
+  const workItem = (projectOnly.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items.find((item) => item.source?.id === work.id);
+  const projectItem = (projectOnly.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent).items.find((item) => item.source?.id === project.id);
+  assert.equal(workItem?.body, "기존 원문");
+  assert.equal(projectItem?.body, "배포 시간을 단축");
+  assert.equal(inspectExperienceBrickSync(projectOnly, [work, project]).every((change) => change.status === "unchanged"), true);
 });
 
 test("repeated brick syncs preserve independent role and support item tailoring", () => {

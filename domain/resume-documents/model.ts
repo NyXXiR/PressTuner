@@ -626,6 +626,46 @@ export function linkExperienceBricks(state: ResumeDocumentState, bricks: Experie
   };
 }
 
+export type ExperienceBrickSyncChange = {
+  brick: ExperienceBrickReference;
+  targetSectionId: string;
+  status: "new" | "update" | "unchanged" | "unavailable";
+  current?: ItemContent;
+  next?: ItemContent;
+};
+
+export function inspectExperienceBrickSync(
+  state: ResumeDocumentState,
+  bricks: ExperienceBrickReference[],
+): ExperienceBrickSyncChange[] {
+  const unique = [...new Map(bricks.filter((brick) => brick.id).map((brick) => [brick.id, brick])).values()];
+  const synchronized = linkExperienceBricks(state, unique);
+  const sourceItems = (document: ResumeDocumentState) => new Map(
+    document.sharedSections
+      .filter((section) => ["experience", "projects", "education", "credentials"].includes(section.id) && isItemsContent(section.content))
+      .flatMap((section) => (section.content as ItemsContent).items)
+      .filter((item) => item.source?.type === "experience-brick")
+      .map((item) => [item.source!.id, item] as const),
+  );
+  const currentBySourceId = sourceItems(state);
+  const nextBySourceId = sourceItems(synchronized);
+  const availableSectionIds = new Set(state.sharedSections.map((section) => section.id));
+
+  return unique.map((brick) => {
+    const targetSectionId = brickTargetSectionId(brick);
+    const current = currentBySourceId.get(brick.id);
+    const next = nextBySourceId.get(brick.id);
+    const status = !availableSectionIds.has(targetSectionId) || !next
+      ? "unavailable" as const
+      : !current
+        ? "new" as const
+        : JSON.stringify(current) === JSON.stringify(next)
+          ? "unchanged" as const
+          : "update" as const;
+    return { brick, targetSectionId, status, current, next };
+  });
+}
+
 function brickTargetSectionId(brick: ExperienceBrickReference) {
   if (brick.experienceType === "WORK") return "experience";
   if (brick.experienceType === "EDUCATION") return "education";

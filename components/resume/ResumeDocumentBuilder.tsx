@@ -19,6 +19,7 @@ import {
   deleteSharedSection,
   duplicateVariant,
   formatItemPeriod,
+  inspectExperienceBrickSync,
   inspectResumeReadiness,
   linkExperienceBricks,
   moveSectionInOrder,
@@ -150,7 +151,6 @@ const currentLocalMonth = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 };
 const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
-const acceptsExperienceBricks = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
 const defaultItemKind = (sectionId: string) => resolveResumeItemKind({}, sectionId);
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 
@@ -171,6 +171,7 @@ export function ResumeDocumentBuilder() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [reorderAnnouncement, setReorderAnnouncement] = useState("");
   const [pdfSnapshot, setPdfSnapshot] = useState<ResumePdfSnapshot | null>(null);
+  const experienceSyncUndoRef = useRef<ResumeDocumentState | null>(null);
   useEffect(() => {
     if (!draft && !insertAfterId && !experienceDialogOpen && !importPanelOpen && !readinessOpen && !sharedSectionDialogOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setExperienceDialogOpen(false); setImportPanelOpen(false); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
@@ -222,7 +223,16 @@ export function ResumeDocumentBuilder() {
     return counts;
   }, {}), [readinessIssues]);
   const syncExperienceBricks = useCallback((items: ExperienceBrickReference[]) => {
-    setState((current) => linkExperienceBricks(current, items));
+    setState((current) => {
+      experienceSyncUndoRef.current = current;
+      return linkExperienceBricks(current, items);
+    });
+  }, [setState]);
+  const undoExperienceBrickSync = useCallback(() => {
+    const previous = experienceSyncUndoRef.current;
+    if (!previous) return;
+    experienceSyncUndoRef.current = null;
+    setState(previous);
   }, [setState]);
   const applyApprovedImport = useCallback((command: ResumeDocumentImportCommand) => {
     setState((current) => applyResumeImportCommand(current, command));
@@ -337,7 +347,7 @@ export function ResumeDocumentBuilder() {
         </div>
       </header>
 
-      {view === "shared" ? <SharedManager profiles={state.roleProfiles} sections={state.sharedSections} onAdd={() => { prepareNewSection(); setSharedSectionDialogOpen(true); }} onDelete={(section) => window.confirm(`‘${section.title}’ 공통 섹션을 모든 직군과 지원 버전에서 삭제할까요?`) && setState((current) => deleteSharedSection(current, section.id))} onEdit={(section) => openEditor("shared", section, section.content)} onLinkExperience={() => setExperienceDialogOpen(true)} onOrder={(sectionOrder) => setState((current) => updateSharedSectionOrder(current, sectionOrder))} /> : (
+      {view === "shared" ? <SharedManager sections={state.sharedSections} onAdd={() => { prepareNewSection(); setSharedSectionDialogOpen(true); }} onDelete={(section) => window.confirm(`‘${section.title}’ 공통 섹션을 모든 직군과 지원 버전에서 삭제할까요?`) && setState((current) => deleteSharedSection(current, section.id))} onEdit={(section) => openEditor("shared", section, section.content)} onLinkExperience={() => setExperienceDialogOpen(true)} onOrder={(sectionOrder) => setState((current) => updateSharedSectionOrder(current, sectionOrder))} /> : (
         <div className="resume-builder-layout mt-6 grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
           <button aria-controls="resume-role-settings" aria-expanded={mobileSettingsOpen} className="resume-builder-chrome resume-mobile-settings-toggle flex h-12 w-full items-center justify-between border border-primary/30 bg-primary/5 px-4 text-sm font-extrabold text-primary xl:hidden" onClick={() => setMobileSettingsOpen((open) => !open)} type="button"><span className="inline-flex items-center gap-2"><Settings2 className="h-4 w-4" /> 직군·지원 버전 설정</span><span className="text-xs">{mobileSettingsOpen ? "접기" : "열기"}</span></button>
           <aside className={cx("resume-builder-chrome border border-border bg-card p-5 xl:sticky xl:top-24 xl:block", mobileSettingsOpen ? "block" : "hidden")} id="resume-role-settings">
@@ -387,7 +397,7 @@ export function ResumeDocumentBuilder() {
       {insertAfterId && <AddSectionDialog afterTitle={orderedSections.find((section) => section.id === insertAfterId)?.title ?? "선택한 섹션"} templateId={newSectionTemplateId} title={newSectionTitle} onTemplate={selectNewSectionTemplate} onTitle={setNewSectionTitle} onCancel={() => setInsertAfterId(null)} onAdd={createCustom} />}
       {sharedSectionDialogOpen && <AddSectionDialog afterTitle="공통 정보 마지막" templateId={newSectionTemplateId} title={newSectionTitle} onTemplate={selectNewSectionTemplate} onTitle={setNewSectionTitle} onCancel={() => setSharedSectionDialogOpen(false)} onAdd={createShared} />}
       {itemEditor && <ItemTailoringDialog state={state} profileId={activeProfile.id} variantId={itemEditor.scope === "document" ? active?.id : undefined} scope={itemEditor.scope} section={itemEditor.section} workItems={resolvedWorkItems} onSave={setState} onClose={() => setItemEditor(null)} onEditParent={() => { const parentContent = itemEditor.scope === "role" ? itemEditor.section.content : resolveSection(itemEditor.section, activeProfile).content; setItemEditor(null); openEditor(itemEditor.scope === "role" ? "shared" : "role", itemEditor.section, parentContent); }} onEditCurrent={() => { const content = resolveSection(itemEditor.section, activeProfile, itemEditor.scope === "document" ? active : undefined).content; setItemEditor(null); openEditor(itemEditor.scope === "document" ? "variant" : "role", itemEditor.section, content); }} />}
-      {experienceDialogOpen && <ExperienceBrickSyncDialog onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} />}
+      {experienceDialogOpen && <ExperienceBrickSyncDialog state={state} onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} onUndo={undoExperienceBrickSync} />}
       {importPanelOpen && <ResumeDocumentImportPanel commonSections={state.sharedSections} sections={orderedSections} workItems={resolvedWorkItems} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} onIssue={focusReadinessIssue} />}
       {pdfSnapshot && <ResumePdfPreviewDialog onClose={() => setPdfSnapshot(null)} snapshot={pdfSnapshot} />}
@@ -444,13 +454,13 @@ function contentSummary(section: ResumeSection) {
   if (section.kind === "tags") return (section.content as TagsContent).items.join(" · ");
   return (section.content as ItemsContent).items.map((item) => [formatItemPeriod(item), item.title, item.subtitle].filter(Boolean).join(" · ")).join("\n");
 }
-function SharedManager({ sections, profiles, onAdd, onDelete, onEdit, onLinkExperience, onOrder }: { sections: ResumeSection[]; profiles: ResumeRoleProfile[]; onAdd: () => void; onDelete: (section: ResumeSection) => void; onEdit: (section: ResumeSection) => void; onLinkExperience: () => void; onOrder: (sectionOrder: string[]) => void }) {
-  return <section className="mt-7"><div className="border border-primary/25 bg-primary/5 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-extrabold">공통 정보 · PDF 기본 순서</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">회사, 기간, 성과처럼 직군이 달라도 변하지 않는 사실을 관리합니다. 이 순서는 별도로 조정하지 않은 모든 직군 이력서의 PDF에 그대로 적용됩니다.</p></div><button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={onAdd}><Plus className="h-4 w-4" /> 공통 섹션 추가</button></div><p className="mt-4 inline-flex items-center gap-2 border border-primary/30 bg-background px-3 py-2 text-xs font-extrabold text-primary"><GripVertical className="h-4 w-4" /> 각 항목의 핸들을 위아래로 끌어 PDF 순서를 변경하세요.</p></div><Reorder.Group axis="y" className="mt-5 grid gap-3" onReorder={onOrder} values={sections.map((section) => section.id)}>{sections.map((section, index) => { const overridingProfiles = profiles.filter((profile) => { const setting = profile.settings[section.id]; return setting?.mode === "override" || setting?.mode === "hidden"; }); return <SharedSortableCard index={index} key={section.id} onDelete={() => onDelete(section)} onEdit={() => onEdit(section)} onLinkExperience={acceptsExperienceBricks(section.id) ? onLinkExperience : undefined} overridingProfiles={overridingProfiles} section={section} />; })}</Reorder.Group></section>;
+function SharedManager({ sections, onAdd, onDelete, onEdit, onLinkExperience, onOrder }: { sections: ResumeSection[]; onAdd: () => void; onDelete: (section: ResumeSection) => void; onEdit: (section: ResumeSection) => void; onLinkExperience: () => void; onOrder: (sectionOrder: string[]) => void }) {
+  return <section className="mt-7"><div className="border border-primary/25 bg-primary/5 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-extrabold">공통 정보 · PDF 기본 순서</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">회사, 기간, 성과처럼 직군이 달라도 변하지 않는 사실을 관리합니다. 이 순서는 별도로 조정하지 않은 모든 직군 이력서의 PDF에 그대로 적용됩니다.</p></div><button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={onAdd}><Plus className="h-4 w-4" /> 공통 섹션 추가</button></div><p className="mt-4 inline-flex items-center gap-2 border border-primary/30 bg-background px-3 py-2 text-xs font-extrabold text-primary"><GripVertical className="h-4 w-4" /> 각 항목의 핸들을 위아래로 끌어 PDF 순서를 변경하세요.</p><details className="mt-4 max-w-xl border border-border bg-background"><summary className="cursor-pointer px-3 py-2 text-xs font-bold text-muted-foreground">공통 정보 관리 도구</summary><div className="border-t border-border p-3"><p className="text-[11px] leading-5 text-muted-foreground">확정 경험은 먼저 변경 내용을 검토하고 선택한 항목만 가져옵니다.</p><button className="mt-2 inline-flex h-9 items-center gap-2 border border-border bg-background px-3 text-xs font-bold hover:border-primary hover:text-primary" onClick={onLinkExperience} type="button"><FileUp className="h-3.5 w-3.5" /> 확정 경험 검토·가져오기</button></div></details></div><Reorder.Group axis="y" className="mt-5 grid gap-3" onReorder={onOrder} values={sections.map((section) => section.id)}>{sections.map((section, index) => <SharedSortableCard index={index} key={section.id} onDelete={() => onDelete(section)} onEdit={() => onEdit(section)} section={section} />)}</Reorder.Group></section>;
 }
 
-function SharedSortableCard({ section, index, overridingProfiles, onDelete, onEdit, onLinkExperience }: { section: ResumeSection; index: number; overridingProfiles: ResumeRoleProfile[]; onDelete: () => void; onEdit: () => void; onLinkExperience?: () => void }) {
+function SharedSortableCard({ section, index, onDelete, onEdit }: { section: ResumeSection; index: number; onDelete: () => void; onEdit: () => void }) {
   const dragControls = useDragControls();
-  return <Reorder.Item className="border border-border bg-card" dragControls={dragControls} dragListener={false} value={section.id} whileDrag={{ scale: 1.01, zIndex: 20 }}><article className="grid items-center gap-4 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]"><button aria-label={`${section.title} 공통 정보 순서 이동`} className="grid h-12 w-12 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-5 w-5" /></button><span className="grid h-12 w-12 place-items-center bg-foreground text-sm font-black text-background"><span><small className="block text-[8px] font-bold tracking-widest">PDF</small>{String(index + 1).padStart(2, "0")}</span></span><div className="min-w-0"><p className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-primary"><LayoutTemplate className="h-3.5 w-3.5" /> 공통 정보</p><h3 className="mt-1 text-lg font-extrabold" data-common-section-title>{section.title}</h3><p className="mt-1 line-clamp-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{contentSummary(section) || "아직 작성된 내용이 없습니다."}</p></div><div className="flex flex-wrap gap-2 sm:justify-end"><button className="inline-flex h-10 items-center justify-center gap-2 border border-border bg-background px-3 text-xs font-bold hover:text-primary" onClick={onEdit}><Edit3 className="h-4 w-4" /> 내용 편집</button>{onLinkExperience && <button className="inline-flex h-10 items-center justify-center gap-2 border border-primary/40 bg-primary/5 px-3 text-xs font-bold text-primary" onClick={onLinkExperience}><Plus className="h-4 w-4" /> 확정 경험 일괄 가져오기·동기화</button>}<button aria-label={`${section.title} 공통 섹션 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 bg-background text-red-600" onClick={onDelete}><Trash2 className="h-4 w-4" /></button></div></article>{overridingProfiles.length > 0 && <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-950"><p className="text-xs font-extrabold">{overridingProfiles.map((profile) => profile.name).join(", ")}에서는 직군 맞춤 상태라 공통 정보 변경이 반영되지 않습니다. 되돌리기는 해당 이력서 섹션의 더보기에서 할 수 있습니다.</p></div>}</Reorder.Item>;
+  return <Reorder.Item className="border border-border bg-card" dragControls={dragControls} dragListener={false} value={section.id} whileDrag={{ scale: 1.01, zIndex: 20 }}><article className="grid items-center gap-4 p-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]"><button aria-label={`${section.title} 공통 정보 순서 이동`} className="grid h-12 w-12 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-5 w-5" /></button><span className="grid h-12 w-12 place-items-center bg-foreground text-sm font-black text-background"><span><small className="block text-[8px] font-bold tracking-widest">PDF</small>{String(index + 1).padStart(2, "0")}</span></span><div className="min-w-0"><p className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-primary"><LayoutTemplate className="h-3.5 w-3.5" /> 공통 정보</p><h3 className="mt-1 text-lg font-extrabold" data-common-section-title>{section.title}</h3><p className="mt-1 line-clamp-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{contentSummary(section) || "아직 작성된 내용이 없습니다."}</p></div><div className="flex flex-wrap gap-2 sm:justify-end"><button className="inline-flex h-10 items-center justify-center gap-2 border border-border bg-background px-3 text-xs font-bold hover:text-primary" onClick={onEdit}><Edit3 className="h-4 w-4" /> 내용 편집</button><button aria-label={`${section.title} 공통 섹션 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 bg-background text-red-600" onClick={onDelete}><Trash2 className="h-4 w-4" /></button></div></article></Reorder.Item>;
 }
 
 export function RoleProfileManager({ profile, profiles, sections, onActive, onAdd, onDelete, onProfile, onSetting, onEdit, onItems }: { profile: ResumeRoleProfile; profiles: ResumeRoleProfile[]; sections: ResumeSection[]; onActive: (profileId: string) => void; onAdd: (name: string, roleTitle: string) => void; onDelete: () => void; onProfile: (patch: Partial<Pick<ResumeRoleProfile, "name" | "roleTitle">>) => void; onSetting: (sectionId: string, patch: Parameters<typeof updateRoleProfileSectionSetting>[3]) => void; onEdit: (section: ResumeSection) => void; onItems: (section: ResumeSection) => void }) {
@@ -1073,14 +1083,28 @@ function ItemTailoringDialog({ state, profileId, variantId, scope, section, work
   </section></div>;
 }
 
-function ExperienceBrickSyncDialog({ onClose, onSync }: { onClose: () => void; onSync: (bricks: ExperienceBrickReference[]) => void }) {
+function ExperienceBrickSyncDialog({ state, onClose, onSync, onUndo }: { state: ResumeDocumentState; onClose: () => void; onSync: (bricks: ExperienceBrickReference[]) => void; onUndo: () => void }) {
   const [attempt, setAttempt] = useState(0);
-  const [status, setStatus] = useState<"loading" | "success" | "empty" | "error">("loading");
-  const [syncedCount, setSyncedCount] = useState(0);
+  const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error" | "applied" | "reverted">("loading");
+  const [bricks, setBricks] = useState<ExperienceBrickReference[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [appliedCount, setAppliedCount] = useState(0);
+  const changes = useMemo(() => inspectExperienceBrickSync(state, bricks), [bricks, state]);
+  const newCount = changes.filter((change) => change.status === "new").length;
+  const updateCount = changes.filter((change) => change.status === "update").length;
+  const unchangedCount = changes.filter((change) => change.status === "unchanged").length;
+  const selectedSet = new Set(selectedIds);
+  const sectionLabels: Record<string, string> = {
+    experience: "경력",
+    projects: "경력 상세",
+    education: "학력",
+    credentials: "자격·수상",
+  };
 
   useEffect(() => {
     const controller = new AbortController();
     setStatus("loading");
+    setSelectedIds([]);
     const load = async () => {
       try {
         const response = await fetch("/api/resume/bricks/all", { cache: "no-store", signal: controller.signal });
@@ -1090,13 +1114,12 @@ function ExperienceBrickSyncDialog({ onClose, onSync }: { onClose: () => void; o
           : null;
         if (!response.ok || !items) throw new Error("invalid-response");
         if (items.length === 0) {
-          setSyncedCount(0);
+          setBricks([]);
           setStatus("empty");
           return;
         }
-        onSync(items);
-        setSyncedCount(items.length);
-        setStatus("success");
+        setBricks(items);
+        setStatus("ready");
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setStatus("error");
@@ -1104,9 +1127,41 @@ function ExperienceBrickSyncDialog({ onClose, onSync }: { onClose: () => void; o
     };
     void load();
     return () => controller.abort();
-  }, [attempt, onSync]);
+  }, [attempt]);
 
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="experience-sync-title" aria-modal="true" className="resume-dialog-panel my-auto w-full max-w-2xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">경력기술서 프로젝트 동기화</p><h2 className="mt-1 text-xl font-extrabold" id="experience-sync-title">확정 경험 일괄 가져오기</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">확정된 경력·프로젝트를 공통 섹션에 한 번에 동기화합니다. 수동 항목과 서버에서 사라진 기존 스냅샷은 삭제하지 않습니다.</p></div><button aria-label="경력 프로젝트 동기화 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header><div aria-live="polite" className="min-h-36 p-5">{status === "loading" && <p className="border border-primary/30 bg-primary/5 p-4 text-sm font-bold text-primary">확정 경험을 불러오는 중입니다…</p>}{status === "success" && <div className="border border-primary/30 bg-primary/5 p-4"><p className="font-extrabold">확정 경험 {syncedCount}개를 동기화했습니다.</p><p className="mt-2 text-xs leading-5 text-muted-foreground">각 직군·지원 이력서의 경험 선택·편집에서 순서, 재작성, 제외 여부를 따로 관리할 수 있습니다.</p></div>}{status === "empty" && <p className="border border-border bg-muted/30 p-4 text-sm font-bold">동기화할 확정 경험이 없습니다.</p>}{status === "error" && <div className="border border-red-200 bg-red-50 p-4 text-red-700"><p className="text-sm font-extrabold">경력 프로젝트를 불러오지 못했습니다.</p><p className="mt-1 text-xs">로그인 상태와 네트워크를 확인한 뒤 다시 시도해 주세요.</p><button className="mt-4 h-9 border border-red-300 bg-white px-3 text-xs font-bold" onClick={() => setAttempt((value) => value + 1)}>다시 시도</button></div>}</div><footer className="resume-dialog-footer flex justify-end border-t border-border bg-muted/30 p-4"><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={onClose}>닫기</button></footer></section></div>;
+  const toggle = (id: string, checked: boolean) => {
+    setSelectedIds((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id));
+  };
+  const applySelected = () => {
+    const selected = changes
+      .filter((change) => selectedSet.has(change.brick.id) && (change.status === "new" || change.status === "update"))
+      .map((change) => change.brick);
+    if (selected.length === 0) return;
+    onSync(selected);
+    setAppliedCount(selected.length);
+    setStatus("applied");
+  };
+  const undo = () => {
+    onUndo();
+    setStatus("reverted");
+  };
+
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="experience-sync-title" aria-modal="true" className="resume-dialog-panel my-auto flex max-h-[92vh] w-full max-w-4xl flex-col border border-border bg-background shadow-2xl" role="dialog">
+    <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">공통 정보 관리 도구</p><h2 className="mt-1 text-xl font-extrabold" id="experience-sync-title">확정 경험 검토·가져오기</h2><p className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">아직 아무 내용도 반영되지 않았습니다. 신규 항목과 기존 항목의 변경 내용을 확인하고 필요한 것만 선택하세요.</p></div><button aria-label="확정 경험 검토 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header>
+    <div aria-live="polite" className="resume-dialog-scroll min-h-36 flex-1 overflow-y-auto p-5">
+      {status === "loading" && <p className="border border-primary/30 bg-primary/5 p-4 text-sm font-bold text-primary">확정 경험의 변경 내용을 불러오는 중입니다…</p>}
+      {status === "empty" && <p className="border border-border bg-muted/30 p-4 text-sm font-bold">검토할 확정 경험이 없습니다.</p>}
+      {status === "error" && <div className="border border-red-200 bg-red-50 p-4 text-red-700"><p className="text-sm font-extrabold">확정 경험을 불러오지 못했습니다.</p><p className="mt-1 text-xs">로그인 상태와 네트워크를 확인한 뒤 다시 시도해 주세요.</p><button className="mt-4 h-9 border border-red-300 bg-white px-3 text-xs font-bold" onClick={() => setAttempt((value) => value + 1)}>다시 시도</button></div>}
+      {status === "ready" && <><div className="flex flex-wrap items-center justify-between gap-3 border border-border bg-muted/20 p-3"><p className="text-xs font-bold">신규 <strong className="text-primary">{newCount}</strong> · 기존 내용 갱신 <strong className="text-amber-700">{updateCount}</strong> · 변경 없음 {unchangedCount}</p><div className="flex gap-2"><button className="h-8 border border-border bg-background px-3 text-[11px] font-bold disabled:opacity-40" disabled={newCount === 0} onClick={() => setSelectedIds(changes.filter((change) => change.status === "new").map((change) => change.brick.id))} type="button">신규만 선택</button><button className="h-8 border border-border bg-background px-3 text-[11px] font-bold" onClick={() => setSelectedIds([])} type="button">선택 해제</button></div></div><div className="mt-3 grid gap-3">{changes.map((change) => {
+        const selectable = change.status === "new" || change.status === "update";
+        const statusLabel = change.status === "new" ? "신규 추가" : change.status === "update" ? "기존 내용 갱신" : change.status === "unchanged" ? "변경 없음" : "대상 섹션 없음";
+        return <label className={cx("grid gap-3 border p-4", change.status === "update" ? "border-amber-300 bg-amber-50/40" : change.status === "new" ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20 opacity-70")} key={change.brick.id}><span className="flex items-start gap-3"><input checked={selectedSet.has(change.brick.id)} className="mt-1 h-4 w-4" disabled={!selectable} type="checkbox" onChange={(event) => toggle(change.brick.id, event.target.checked)} /><span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><strong className="text-sm">{change.next?.title ?? change.brick.title}</strong><span className="border border-current px-1.5 py-0.5 text-[9px] font-extrabold">{statusLabel}</span><span className="text-[10px] font-bold text-muted-foreground">→ {sectionLabels[change.targetSectionId] ?? change.targetSectionId}</span></span><span className="mt-1 block text-xs text-muted-foreground">{change.next?.subtitle || change.brick.organization || "소속 정보 없음"}</span></span></span>{change.status === "update" ? <span className="grid gap-2 sm:grid-cols-2"><span className="border border-border bg-background p-3"><small className="font-extrabold text-muted-foreground">현재 작성 내용</small><span className="mt-1 block whitespace-pre-line text-xs leading-5">{change.current?.body || "내용 없음"}</span></span><span className="border border-amber-300 bg-background p-3"><small className="font-extrabold text-amber-800">가져오면 바뀔 내용</small><span className="mt-1 block whitespace-pre-line text-xs leading-5">{change.next?.body || "내용 없음"}</span></span></span> : change.status === "new" ? <span className="block whitespace-pre-line border-t border-primary/20 pt-3 text-xs leading-5">{change.next?.body || "내용 없음"}</span> : null}</label>;
+      })}</div></>}
+      {status === "applied" && <div className="border border-primary/30 bg-primary/5 p-5"><p className="font-extrabold">선택한 확정 경험 {appliedCount}개를 반영했습니다.</p><p className="mt-2 text-xs leading-5 text-muted-foreground">이번 반영이 의도와 다르면 창을 닫기 전에 되돌릴 수 있습니다.</p><button className="mt-4 inline-flex h-9 items-center gap-2 border border-primary/40 bg-background px-3 text-xs font-bold text-primary" onClick={undo} type="button"><RotateCcw className="h-3.5 w-3.5" /> 이번 반영 되돌리기</button></div>}
+      {status === "reverted" && <div className="border border-border bg-muted/30 p-5"><p className="font-extrabold">이번 반영을 되돌렸습니다.</p><p className="mt-2 text-xs text-muted-foreground">창을 닫아 이전 문서 상태를 계속 편집할 수 있습니다.</p></div>}
+    </div>
+    <footer className="resume-dialog-footer flex shrink-0 justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onClose}>닫기</button>{status === "ready" && <button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedIds.length === 0} onClick={applySelected}>선택한 {selectedIds.length}개 반영</button>}</footer>
+  </section></div>;
 }
 
 function ReadinessDialog({ issues, onClose, onIssue }: { issues: ResumeReadinessIssue[]; onClose: () => void; onIssue: (issue: ResumeReadinessIssue) => void }) {

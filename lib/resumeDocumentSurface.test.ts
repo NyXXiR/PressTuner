@@ -195,11 +195,12 @@ test("resume browser fonts prefer WOFF2 and ship with long-lived immutable cachi
   assert.match(config, /public, max-age=31536000, immutable/);
 });
 
-test("common information explains role overrides without owning their reset action", async () => {
+test("common information stays concise while each resume owns its override reset", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /공통 정보 변경이 반영되지 않습니다/);
-  assert.match(source, /해당 이력서 섹션의 더보기/);
+  assert.doesNotMatch(source, /공통 정보 변경이 반영되지 않습니다/);
+  assert.doesNotMatch(source, /해당 이력서 섹션의 더보기/);
+  assert.match(source, /공통 정보로 되돌리기/);
   assert.doesNotMatch(source, /onResetRole/);
   assert.match(source, /공통 섹션 추가/);
   assert.match(source, /모든 직군과 지원 버전에서 삭제/);
@@ -277,14 +278,19 @@ test("eligibility is a dedicated normal section and owns the four moved facts", 
   assert.match(source, /eligibility[\s\S]*PDF 순서|PDF 순서[\s\S]*eligibility/);
 });
 
-test("confirmed experience bricks have accessible bulk sync states and retry", async () => {
+test("confirmed experience bricks require a selective review before sync and support one-step undo", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
   assert.match(source, /fetch\("\/api\/resume\/bricks\/all", \{ cache: "no-store"/);
   assert.match(source, /AbortController/);
   assert.match(source, /aria-live="polite"/);
-  for (const phrase of ["불러오는 중", "동기화했습니다", "동기화할 확정 경험이 없습니다", "다시 시도", "일괄 가져오기", "동기화"]) {
+  for (const phrase of ["변경 내용을 불러오는 중", "검토할 확정 경험이 없습니다", "다시 시도", "확정 경험 검토·가져오기", "신규만 선택", "기존 내용 갱신", "이번 반영 되돌리기"]) {
     assert.match(source, new RegExp(phrase));
   }
+  assert.match(source, /공통 정보 관리 도구/);
+  assert.match(source, /inspectExperienceBrickSync/);
+  assert.match(source, /onSync\(selected\)/);
+  assert.doesNotMatch(source, /onSync\(items\)/);
+  assert.doesNotMatch(source, /확정 경험 일괄 가져오기·동기화/);
   assert.match(source, /현재 (?:직군|지원) 이력서에서 제외/);
   assert.doesNotMatch(source, /로컬 경험 참조 추가/);
   assert.doesNotMatch(source, /태그\(쉼표 구분\)/);
