@@ -8,6 +8,7 @@ export type ResumePdfPreviewState = {
 export type ResumePdfPreviewAction =
   | { type: "ready"; attemptId: number; pageCount: number }
   | { type: "error"; attemptId: number; error: string }
+  | { type: "regenerate" }
   | { type: "retry" };
 
 export function createResumePdfPreviewState(attemptId = 1): ResumePdfPreviewState {
@@ -20,6 +21,9 @@ export function resumePdfPreviewReducer(
 ): ResumePdfPreviewState {
   if (action.type === "retry") {
     return createResumePdfPreviewState(state.attemptId + 1);
+  }
+  if (action.type === "regenerate") {
+    return { status: "generating", attemptId: state.attemptId + 1, pageCount: state.pageCount, error: null };
   }
   if (state.status !== "generating" || action.attemptId !== state.attemptId) return state;
   if (action.type === "ready") {

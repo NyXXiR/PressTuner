@@ -364,6 +364,31 @@ test("career detail sections use ample remaining space and may continue across l
   }
 });
 
+test("a manual section page break starts that section on the next PDF page", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.relatedWorkItems = [];
+  snapshot.sections = [
+    { id: "summary", title: "첫 페이지 소개", kind: "narrative", layout: "standard", content: { body: "첫 페이지에 남아야 하는 짧은 내용" } },
+    { id: "skills", title: "새 페이지 역량", kind: "narrative", layout: "standard", pageBreakBefore: true, content: { body: "수동 페이지 나누기 이후 내용" } },
+  ];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    assert.equal(pdf.numPages, 2);
+    const firstPage = await (await pdf.getPage(1)).getTextContent();
+    const secondPage = await (await pdf.getPage(2)).getTextContent();
+    const firstText = firstPage.items.map((item) => "str" in item ? item.str : "").join("");
+    const secondText = secondPage.items.map((item) => "str" in item ? item.str : "").join("");
+    assert.ok(firstText.includes("첫 페이지 소개"));
+    assert.ok(!firstText.includes("새 페이지 역량"));
+    assert.ok(secondText.includes("새 페이지 역량"));
+    assert.ok(secondText.includes("수동 페이지 나누기 이후 내용"));
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("section openings use the same protection when the current page remainder is too small", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   const filler = Array.from({ length: 36 }, (_, index) =>

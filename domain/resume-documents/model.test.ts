@@ -37,6 +37,7 @@ import {
   updateRoleProfileSectionOrder,
   updateRoleProfileSectionSetting,
   updateRoleCustomSection,
+  updateResumeSectionPageBreak,
   updateSectionOrder,
   updateSectionSetting,
   updateCustomSection,
@@ -608,6 +609,22 @@ test("page breaks inherit from a role and can be overridden by a support version
   const variant = withVariant.variants[0];
   const documentState = updateSectionSetting(withVariant, variant.id, "experience", { pageBreakBefore: false });
   assert.equal(resolveSection(section, documentState.roleProfiles[0], documentState.variants[0]).pageBreakBefore, false);
+});
+
+test("manual PDF page breaks update standard, role-custom, and support-custom sections in their current document", () => {
+  const { state, profile } = roleContext();
+  const roleBroken = updateResumeSectionPageBreak(state, profile.id, undefined, "experience", true);
+  assert.equal(roleBroken.roleProfiles[0].settings.experience.pageBreakBefore, true);
+
+  const roleCustom = addRoleCustomSection(roleBroken, profile.id, { title: "기타", kind: "tags" });
+  const roleCustomBroken = updateResumeSectionPageBreak(roleCustom.state, profile.id, undefined, roleCustom.section.id, true);
+  assert.equal(roleCustomBroken.roleProfiles[0].customSections.find((section) => section.id === roleCustom.section.id)?.pageBreakBefore, true);
+
+  const withVariant = createSupportVariant(roleCustomBroken, profile.id, { name: "지원본", company: "회사" });
+  const variant = withVariant.variants[0];
+  const supportCustom = addCustomSection(withVariant, variant.id, { title: "추가 성과", kind: "items" });
+  const supportCustomBroken = updateResumeSectionPageBreak(supportCustom.state, profile.id, variant.id, supportCustom.section.id, true);
+  assert.equal(supportCustomBroken.variants[0].customSections.find((section) => section.id === supportCustom.section.id)?.pageBreakBefore, true);
 });
 
 test("readiness inspection reports advisory identity, company, content, and period issues", () => {

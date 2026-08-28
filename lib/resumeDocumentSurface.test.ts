@@ -53,7 +53,11 @@ test("resume documents exposes simplified section actions and an exact PDF resou
   assert.match(source, /섹션 표시/);
   assert.doesNotMatch(source, /내용 출처/);
   assert.doesNotMatch(source, /표시 스타일/);
-  assert.doesNotMatch(source, /다음 페이지에서 시작/);
+  assert.match(dialog, /새 페이지에서 시작/);
+  assert.match(dialog, /페이지 나누기 모두 해제/);
+  assert.match(dialog, /onPageBreakBeforeChange/);
+  assert.match(source, /pageBreakBefore: resolved\.pageBreakBefore/);
+  assert.match(source, /setPdfSectionPageBreak/);
   assert.doesNotMatch(source, /resume-page-break/);
   assert.match(source, /ResumePdfPreviewDialog/);
   assert.match(source, /실제 페이지 구분은 PDF 미리보기/);

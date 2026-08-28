@@ -29,3 +29,13 @@ test("retry can replace a ready resource and invalid page counts fail closed", (
   assert.equal(invalid.status, "error");
   assert.match(invalid.error ?? "", /page/i);
 });
+
+test("regeneration keeps the last page count visible while a changed snapshot is generated", () => {
+  const ready = resumePdfPreviewReducer(createResumePdfPreviewState(), { type: "ready", attemptId: 1, pageCount: 2 });
+  assert.deepEqual(resumePdfPreviewReducer(ready, { type: "regenerate" }), {
+    status: "generating",
+    attemptId: 2,
+    pageCount: 2,
+    error: null,
+  });
+});

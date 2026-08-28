@@ -778,6 +778,19 @@ export function updateCustomSection(state: ResumeDocumentState, variantId: strin
   return { ...state, variants: state.variants.map((variant) => variant.id === variantId ? { ...variant, customSections: variant.customSections.map((section) => section.id === sectionId ? { ...section, ...patch } : section) } : variant) };
 }
 
+export function updateResumeSectionPageBreak(state: ResumeDocumentState, profileId: string, variantId: string | undefined, sectionId: string, pageBreakBefore: boolean) {
+  const profile = state.roleProfiles.find((item) => item.id === profileId);
+  if (!profile) return state;
+  if (variantId) {
+    const variant = state.variants.find((item) => item.id === variantId && item.roleProfileId === profileId);
+    if (!variant) return state;
+    if (variant.customSections.some((section) => section.id === sectionId)) return updateCustomSection(state, variantId, sectionId, { pageBreakBefore });
+    return updateSectionSetting(state, variantId, sectionId, { pageBreakBefore });
+  }
+  if (profile.customSections.some((section) => section.id === sectionId)) return updateRoleCustomSection(state, profileId, sectionId, { pageBreakBefore });
+  return updateRoleProfileSectionSetting(state, profileId, sectionId, { pageBreakBefore });
+}
+
 export function deleteCustomSection(state: ResumeDocumentState, variantId: string, sectionId: string) {
   return { ...state, variants: state.variants.map((variant) => variant.id === variantId ? { ...variant, customSections: variant.customSections.filter((section) => section.id !== sectionId), sectionOrder: variant.sectionOrder?.filter((id) => id !== sectionId) } : variant) };
 }

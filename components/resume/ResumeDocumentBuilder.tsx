@@ -42,6 +42,7 @@ import {
   updateRoleProfileSectionOrder,
   updateSectionOrder,
   updateSectionSetting,
+  updateResumeSectionPageBreak,
   updateSharedSection,
   updateSharedSectionOrder,
   updateSharedSectionTitle,
@@ -257,6 +258,7 @@ export function ResumeDocumentBuilder() {
       title: resolveSectionTitle(section, activeProfile, active),
       content: resolved.content,
       layout: resolved.layout,
+      pageBreakBefore: resolved.pageBreakBefore,
       hidden: resolved.mode === "hidden",
     };
   }) as ResumePdfSnapshot["sections"];
@@ -285,6 +287,13 @@ export function ResumeDocumentBuilder() {
   };
   const updateActive = (patch: Partial<NonNullable<typeof active>>) => active && setState((current) => ({ ...current, variants: current.variants.map((item) => item.id === active.id ? { ...item, ...patch } : item) }));
   const setting = (sectionId: string, patch: Parameters<typeof updateSectionSetting>[3]) => setState((current) => active ? updateSectionSetting(current, active.id, sectionId, patch) : updateRoleProfileSectionSetting(current, activeProfile.id, sectionId, patch));
+  const setPdfSectionPageBreak = (sectionId: string, pageBreakBefore: boolean) => {
+    setState((current) => updateResumeSectionPageBreak(current, activeProfile.id, active?.id, sectionId, pageBreakBefore));
+    setPdfSnapshot((current) => current ? {
+      ...current,
+      sections: current.sections.map((section) => section.id === sectionId ? { ...section, pageBreakBefore } : section),
+    } : current);
+  };
   const openEditor = (scope: EditDraft["scope"], section: ResumeSection, content: SectionContent, saveTarget: EditDraft["saveTarget"] = "current") => {
     setDraft({ scope, section, content: clone(content), title: resolveSectionTitle(section, activeProfile, active), saveTarget });
   };
@@ -412,7 +421,7 @@ export function ResumeDocumentBuilder() {
       {experienceDialogOpen && <ExperienceBrickSyncDialog state={state} onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} onUndo={undoExperienceBrickSync} />}
       {importPanelOpen && <ResumeDocumentImportPanel commonSections={state.sharedSections} sections={orderedSections} workItems={resolvedWorkItems} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} onIssue={focusReadinessIssue} />}
-      {pdfSnapshot && <ResumePdfPreviewDialog onClose={() => setPdfSnapshot(null)} snapshot={pdfSnapshot} />}
+      {pdfSnapshot && <ResumePdfPreviewDialog onClose={() => setPdfSnapshot(null)} onPageBreakBeforeChange={setPdfSectionPageBreak} snapshot={pdfSnapshot} />}
     </div>
   );
 }
