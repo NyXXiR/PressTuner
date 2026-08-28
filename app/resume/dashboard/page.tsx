@@ -2,14 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  CheckCircle2,
-  FilePlus2,
-  Layers,
-  Loader2,
-  PenLine,
-} from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, FilePlus2, Layers, Loader2, PenLine } from "lucide-react";
 
 import { fetchWithLoading } from "@/lib/fetchWithLoading";
 import { useResumeWriteStore } from "@/stores/useResumeWriteStore";
@@ -38,13 +31,7 @@ const TUTORIAL_SEEN_KEY = "presstuner.resume-write-tutorial-seen:v1";
 
 function MiniStamp() {
   return (
-    <span
-      aria-label="완료"
-      className="wg-stamp h-6 w-6 shrink-0 text-[9px] tracking-normal"
-      style={{ borderWidth: 2, boxShadow: "none" }}
-    >
-      完
-    </span>
+    <Check aria-label="완료" className="h-4 w-4 shrink-0 text-primary" role="img" />
   );
 }
 

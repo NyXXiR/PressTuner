@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, FileText, Layers3, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, FileText, Layers3, RotateCcw } from "lucide-react";
 
 import type { ResumeWriteFlowState } from "@/domain/resume-writing/flowMachine";
 import { FlowDeferredCaptureTaskCard } from "./FlowDeferredCaptureTaskCard";
@@ -68,10 +68,8 @@ export function FlowDone({ state, onReset, commands }: FlowDoneProps) {
   return (
     <section className="mx-auto max-w-3xl" aria-labelledby="flow-done-title">
       <div className="text-center">
-        <span className="wg-stamp animate-wg-stamp h-[108px] w-[108px] text-lg leading-normal">
-          작성
-          <br />
-          완료
+        <span aria-label="작성 완료" className="mx-auto grid h-[92px] w-[92px] place-items-center border-2 border-primary text-primary">
+          <Check className="h-12 w-12" strokeWidth={2.25} />
         </span>
         <h1
           id="flow-done-title"

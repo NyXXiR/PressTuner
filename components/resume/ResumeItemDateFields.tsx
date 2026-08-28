@@ -40,8 +40,8 @@ export function ResumeItemDateFields({ value, sectionId, disabled = false, layou
     ? "grid gap-1 text-[10px] font-bold tracking-wide text-muted-foreground"
     : "grid gap-1.5 text-xs font-bold text-muted-foreground";
   const inputClass = stacked
-    ? "h-9 w-full border border-border bg-background px-2 text-xs font-normal tabular-nums text-foreground disabled:bg-muted"
-    : "h-10 border border-border bg-background px-3 text-sm font-normal text-foreground disabled:bg-muted";
+    ? "wg-field h-9 w-full px-2 text-xs font-normal tabular-nums"
+    : "wg-field h-10 px-3 text-sm font-normal";
   const checkboxClass = stacked
     ? "inline-flex items-center gap-2 text-[11px] font-bold text-foreground"
     : "inline-flex min-h-10 items-center gap-2 text-xs font-bold text-foreground";

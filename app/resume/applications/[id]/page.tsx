@@ -3,14 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  ChevronDown,
-  Edit3,
-  Loader2,
-  Maximize2,
-  Minimize2,
-} from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Edit3, Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { fetchWithLoading } from "@/lib/fetchWithLoading";
 import { parseResumeBrief } from "@/lib/services/resume/resumeBrief";
 
@@ -117,13 +110,9 @@ export default function ApplicationDetailPage() {
               </span>
             </h1>
             {isDone && (
-              <span
-                aria-label="작성 완료"
-                className="wg-stamp mt-1 h-14 w-14 shrink-0 text-xs leading-normal"
-              >
-                작성
-                <br />
-                완료
+              <span aria-label="작성 완료" className="mt-1 inline-flex shrink-0 items-center gap-1.5 border border-primary/40 bg-primary/5 px-2.5 py-1 text-xs font-extrabold text-primary">
+                <Check className="h-4 w-4" />
+                작성 완료
               </span>
             )}
           </div>

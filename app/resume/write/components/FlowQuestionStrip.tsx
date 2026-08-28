@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 import type { ResumeWriteFlowState } from "@/domain/resume-writing/flowMachine";
 
@@ -45,10 +45,9 @@ export function FlowQuestionStrip({ state, onAction }: FlowQuestionStripProps) {
               {done && (
                 <span
                   aria-label="완료"
-                  className="wg-stamp animate-wg-stamp pointer-events-none absolute -right-2 -top-2.5 z-20 h-[26px] w-[26px] bg-card text-[9px] tracking-normal"
-                  style={{ borderWidth: 2, boxShadow: "none" }}
+                  className="pointer-events-none absolute -right-2 -top-2.5 z-20 grid h-[22px] w-[22px] place-items-center border border-primary bg-card text-primary"
                 >
-                  完
+                  <Check className="h-3.5 w-3.5" />
                 </span>
               )}
             </li>

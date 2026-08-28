@@ -2,17 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Search,
-  ArrowRight,
-  PenLine,
-  Loader2,
-  Filter,
-  RotateCcw,
-  X,
-  PencilLine,
-  SendHorizonal,
-} from "lucide-react";
+import { ArrowRight, Check, Filter, Loader2, PenLine, PencilLine, RotateCcw, Search, SendHorizonal, X } from "lucide-react";
 import { useResumeQuestionListStore } from "@/stores/useResumeQuestionListStore";
 import clsx from "clsx";
 
@@ -455,13 +445,7 @@ export default function QuestionListPage() {
                       </span>
                     </p>
                     {item.isCompleted ? (
-                      <span
-                        aria-label="작성 완료"
-                        className="wg-stamp h-6 w-6 shrink-0 text-[9px] tracking-normal"
-                        style={{ borderWidth: 2, boxShadow: "none" }}
-                      >
-                        完
-                      </span>
+                      <Check aria-label="작성 완료" className="h-4 w-4 shrink-0 text-primary" role="img" />
                     ) : (
                       <span className="shrink-0 border border-dashed border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                         작성 전
