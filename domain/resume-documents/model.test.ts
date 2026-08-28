@@ -238,6 +238,22 @@ test("role custom sections belong to the role resume and are inherited by suppor
   assert.equal(deleteRoleCustomSection(withVersion, role.id, added.section.id).roleProfiles[0].customSections.length, 1);
 });
 
+test("custom highlight sections retain their two-column layout and clone seeded cards", () => {
+  const { state, profile } = roleContext();
+  const content: ItemsContent = { items: [
+    { id: "strength-1", meta: "", title: "문제 구조화", subtitle: "복잡도를 실행 단위로", body: "모호한 문제를 측정 가능한 단계로 나눕니다." },
+    { id: "strength-2", meta: "", title: "끝까지 개선", subtitle: "운영 결과까지 확인", body: "배포 후 지표를 확인해 다음 개선으로 연결합니다." },
+  ] };
+  const added = addRoleCustomSection(state, profile.id, { title: "핵심 역량", kind: "items", layout: "highlight-grid", content, afterSectionId: "summary" });
+  content.items[0].title = "원본 변경";
+
+  const section = added.state.roleProfiles[0].customSections.find((item) => item.id === added.section.id)!;
+  assert.equal(section.layout, "highlight-grid");
+  assert.equal((section.content as ItemsContent).items[0].title, "문제 구조화");
+  const parsed = parseResumeDocumentState(JSON.stringify(added.state))!;
+  assert.equal(parsed.roleProfiles[0].customSections.find((item) => item.id === section.id)?.layout, "highlight-grid");
+});
+
 test("role and support versions keep independent section order", () => {
   const { state, profile } = roleContext();
   const ids = state.sharedSections.map((section) => section.id);

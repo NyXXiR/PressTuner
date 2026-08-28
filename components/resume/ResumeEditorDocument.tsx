@@ -71,6 +71,7 @@ function ResumePrintableSectionBody({ content, heading, layout, relatedWorkItems
   if (section.kind === "narrative") return <NarrativeBody content={content as NarrativeContent} heading={heading} layout={layout} sectionId={section.id} />;
   if (section.kind === "tags") return <div className="resume-section-opening">{heading}<div className={`resume-tags resume-layout-${layout}`}>{(content as TagsContent).items.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}</div></div>;
   const itemContent = content as ItemsContent;
+  if (layout === "highlight-grid") return <HighlightGridBody content={itemContent} heading={heading} />;
   if (section.id === "projects") return <GroupedCareerBody content={itemContent} heading={heading} relatedWorkItems={relatedWorkItems} />;
   const items = isCareerTimelineSectionId(section.id) ? sortExperienceItems(itemContent.items, itemContent.sortDirection) : itemContent.items;
   const [firstItem, ...remainingItems] = items;
@@ -78,6 +79,15 @@ function ResumePrintableSectionBody({ content, heading, layout, relatedWorkItems
     ? <div className="resume-section-opening">{heading}<div className={`resume-items resume-layout-${layout}`}><ResumeItem item={firstItem} /></div></div>
     : heading}
   {remainingItems.length > 0 && <div className={`resume-items resume-items-continuation resume-layout-${layout}`}>{remainingItems.map((item) => <ResumeItem item={item} key={item.id} />)}</div>}</>;
+}
+
+function HighlightGridBody({ content, heading }: { content: ItemsContent; heading: ReactNode }) {
+  return <div className="resume-section-opening">{heading}{content.items.length > 0 ? <div className="resume-highlight-grid">{content.items.map((item, index) => <article className="resume-highlight-card" key={item.id}>
+    <p className="resume-highlight-index">{String(index + 1).padStart(2, "0")}</p>
+    <h3>{item.title || "강점 제목"}</h3>
+    {item.subtitle && <p className="resume-highlight-subtitle">{item.subtitle}</p>}
+    {item.body && <p className="resume-highlight-body">{item.body}</p>}
+  </article>)}</div> : null}</div>;
 }
 
 function IdentityBody({ content, layout }: { content: IdentityContent; layout: SectionLayout }) {

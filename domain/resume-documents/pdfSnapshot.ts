@@ -83,7 +83,7 @@ const tagsContentSchema = z.object({
 const sectionBase = {
   id: identifier,
   title: boundedText(500),
-  layout: z.enum(["standard", "compact", "cards"]).optional(),
+  layout: z.enum(["standard", "compact", "cards", "highlight-grid"]).optional(),
   pageBreakBefore: z.boolean().optional(),
   sharedCustom: z.boolean().optional(),
   custom: z.boolean().optional(),

@@ -1,7 +1,7 @@
 import { findResumeItemDateIssue, normalizeResumeItemDateValues } from "./itemDatePolicy";
 
 export type SectionMode = "inherit" | "override" | "hidden";
-export type SectionLayout = "standard" | "compact" | "cards";
+export type SectionLayout = "standard" | "compact" | "cards" | "highlight-grid";
 export type SectionKind = "identity" | "eligibility" | "narrative" | "items" | "tags";
 export type ItemMode = "inherit" | "override" | "hidden";
 
@@ -467,8 +467,8 @@ function insertSectionId(order: string[], sectionId: string, afterSectionId?: st
   return next;
 }
 
-export function addSharedSection(state: ResumeDocumentState, input: { title: string; kind: SectionKind; afterSectionId?: string }) {
-  const section: ResumeSection = { id: newId("shared"), title: input.title.trim() || "새 공통 섹션", kind: input.kind, content: emptySectionContent(input.kind), sharedCustom: true, layout: "standard" };
+export function addSharedSection(state: ResumeDocumentState, input: { title: string; kind: SectionKind; afterSectionId?: string; layout?: SectionLayout; content?: SectionContent }) {
+  const section: ResumeSection = { id: newId("shared"), title: input.title.trim() || "새 공통 섹션", kind: input.kind, content: input.content ? clone(input.content) : emptySectionContent(input.kind), sharedCustom: true, layout: input.layout ?? "standard" };
   const sharedSections = [...state.sharedSections];
   const afterIndex = input.afterSectionId ? sharedSections.findIndex((item) => item.id === input.afterSectionId) : -1;
   if (afterIndex >= 0) sharedSections.splice(afterIndex + 1, 0, section);
@@ -674,9 +674,9 @@ function brickToItem(brick: ExperienceBrickReference, existingId?: string, workI
   return item;
 }
 
-export function addCustomSection(state: ResumeDocumentState, variantId: string, input: { title: string; kind: SectionKind; afterSectionId?: string }) {
+export function addCustomSection(state: ResumeDocumentState, variantId: string, input: { title: string; kind: SectionKind; afterSectionId?: string; layout?: SectionLayout; content?: SectionContent }) {
   const id = newId("custom");
-  const section: ResumeSection = { id, title: input.title.trim() || "새 섹션", kind: input.kind, content: emptySectionContent(input.kind), custom: true, layout: "standard" };
+  const section: ResumeSection = { id, title: input.title.trim() || "새 섹션", kind: input.kind, content: input.content ? clone(input.content) : emptySectionContent(input.kind), custom: true, layout: input.layout ?? "standard" };
   return {
     state: {
       ...state,
@@ -698,9 +698,9 @@ export function addCustomSection(state: ResumeDocumentState, variantId: string, 
   };
 }
 
-export function addRoleCustomSection(state: ResumeDocumentState, profileId: string, input: { title: string; kind: SectionKind; afterSectionId?: string }) {
+export function addRoleCustomSection(state: ResumeDocumentState, profileId: string, input: { title: string; kind: SectionKind; afterSectionId?: string; layout?: SectionLayout; content?: SectionContent }) {
   const id = newId("custom");
-  const section: ResumeSection = { id, title: input.title.trim() || "새 섹션", kind: input.kind, content: emptySectionContent(input.kind), custom: true, layout: "standard" };
+  const section: ResumeSection = { id, title: input.title.trim() || "새 섹션", kind: input.kind, content: input.content ? clone(input.content) : emptySectionContent(input.kind), custom: true, layout: input.layout ?? "standard" };
   return {
     state: {
       ...state,

@@ -120,6 +120,35 @@ test("identity facts rule keeps a safe vertical gap below the name", { timeout: 
   }
 });
 
+test("highlight sections render two bordered cards on the same PDF row", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.sections = [{
+    id: "strengths",
+    title: "핵심 역량",
+    kind: "items",
+    layout: "highlight-grid",
+    content: { items: [
+      { id: "strength-a", meta: "", title: "문제 구조화", subtitle: "실행 단위로 전환", body: "모호한 요구사항을 측정 가능한 단계로 나눕니다." },
+      { id: "strength-b", meta: "", title: "운영 개선", subtitle: "결과까지 확인", body: "배포 뒤 지표를 확인하고 다음 개선으로 연결합니다." },
+    ] },
+  }];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const page = await pdf.getPage(1);
+    const content = await page.getTextContent();
+    const textItems = content.items.filter((item) => "str" in item);
+    const first = textItems.find((item) => item.str === "문제 구조화");
+    const second = textItems.find((item) => item.str === "운영 개선");
+    assert.ok(first && second);
+    assert.ok(Math.abs(first.transform[5] - second.transform[5]) < 1, "the first two cards should share a row");
+    assert.ok(second.transform[4] - first.transform[4] > points(50), "the second card should occupy the right column");
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("PDF fills each line and preserves a long narrative without whitespace or inserted hyphens", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   const uninterruptedText = "가나다라마바사아자차카타파하".repeat(80);

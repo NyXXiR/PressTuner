@@ -40,6 +40,7 @@ test("PDF snapshot accepts only bounded serializable resume fields", () => {
     },
   }).success, false);
   assert.equal(resumePdfRequestSchema.safeParse({ snapshot: { ...snapshot(), currentMonth: "2026-13" } }).success, false);
+  assert.equal(resumePdfRequestSchema.safeParse({ snapshot: { ...snapshot(), sections: [{ ...snapshot().sections[0], layout: "highlight-grid" }] } }).success, true);
 });
 
 test("PDF snapshot preserves blank and legacy item months while currentMonth remains canonical", () => {

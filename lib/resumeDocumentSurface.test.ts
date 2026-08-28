@@ -289,6 +289,23 @@ test("resume documents explains section formats and keeps mobile editing control
   assert.match(styles, /\.resume-paper \.resume-item\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
+test("new section templates prioritize reusable content and scale with categories and paging", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  const highlight = source.indexOf('id: "highlight-grid"');
+  const introduction = source.indexOf('id: "introduction"');
+  const identity = source.indexOf('id: "identity"');
+  const eligibility = source.indexOf('id: "eligibility"');
+
+  assert.ok(highlight >= 0 && introduction > highlight);
+  assert.ok(identity > introduction && eligibility > identity);
+  assert.match(source, /2열 핵심역량 카드/);
+  assert.match(source, /sectionTemplateCategories/);
+  assert.match(source, /pageSize = 4/);
+  assert.match(source, /이전 템플릿 페이지/);
+  assert.match(source, /다음 템플릿 페이지/);
+  assert.match(source, /HighlightGridEditor/);
+});
+
 test("resume editing stays local-first while durable persistence is server-backed", async () => {
   const [source, persistence, editor, route] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),

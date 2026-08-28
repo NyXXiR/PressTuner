@@ -604,6 +604,12 @@ html {
 .resume-paper .resume-warning { color: #b45309; }
 .resume-paper .resume-tags { display: flex; flex-wrap: wrap; gap: 2mm; }
 .resume-paper .resume-tags span { padding: 1.5mm 3mm; background: #f1f5f9; font-size: 10px; font-weight: 700; }
+.resume-paper .resume-highlight-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3mm; }
+.resume-paper .resume-highlight-card { min-height: 27mm; padding: 4mm; border: 0.35mm solid #cbd5e1; background: #f8fafc; }
+.resume-paper .resume-highlight-card .resume-highlight-index { margin-bottom: 2mm; color: #ea580c; font-size: 8px; font-weight: 900; letter-spacing: 0.12em; }
+.resume-paper .resume-highlight-card h3 { font-size: 12px; font-weight: 900; }
+.resume-paper .resume-highlight-card .resume-highlight-subtitle { margin-top: 1mm; color: #64748b; font-size: 8px; font-weight: 700; }
+.resume-paper .resume-highlight-card .resume-highlight-body { margin-top: 2mm; color: #475569; font-size: 9px; line-height: 1.55; white-space: pre-line; }
 .resume-paper .resume-narrative > * { margin: 0; white-space: pre-line; }
 .resume-paper .resume-narrative > * + * { margin-top: 2mm; }
 .resume-paper .resume-narrative-continuation { margin-top: 2mm; }
@@ -810,6 +816,10 @@ html {
   .resume-paper .resume-contact-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+  }
+
+  .resume-paper .resume-highlight-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .resume-editor-backdrop {

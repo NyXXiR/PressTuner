@@ -115,6 +115,12 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   narrativeHeading: { color: "#0f172a", lineHeight: 1.25, fontWeight: 800, marginBottom: mm(2) },
   compact: { marginBottom: mm(4) },
   cards: { padding: mm(4), borderWidth: mm(0.2), borderColor: "#e2e8f0", backgroundColor: "#f8fafc" },
+  highlightGrid: { flexDirection: "row", flexWrap: "wrap", gap: mm(3) },
+  highlightCard: { width: "48%", minHeight: mm(27), padding: mm(4), borderWidth: mm(0.35), borderColor: "#cbd5e1", backgroundColor: "#f8fafc" },
+  highlightIndex: { color: "#ea580c", fontSize: 7, fontWeight: 800, letterSpacing: 0.8, marginBottom: mm(2) },
+  highlightTitle: { fontSize: 11, fontWeight: 800 },
+  highlightSubtitle: { color: "#64748b", fontSize: 8, fontWeight: 700, marginTop: mm(1) },
+  highlightBody: { color: "#475569", fontSize: 8.5, lineHeight: 1.55, marginTop: mm(2) },
   });
 }
 
@@ -264,6 +270,9 @@ function GroupedCareerSection({ relatedWorkItems, section }: { relatedWorkItems:
 }
 
 function ItemsSection({ currentMonth, relatedWorkItems, section }: { currentMonth?: string; relatedWorkItems: ItemContent[]; section: Extract<ResumePdfSection, { kind: "items" }> }) {
+  if (section.layout === "highlight-grid") return <><SectionHeading section={section} />{section.content.items.length
+    ? <View style={styles.highlightGrid}>{section.content.items.map((item, index) => <View key={item.id} style={styles.highlightCard} wrap={false}><Text style={styles.highlightIndex}>{String(index + 1).padStart(2, "0")}</Text><Text style={styles.highlightTitle}>{item.title || "강점 제목"}</Text>{item.subtitle ? <Text style={styles.highlightSubtitle}>{item.subtitle}</Text> : null}{item.body ? <Text style={styles.highlightBody}>{item.body}</Text> : null}</View>)}</View>
+    : <EmptyCopy />}</>;
   if (section.id === "projects") return <GroupedCareerSection relatedWorkItems={relatedWorkItems} section={section} />;
   const items = section.id === "experience"
     ? sortExperienceItems(section.content.items, section.content.sortDirection)

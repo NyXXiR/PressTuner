@@ -59,6 +59,7 @@ import {
   type ResumeSection,
   type SectionContent,
   type SectionKind,
+  type SectionLayout,
   type SectionMode,
   type TagsContent,
 } from "@/domain/resume-documents/model";
@@ -81,13 +82,53 @@ import { ResumeItemDateFields } from "@/components/resume/ResumeItemDateFields";
 import { findResumeItemDateIssue, normalizeResumeItemDates, resolveResumeItemKind } from "@/domain/resume-documents/itemDatePolicy";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
-const kinds: Record<SectionKind, string> = { identity: "인적사항", eligibility: "병역·보훈 등 자격", narrative: "소개글", items: "경력·학력 등 목록", tags: "역량·키워드" };
 const sectionKindGuidance: Record<SectionKind, string> = {
   identity: "연락처와 기본 정보를 한눈에 보여주는 프로필 형식",
   eligibility: "병역·보훈·장애·취업보호 정보를 정리하는 자격 형식",
   narrative: "문단 중심으로 소개와 핵심역량을 설명하는 글 형식",
   items: "기간과 항목을 나란히 정리하는 경력·학력 형식",
   tags: "짧은 키워드를 모아 빠르게 훑어보는 역량 형식",
+};
+type SectionTemplateCategory = "recommended" | "career" | "content" | "basic";
+type SectionTemplate = {
+  id: string;
+  category: SectionTemplateCategory;
+  title: string;
+  defaultTitle: string;
+  description: string;
+  kind: SectionKind;
+  layout: SectionLayout;
+};
+const sectionTemplateCategories: Array<{ id: "all" | SectionTemplateCategory; label: string }> = [
+  { id: "all", label: "전체" },
+  { id: "recommended", label: "추천" },
+  { id: "career", label: "경력·성과" },
+  { id: "content", label: "소개·역량" },
+  { id: "basic", label: "기본정보" },
+];
+const sectionTemplates: SectionTemplate[] = [
+  { id: "highlight-grid", category: "recommended", title: "2열 핵심역량 카드", defaultTitle: "핵심 역량", description: "두 개씩 묶인 사각 카드로 강점과 설명을 상단에서 강조합니다.", kind: "items", layout: "highlight-grid" },
+  { id: "introduction", category: "recommended", title: "소개글", defaultTitle: "소개", description: "지원 동기, 강점, 일하는 방식을 문단으로 설명합니다.", kind: "narrative", layout: "standard" },
+  { id: "career-list", category: "career", title: "경력 목록", defaultTitle: "경력", description: "기간과 조직, 역할, 성과를 시간순으로 정리합니다.", kind: "items", layout: "standard" },
+  { id: "project-list", category: "career", title: "프로젝트·성과", defaultTitle: "프로젝트 · 성과", description: "프로젝트나 주요 업무 성과를 항목별로 설명합니다.", kind: "items", layout: "standard" },
+  { id: "keywords", category: "content", title: "역량 키워드", defaultTitle: "역량 · 키워드", description: "짧은 기술, 도구, 업무 키워드를 칩 형태로 나열합니다.", kind: "tags", layout: "standard" },
+  { id: "education", category: "career", title: "학력·교육", defaultTitle: "학력 · 교육", description: "학교, 교육 과정, 훈련 이력을 기간과 함께 정리합니다.", kind: "items", layout: "compact" },
+  { id: "credentials", category: "career", title: "자격·수상", defaultTitle: "자격 · 수상", description: "자격증, 수상, 외부 활동을 간결하게 모읍니다.", kind: "items", layout: "compact" },
+  { id: "identity", category: "basic", title: "인적사항", defaultTitle: "인적사항", description: "이름과 연락처, 사진 등 한 번만 쓰는 기본정보입니다.", kind: "identity", layout: "standard" },
+  { id: "eligibility", category: "basic", title: "병역·보훈 등 자격", defaultTitle: "병역 · 보훈 · 장애 · 취업보호", description: "선택적인 지원 자격 정보를 문서 하단에 정리합니다.", kind: "eligibility", layout: "compact" },
+];
+const DEFAULT_SECTION_TEMPLATE_ID = "highlight-grid";
+const selectedSectionTemplate = (templateId: string): SectionTemplate => sectionTemplates.find((template) => template.id === templateId) ?? sectionTemplates[0]!;
+const templateContent = (template: SectionTemplate): SectionContent => {
+  if (template.id === "highlight-grid") return { items: [
+    { id: `highlight-${Date.now()}-1`, meta: "", title: "핵심 역량 1", subtitle: "", body: "강점을 뒷받침하는 경험이나 성과를 짧게 설명해 주세요." },
+    { id: `highlight-${Date.now()}-2`, meta: "", title: "핵심 역량 2", subtitle: "", body: "두 번째 강점을 구체적인 근거와 함께 설명해 주세요." },
+  ] };
+  if (template.kind === "identity") return { name: "", email: "", phone: "", location: "", gender: "", birthDate: "", links: [] };
+  if (template.kind === "eligibility") return { militaryStatus: "", veteranStatus: "", disabilityStatus: "", employmentProtectionStatus: "" };
+  if (template.kind === "narrative") return { body: "" };
+  if (template.kind === "tags") return { items: [] };
+  return { items: [] };
 };
 type EditDraft = { scope: "shared" | "role" | "variant" | "role-custom" | "variant-custom"; section: ResumeSection; content: SectionContent; title: string; saveTarget: "current" | "parent" };
 type ItemEditorState = { scope: "role" | "document"; section: ResumeSection };
@@ -119,7 +160,7 @@ export function ResumeDocumentBuilder() {
   const [importPanelOpen, setImportPanelOpen] = useState(false);
   const [sharedSectionDialogOpen, setSharedSectionDialogOpen] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
-  const [newSectionKind, setNewSectionKind] = useState<SectionKind>("items");
+  const [newSectionTemplateId, setNewSectionTemplateId] = useState(DEFAULT_SECTION_TEMPLATE_ID);
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [readinessOpen, setReadinessOpen] = useState(false);
@@ -223,11 +264,23 @@ export function ResumeDocumentBuilder() {
     });
     setDraft(null);
   };
+  const newSectionTemplate = selectedSectionTemplate(newSectionTemplateId);
+  const prepareNewSection = () => {
+    const template = selectedSectionTemplate(DEFAULT_SECTION_TEMPLATE_ID);
+    setNewSectionTemplateId(template.id);
+    setNewSectionTitle(template.defaultTitle);
+  };
+  const selectNewSectionTemplate = (templateId: string) => {
+    const currentTemplate = selectedSectionTemplate(newSectionTemplateId);
+    const nextTemplate = selectedSectionTemplate(templateId);
+    setNewSectionTemplateId(nextTemplate.id);
+    if (!newSectionTitle.trim() || newSectionTitle === currentTemplate.defaultTitle) setNewSectionTitle(nextTemplate.defaultTitle);
+  };
   const createCustom = () => {
     if (!insertAfterId) return;
     const result = active
-      ? addCustomSection(state, active.id, { title: newSectionTitle, kind: newSectionKind, afterSectionId: insertAfterId })
-      : addRoleCustomSection(state, activeProfile.id, { title: newSectionTitle, kind: newSectionKind, afterSectionId: insertAfterId });
+      ? addCustomSection(state, active.id, { title: newSectionTitle, kind: newSectionTemplate.kind, layout: newSectionTemplate.layout, content: templateContent(newSectionTemplate), afterSectionId: insertAfterId })
+      : addRoleCustomSection(state, activeProfile.id, { title: newSectionTitle, kind: newSectionTemplate.kind, layout: newSectionTemplate.layout, content: templateContent(newSectionTemplate), afterSectionId: insertAfterId });
     setState(result.state);
     setNewSectionTitle("");
     setInsertAfterId(null);
@@ -249,7 +302,7 @@ export function ResumeDocumentBuilder() {
     setState((current) => deleteSupportVariant(current, active.id));
   };
   const createShared = () => {
-    const result = addSharedSection(state, { title: newSectionTitle, kind: newSectionKind, afterSectionId: state.sharedSections.at(-1)?.id });
+    const result = addSharedSection(state, { title: newSectionTitle, kind: newSectionTemplate.kind, layout: newSectionTemplate.layout, content: templateContent(newSectionTemplate), afterSectionId: state.sharedSections.at(-1)?.id });
     setState(result.state);
     setNewSectionTitle("");
     setSharedSectionDialogOpen(false);
@@ -268,7 +321,7 @@ export function ResumeDocumentBuilder() {
         </div>
       </header>
 
-      {view === "shared" ? <SharedManager profiles={state.roleProfiles} sections={state.sharedSections} onAdd={() => { setNewSectionTitle(""); setNewSectionKind("items"); setSharedSectionDialogOpen(true); }} onDelete={(section) => window.confirm(`‘${section.title}’ 공통 섹션을 모든 직군과 지원 버전에서 삭제할까요?`) && setState((current) => deleteSharedSection(current, section.id))} onEdit={(section) => openEditor("shared", section, section.content)} onLinkExperience={() => setExperienceDialogOpen(true)} onOrder={(sectionOrder) => setState((current) => updateSharedSectionOrder(current, sectionOrder))} /> : (
+      {view === "shared" ? <SharedManager profiles={state.roleProfiles} sections={state.sharedSections} onAdd={() => { prepareNewSection(); setSharedSectionDialogOpen(true); }} onDelete={(section) => window.confirm(`‘${section.title}’ 공통 섹션을 모든 직군과 지원 버전에서 삭제할까요?`) && setState((current) => deleteSharedSection(current, section.id))} onEdit={(section) => openEditor("shared", section, section.content)} onLinkExperience={() => setExperienceDialogOpen(true)} onOrder={(sectionOrder) => setState((current) => updateSharedSectionOrder(current, sectionOrder))} /> : (
         <div className="resume-builder-layout mt-6 grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
           <button aria-controls="resume-role-settings" aria-expanded={mobileSettingsOpen} className="resume-builder-chrome resume-mobile-settings-toggle flex h-12 w-full items-center justify-between border border-primary/30 bg-primary/5 px-4 text-sm font-extrabold text-primary xl:hidden" onClick={() => setMobileSettingsOpen((open) => !open)} type="button"><span className="inline-flex items-center gap-2"><Settings2 className="h-4 w-4" /> 직군·지원 버전 설정</span><span className="text-xs">{mobileSettingsOpen ? "접기" : "열기"}</span></button>
           <aside className={cx("resume-builder-chrome border border-border bg-card p-5 xl:sticky xl:top-24 xl:block", mobileSettingsOpen ? "block" : "hidden")} id="resume-role-settings">
@@ -305,18 +358,18 @@ export function ResumeDocumentBuilder() {
               if (keepsCustomization) setting(section.id, { mode: "override" });
               else resetToParent();
             };
-            return <SortableSection key={section.id} onReorderEnd={finalizeSectionOrder} onSelect={() => setSelectedSectionId(section.id)} sectionId={section.id} selected={selectedSectionId === section.id}>{(dragControls) => <>{resolved.mode === "hidden" ? <HiddenSection section={{ ...section, title }} dragControls={dragControls} onShow={restoreVisibility} /> : <DocumentSection dragControls={dragControls} section={{ ...section, title, layout: resolved.layout }} content={resolved.content} issueCount={readinessIssueCounts[section.id] ?? 0} relatedWorkItems={resolvedWorkItems} source={resolved.source} onHide={!section.custom ? () => setting(section.id, { mode: "hidden" }) : undefined} onReset={canReset ? () => window.confirm(`${active ? "이 지원 버전의 맞춤 내용" : "이 직군 이력서의 맞춤 내용"}을 버리고 ${active ? "직군 이력서" : "공통 정보"}로 되돌릴까요?`) && resetToParent() : undefined} resetLabel={active ? "직군 이력서로 되돌리기" : "공통 정보로 되돌리기"} onEdit={() => openEditor(roleCustom ? active ? "variant" : "role-custom" : variantCustom ? "variant-custom" : active ? "variant" : "role", section, resolved.content)} onItems={section.kind === "items" && !section.custom ? () => setItemEditor({ scope: active ? "document" : "role", section }) : undefined} onPromote={section.custom ? () => promoteCustom(section, variantCustom ? "variant" : "role") : undefined} deletePending={pendingDeleteId === section.id} onDelete={section.custom && (!roleCustom || !active) ? () => pendingDeleteId === section.id ? removeCustom(section) : setPendingDeleteId(section.id) : undefined} />}<button className="resume-section-controls resume-section-insert inline-flex h-9 w-full items-center justify-center gap-2 border border-dashed border-slate-300 bg-white text-[10px] font-bold text-slate-500 hover:border-orange-400 hover:text-orange-600" onClick={() => { setInsertAfterId(section.id); setNewSectionTitle(""); }}><Plus className="h-3.5 w-3.5" /> {title} 뒤에 새 섹션 추가</button></>}</SortableSection>;
+            return <SortableSection key={section.id} onReorderEnd={finalizeSectionOrder} onSelect={() => setSelectedSectionId(section.id)} sectionId={section.id} selected={selectedSectionId === section.id}>{(dragControls) => <>{resolved.mode === "hidden" ? <HiddenSection section={{ ...section, title }} dragControls={dragControls} onShow={restoreVisibility} /> : <DocumentSection dragControls={dragControls} section={{ ...section, title, layout: resolved.layout }} content={resolved.content} issueCount={readinessIssueCounts[section.id] ?? 0} relatedWorkItems={resolvedWorkItems} source={resolved.source} onHide={!section.custom ? () => setting(section.id, { mode: "hidden" }) : undefined} onReset={canReset ? () => window.confirm(`${active ? "이 지원 버전의 맞춤 내용" : "이 직군 이력서의 맞춤 내용"}을 버리고 ${active ? "직군 이력서" : "공통 정보"}로 되돌릴까요?`) && resetToParent() : undefined} resetLabel={active ? "직군 이력서로 되돌리기" : "공통 정보로 되돌리기"} onEdit={() => openEditor(roleCustom ? active ? "variant" : "role-custom" : variantCustom ? "variant-custom" : active ? "variant" : "role", section, resolved.content)} onItems={section.kind === "items" && !section.custom ? () => setItemEditor({ scope: active ? "document" : "role", section }) : undefined} onPromote={section.custom ? () => promoteCustom(section, variantCustom ? "variant" : "role") : undefined} deletePending={pendingDeleteId === section.id} onDelete={section.custom && (!roleCustom || !active) ? () => pendingDeleteId === section.id ? removeCustom(section) : setPendingDeleteId(section.id) : undefined} />}<button className="resume-section-controls resume-section-insert inline-flex h-9 w-full items-center justify-center gap-2 border border-dashed border-slate-300 bg-white text-[10px] font-bold text-slate-500 hover:border-orange-400 hover:text-orange-600" onClick={() => { setInsertAfterId(section.id); prepareNewSection(); }}><Plus className="h-3.5 w-3.5" /> {title} 뒤에 새 섹션 추가</button></>}</SortableSection>;
           })}</Reorder.Group></div></article></div>
         </div>
       )}
       {view === "resume" && <nav aria-label="모바일 이력서 편집" className="resume-mobile-actions">
-        <button onClick={() => { const lastSection = orderedSections[orderedSections.length - 1]; if (lastSection) { setInsertAfterId(lastSection.id); setNewSectionTitle(""); } }} type="button"><Plus className="h-4 w-4" /> 섹션 추가</button>
+        <button onClick={() => { const lastSection = orderedSections[orderedSections.length - 1]; if (lastSection) { setInsertAfterId(lastSection.id); prepareNewSection(); } }} type="button"><Plus className="h-4 w-4" /> 섹션 추가</button>
         <button onClick={() => setReadinessOpen(true)} type="button"><ClipboardCheck className="h-4 w-4" /> 작성 점검{readinessIssues.length > 0 && <span>{readinessIssues.length}</span>}</button>
         <button disabled={!hydrated} onClick={openPdfPreview} type="button"><Printer className="h-4 w-4" /> PDF 미리보기</button>
       </nav>}
       {draft && <Editor draft={draft} profileCount={state.roleProfiles.length} profileName={activeProfile.name} roleVariantCount={roleVariants.length} variantName={active?.name} workItems={resolvedWorkItems} onChange={setDraft} onCancel={() => setDraft(null)} onSave={saveDraft} />}
-      {insertAfterId && <AddSectionDialog afterTitle={orderedSections.find((section) => section.id === insertAfterId)?.title ?? "선택한 섹션"} kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setInsertAfterId(null)} onAdd={createCustom} />}
-      {sharedSectionDialogOpen && <AddSectionDialog afterTitle="공통 정보 마지막" kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setSharedSectionDialogOpen(false)} onAdd={createShared} />}
+      {insertAfterId && <AddSectionDialog afterTitle={orderedSections.find((section) => section.id === insertAfterId)?.title ?? "선택한 섹션"} templateId={newSectionTemplateId} title={newSectionTitle} onTemplate={selectNewSectionTemplate} onTitle={setNewSectionTitle} onCancel={() => setInsertAfterId(null)} onAdd={createCustom} />}
+      {sharedSectionDialogOpen && <AddSectionDialog afterTitle="공통 정보 마지막" templateId={newSectionTemplateId} title={newSectionTitle} onTemplate={selectNewSectionTemplate} onTitle={setNewSectionTitle} onCancel={() => setSharedSectionDialogOpen(false)} onAdd={createShared} />}
       {itemEditor && <ItemTailoringDialog state={state} profileId={activeProfile.id} variantId={itemEditor.scope === "document" ? active?.id : undefined} scope={itemEditor.scope} section={itemEditor.section} workItems={resolvedWorkItems} onSave={setState} onClose={() => setItemEditor(null)} onEditParent={() => { const parentContent = itemEditor.scope === "role" ? itemEditor.section.content : resolveSection(itemEditor.section, activeProfile).content; setItemEditor(null); openEditor(itemEditor.scope === "role" ? "shared" : "role", itemEditor.section, parentContent); }} onEditCurrent={() => { const content = resolveSection(itemEditor.section, activeProfile, itemEditor.scope === "document" ? active : undefined).content; setItemEditor(null); openEditor(itemEditor.scope === "document" ? "variant" : "role", itemEditor.section, content); }} />}
       {experienceDialogOpen && <ExperienceBrickSyncDialog onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} />}
       {importPanelOpen && <ResumeDocumentImportPanel sections={orderedSections} workItems={resolvedWorkItems} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
@@ -791,7 +844,27 @@ function StructuredEditor({ section, content, workItems = [], onChange }: { sect
   }
   if (section.kind === "narrative") return <RichNarrativeEditor content={content as NarrativeContent} onChange={onChange} />;
   if (section.kind === "tags") { const value = content as TagsContent; return <EditorBlock note="PDF에도 같은 칩 모양으로 나열됩니다" title="역량 · 키워드"><ListEditor addLabel="항목 추가" hint="짧은 낱말이 좋습니다. 문장을 넣으면 칩이 줄을 넘깁니다." items={value.items} label="항목" placeholder="예: 문제 해결" required variant="chips" onChange={(items) => onChange({ items })} /></EditorBlock>; }
+  if (section.layout === "highlight-grid") return <HighlightGridEditor content={content as ItemsContent} onChange={onChange} />;
   return <ItemsEditor content={content as ItemsContent} section={section} workItems={workItems} onChange={onChange} />;
+}
+
+function HighlightGridEditor({ content, onChange }: { content: ItemsContent; onChange: (content: ItemsContent) => void }) {
+  const updateItem = (id: string, patch: Partial<ItemContent>) => onChange({ ...content, items: content.items.map((item) => item.id === id ? { ...item, ...patch } : item) });
+  const moveItem = (index: number, offset: -1 | 1) => {
+    const target = index + offset;
+    if (target < 0 || target >= content.items.length) return;
+    const items = [...content.items];
+    [items[index], items[target]] = [items[target], items[index]];
+    onChange({ ...content, items });
+  };
+  return <EditorBlock note="PDF에서는 한 줄에 두 카드씩 배치됩니다" title="2열 강조 카드">
+    <p className="mb-4 text-[11px] leading-5 text-muted-foreground">핵심 역량처럼 먼저 보여주고 싶은 내용을 제목과 짧은 근거로 작성하세요. 카드가 늘어나면 두 개씩 다음 줄에 배치됩니다.</p>
+    <div className="grid gap-4 sm:grid-cols-2">{content.items.map((item, index) => <fieldset className="border border-border bg-background" key={item.id}>
+      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2"><span className="flex items-center gap-2 text-xs font-extrabold"><span className="text-orange-600">{String(index + 1).padStart(2, "0")}</span>{item.title || "강점 제목"}</span><span className="flex gap-1"><button aria-label={`${item.title || `카드 ${index + 1}`} 위로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-30" disabled={index === 0} onClick={() => moveItem(index, -1)} type="button"><ArrowUp className="h-3.5 w-3.5" /></button><button aria-label={`${item.title || `카드 ${index + 1}`} 아래로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-30" disabled={index === content.items.length - 1} onClick={() => moveItem(index, 1)} type="button"><ArrowDown className="h-3.5 w-3.5" /></button><button aria-label={`${item.title || `카드 ${index + 1}`} 삭제`} className="grid h-8 w-8 place-items-center border border-red-200 bg-background text-red-600" onClick={() => onChange({ ...content, items: content.items.filter((entry) => entry.id !== item.id) })} type="button"><Trash2 className="h-3.5 w-3.5" /></button></span></div>
+      <div className="grid gap-4 p-4"><Field label="강점 제목" placeholder="예: 문제를 구조화하는 힘" required value={item.title} onChange={(title) => updateItem(item.id, { title })} /><Field label="짧은 보조 문구" placeholder="예: 복잡한 요구사항을 실행 단위로 전환" value={item.subtitle} onChange={(subtitle) => updateItem(item.id, { subtitle })} /><TextArea label="근거 설명" minRows={4} placeholder="강점을 보여주는 경험과 결과를 2~3문장으로 적어주세요." ruled showCount value={item.body} onChange={(body) => updateItem(item.id, { body })} /></div>
+    </fieldset>)}</div>
+    <button className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 border border-dashed border-primary px-4 text-sm font-bold text-primary" onClick={() => onChange({ ...content, items: [...content.items, { id: `highlight-${Date.now()}`, meta: "", title: "", subtitle: "", body: "" }] })} type="button"><Plus className="h-4 w-4" /> 강조 카드 추가</button>
+  </EditorBlock>;
 }
 
 function CareerDetailControls({ item, workItems, onChange }: { item: ItemContent; workItems: ItemContent[]; onChange: (patch: Partial<ItemContent>) => void }) {
@@ -982,15 +1055,25 @@ function ReadinessDialog({ issues, onClose, onIssue }: { issues: ResumeReadiness
   return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="resume-readiness-title" aria-modal="true" className="my-auto w-full max-w-2xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">PDF 저장 전 확인</p><h2 className="mt-1 text-xl font-extrabold" id="resume-readiness-title">작성 점검</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">수정을 권하는 항목만 안내합니다. 문제가 있어도 PDF 저장은 막지 않습니다.</p></div><button aria-label="작성 점검 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onClose}><X className="h-4 w-4" /></button></header><div className="max-h-[65vh] overflow-y-auto p-5">{issues.length ? <><p className="mb-3 text-sm font-extrabold">확인할 항목 {issues.length}개</p><ol className="grid gap-2">{issues.map((issue, index) => <li className="flex items-center gap-3 border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950" key={`${issue.code}-${issue.sectionId ?? "document"}-${issue.itemId ?? index}`}><span className="grid h-6 w-6 shrink-0 place-items-center bg-amber-500 text-xs font-black text-white">{index + 1}</span><span className="min-w-0 flex-1">{issue.message}</span><button className="shrink-0 border border-amber-400 bg-white px-3 py-1 text-xs font-extrabold text-amber-900" onClick={() => onIssue(issue)} type="button">{issue.sectionId ? "섹션으로 이동" : "설정으로 이동"}</button></li>)}</ol></> : <div className="border border-primary/30 bg-primary/5 p-6 text-center"><Check className="mx-auto h-8 w-8 text-primary" /><p className="mt-3 font-extrabold">기본 점검을 모두 통과했습니다.</p><p className="mt-1 text-xs text-muted-foreground">페이지 경계와 최종 문구를 확인한 뒤 PDF로 저장하세요.</p></div>}</div><footer className="flex justify-end border-t border-border bg-muted/30 p-4"><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={onClose}>확인</button></footer></section></div>;
 }
 
-function AddSectionDialog({ afterTitle, kind, title, onKind, onTitle, onCancel, onAdd }: { afterTitle: string; kind: SectionKind; title: string; onKind: (kind: SectionKind) => void; onTitle: (title: string) => void; onCancel: () => void; onAdd: () => void }) {
-  const previews: Record<SectionKind, React.ReactNode> = {
+function AddSectionDialog({ afterTitle, templateId, title, onTemplate, onTitle, onCancel, onAdd }: { afterTitle: string; templateId: string; title: string; onTemplate: (templateId: string) => void; onTitle: (title: string) => void; onCancel: () => void; onAdd: () => void }) {
+  const [category, setCategory] = useState<"all" | SectionTemplateCategory>("all");
+  const [page, setPage] = useState(0);
+  const pageSize = 4;
+  const filteredTemplates = category === "all" ? sectionTemplates : sectionTemplates.filter((template) => template.category === category);
+  const pageCount = Math.max(1, Math.ceil(filteredTemplates.length / pageSize));
+  const visibleTemplates = filteredTemplates.slice(page * pageSize, (page + 1) * pageSize);
+  const previews: Record<string, React.ReactNode> = {
+    "highlight-grid": <div className="grid grid-cols-2 gap-2"><span className="grid gap-1 border border-slate-300 bg-slate-50 p-2"><i className="h-1 w-5 bg-orange-500" /><i className="h-2 w-4/5 bg-slate-700" /><i className="h-1 w-full bg-slate-300" /></span><span className="grid gap-1 border border-slate-300 bg-slate-50 p-2"><i className="h-1 w-5 bg-orange-500" /><i className="h-2 w-3/4 bg-slate-700" /><i className="h-1 w-full bg-slate-300" /></span></div>,
+    introduction: <div className="grid gap-1"><i className="h-1 w-full bg-slate-400" /><i className="h-1 w-5/6 bg-slate-300" /><i className="h-1 w-2/3 bg-slate-300" /></div>,
+    "career-list": <div className="grid gap-2"><span className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><i className="h-2 bg-slate-700" /></span><span className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><i className="h-2 bg-slate-500" /></span></div>,
+    "project-list": <div className="grid gap-2 border-l-2 border-slate-300 pl-2"><i className="h-2 w-2/3 bg-slate-700" /><i className="h-1 w-full bg-slate-300" /><i className="h-1 w-5/6 bg-slate-300" /></div>,
+    keywords: <div className="flex gap-2"><i className="h-5 w-12 bg-slate-200" /><i className="h-5 w-16 bg-slate-200" /><i className="h-5 w-10 bg-slate-200" /></div>,
+    education: <div className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><span className="grid gap-1"><i className="h-2 w-2/3 bg-slate-700" /><i className="h-1 w-1/2 bg-slate-300" /></span></div>,
+    credentials: <div className="grid grid-cols-2 gap-2"><i className="h-6 border border-slate-300 bg-slate-50" /><i className="h-6 border border-slate-300 bg-slate-50" /></div>,
     identity: <div className="flex items-end justify-between"><span className="h-4 w-20 bg-slate-800" /><span className="grid gap-1"><i className="h-1 w-14 bg-slate-300" /><i className="h-1 w-10 bg-slate-300" /></span></div>,
     eligibility: <div className="flex flex-wrap gap-2"><i className="h-4 w-12 bg-slate-200" /><i className="h-4 w-12 bg-slate-200" /><i className="h-4 w-12 bg-slate-200" /></div>,
-    narrative: <div className="grid gap-1"><i className="h-1 w-full bg-slate-400" /><i className="h-1 w-5/6 bg-slate-300" /><i className="h-1 w-2/3 bg-slate-300" /></div>,
-    items: <div className="grid gap-2"><span className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><i className="h-2 bg-slate-700" /></span><span className="grid grid-cols-[35px_1fr] gap-2"><i className="h-2 bg-slate-300" /><i className="h-2 bg-slate-500" /></span></div>,
-    tags: <div className="flex gap-2"><i className="h-5 w-12 bg-slate-200" /><i className="h-5 w-16 bg-slate-200" /><i className="h-5 w-10 bg-slate-200" /></div>,
   };
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="add-resume-section-title" aria-modal="true" className="resume-dialog-panel my-auto w-full max-w-2xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex shrink-0 items-center justify-between border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">{afterTitle} 다음 위치</p><h2 className="mt-1 text-xl font-extrabold" id="add-resume-section-title">새 섹션 추가</h2></div><button aria-label="추가 창 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="resume-dialog-scroll grid gap-5 p-5"><Field label="섹션 제목" value={title} placeholder="예: 오픈소스 활동" onChange={onTitle} /><fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">내용 형식</legend><div className="grid gap-3 sm:grid-cols-2">{(Object.entries(kinds) as Array<[SectionKind, string]>).map(([value, label]) => <button aria-pressed={kind === value} className={cx("relative border p-4 text-left transition-colors", kind === value ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50")} key={value} onClick={() => onKind(value)} type="button">{kind === value && <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center bg-primary text-primary-foreground"><Check className="h-3.5 w-3.5" /></span>}<span className="block pr-7 font-extrabold">{label}</span><span className="mt-1 block min-h-8 text-[11px] leading-4 text-muted-foreground">{sectionKindGuidance[value]}</span><span aria-hidden="true" className="mt-3 block border border-slate-200 bg-white p-3">{previews[value]}</span></button>)}</div></fieldset></div><footer className="resume-dialog-footer flex shrink-0 justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={onAdd}><Plus className="h-4 w-4" /> 추가하고 내용 작성</button></footer></section></div>;
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="add-resume-section-title" aria-modal="true" className="resume-dialog-panel my-auto w-full max-w-3xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex shrink-0 items-center justify-between border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">{afterTitle} 다음 위치</p><h2 className="mt-1 text-xl font-extrabold" id="add-resume-section-title">새 섹션 추가</h2><p className="mt-1 text-xs text-muted-foreground">용도에 맞는 템플릿을 고른 뒤 내용을 작성하세요.</p></div><button aria-label="추가 창 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="resume-dialog-scroll grid gap-5 p-5"><fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">섹션 템플릿</legend><div aria-label="섹션 템플릿 카테고리" className="mb-4 flex flex-wrap gap-1">{sectionTemplateCategories.map((item) => <button aria-pressed={category === item.id} className={cx("h-9 border px-3 text-xs font-extrabold", category === item.id ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary")} key={item.id} onClick={() => { setCategory(item.id); setPage(0); }} type="button">{item.label}</button>)}</div><div className="grid gap-3 sm:grid-cols-2">{visibleTemplates.map((template) => <button aria-pressed={templateId === template.id} className={cx("relative border p-4 text-left transition-colors", templateId === template.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50")} key={template.id} onClick={() => onTemplate(template.id)} type="button">{templateId === template.id && <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center bg-primary text-primary-foreground"><Check className="h-3.5 w-3.5" /></span>}<span className="block pr-7 font-extrabold">{template.title}</span><span className="mt-1 block min-h-8 text-[11px] leading-4 text-muted-foreground">{template.description}</span><span aria-hidden="true" className="mt-3 block border border-slate-200 bg-white p-3">{previews[template.id]}</span></button>)}</div>{pageCount > 1 && <div className="mt-4 flex items-center justify-center gap-3"><button aria-label="이전 템플릿 페이지" className="h-8 border border-border px-3 text-xs font-bold disabled:opacity-30" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} type="button">이전</button><span className="text-[11px] font-bold text-muted-foreground">{page + 1} / {pageCount}</span><button aria-label="다음 템플릿 페이지" className="h-8 border border-border px-3 text-xs font-bold disabled:opacity-30" disabled={page >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} type="button">다음</button></div>}</fieldset><Field label="섹션 제목" value={title} placeholder="예: 오픈소스 활동" onChange={onTitle} /></div><footer className="resume-dialog-footer flex shrink-0 justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-40" disabled={!title.trim()} onClick={onAdd}><Plus className="h-4 w-4" /> 추가하고 내용 작성</button></footer></section></div>;
 }
 
 function Editor({ draft, profileCount, profileName, roleVariantCount, variantName, workItems, onChange, onCancel, onSave }: { draft: EditDraft; profileCount: number; profileName: string; roleVariantCount: number; variantName?: string; workItems: ItemContent[]; onChange: (draft: EditDraft) => void; onCancel: () => void; onSave: (draft: EditDraft) => void }) {
