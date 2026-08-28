@@ -340,6 +340,16 @@ test("edit dialogs disclose scope and use explicit draft save semantics", async 
   assert.doesNotMatch(builder, /변경 사항은 문서에 바로 반영/);
 });
 
+test("section save actions name their destination and explain propagation inline", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  for (const phrase of ["직군에 저장", "지원 이력서", "공통 정보에 저장·전파", "직군별 재작성 내용은 유지", "지원 버전별 재작성 내용은 유지"]) {
+    assert.match(builder, new RegExp(phrase));
+  }
+  assert.match(builder, /saveButtonLabel/);
+  assert.match(builder, /propagationMessage/);
+  assert.doesNotMatch(builder, /저장할 범위를 선택해 주세요/);
+});
+
 test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8");
   assert.match(source, /`\/api\/resume\/documents\/imports\/\$\{selectedId\}`/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
 import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -93,6 +93,14 @@ type EditDraft = { scope: "shared" | "role" | "variant" | "role-custom" | "varia
 type ItemEditorState = { scope: "role" | "document"; section: ResumeSection };
 const cx = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(" ");
 const clone = <T,>(value: T): T => structuredClone(value);
+// 접힌 항목(details) 안의 날짜 필드도 포커스할 수 있도록 먼저 펼친 뒤 이동한다.
+const focusItemDateField = (itemId: string, field: string) => {
+  const target = document.querySelector<HTMLElement>(`[data-resume-edit-item-id="${itemId}"] [data-resume-date-field="${field}"]`);
+  if (!target) return;
+  target.closest("details")?.setAttribute("open", "");
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.focus();
+};
 const currentLocalMonth = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -290,7 +298,7 @@ export function ResumeDocumentBuilder() {
         <button onClick={() => setReadinessOpen(true)} type="button"><ClipboardCheck className="h-4 w-4" /> 작성 점검{readinessIssues.length > 0 && <span>{readinessIssues.length}</span>}</button>
         <button disabled={!hydrated} onClick={openPdfPreview} type="button"><Printer className="h-4 w-4" /> PDF 미리보기</button>
       </nav>}
-      {draft && <Editor draft={draft} profileName={activeProfile.name} variantName={active?.name} workItems={resolvedWorkItems} onChange={setDraft} onCancel={() => setDraft(null)} onSave={saveDraft} />}
+      {draft && <Editor draft={draft} profileCount={state.roleProfiles.length} profileName={activeProfile.name} roleVariantCount={roleVariants.length} variantName={active?.name} workItems={resolvedWorkItems} onChange={setDraft} onCancel={() => setDraft(null)} onSave={saveDraft} />}
       {insertAfterId && <AddSectionDialog afterTitle={orderedSections.find((section) => section.id === insertAfterId)?.title ?? "선택한 섹션"} kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setInsertAfterId(null)} onAdd={createCustom} />}
       {sharedSectionDialogOpen && <AddSectionDialog afterTitle="공통 정보 마지막" kind={newSectionKind} title={newSectionTitle} onKind={setNewSectionKind} onTitle={setNewSectionTitle} onCancel={() => setSharedSectionDialogOpen(false)} onAdd={createShared} />}
       {itemEditor && <ItemTailoringDialog state={state} profileId={activeProfile.id} variantId={itemEditor.scope === "document" ? active?.id : undefined} scope={itemEditor.scope} section={itemEditor.section} workItems={resolvedWorkItems} onSave={setState} onClose={() => setItemEditor(null)} onEditParent={() => { const parentContent = itemEditor.scope === "role" ? itemEditor.section.content : resolveSection(itemEditor.section, activeProfile).content; setItemEditor(null); openEditor(itemEditor.scope === "role" ? "shared" : "role", itemEditor.section, parentContent); }} onEditCurrent={() => { const content = resolveSection(itemEditor.section, activeProfile, itemEditor.scope === "document" ? active : undefined).content; setItemEditor(null); openEditor(itemEditor.scope === "document" ? "variant" : "role", itemEditor.section, content); }} />}
@@ -303,9 +311,28 @@ export function ResumeDocumentBuilder() {
 }
 
 function Tab({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) { return <button aria-selected={active} className={cx("h-10 px-4 text-sm font-bold", active ? "bg-foreground text-background" : "text-muted-foreground")} onClick={onClick} role="tab">{children}</button>; }
-function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: "text" | "tel" | "date" }) { return <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">{label}<input className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground" placeholder={placeholder} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>; }
-function SelectField({ label, value, options, onChange }: { label: string; value?: string; options: string[]; onChange: (value: string) => void }) { return <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">{label}<select className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground" value={value ?? ""} onChange={(event) => onChange(event.target.value)}><option value="">선택 안 함</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>; }
-function TextArea({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) { return <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">{label}<textarea className="min-h-28 resize-y border border-border bg-background p-3 text-sm font-normal leading-6 text-foreground" placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} /></label>; }
+// 필수/선택을 라벨 대비로 먼저 보여준다. 필수는 foreground, 선택은 muted.
+function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+  return <span className="flex items-baseline gap-1.5">
+    <span className={cx("text-xs font-bold", required ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+    {required && <span className="text-[10px] font-extrabold text-red-600">필수</span>}
+  </span>;
+}
+// 여백 대신 경계선과 굵기로 구획을 나누는 작은 래퍼.
+function EditorBlock({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return <section className="border border-border bg-muted/20">
+    <p className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2"><span className="text-[11px] font-extrabold tracking-wide">{title}</span>{note && <span className="text-[10px] font-bold text-muted-foreground">{note}</span>}</p>
+    <div className="p-4">{children}</div>
+  </section>;
+}
+function Field({ label, value, onChange, placeholder, type = "text", required, hint, large }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: "text" | "tel" | "date"; required?: boolean; hint?: string; large?: boolean }) { return <label className="grid gap-1.5"><FieldLabel label={label} required={required} /><input className={cx("border border-border bg-background px-3 font-normal text-foreground", large ? "h-12 text-lg font-extrabold" : "h-10 text-sm")} placeholder={placeholder} type={type} value={value} onChange={(event) => onChange(event.target.value)} />{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
+function SelectField({ label, value, options, onChange, required, hint }: { label: string; value?: string; options: string[]; onChange: (value: string) => void; required?: boolean; hint?: string }) { return <label className="grid gap-1.5"><FieldLabel label={label} required={required} /><select className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground" value={value ?? ""} onChange={(event) => onChange(event.target.value)}><option value="">선택 안 함</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
+function TextArea({ label, value, onChange, placeholder, required, hint, minRows = 4, showCount }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; required?: boolean; hint?: string; minRows?: number; showCount?: boolean }) {
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const grow = (node: HTMLTextAreaElement | null) => { if (!node) return; node.style.height = "auto"; node.style.height = `${node.scrollHeight}px`; };
+  useEffect(() => { grow(areaRef.current); }, [value]);
+  return <label className="grid gap-1.5"><FieldLabel label={label} required={required} /><textarea className="resize-y border border-border bg-background p-3 text-sm font-normal leading-6 text-foreground" placeholder={placeholder} ref={areaRef} rows={minRows} value={value} onChange={(event) => { grow(event.target); onChange(event.target.value); }} />{(hint || showCount) && <span className="flex flex-wrap items-baseline justify-between gap-2 text-[11px] leading-4 text-muted-foreground">{hint ? <span>{hint}</span> : <span />}{showCount && <strong className="font-bold text-foreground">공백 포함 {value.length.toLocaleString()}자</strong>}</span>}</label>;
+}
 
 function NewRoleResume({ onAdd }: { onAdd: (name: string, roleTitle: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -518,7 +545,7 @@ function RichNarrativeEditor({ content, onChange }: { content: NarrativeContent;
     onChange(next);
   };
   const blockTypes: Array<{ type: NarrativeBlockType; label: string }> = [{ type: "p", label: "본문" }, ...([1, 2, 3, 4, 5, 6].map((level) => ({ type: `h${level}` as NarrativeBlockType, label: `H${level}` })) )];
-  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label="소개글 내용" className="min-h-52 bg-background p-4 text-sm leading-7 outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold" contentEditable onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
+  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label="소개글 내용" className="min-h-[22rem] bg-background p-4 text-sm leading-7 outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold" contentEditable data-narrative-placeholder="예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
 }
 
 async function optimizeIdentityPhoto(file: File) {
@@ -564,11 +591,131 @@ function IdentityPhotoField({ value, onChange }: { value: IdentityContent; onCha
   return <section className="border border-border bg-muted/20 p-4"><p className="text-xs font-extrabold">증명사진 <span className="font-normal text-muted-foreground">(선택)</span></p><p className="mt-1 text-[11px] leading-5 text-muted-foreground">인적사항에만 표시됩니다. 업로드한 사진은 크기를 줄여 문서에 저장합니다.</p><div className="mt-3 flex flex-wrap items-center gap-4">{value.photo ? <Image alt="증명사진 미리보기" className="h-32 w-24 border border-border object-cover" height={640} src={value.photo} unoptimized width={480} /> : <div className="grid h-32 w-24 place-items-center border border-dashed border-border bg-background text-center text-[10px] text-muted-foreground">사진<br />미리보기</div>}<div className="grid gap-2"><label className="inline-flex h-10 cursor-pointer items-center justify-center border border-primary px-4 text-xs font-bold text-primary"><input accept="image/jpeg,image/png,image/webp" aria-label="증명사진 파일 선택" className="sr-only" disabled={processing} type="file" onChange={(event) => { void selectPhoto(event.target.files?.[0]); event.target.value = ""; }} />{processing ? "사진 처리 중…" : value.photo ? "사진 교체" : "증명사진 업로드"}</label>{value.photo && <button className="h-9 border border-red-200 px-3 text-xs font-bold text-red-600" onClick={() => { onChange({ photo: undefined, photoName: undefined }); setError(""); }} type="button">사진 삭제</button>}{value.photoName && <p className="max-w-52 truncate text-[10px] text-muted-foreground">{value.photoName}</p>}</div></div>{error && <p aria-live="polite" className="mt-3 text-xs font-bold text-red-600">{error}</p>}</section>;
 }
 
+// 각 섹션 종류의 폼을 PDF 출력 배치와 같은 모양으로 만든다.
+// 항목: 왼쪽 좁은 기간 칸 + 오른쪽 넓은 내용 칸 (.resume-item의 26mm / 1fr 미러)
+// 인적사항: 왼쪽 텍스트 + 오른쪽 증명사진 (.resume-identity 미러)
+// 키워드: 칩 나열 (.resume-tags 미러)
+const itemPlaceholders: Record<string, { title: string; subtitle: string; body: string }> = {
+  experience: { title: "예: 결제 API 재설계", subtitle: "예: 카모 · 플랫폼팀", body: "예: 일평균 12초였던 결제 응답을 캐시 계층과 쿼리 재작성으로 1.4초까지 줄였습니다." },
+  projects: { title: "예: 정산 배치 이관", subtitle: "예: 사내 정산팀 협업", body: "예: 매일 새벽 실패하던 정산 배치를 멱등 처리로 바꿔 재실행 없이 마감되도록 했습니다." },
+  education: { title: "예: 컴퓨터공학 학사", subtitle: "예: OO대학교", body: "예: 졸업 논문 주제나 관련 과목을 한 줄로 적습니다." },
+};
+const defaultItemPlaceholder = { title: "예: 정보처리기사", subtitle: "예: 한국산업인력공단", body: "예: 이 항목을 이력서에서 어떻게 설명할지 적습니다." };
+const itemPlaceholder = (sectionId: string) => itemPlaceholders[sectionId] ?? defaultItemPlaceholder;
+
+function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
+  index: number;
+  item: ItemContent;
+  sectionId: string;
+  workItems: ItemContent[];
+  bodyLabel: string;
+  bodyRequired?: boolean;
+  showBody?: boolean;
+  collapsible?: boolean;
+  tone?: "default" | "override" | "hidden";
+  headerExtra?: React.ReactNode;
+  headerNote?: React.ReactNode;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onChange: (patch: Partial<ItemContent>) => void;
+  onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+}) {
+  const label = item.title.trim() || `항목 ${index + 1}`;
+  const placeholder = itemPlaceholder(sectionId);
+  const summary = [formatItemPeriod(item), item.subtitle].filter(Boolean).join(" · ");
+  const body = <div className="grid sm:grid-cols-[168px_minmax(0,1fr)]">
+    <div className="border-b border-border bg-muted/20 p-3 sm:border-b-0 sm:border-r">
+      <p className="mb-2 text-[10px] font-extrabold tracking-wide text-muted-foreground">기간</p>
+      <ResumeItemDateFields layout="stack" sectionId={sectionId} value={item} onChange={onChange} />
+      <p className="mt-3 hidden text-[10px] leading-4 text-muted-foreground sm:block">PDF에서도 이 자리에 좁게 찍힙니다.</p>
+    </div>
+    <div className="grid gap-4 p-4">
+      <Field label="제목" placeholder={placeholder.title} required value={item.title} onChange={(title) => onChange({ title })} />
+      <Field label="조직·부제" placeholder={placeholder.subtitle} value={item.subtitle} onChange={(subtitle) => onChange({ subtitle })} />
+      {sectionId === "projects" && <div className="grid gap-4 sm:grid-cols-2"><CareerDetailControls item={item} workItems={workItems} onChange={onChange} /></div>}
+      <TextArea hint="넓은 칸입니다. 한 항목당 2~4줄이 읽기 좋습니다." label={bodyLabel} minRows={6} placeholder={placeholder.body} required={bodyRequired} showCount value={item.body} onChange={(text) => onChange({ body: text })} />
+    </div>
+  </div>;
+  const header = <>
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="grid h-6 w-6 shrink-0 place-items-center bg-foreground text-[10px] font-black text-background">{String(index + 1).padStart(2, "0")}</span>
+      <span className="min-w-0">
+        <span className={cx("block truncate text-xs font-extrabold", tone === "hidden" && "line-through")}>{item.title.trim() || "제목 없음"}</span>
+        {(headerNote || summary) && <span className="block truncate text-[10px] font-bold text-muted-foreground">{headerNote ?? summary}</span>}
+      </span>
+    </span>
+    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+      {headerExtra}
+      {collapsible && <span aria-hidden="true" className="grid h-8 w-8 place-items-center border border-border bg-background" data-item-chevron><ChevronDown className="h-4 w-4" /></span>}
+      {onMoveUp && <button aria-label={`${label} 위로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-40" disabled={!canMoveUp} onClick={onMoveUp} type="button"><ArrowUp className="h-3.5 w-3.5" /></button>}
+      {onMoveDown && <button aria-label={`${label} 아래로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-40" disabled={!canMoveDown} onClick={onMoveDown} type="button"><ArrowDown className="h-3.5 w-3.5" /></button>}
+      {onDelete && <button aria-label={`${label} 삭제`} className="grid h-8 w-8 place-items-center border border-red-200 bg-background text-red-600" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDelete(); }}><Trash2 className="h-3.5 w-3.5" /></button>}
+    </span>
+  </>;
+  const frame = cx("border bg-background", tone === "override" ? "border-primary/40" : tone === "hidden" ? "border-dashed border-border opacity-60" : "border-border");
+  // collapsible일 때 details를 쓰면 저장 검증이 접힌 항목을 open 처리한 뒤 포커스할 수 있다.
+  if (collapsible) return <fieldset className={frame} data-resume-edit-item-id={item.id}>
+    <details open>
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">{header}</summary>
+      {body}
+    </details>
+  </fieldset>;
+  return <fieldset className={frame} data-resume-edit-item-id={item.id}>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">{header}</div>
+    {showBody && body}
+  </fieldset>;
+}
+
+function ItemsEditor({ section, content, workItems, onChange }: { section: ResumeSection; content: ItemsContent; workItems: ItemContent[]; onChange: (content: SectionContent) => void }) {
+  const updateItem = (id: string, patch: Partial<ItemContent>) => onChange({ ...content, items: content.items.map((item) => item.id === id ? { ...item, ...patch } : item) });
+  const hasManualDuration = content.careerDurationOverrideMonths !== undefined
+    && Number.isFinite(content.careerDurationOverrideMonths)
+    && content.careerDurationOverrideMonths >= 0;
+  const durationMonths = hasManualDuration ? Math.trunc(content.careerDurationOverrideMonths!) : 0;
+  const durationControls = isCareerTimelineSectionId(section.id) && <EditorBlock note="PDF 제목 옆에 표시됩니다" title={section.id === "experience" ? "경력 표시 설정" : "경력 상세 표시 설정"}>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">시작 연월 정렬<select className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground" value={content.sortDirection ?? ""} onChange={(event) => onChange({ ...content, sortDirection: (event.target.value || undefined) as ItemsContent["sortDirection"] })}><option value="">수동 순서</option><option value="latest-first">최신순</option><option value="oldest-first">오래된순</option></select></label>
+      {section.id === "experience" && <fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">총 경력</legend><div className="flex flex-wrap gap-3"><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={!hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...content, careerDurationOverrideMonths: undefined })} /> 자동 계산</label><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...content, careerDurationOverrideMonths: calculateAutomaticCareerDurationMonths(content.items, currentLocalMonth()) })} /> 직접 입력</label></div>{hasManualDuration && <div className="mt-3 grid grid-cols-2 gap-2"><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 연<input aria-label="경력 연" className="h-10 border border-border bg-background px-3 text-sm text-foreground" min={0} type="number" value={Math.floor(durationMonths / 12)} onChange={(event) => onChange({ ...content, careerDurationOverrideMonths: normalizeCareerDurationOverride(Number(event.target.value), durationMonths % 12) })} /></label><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 개월<input aria-label="경력 개월" className="h-10 border border-border bg-background px-3 text-sm text-foreground" max={11} min={0} type="number" value={durationMonths % 12} onChange={(event) => onChange({ ...content, careerDurationOverrideMonths: normalizeCareerDurationOverride(Math.floor(durationMonths / 12), Number(event.target.value)) })} /></label></div>}</fieldset>}
+    </div>
+  </EditorBlock>;
+  return <div className="grid gap-4">
+    {durationControls}
+    <div className="grid gap-3">{content.items.map((item, index) => <ItemEditorCard
+      bodyLabel="설명"
+      bodyRequired={section.id === "experience"}
+      collapsible
+      index={index}
+      item={item}
+      key={item.id}
+      sectionId={section.id}
+      workItems={workItems}
+      onChange={(patch) => updateItem(item.id, patch)}
+      onDelete={() => onChange({ ...content, items: content.items.filter((entry) => entry.id !== item.id) })}
+    />)}</div>
+    <button className="inline-flex h-11 items-center justify-center gap-2 border border-dashed border-primary px-4 text-sm font-bold text-primary" onClick={() => onChange({ ...content, items: [...content.items, { id: `item-${Date.now()}`, itemKind: defaultItemKind(section.id), detailType: section.id === "projects" ? "project" : undefined, meta: "", startMonth: "", endMonth: "", endMonthEnabled: false, isCurrent: false, title: "", subtitle: "", body: "" }] })} type="button"><Plus className="h-4 w-4" /> 항목 추가</button>
+  </div>;
+}
+
 function StructuredEditor({ section, content, workItems = [], onChange }: { section: ResumeSection; content: SectionContent; workItems?: ItemContent[]; onChange: (content: SectionContent) => void }) {
   if (section.kind === "identity") {
     const value = content as IdentityContent;
     const localToday = formatDateOnly(new Date());
-    return <div className="grid gap-4"><IdentityPhotoField value={value} onChange={(photo) => onChange({ ...value, ...photo })} /><fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">기본 연락 정보 · 공통</legend><div className="grid gap-4 sm:grid-cols-2"><Field label="이름" value={value.name} onChange={(name) => onChange({ ...value, name })} /><Field label="이메일" value={value.email} onChange={(email) => onChange({ ...value, email })} /><Field label="전화번호" type="tel" value={value.phone ?? ""} onChange={(phone) => onChange({ ...value, phone })} /><Field label="거주 지역" placeholder="예: 서울 양천구" value={value.location ?? ""} onChange={(location) => onChange({ ...value, location })} /></div></fieldset><fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">신상 정보 · 공통</legend><div className="grid gap-4 sm:grid-cols-2"><DateInput
+    return <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid content-start gap-4">
+        <EditorBlock note="PDF 왼쪽 위" title="기본 연락 정보 · 공통">
+          <div className="grid gap-4">
+            <Field label="이름" large placeholder="예: 김하늘" required value={value.name} onChange={(name) => onChange({ ...value, name })} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="이메일" placeholder="예: haneul@example.com" required value={value.email} onChange={(email) => onChange({ ...value, email })} />
+              <Field label="전화번호" placeholder="예: 010-1234-5678" type="tel" value={value.phone ?? ""} onChange={(phone) => onChange({ ...value, phone })} />
+              <Field label="거주 지역" placeholder="예: 서울 양천구" value={value.location ?? ""} onChange={(location) => onChange({ ...value, location })} />
+            </div>
+          </div>
+        </EditorBlock>
+        <EditorBlock note="PDF 이름 아래 한 줄" title="신상 정보 · 공통">
+          <div className="grid gap-4 sm:grid-cols-2 pt-overflow-visible"><DateInput
       label="생년월일"
       value={value.birthDate ?? ""}
       onChange={(birthDate) => onChange({ ...value, birthDate })}
@@ -578,22 +725,30 @@ function StructuredEditor({ section, content, workItems = [], onChange }: { sect
       endMonth={localToday}
       reverseYears
       quickActions={[]}
-    /><SelectField label="성별" options={["남성", "여성", "기타"]} value={value.gender} onChange={(gender) => onChange({ ...value, gender })} /></div></fieldset><ListEditor label="링크" addLabel="링크 추가" items={value.links} placeholder="https://..." onChange={(links) => onChange({ ...value, links })} /></div>;
+    /><SelectField label="성별" options={["남성", "여성", "기타"]} value={value.gender} onChange={(gender) => onChange({ ...value, gender })} /></div>
+        </EditorBlock>
+        <EditorBlock note="연락처 아래 세로로 나열됩니다" title="링크">
+          <ListEditor addLabel="링크 추가" hint="http:// 또는 https:// 로 시작해야 합니다." items={value.links} label="링크" labelHidden placeholder="https://github.com/..." onChange={(links) => onChange({ ...value, links })} />
+        </EditorBlock>
+      </div>
+      <div className="lg:w-56"><IdentityPhotoField value={value} onChange={(photo) => onChange({ ...value, ...photo })} /></div>
+    </div>;
   }
   if (section.kind === "eligibility") {
     const value = content as EligibilityContent;
-    return <fieldset className="border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">병역 · 보훈 · 장애 · 취업보호</legend><p className="mb-4 text-[11px] leading-5 text-muted-foreground">중요도가 낮은 공통 사실로 관리하며 기본 PDF의 마지막 섹션에 표시합니다.</p><div className="grid gap-4 sm:grid-cols-2"><SelectField label="병역 여부" options={["군필", "미필", "복무 중", "면제", "해당 없음"]} value={value.militaryStatus} onChange={(militaryStatus) => onChange({ ...value, militaryStatus })} /><SelectField label="보훈 대상" options={["대상", "비대상"]} value={value.veteranStatus} onChange={(veteranStatus) => onChange({ ...value, veteranStatus })} /><SelectField label="장애 여부" options={["해당", "해당 없음"]} value={value.disabilityStatus} onChange={(disabilityStatus) => onChange({ ...value, disabilityStatus })} /><SelectField label="취업보호 대상" options={["대상", "비대상"]} value={value.employmentProtectionStatus} onChange={(employmentProtectionStatus) => onChange({ ...value, employmentProtectionStatus })} /></div></fieldset>;
+    const facts = [value.militaryStatus && `병역 ${value.militaryStatus}`, value.veteranStatus && `보훈 ${value.veteranStatus}`, value.disabilityStatus && `장애 ${value.disabilityStatus}`, value.employmentProtectionStatus && `취업보호 ${value.employmentProtectionStatus}`].filter(Boolean) as string[];
+    return <EditorBlock note="모두 선택 항목" title="병역 · 보훈 · 장애 · 취업보호">
+      <p className="mb-4 text-[11px] leading-5 text-muted-foreground">중요도가 낮은 공통 사실로 관리하며 기본 PDF의 마지막 섹션에 표시합니다.</p>
+      <div className="grid gap-4 sm:grid-cols-2"><SelectField label="병역 여부" options={["군필", "미필", "복무 중", "면제", "해당 없음"]} value={value.militaryStatus} onChange={(militaryStatus) => onChange({ ...value, militaryStatus })} /><SelectField label="보훈 대상" options={["대상", "비대상"]} value={value.veteranStatus} onChange={(veteranStatus) => onChange({ ...value, veteranStatus })} /><SelectField label="장애 여부" options={["해당", "해당 없음"]} value={value.disabilityStatus} onChange={(disabilityStatus) => onChange({ ...value, disabilityStatus })} /><SelectField label="취업보호 대상" options={["대상", "비대상"]} value={value.employmentProtectionStatus} onChange={(employmentProtectionStatus) => onChange({ ...value, employmentProtectionStatus })} /></div>
+      <div className="mt-4 border-t border-border pt-3">
+        <p className="text-[10px] font-extrabold tracking-wide text-muted-foreground">PDF에는 이렇게 한 줄로 찍힙니다</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{facts.length ? facts.join(" · ") : "선택한 정보가 없습니다."}</p>
+      </div>
+    </EditorBlock>;
   }
   if (section.kind === "narrative") return <RichNarrativeEditor content={content as NarrativeContent} onChange={onChange} />;
-  if (section.kind === "tags") { const value = content as TagsContent; return <ListEditor label="항목" addLabel="항목 추가" items={value.items} placeholder="예: 문제 해결" onChange={(items) => onChange({ items })} />; }
-  const value = content as ItemsContent;
-  const updateItem = (id: string, patch: Partial<ItemContent>) => onChange({ ...value, items: value.items.map((item) => item.id === id ? { ...item, ...patch } : item) });
-  const hasManualDuration = value.careerDurationOverrideMonths !== undefined
-    && Number.isFinite(value.careerDurationOverrideMonths)
-    && value.careerDurationOverrideMonths >= 0;
-  const durationMonths = hasManualDuration ? Math.trunc(value.careerDurationOverrideMonths!) : 0;
-  const durationControls = isCareerTimelineSectionId(section.id) && <fieldset className="mb-4 border border-border bg-muted/20 p-4"><legend className="px-2 text-xs font-extrabold">{section.id === "experience" ? "경력 표시 설정" : "경력 상세 표시 설정"}</legend><div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-1.5 text-xs font-bold text-muted-foreground">시작 연월 정렬<select className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground" value={value.sortDirection ?? ""} onChange={(event) => onChange({ ...value, sortDirection: (event.target.value || undefined) as ItemsContent["sortDirection"] })}><option value="">수동 순서</option><option value="latest-first">최신순</option><option value="oldest-first">오래된순</option></select></label>{section.id === "experience" && <fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">총 경력</legend><div className="flex flex-wrap gap-3"><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={!hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...value, careerDurationOverrideMonths: undefined })} /> 자동 계산</label><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...value, careerDurationOverrideMonths: calculateAutomaticCareerDurationMonths(value.items, currentLocalMonth()) })} /> 직접 입력</label></div>{hasManualDuration && <div className="mt-3 grid grid-cols-2 gap-2"><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 연<input aria-label="경력 연" className="h-10 border border-border bg-background px-3 text-sm text-foreground" min={0} type="number" value={Math.floor(durationMonths / 12)} onChange={(event) => onChange({ ...value, careerDurationOverrideMonths: normalizeCareerDurationOverride(Number(event.target.value), durationMonths % 12) })} /></label><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 개월<input aria-label="경력 개월" className="h-10 border border-border bg-background px-3 text-sm text-foreground" max={11} min={0} type="number" value={durationMonths % 12} onChange={(event) => onChange({ ...value, careerDurationOverrideMonths: normalizeCareerDurationOverride(Math.floor(durationMonths / 12), Number(event.target.value)) })} /></label></div>}</fieldset>}</div></fieldset>;
-  return <div>{durationControls}<div className="grid gap-3">{value.items.map((item, index) => <fieldset className="border border-border bg-muted/20 p-4" data-resume-edit-item-id={item.id} key={item.id}><legend className="px-2 text-xs font-extrabold">항목 {index + 1}</legend><div className="grid gap-3 sm:grid-cols-2"><ResumeItemDateFields sectionId={section.id} value={item} onChange={(patch) => updateItem(item.id, patch)} /><Field label="제목" value={item.title} onChange={(title) => updateItem(item.id, { title })} /><Field label="조직·부제" value={item.subtitle} onChange={(subtitle) => updateItem(item.id, { subtitle })} />{section.id === "projects" && <CareerDetailControls item={item} workItems={workItems} onChange={(patch) => updateItem(item.id, patch)} />}<div className="sm:col-span-2"><TextArea label="설명" value={item.body} onChange={(body) => updateItem(item.id, { body })} /></div></div><button className="mt-3 inline-flex h-9 items-center gap-2 border border-red-200 px-3 text-xs font-bold text-red-600" onClick={() => onChange({ ...value, items: value.items.filter((entry) => entry.id !== item.id) })} type="button"><Trash2 className="h-3.5 w-3.5" /> 이 항목 삭제</button></fieldset>)}</div><button className="mt-3 inline-flex h-10 items-center gap-2 border border-primary px-4 text-sm font-bold text-primary" onClick={() => onChange({ ...value, items: [...value.items, { id: `item-${Date.now()}`, itemKind: defaultItemKind(section.id), detailType: section.id === "projects" ? "project" : undefined, meta: "", startMonth: "", endMonth: "", endMonthEnabled: false, isCurrent: false, title: "", subtitle: "", body: "" }] })} type="button"><Plus className="h-4 w-4" /> 항목 추가</button></div>;
+  if (section.kind === "tags") { const value = content as TagsContent; return <EditorBlock note="PDF에도 같은 칩 모양으로 나열됩니다" title="역량 · 키워드"><ListEditor addLabel="항목 추가" hint="짧은 낱말이 좋습니다. 문장을 넣으면 칩이 줄을 넘깁니다." items={value.items} label="항목" placeholder="예: 문제 해결" required variant="chips" onChange={(items) => onChange({ items })} /></EditorBlock>; }
+  return <ItemsEditor content={content as ItemsContent} section={section} workItems={workItems} onChange={onChange} />;
 }
 
 function CareerDetailControls({ item, workItems, onChange }: { item: ItemContent; workItems: ItemContent[]; onChange: (patch: Partial<ItemContent>) => void }) {
@@ -608,7 +763,28 @@ function CareerDetailControls({ item, workItems, onChange }: { item: ItemContent
   </>;
 }
 
-function ListEditor({ label, addLabel, items, placeholder, onChange }: { label: string; addLabel: string; items: string[]; placeholder: string; onChange: (items: string[]) => void }) { return <div><p className="text-xs font-bold text-muted-foreground">{label}</p><div className="mt-2 grid gap-2">{items.map((item, index) => <div className="flex gap-2" key={index}><input aria-label={`${label} ${index + 1}`} className="h-10 min-w-0 flex-1 border border-border bg-background px-3 text-sm" placeholder={placeholder} value={item} onChange={(event) => onChange(items.map((value, itemIndex) => itemIndex === index ? event.target.value : value))} /><button aria-label={`${label} ${index + 1} 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 text-red-600" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))} type="button"><Trash2 className="h-3.5 w-3.5" /></button></div>)}</div><button className="mt-2 inline-flex h-9 items-center gap-2 border border-border px-3 text-xs font-bold" onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button></div>; }
+// rows = 세로 나열(링크: PDF의 .resume-contact와 같은 모양), chips = 칩 나열(키워드: .resume-tags와 같은 모양)
+function ListEditor({ label, addLabel, items, placeholder, onChange, variant = "rows", required, hint, labelHidden }: { label: string; addLabel: string; items: string[]; placeholder: string; onChange: (items: string[]) => void; variant?: "rows" | "chips"; required?: boolean; hint?: string; labelHidden?: boolean }) {
+  const update = (index: number, next: string) => onChange(items.map((value, itemIndex) => itemIndex === index ? next : value));
+  const remove = (index: number) => onChange(items.filter((_, itemIndex) => itemIndex !== index));
+  if (variant === "chips") return <div>
+    {labelHidden ? <span className="sr-only">{label}</span> : <FieldLabel label={label} required={required} />}
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {items.map((item, index) => <span className="inline-flex items-center border border-border bg-background" key={index}>
+        <input aria-label={`${label} ${index + 1}`} className="h-9 min-w-24 bg-transparent px-2 text-sm font-bold field-sizing-content" placeholder={placeholder} value={item} onChange={(event) => update(index, event.target.value)} />
+        <button aria-label={`${label} ${index + 1} 삭제`} className="grid h-9 w-8 shrink-0 place-items-center border-l border-border text-red-600" onClick={() => remove(index)} type="button"><X className="h-3.5 w-3.5" /></button>
+      </span>)}
+      <button className="inline-flex h-9 items-center gap-2 border border-dashed border-primary px-3 text-xs font-bold text-primary" onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
+    </div>
+    {hint && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{hint}</p>}
+  </div>;
+  return <div>
+    {labelHidden ? <span className="sr-only">{label}</span> : <FieldLabel label={label} required={required} />}
+    <div className={labelHidden ? "grid gap-2" : "mt-2 grid gap-2"}>{items.map((item, index) => <div className="flex gap-2" key={index}><input aria-label={`${label} ${index + 1}`} className="h-10 min-w-0 flex-1 border border-border bg-background px-3 text-sm" placeholder={placeholder} value={item} onChange={(event) => update(index, event.target.value)} /><button aria-label={`${label} ${index + 1} 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 text-red-600" onClick={() => remove(index)} type="button"><Trash2 className="h-3.5 w-3.5" /></button></div>)}</div>
+    <button className="mt-2 inline-flex h-9 items-center gap-2 border border-border px-3 text-xs font-bold" onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
+    {hint && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{hint}</p>}
+  </div>;
+}
 
 function ItemTailoringDialog({ state, profileId, variantId, scope, section, workItems, onSave, onClose, onEditParent, onEditCurrent }: { state: ResumeDocumentState; profileId: string; variantId?: string; scope: "role" | "document"; section: ResumeSection; workItems: ItemContent[]; onSave: (state: ResumeDocumentState) => void; onClose: () => void; onEditParent: () => void; onEditCurrent: () => void }) {
   const [draftState, setDraftState] = useState(() => clone(state));
@@ -672,7 +848,7 @@ function ItemTailoringDialog({ state, profileId, variantId, scope, section, work
     })[0];
     if (invalid) {
       setError(invalid.issue.message);
-      window.setTimeout(() => document.querySelector<HTMLElement>(`[data-resume-edit-item-id="${invalid.item.id}"] [data-resume-date-field="${invalid.issue.field}"]`)?.focus(), 0);
+      window.setTimeout(() => focusItemDateField(invalid.item.id, invalid.issue.field), 0);
       return;
     }
     const normalized = clone(draftState);
@@ -686,7 +862,40 @@ function ItemTailoringDialog({ state, profileId, variantId, scope, section, work
     onClose();
   };
   const scopeLabel = scope === "role" ? `${profile.name} 직군 이력서` : `${profile.name} → ${variant?.name ?? "지원 이력서"}`;
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-modal="true" className="my-auto w-full max-w-4xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">편집 범위 · {scopeLabel} · 이 이력서에만 저장</p><h2 className="mt-1 text-xl font-extrabold">{section.title} {section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">항목마다 상위 단계 사용, 재작성, 현재 이력서에서 제외를 선택하고 순서를 바꿀 수 있습니다.</p></div><button aria-label="항목 편집 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={requestClose}><X className="h-4 w-4" /></button></header><div className="max-h-[70vh] space-y-3 overflow-y-auto p-5">{ordered.length === 0 ? <div className="border border-dashed border-border bg-muted/20 p-8 text-center"><p className="font-extrabold">상위 단계에도 작성된 항목이 없습니다.</p><p className="mt-2 text-xs leading-5 text-muted-foreground">공통·직군 정보를 먼저 작성하거나, 현재 이력서에 바로 항목을 만들 수 있습니다.</p><div className="mt-5 flex flex-wrap justify-center gap-2"><button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onEditParent}>상위 정보 작성하기</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={onEditCurrent}>이 이력서에 직접 작성</button></div></div> : ordered.map((item, index) => { const itemSetting = setting?.itemSettings?.[item.id]; const mode = itemSetting?.mode ?? "inherit"; const editable = itemSetting?.content ?? (scope === "document" ? parentById.get(item.id) : item) ?? item; return <article className="border border-border bg-card p-4" data-resume-edit-item-id={item.id} key={item.id}><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-extrabold">{item.title || `항목 ${index + 1}`}</p>{item.source && <p className="mt-1 text-[10px] font-bold text-primary">경력기술서 연동 · {item.source.id}</p>}</div><div className="flex gap-1"><button aria-label={`${item.title} 위로`} className="grid h-9 w-9 place-items-center border border-border" disabled={index === 0} onClick={() => move(item.id, -1)}><ArrowUp className="h-3.5 w-3.5" /></button><button aria-label={`${item.title} 아래로`} className="grid h-9 w-9 place-items-center border border-border" disabled={index === ordered.length - 1} onClick={() => move(item.id, 1)}><ArrowDown className="h-3.5 w-3.5" /></button><select aria-label={`${item.title} 항목 방식`} className="h-9 border border-border bg-background px-2 text-xs font-bold" value={mode} onChange={(event) => updateMode(item, event.target.value as ItemMode)}><option value="inherit">{scope === "role" ? "공통 정보 사용" : "직군 이력서 사용"}</option><option value="override">이 단계에서 재작성</option><option value="hidden">{scope === "role" ? "현재 직군 이력서에서 제외" : "현재 지원 이력서에서 제외"}</option></select></div></div>{mode === "override" && <div className="mt-4 grid gap-3 sm:grid-cols-2"><ResumeItemDateFields sectionId={section.id} value={editable} onChange={(patch) => updateContent(item.id, patch)} /><Field label="제목" value={editable.title} onChange={(title) => updateContent(item.id, { title })} /><Field label="조직·부제" value={editable.subtitle} onChange={(subtitle) => updateContent(item.id, { subtitle })} />{section.id === "projects" && <CareerDetailControls item={editable} workItems={workItems} onChange={(patch) => updateContent(item.id, patch)} />}<div className="sm:col-span-2"><TextArea label="강조 설명" value={editable.body} onChange={(body) => updateContent(item.id, { body })} /></div></div>}</article>; })}{error && <p aria-live="assertive" className="border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}</div><footer className="flex justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={requestClose}>취소</button><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={save}>저장</button></footer></section></div>;
+  // 상속 / 재작성 / 제외를 셀렉트 대신 3분할 버튼으로. 카드 테두리로도 같은 상태를 보여준다.
+  const modeOptions: Array<{ value: ItemMode; short: string; full: string }> = [
+    { value: "inherit", short: "상속", full: scope === "role" ? "공통 정보 사용" : "직군 이력서 사용" },
+    { value: "override", short: "재작성", full: "이 단계에서 재작성" },
+    { value: "hidden", short: "제외", full: scope === "role" ? "현재 직군 이력서에서 제외" : "현재 지원 이력서에서 제외" },
+  ];
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-modal="true" className="resume-dialog-panel my-auto flex max-h-[92vh] w-full max-w-5xl flex-col border border-border bg-background shadow-2xl" role="dialog">
+    <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">편집 범위 · {scopeLabel} · 이 이력서에만 저장</p><h2 className="mt-1 text-xl font-extrabold">{section.title} {section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">항목마다 상위 단계 사용, 재작성, 현재 이력서에서 제외를 선택하고 순서를 바꿀 수 있습니다.</p></div><button aria-label="항목 편집 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={requestClose}><X className="h-4 w-4" /></button></header>
+    <div className="resume-dialog-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-5">{ordered.length === 0 ? <div className="border border-dashed border-border bg-muted/20 p-8 text-center"><p className="font-extrabold">상위 단계에도 작성된 항목이 없습니다.</p><p className="mt-2 text-xs leading-5 text-muted-foreground">공통·직군 정보를 먼저 작성하거나, 현재 이력서에 바로 항목을 만들 수 있습니다.</p><div className="mt-5 flex flex-wrap justify-center gap-2"><button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onEditParent}>상위 정보 작성하기</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={onEditCurrent}>이 이력서에 직접 작성</button></div></div> : ordered.map((item, index) => {
+      const itemSetting = setting?.itemSettings?.[item.id];
+      const mode = itemSetting?.mode ?? "inherit";
+      const editable = itemSetting?.content ?? (scope === "document" ? parentById.get(item.id) : item) ?? item;
+      const modeLabel = modeOptions.find((option) => option.value === mode)?.full ?? "";
+      return <ItemEditorCard
+        bodyLabel="강조 설명"
+        bodyRequired={section.id === "experience"}
+        canMoveDown={index < ordered.length - 1}
+        canMoveUp={index > 0}
+        headerExtra={<span aria-label={`${item.title || `항목 ${index + 1}`} 항목 방식`} className="inline-flex border border-border bg-background" role="group">{modeOptions.map((option) => <button aria-pressed={mode === option.value} className={cx("h-8 px-2 text-[11px] font-bold", mode === option.value ? option.value === "hidden" ? "bg-foreground text-background" : "bg-primary text-primary-foreground" : "text-muted-foreground")} key={option.value} title={option.full} type="button" onClick={() => updateMode(item, option.value)}>{option.short}</button>)}</span>}
+        headerNote={<>{modeLabel}{item.source && ` · 경력기술서 연동 ${item.source.id}`}</>}
+        index={index}
+        item={editable}
+        key={item.id}
+        sectionId={section.id}
+        showBody={mode === "override"}
+        tone={mode === "override" ? "override" : mode === "hidden" ? "hidden" : "default"}
+        workItems={workItems}
+        onChange={(patch) => updateContent(item.id, patch)}
+        onMoveDown={() => move(item.id, 1)}
+        onMoveUp={() => move(item.id, -1)}
+      />;
+    })}{error && <p aria-live="assertive" className="sticky bottom-0 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}</div>
+    <footer className="resume-dialog-footer flex shrink-0 justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={requestClose}>취소</button><button className="h-10 bg-primary px-5 text-sm font-bold text-primary-foreground" onClick={save}>저장</button></footer>
+  </section></div>;
 }
 
 function ExperienceBrickSyncDialog({ onClose, onSync }: { onClose: () => void; onSync: (bricks: ExperienceBrickReference[]) => void }) {
@@ -740,7 +949,7 @@ function AddSectionDialog({ afterTitle, kind, title, onKind, onTitle, onCancel, 
   return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="add-resume-section-title" aria-modal="true" className="resume-dialog-panel my-auto w-full max-w-2xl border border-border bg-background shadow-2xl" role="dialog"><header className="flex shrink-0 items-center justify-between border-b border-border p-5"><div><p className="text-[10px] font-bold tracking-widest text-primary">{afterTitle} 다음 위치</p><h2 className="mt-1 text-xl font-extrabold" id="add-resume-section-title">새 섹션 추가</h2></div><button aria-label="추가 창 닫기" className="grid h-10 w-10 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="resume-dialog-scroll grid gap-5 p-5"><Field label="섹션 제목" value={title} placeholder="예: 오픈소스 활동" onChange={onTitle} /><fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">내용 형식</legend><div className="grid gap-3 sm:grid-cols-2">{(Object.entries(kinds) as Array<[SectionKind, string]>).map(([value, label]) => <button aria-pressed={kind === value} className={cx("relative border p-4 text-left transition-colors", kind === value ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50")} key={value} onClick={() => onKind(value)} type="button">{kind === value && <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center bg-primary text-primary-foreground"><Check className="h-3.5 w-3.5" /></span>}<span className="block pr-7 font-extrabold">{label}</span><span className="mt-1 block min-h-8 text-[11px] leading-4 text-muted-foreground">{sectionKindGuidance[value]}</span><span aria-hidden="true" className="mt-3 block border border-slate-200 bg-white p-3">{previews[value]}</span></button>)}</div></fieldset></div><footer className="resume-dialog-footer flex shrink-0 justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={onAdd}><Plus className="h-4 w-4" /> 추가하고 내용 작성</button></footer></section></div>;
 }
 
-function Editor({ draft, profileName, variantName, workItems, onChange, onCancel, onSave }: { draft: EditDraft; profileName: string; variantName?: string; workItems: ItemContent[]; onChange: (draft: EditDraft) => void; onCancel: () => void; onSave: (draft: EditDraft) => void }) {
+function Editor({ draft, profileCount, profileName, roleVariantCount, variantName, workItems, onChange, onCancel, onSave }: { draft: EditDraft; profileCount: number; profileName: string; roleVariantCount: number; variantName?: string; workItems: ItemContent[]; onChange: (draft: EditDraft) => void; onCancel: () => void; onSave: (draft: EditDraft) => void }) {
   const [targetOpen, setTargetOpen] = useState(false);
   const [error, setError] = useState("");
   const choosesTarget = !draft.section.custom && (draft.scope === "role" || draft.scope === "variant");
@@ -750,6 +959,20 @@ function Editor({ draft, profileName, variantName, workItems, onChange, onCancel
   const parentCompactLabel = draft.scope === "variant" ? "직군에 전파" : "공통에 전파";
   const scopeLabel = draft.scope === "shared" ? "공통 정보" : draft.scope === "role" || draft.scope === "role-custom" ? `${profileName} 직군 이력서` : `${profileName} → ${variantName ?? "지원 이력서"}`;
   const saveLabel = !choosesTarget ? "현재 편집 위치" : draft.saveTarget === "current" ? currentCompactLabel : parentCompactLabel;
+  const savesToCommon = draft.scope === "shared" || (draft.scope === "role" && draft.saveTarget === "parent");
+  const savesToRole = draft.scope === "variant" && draft.saveTarget === "parent";
+  const saveButtonLabel = savesToCommon
+    ? "공통 정보에 저장·전파"
+    : savesToRole
+      ? `${profileName} 직군에 저장·전파`
+      : draft.scope === "variant" || draft.scope === "variant-custom"
+        ? `${variantName ?? "지원 이력서"}에 저장`
+        : `${profileName} 직군에 저장`;
+  const propagationMessage = savesToCommon
+    ? `${profileCount}개 직군 이력서에 반영될 수 있습니다. 직군별 재작성 내용은 유지됩니다.`
+    : savesToRole
+      ? `${roleVariantCount}개 지원 버전에 반영될 수 있습니다. 지원 버전별 재작성 내용은 유지됩니다.`
+      : "";
   const save = () => {
     let nextDraft = draft;
     if (draft.section.kind === "items") {
@@ -760,12 +983,12 @@ function Editor({ draft, profileName, variantName, workItems, onChange, onCancel
       })[0];
       if (invalid) {
         setError(invalid.issue.message);
-        window.setTimeout(() => document.querySelector<HTMLElement>(`[data-resume-edit-item-id="${invalid.item.id}"] [data-resume-date-field="${invalid.issue.field}"]`)?.focus(), 0);
+        window.setTimeout(() => focusItemDateField(invalid.item.id, invalid.issue.field), 0);
         return;
       }
       nextDraft = { ...draft, content: { ...content, items: content.items.map((item) => normalizeResumeItemDates(item, draft.section.id)) } };
     }
     onSave(nextDraft);
   };
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="resume-section-editor-title" className="my-auto w-full max-w-3xl border border-border bg-background shadow-2xl" role="dialog" aria-modal="true"><header className="flex items-start justify-between gap-4 border-b border-border p-5"><div className="min-w-0"><p className="text-[10px] font-bold tracking-widest text-primary">편집 범위 · {scopeLabel}</p><h2 className="mt-1 text-xl font-extrabold" id="resume-section-editor-title">{draft.title}</h2><div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>저장: <strong className="text-foreground">{saveLabel}</strong></span>{choosesTarget && <button aria-expanded={targetOpen} className="font-extrabold text-primary underline underline-offset-2" onClick={() => setTargetOpen((open) => !open)} type="button">저장 범위 변경</button>}</div>{choosesTarget && targetOpen && <fieldset aria-label="저장 위치" className="mt-3 flex flex-wrap items-center gap-1"><legend className="sr-only">저장 위치</legend><label aria-label={currentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "current" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={currentLabel}><input checked={draft.saveTarget === "current"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => onChange({ ...draft, saveTarget: "current" })} /> {currentCompactLabel}</label><label aria-label={parentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "parent" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={parentLabel}><input checked={draft.saveTarget === "parent"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => onChange({ ...draft, saveTarget: "parent" })} /> {parentCompactLabel}</label></fieldset>}</div><button aria-label="편집 창 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="max-h-[70vh] overflow-y-auto p-5"><div className="mb-5"><Field label="섹션 이름" value={draft.title} onChange={(title) => onChange({ ...draft, title })} /></div><StructuredEditor section={draft.section} content={draft.content} workItems={workItems} onChange={(content) => { setError(""); onChange({ ...draft, content }); }} />{error && <p aria-live="assertive" className="mt-4 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}</div><footer className="flex justify-end gap-2 border-t border-border bg-muted/30 p-4"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={save}>저장</button></footer></section></div>;
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="resume-section-editor-title" className="resume-dialog-panel my-auto flex max-h-[92vh] w-full max-w-5xl flex-col border border-border bg-background shadow-2xl" role="dialog" aria-modal="true"><header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5"><div className="min-w-0"><p className="text-[10px] font-bold tracking-widest text-primary">편집 범위 · {scopeLabel}</p><h2 className="mt-1 text-xl font-extrabold" id="resume-section-editor-title">{draft.title}</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">{sectionKindGuidance[draft.section.kind]}</p><p className="mt-2 text-xs text-muted-foreground">저장 대상: <strong className="text-foreground">{saveLabel}</strong></p></div><button aria-label="편집 창 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="resume-dialog-scroll min-h-0 flex-1 overflow-y-auto p-5"><div className="mb-5 max-w-md"><Field hint="PDF에 이 섹션의 제목으로 찍힙니다." label="섹션 이름" placeholder="예: 경력" value={draft.title} onChange={(title) => onChange({ ...draft, title })} /></div><StructuredEditor section={draft.section} content={draft.content} workItems={workItems} onChange={(content) => { setError(""); onChange({ ...draft, content }); }} />{error && <p aria-live="assertive" className="mt-4 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}</div><footer className="resume-dialog-footer flex shrink-0 flex-wrap items-end justify-between gap-3 border-t border-border bg-muted/30 p-4"><div className="min-w-0 flex-1">{choosesTarget && <button aria-expanded={targetOpen} className="text-xs font-extrabold text-primary underline underline-offset-2" onClick={() => setTargetOpen((open) => !open)} type="button">저장 범위 변경</button>}{choosesTarget && targetOpen && <fieldset aria-label="저장 위치" className="mt-2 flex flex-wrap items-center gap-1"><legend className="sr-only">저장 위치</legend><label aria-label={currentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "current" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={currentLabel}><input checked={draft.saveTarget === "current"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => { onChange({ ...draft, saveTarget: "current" }); setTargetOpen(false); }} /> {currentCompactLabel}</label><label aria-label={parentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "parent" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={parentLabel}><input checked={draft.saveTarget === "parent"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => { onChange({ ...draft, saveTarget: "parent" }); setTargetOpen(false); }} /> {parentCompactLabel}</label></fieldset>}{propagationMessage && <p aria-live="polite" className="mt-2 text-[11px] leading-5 text-amber-700">{propagationMessage}</p>}</div><div className="flex shrink-0 gap-2"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={save}>{saveButtonLabel}</button></div></footer></section></div>;
 }

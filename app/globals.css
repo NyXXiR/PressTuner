@@ -969,3 +969,14 @@ html {
     font-size: 0.8125rem;
   }
 }
+
+/* 소개글 편집기: 비어 있을 때 예시 문구를 보여준다 (contentEditable은 placeholder를 못 쓴다) */
+[data-narrative-placeholder]:empty::before {
+  content: attr(data-narrative-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+/* 항목 카드 접기 표시 — details가 열리면 셰브런을 뒤집는다 */
+[data-item-chevron] { transition: transform 120ms ease; }
+details[open] > summary [data-item-chevron] { transform: rotate(180deg); }
