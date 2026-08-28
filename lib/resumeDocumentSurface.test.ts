@@ -443,7 +443,8 @@ test("section editors preserve the resolved common, role, or support source by d
 test("resume section editing exposes flexible career-detail, grouped keyword, and template controls", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
   assert.match(source, /총 경력 합산에서 제외/);
-  assert.match(source, /list=\{`career-detail-type-options-\$\{item\.id\}`\}/);
+  assert.match(source, /상세 유형<input className="wg-field h-10 min-w-0 w-full appearance-none[^>]+type="text"/);
+  assert.doesNotMatch(source, /career-detail-type-options/);
   assert.match(source, /function TagGroupsEditor/);
   assert.match(source, /양식 · \{sectionTemplateLabel\(section\)\}/);
   assert.match(source, /bodyBlocks: next\.blocks/);
@@ -465,6 +466,24 @@ test("every printable item description uses the shared resume body editor contra
   assert.match(builder, /inlineOnly=\{sectionId !== "projects"\}/);
   assert.doesNotMatch(builder, /function TextArea/);
   assert.match(builder, /body: next\.body, bodyBlocks: next\.blocks/);
+});
+
+test("keyword categories add tokens from a top composer instead of an empty trailing row", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(builder, /<form className="border-b border-border p-3" onSubmit=/);
+  assert.match(builder, /placeholder="입력 후 Enter"/);
+  assert.match(builder, /이미 이 카테고리에 있는 키워드입니다/);
+  assert.doesNotMatch(builder, /키워드 추가<\/button>/);
+});
+
+test("large keyword sets use a top category composer and collapsible bounded groups", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(builder, /sticky top-0 z-10 mb-3/);
+  assert.match(builder, /placeholder="예: 프론트엔드 · 입력 후 Enter"/);
+  assert.match(builder, /update\(\[\{ id: `tag-group-\$\{Date\.now\(\)\}`, title, items: \[\] \}, \.\.\.groups\]\)/);
+  assert.match(builder, /defaultOpen=\{index === 0\}/);
+  assert.match(builder, /max-h-72 gap-2 overflow-y-auto overscroll-contain/);
+  assert.match(builder, /\{group\.items\.length\}개/);
 });
 
 test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {
