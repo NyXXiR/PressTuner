@@ -57,6 +57,9 @@
   --success: 142 76% 36%;
   /* 라이트모드: 투명도 배경 위 진한 텍스트용 */
   --success-foreground: 142 76% 36%;
+
+  /* 미기입 상태 — 원고지 테마에서 재정의된다 */
+  --wg-todo: 32 68% 38%;
 }
 
 .dark {
@@ -92,6 +95,7 @@
   --destructive-foreground: 210 40% 98%;
   --success: 160 84% 39%;
   --success-foreground: 210 40% 98%;
+  --wg-todo: 36 72% 62%;
 }
 
 /* 2) Tailwind 토큰 매핑 */
@@ -117,6 +121,7 @@
   /* 상태 색상 매핑 */
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-wg-todo: hsl(var(--wg-todo));
   --color-success: hsl(var(--success));
   --color-success-foreground: hsl(var(--success-foreground));
 
@@ -499,6 +504,7 @@ html {
   --success: 154 40% 31%;        /* 완료 상태도 괘선녹으로 통일 */
   --success-foreground: 154 40% 31%;
   --wg-seal: 7 63% 48%;          /* 주홍 인장 */
+  --wg-todo: 32 68% 38%;         /* 미기입 — 아직 안 쓴 칸 */
 }
 .dark .wongoji {
   --background: 96 12% 8%;
@@ -518,6 +524,7 @@ html {
   --success: 147 27% 60%;
   --success-foreground: 147 27% 60%;
   --wg-seal: 10 63% 59%;
+  --wg-todo: 36 72% 62%;
 }
 
 /* 원고지 세계는 직각 — .wongoji-sharp 스코프 안의 라운딩 제거

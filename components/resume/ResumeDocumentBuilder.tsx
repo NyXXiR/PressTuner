@@ -311,13 +311,17 @@ export function ResumeDocumentBuilder() {
 }
 
 function Tab({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) { return <button aria-selected={active} className={cx("h-10 px-4 text-sm font-bold", active ? "bg-foreground text-background" : "text-muted-foreground")} onClick={onClick} role="tab">{children}</button>; }
-// 필수/선택을 라벨 대비로 먼저 보여준다. 필수는 foreground, 선택은 muted.
-function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+// 색으로 상태를 말한다: 미기입 필수 = 오커 + "작성 필요", 다 채우면 색이 빠지고 무채색으로 물러난다.
+function FieldLabel({ label, required, needsInput }: { label: string; required?: boolean; needsInput?: boolean }) {
   return <span className="flex items-baseline gap-1.5">
-    <span className={cx("text-xs font-bold", required ? "text-foreground" : "text-muted-foreground")}>{label}</span>
-    {required && <span className="text-[10px] font-extrabold text-red-600">필수</span>}
+    <span className={cx("text-xs font-bold", needsInput ? "text-wg-todo" : required ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+    {needsInput && <span className="text-[10px] font-extrabold text-wg-todo">작성 필요</span>}
   </span>;
 }
+// 미기입 필수 입력칸: 왼쪽 굵은 오커 막대 + 아주 연한 오커 바탕
+const todoFieldClass = (needsInput?: boolean) => needsInput
+  ? "border-wg-todo/45 border-l-[3px] border-l-wg-todo bg-wg-todo/[.06]"
+  : "border-border bg-background";
 // 여백 대신 경계선과 굵기로 구획을 나누는 작은 래퍼.
 function EditorBlock({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return <section className="border border-border bg-muted/20">
@@ -325,13 +329,14 @@ function EditorBlock({ title, note, children }: { title: string; note?: string; 
     <div className="p-4">{children}</div>
   </section>;
 }
-function Field({ label, value, onChange, placeholder, type = "text", required, hint, large }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: "text" | "tel" | "date"; required?: boolean; hint?: string; large?: boolean }) { return <label className="grid gap-1.5"><FieldLabel label={label} required={required} /><input className={cx("border border-border bg-background px-3 font-normal text-foreground", large ? "h-12 text-lg font-extrabold" : "h-10 text-sm")} placeholder={placeholder} type={type} value={value} onChange={(event) => onChange(event.target.value)} />{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
-function SelectField({ label, value, options, onChange, required, hint }: { label: string; value?: string; options: string[]; onChange: (value: string) => void; required?: boolean; hint?: string }) { return <label className="grid gap-1.5"><FieldLabel label={label} required={required} /><select className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground" value={value ?? ""} onChange={(event) => onChange(event.target.value)}><option value="">선택 안 함</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
-function TextArea({ label, value, onChange, placeholder, required, hint, minRows = 4, showCount }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; required?: boolean; hint?: string; minRows?: number; showCount?: boolean }) {
+function Field({ label, value, onChange, placeholder, type = "text", required, hint, large }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: "text" | "tel" | "date"; required?: boolean; hint?: string; large?: boolean }) { const needsInput = Boolean(required) && !value.trim(); return <label className="grid gap-1.5"><FieldLabel label={label} needsInput={needsInput} required={required} /><input className={cx("border px-3 font-normal text-foreground", todoFieldClass(needsInput), large ? "h-12 text-lg font-extrabold" : "h-10 text-sm")} placeholder={placeholder} type={type} value={value} onChange={(event) => onChange(event.target.value)} />{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
+function SelectField({ label, value, options, onChange, required, hint }: { label: string; value?: string; options: string[]; onChange: (value: string) => void; required?: boolean; hint?: string }) { return <label className="grid gap-1.5"><FieldLabel label={label} needsInput={Boolean(required) && !(value ?? "").trim()} required={required} /><select className={cx("h-10 border px-3 text-sm font-normal text-foreground", todoFieldClass(Boolean(required) && !(value ?? "").trim()))} value={value ?? ""} onChange={(event) => onChange(event.target.value)}><option value="">선택 안 함</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
+function TextArea({ label, value, onChange, placeholder, required, hint, minRows = 4, showCount, ruled }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; required?: boolean; hint?: string; minRows?: number; showCount?: boolean; ruled?: boolean }) {
+  const needsInput = Boolean(required) && !value.trim();
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const grow = (node: HTMLTextAreaElement | null) => { if (!node) return; node.style.height = "auto"; node.style.height = `${node.scrollHeight}px`; };
   useEffect(() => { grow(areaRef.current); }, [value]);
-  return <label className="grid gap-1.5"><FieldLabel label={label} required={required} /><textarea className="resize-y border border-border bg-background p-3 text-sm font-normal leading-6 text-foreground" placeholder={placeholder} ref={areaRef} rows={minRows} value={value} onChange={(event) => { grow(event.target); onChange(event.target.value); }} />{(hint || showCount) && <span className="flex flex-wrap items-baseline justify-between gap-2 text-[11px] leading-4 text-muted-foreground">{hint ? <span>{hint}</span> : <span />}{showCount && <strong className="font-bold text-foreground">공백 포함 {value.length.toLocaleString()}자</strong>}</span>}</label>;
+  return <label className="grid gap-1.5"><FieldLabel label={label} needsInput={needsInput} required={required} /><textarea className={cx("resize-y border p-3 text-sm font-normal text-foreground", todoFieldClass(needsInput), ruled ? "wg-ruled" : "leading-6")} placeholder={placeholder} ref={areaRef} rows={minRows} value={value} onChange={(event) => { grow(event.target); onChange(event.target.value); }} />{(hint || showCount) && <span className="flex flex-wrap items-baseline justify-between gap-2 text-[11px] leading-4 text-muted-foreground">{hint ? <span>{hint}</span> : <span />}{showCount && <strong className="font-bold text-foreground">공백 포함 {value.length.toLocaleString()}자</strong>}</span>}</label>;
 }
 
 function NewRoleResume({ onAdd }: { onAdd: (name: string, roleTitle: string) => void }) {
@@ -545,7 +550,7 @@ function RichNarrativeEditor({ content, onChange }: { content: NarrativeContent;
     onChange(next);
   };
   const blockTypes: Array<{ type: NarrativeBlockType; label: string }> = [{ type: "p", label: "본문" }, ...([1, 2, 3, 4, 5, 6].map((level) => ({ type: `h${level}` as NarrativeBlockType, label: `H${level}` })) )];
-  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label="소개글 내용" className="min-h-[22rem] bg-background p-4 text-sm leading-7 outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold" contentEditable data-narrative-placeholder="예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
+  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label="소개글 내용" className="wg-ruled min-h-[22rem] bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold" contentEditable data-narrative-placeholder="예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
 }
 
 async function optimizeIdentityPhoto(file: File) {
@@ -602,6 +607,29 @@ const itemPlaceholders: Record<string, { title: string; subtitle: string; body: 
 };
 const defaultItemPlaceholder = { title: "예: 정보처리기사", subtitle: "예: 한국산업인력공단", body: "예: 이 항목을 이력서에서 어떻게 설명할지 적습니다." };
 const itemPlaceholder = (sectionId: string) => itemPlaceholders[sectionId] ?? defaultItemPlaceholder;
+// inspectResumeReadiness와 같은 기준: 제목은 항상 필수, 설명은 experience에서만 필수.
+const countItemTodos = (item: ItemContent, sectionId: string) =>
+  (item.title.trim() ? 0 : 1) + (sectionId === "experience" && !item.body.trim() ? 1 : 0);
+// 섹션 전체의 미기입 개수 — 모달 헤더에 "작성 필요 N"으로 보여준다.
+function countSectionTodos(section: ResumeSection, content: SectionContent) {
+  if (section.kind === "identity") {
+    const value = content as IdentityContent;
+    return (value.name.trim() ? 0 : 1) + (value.email.trim() ? 0 : 1);
+  }
+  if (section.kind === "eligibility") return 0;
+  if (section.kind === "narrative") return narrativePlainText(content as NarrativeContent).trim() ? 0 : 1;
+  if (section.kind === "tags") return (content as TagsContent).items.some((item) => item.trim()) ? 0 : 1;
+  const items = (content as ItemsContent).items;
+  if (!items.length) return 1;
+  return items.reduce((total, item) => total + countItemTodos(item, section.id), 0);
+}
+// 완료 인장 — 앱 다른 화면(대시보드·지원서·작성 플로우)과 같은 어휘
+function DoneStamp() {
+  return <span aria-label="작성 완료" className="wg-stamp ml-1 h-6 w-6 shrink-0 text-[9px] tracking-normal" style={{ borderWidth: 2, boxShadow: "none" }}>完</span>;
+}
+function TodoChip({ count }: { count: number }) {
+  return <span className="shrink-0 border border-wg-todo/40 bg-wg-todo/10 px-1.5 py-0.5 text-[10px] font-extrabold text-wg-todo">작성 필요 {count}</span>;
+}
 
 function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
   index: number;
@@ -624,6 +652,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
 }) {
   const label = item.title.trim() || `항목 ${index + 1}`;
   const placeholder = itemPlaceholder(sectionId);
+  const todoCount = tone === "hidden" ? 0 : countItemTodos(item, sectionId);
   const summary = [formatItemPeriod(item), item.subtitle].filter(Boolean).join(" · ");
   const body = <div className="grid sm:grid-cols-[168px_minmax(0,1fr)]">
     <div className="border-b border-border bg-muted/20 p-3 sm:border-b-0 sm:border-r">
@@ -635,16 +664,17 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
       <Field label="제목" placeholder={placeholder.title} required value={item.title} onChange={(title) => onChange({ title })} />
       <Field label="조직·부제" placeholder={placeholder.subtitle} value={item.subtitle} onChange={(subtitle) => onChange({ subtitle })} />
       {sectionId === "projects" && <div className="grid gap-4 sm:grid-cols-2"><CareerDetailControls item={item} workItems={workItems} onChange={onChange} /></div>}
-      <TextArea hint="넓은 칸입니다. 한 항목당 2~4줄이 읽기 좋습니다." label={bodyLabel} minRows={6} placeholder={placeholder.body} required={bodyRequired} showCount value={item.body} onChange={(text) => onChange({ body: text })} />
+      <TextArea hint="괘선이 그어진 넓은 칸입니다. 한 항목당 2~4줄이 읽기 좋습니다." label={bodyLabel} minRows={4} placeholder={placeholder.body} required={bodyRequired} ruled showCount value={item.body} onChange={(text) => onChange({ body: text })} />
     </div>
   </div>;
   const header = <>
     <span className="flex min-w-0 items-center gap-2">
       <span className="grid h-6 w-6 shrink-0 place-items-center bg-foreground text-[10px] font-black text-background">{String(index + 1).padStart(2, "0")}</span>
       <span className="min-w-0">
-        <span className={cx("block truncate text-xs font-extrabold", tone === "hidden" && "line-through")}>{item.title.trim() || "제목 없음"}</span>
+        <span className={cx("block truncate text-xs font-extrabold", tone === "hidden" && "line-through", !item.title.trim() && tone !== "hidden" && "text-wg-todo")}>{item.title.trim() || "제목 없음"}</span>
         {(headerNote || summary) && <span className="block truncate text-[10px] font-bold text-muted-foreground">{headerNote ?? summary}</span>}
       </span>
+      {showBody && (todoCount > 0 ? <TodoChip count={todoCount} /> : <DoneStamp />)}
     </span>
     <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
       {headerExtra}
@@ -654,7 +684,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
       {onDelete && <button aria-label={`${label} 삭제`} className="grid h-8 w-8 place-items-center border border-red-200 bg-background text-red-600" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDelete(); }}><Trash2 className="h-3.5 w-3.5" /></button>}
     </span>
   </>;
-  const frame = cx("border bg-background", tone === "override" ? "border-primary/40" : tone === "hidden" ? "border-dashed border-border opacity-60" : "border-border");
+  const frame = cx("border bg-background", tone === "override" ? "border-primary/40" : tone === "hidden" ? "border-dashed border-border opacity-60" : "border-border", todoCount > 0 && showBody && "border-l-[3px] border-l-wg-todo");
   // collapsible일 때 details를 쓰면 저장 검증이 접힌 항목을 open 처리한 뒤 포커스할 수 있다.
   if (collapsible) return <fieldset className={frame} data-resume-edit-item-id={item.id}>
     <details open>
@@ -767,19 +797,20 @@ function CareerDetailControls({ item, workItems, onChange }: { item: ItemContent
 function ListEditor({ label, addLabel, items, placeholder, onChange, variant = "rows", required, hint, labelHidden }: { label: string; addLabel: string; items: string[]; placeholder: string; onChange: (items: string[]) => void; variant?: "rows" | "chips"; required?: boolean; hint?: string; labelHidden?: boolean }) {
   const update = (index: number, next: string) => onChange(items.map((value, itemIndex) => itemIndex === index ? next : value));
   const remove = (index: number) => onChange(items.filter((_, itemIndex) => itemIndex !== index));
+  const needsInput = Boolean(required) && !items.some((item) => item.trim());
   if (variant === "chips") return <div>
-    {labelHidden ? <span className="sr-only">{label}</span> : <FieldLabel label={label} required={required} />}
+    {labelHidden ? <span className="sr-only">{label}</span> : <FieldLabel label={label} needsInput={needsInput} required={required} />}
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {items.map((item, index) => <span className="inline-flex items-center border border-border bg-background" key={index}>
         <input aria-label={`${label} ${index + 1}`} className="h-9 min-w-24 bg-transparent px-2 text-sm font-bold field-sizing-content" placeholder={placeholder} value={item} onChange={(event) => update(index, event.target.value)} />
         <button aria-label={`${label} ${index + 1} 삭제`} className="grid h-9 w-8 shrink-0 place-items-center border-l border-border text-red-600" onClick={() => remove(index)} type="button"><X className="h-3.5 w-3.5" /></button>
       </span>)}
-      <button className="inline-flex h-9 items-center gap-2 border border-dashed border-primary px-3 text-xs font-bold text-primary" onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
+      <button className={cx("inline-flex h-9 items-center gap-2 border border-dashed px-3 text-xs font-bold", needsInput ? "border-wg-todo bg-wg-todo/[.06] text-wg-todo" : "border-primary text-primary")} onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
     </div>
     {hint && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{hint}</p>}
   </div>;
   return <div>
-    {labelHidden ? <span className="sr-only">{label}</span> : <FieldLabel label={label} required={required} />}
+    {labelHidden ? <span className="sr-only">{label}</span> : <FieldLabel label={label} needsInput={needsInput} required={required} />}
     <div className={labelHidden ? "grid gap-2" : "mt-2 grid gap-2"}>{items.map((item, index) => <div className="flex gap-2" key={index}><input aria-label={`${label} ${index + 1}`} className="h-10 min-w-0 flex-1 border border-border bg-background px-3 text-sm" placeholder={placeholder} value={item} onChange={(event) => update(index, event.target.value)} /><button aria-label={`${label} ${index + 1} 삭제`} className="grid h-10 w-10 place-items-center border border-red-200 text-red-600" onClick={() => remove(index)} type="button"><Trash2 className="h-3.5 w-3.5" /></button></div>)}</div>
     <button className="mt-2 inline-flex h-9 items-center gap-2 border border-border px-3 text-xs font-bold" onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
     {hint && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{hint}</p>}
@@ -959,6 +990,7 @@ function Editor({ draft, profileCount, profileName, roleVariantCount, variantNam
   const parentCompactLabel = draft.scope === "variant" ? "직군에 전파" : "공통에 전파";
   const scopeLabel = draft.scope === "shared" ? "공통 정보" : draft.scope === "role" || draft.scope === "role-custom" ? `${profileName} 직군 이력서` : `${profileName} → ${variantName ?? "지원 이력서"}`;
   const saveLabel = !choosesTarget ? "현재 편집 위치" : draft.saveTarget === "current" ? currentCompactLabel : parentCompactLabel;
+  const sectionTodos = countSectionTodos(draft.section, draft.content);
   const savesToCommon = draft.scope === "shared" || (draft.scope === "role" && draft.saveTarget === "parent");
   const savesToRole = draft.scope === "variant" && draft.saveTarget === "parent";
   const saveButtonLabel = savesToCommon
@@ -990,5 +1022,5 @@ function Editor({ draft, profileCount, profileName, roleVariantCount, variantNam
     }
     onSave(nextDraft);
   };
-  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="resume-section-editor-title" className="resume-dialog-panel my-auto flex max-h-[92vh] w-full max-w-5xl flex-col border border-border bg-background shadow-2xl" role="dialog" aria-modal="true"><header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5"><div className="min-w-0"><p className="text-[10px] font-bold tracking-widest text-primary">편집 범위 · {scopeLabel}</p><h2 className="mt-1 text-xl font-extrabold" id="resume-section-editor-title">{draft.title}</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">{sectionKindGuidance[draft.section.kind]}</p><p className="mt-2 text-xs text-muted-foreground">저장 대상: <strong className="text-foreground">{saveLabel}</strong></p></div><button aria-label="편집 창 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="resume-dialog-scroll min-h-0 flex-1 overflow-y-auto p-5"><div className="mb-5 max-w-md"><Field hint="PDF에 이 섹션의 제목으로 찍힙니다." label="섹션 이름" placeholder="예: 경력" value={draft.title} onChange={(title) => onChange({ ...draft, title })} /></div><StructuredEditor section={draft.section} content={draft.content} workItems={workItems} onChange={(content) => { setError(""); onChange({ ...draft, content }); }} />{error && <p aria-live="assertive" className="mt-4 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}</div><footer className="resume-dialog-footer flex shrink-0 flex-wrap items-end justify-between gap-3 border-t border-border bg-muted/30 p-4"><div className="min-w-0 flex-1">{choosesTarget && <button aria-expanded={targetOpen} className="text-xs font-extrabold text-primary underline underline-offset-2" onClick={() => setTargetOpen((open) => !open)} type="button">저장 범위 변경</button>}{choosesTarget && targetOpen && <fieldset aria-label="저장 위치" className="mt-2 flex flex-wrap items-center gap-1"><legend className="sr-only">저장 위치</legend><label aria-label={currentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "current" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={currentLabel}><input checked={draft.saveTarget === "current"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => { onChange({ ...draft, saveTarget: "current" }); setTargetOpen(false); }} /> {currentCompactLabel}</label><label aria-label={parentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "parent" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={parentLabel}><input checked={draft.saveTarget === "parent"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => { onChange({ ...draft, saveTarget: "parent" }); setTargetOpen(false); }} /> {parentCompactLabel}</label></fieldset>}{propagationMessage && <p aria-live="polite" className="mt-2 text-[11px] leading-5 text-amber-700">{propagationMessage}</p>}</div><div className="flex shrink-0 gap-2"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={save}>{saveButtonLabel}</button></div></footer></section></div>;
+  return <div className="resume-editor-backdrop fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-black/60 p-4"><section aria-labelledby="resume-section-editor-title" className="resume-dialog-panel my-auto flex max-h-[92vh] w-full max-w-5xl flex-col border border-border bg-background shadow-2xl" role="dialog" aria-modal="true"><header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5"><div className="min-w-0"><p className="text-[10px] font-bold tracking-widest text-primary">편집 범위 · {scopeLabel}</p><h2 className="mt-1 text-xl font-extrabold" id="resume-section-editor-title">{draft.title}</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">{sectionKindGuidance[draft.section.kind]}</p><p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>저장 대상: <strong className="text-foreground">{saveLabel}</strong></span>{sectionTodos > 0 ? <TodoChip count={sectionTodos} /> : <DoneStamp />}</p></div><button aria-label="편집 창 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onCancel}><X className="h-4 w-4" /></button></header><div className="resume-dialog-scroll min-h-0 flex-1 overflow-y-auto p-5"><div className="mb-5 max-w-md"><Field hint="PDF에 이 섹션의 제목으로 찍힙니다." label="섹션 이름" placeholder="예: 경력" value={draft.title} onChange={(title) => onChange({ ...draft, title })} /></div><StructuredEditor section={draft.section} content={draft.content} workItems={workItems} onChange={(content) => { setError(""); onChange({ ...draft, content }); }} />{error && <p aria-live="assertive" className="mt-4 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}</div><footer className="resume-dialog-footer flex shrink-0 flex-wrap items-end justify-between gap-3 border-t border-border bg-muted/30 p-4"><div className="min-w-0 flex-1">{choosesTarget && <button aria-expanded={targetOpen} className="text-xs font-extrabold text-primary underline underline-offset-2" onClick={() => setTargetOpen((open) => !open)} type="button">저장 범위 변경</button>}{choosesTarget && targetOpen && <fieldset aria-label="저장 위치" className="mt-2 flex flex-wrap items-center gap-1"><legend className="sr-only">저장 위치</legend><label aria-label={currentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "current" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={currentLabel}><input checked={draft.saveTarget === "current"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => { onChange({ ...draft, saveTarget: "current" }); setTargetOpen(false); }} /> {currentCompactLabel}</label><label aria-label={parentLabel} className={cx("inline-flex h-8 cursor-pointer items-center gap-1.5 border px-2.5 text-[11px] font-bold", draft.saveTarget === "parent" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")} title={parentLabel}><input checked={draft.saveTarget === "parent"} className="h-3 w-3" name="resume-save-target" type="radio" onChange={() => { onChange({ ...draft, saveTarget: "parent" }); setTargetOpen(false); }} /> {parentCompactLabel}</label></fieldset>}{propagationMessage && <p aria-live="polite" className="mt-2 text-[11px] leading-5 text-amber-700">{propagationMessage}</p>}</div><div className="flex shrink-0 gap-2"><button className="h-10 border border-border px-4 text-sm font-bold" onClick={onCancel}>취소</button><button className="h-10 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={save}>{saveButtonLabel}</button></div></footer></section></div>;
 }
