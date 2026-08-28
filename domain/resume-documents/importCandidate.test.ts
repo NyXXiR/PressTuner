@@ -7,6 +7,7 @@ import {
   createResumeDocumentSeed,
   createSupportVariant,
   parseResumeDocumentState,
+  type ItemsContent,
 } from "./model";
 import {
   applyResumeImportCommand,
@@ -52,6 +53,28 @@ test("candidate payload schema normalizes supported date values and rejects inva
       value: "data:image/png;base64,unsafe",
     }),
   );
+  assert.doesNotThrow(() => ResumeDocumentCandidatePayloadSchema.parse({
+    type: "item",
+    itemKind: "award",
+    title: "수상",
+    subtitle: "기관",
+    body: "",
+    startMonth: "2025-03",
+    endMonth: "2024-12",
+    isCurrent: false,
+    tags: [],
+  }));
+  assert.throws(() => ResumeDocumentCandidatePayloadSchema.parse({
+    type: "item",
+    itemKind: "work",
+    title: "경력",
+    subtitle: "회사",
+    body: "",
+    startMonth: "2025-03",
+    endMonth: "2024-12",
+    isCurrent: false,
+    tags: [],
+  }));
 });
 
 test("identity facts can be reviewed and applied as one section candidate", () => {

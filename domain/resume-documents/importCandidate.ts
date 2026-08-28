@@ -11,6 +11,7 @@ import type {
   SectionKind,
   TagsContent,
 } from "./model";
+import { findResumeItemDateIssue, normalizeResumeItemDates } from "./itemDatePolicy";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -103,7 +104,7 @@ export const ResumeDocumentCandidatePayloadSchema = z.union([
     isCurrent: z.boolean().default(false),
     tags: z.array(z.string().trim().min(1).max(100)).max(100).default([]),
   }).superRefine((value, context) => {
-    if (value.startMonth && value.endMonth && value.startMonth > value.endMonth) {
+    if (findResumeItemDateIssue(value)) {
       context.addIssue({ code: "custom", path: ["endMonth"], message: "End month precedes start month" });
     }
     if (value.itemKind === "career-detail" && !value.detailType) {
@@ -286,7 +287,7 @@ function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "i
   const start = payload.startMonth ?? "";
   const endMonth = payload.isCurrent ? "" : payload.endMonth ?? "";
   const end = payload.isCurrent ? "현재" : endMonth;
-  return {
+  return normalizeResumeItemDates({
     id: importedResumeItemId(candidateKey),
     itemKind: payload.itemKind,
     meta: start && end ? `${start.replace("-", ".")} — ${end.replace("-", ".")}` : start || end,
@@ -300,7 +301,7 @@ function commandItem(payload: Extract<ResumeDocumentCandidatePayload, { type: "i
     relatedWorkItemId: payload.relatedWorkItemId,
     relatedWorkTitle: payload.relatedWorkTitle,
     body: payload.body,
-  };
+  });
 }
 
 function applyPayloadToSection(

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DateInput } from "@/components/ui/DateInput";
+import { ResumeItemDateFields, type ResumeItemDatePatch } from "@/components/resume/ResumeItemDateFields";
 import {
   inspectResumeImportOverlap,
   importedResumeItemId,
@@ -29,6 +30,7 @@ import type {
   SectionKind,
 } from "@/domain/resume-documents/model";
 import { formatItemPeriod, normalizeEmployerTitle } from "@/domain/resume-documents/model";
+import { normalizeResumeItemDateValues } from "@/domain/resume-documents/itemDatePolicy";
 import {
   INITIAL_IMPORT_POLL_DELAY_MS,
   canLoadImportCandidates,
@@ -98,11 +100,6 @@ function errorMessage(value: unknown) {
 
 function isAbortError(value: unknown) {
   return value instanceof DOMException && value.name === "AbortError";
-}
-
-function currentLocalMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -1162,7 +1159,15 @@ function PayloadEditor({
         />
       </label>
     );
-  const endMonthEnabled = Boolean(payload.endMonth);
+  const updateDates = (patch: Partial<ResumeItemDatePatch>) => {
+    const { endMonthEnabled, ...candidatePatch } = patch;
+    onChange({
+      ...payload,
+      ...candidatePatch,
+      ...(endMonthEnabled === false ? { endMonth: "" } : {}),
+      ...(patch.isCurrent ? { endMonth: "" } : {}),
+    });
+  };
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
@@ -1173,7 +1178,10 @@ function PayloadEditor({
           value={payload.itemKind}
           onChange={(event) => {
             const itemKind = event.target.value as typeof payload.itemKind;
-            onChange({ ...payload, itemKind, ...(itemKind === "career-detail" ? { detailType: payload.detailType ?? "project" } : { detailType: undefined, relatedWorkItemId: undefined, relatedWorkTitle: undefined }) });
+            const normalized = normalizeResumeItemDateValues({ ...payload, itemKind, ...(itemKind === "career-detail" ? { detailType: payload.detailType ?? "project" } : { detailType: undefined, relatedWorkItemId: undefined, relatedWorkTitle: undefined }) });
+            const nextPayload = { ...normalized };
+            delete nextPayload.endMonthEnabled;
+            onChange(nextPayload);
           }}
         >
           <option value="work">직장 경력</option>
@@ -1207,32 +1215,7 @@ function PayloadEditor({
           }
         />
       </label>
-      <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        시작 연월
-        <input
-          className={inputClass}
-          disabled={disabled}
-          type="month"
-          value={payload.startMonth ?? ""}
-          onChange={(event) =>
-            onChange({ ...payload, startMonth: event.target.value })
-          }
-        />
-      </label>
-      <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">
-        종료 연월
-        <input
-          className={inputClass}
-          disabled={disabled || !endMonthEnabled}
-          type="month"
-          value={payload.endMonth ?? ""}
-          onChange={(event) =>
-            onChange({ ...payload, endMonth: event.target.value })
-          }
-        />
-        <span className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={endMonthEnabled} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, endMonth: event.target.checked ? payload.endMonth || payload.startMonth || currentLocalMonth() : "", isCurrent: event.target.checked ? false : payload.isCurrent })} /> 종료연월 있음</span>
-      </label>
-      {(payload.itemKind === "work" || payload.itemKind === "career-detail") && <label className="inline-flex items-center gap-2 text-xs font-bold text-foreground"><input checked={payload.isCurrent} disabled={disabled} type="checkbox" onChange={(event) => onChange({ ...payload, isCurrent: event.target.checked, endMonth: event.target.checked ? "" : payload.endMonth })} /> {payload.itemKind === "work" ? "재직 중" : "진행 중"}</label>}
+      <ResumeItemDateFields disabled={disabled} value={{ ...payload, endMonthEnabled: Boolean(payload.endMonth) }} onChange={updateDates} />
       {payload.itemKind === "career-detail" && <>
         <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<select className={inputClass} disabled={disabled} value={payload.detailType} onChange={(event) => onChange({ ...payload, detailType: event.target.value as typeof payload.detailType })}><option value="project">프로젝트</option><option value="responsibility">상시 책임</option><option value="improvement">개선</option><option value="troubleshooting">문제 해결</option></select></label>
         <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력<select className={inputClass} disabled={disabled} value={payload.relatedWorkItemId && workItems.some((item) => item.id === payload.relatedWorkItemId) ? payload.relatedWorkItemId : payload.relatedWorkTitle ? "__unresolved" : ""} onChange={(event) => {

@@ -3,16 +3,17 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("resume documents keeps a simple role flow with optional support versions", async () => {
-  const [source, persistence] = await Promise.all([
+  const [source, persistence, dateFields] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/useResumeDocumentPersistence.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeItemDateFields.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(source, /직군 이력서/);
   assert.match(source, /공통 정보/);
   assert.match(source, /회사별 지원 버전 만들기/);
-  assert.match(source, /type="month"/);
-  assert.match(source, /재직 중/);
+  assert.match(dateFields, /type="month"/);
+  assert.match(dateFields, /재직 중/);
   assert.match(source, /섹션 이름/);
   assert.match(source, /aria-pressed/);
   assert.match(source, /증명사진 업로드/);
@@ -119,7 +120,7 @@ test("server-backed resume copy does not claim durable edits or photos only live
   assert.doesNotMatch(source, /사진은 크기를 줄여 이 브라우저에 저장/);
   assert.doesNotMatch(source, /변경 사항은 이 브라우저의 로컬 저장소에 자동 저장/);
   assert.match(source, /문서에 저장합니다/);
-  assert.match(source, /서버에 자동 저장됩니다/);
+  assert.match(source, /모든 변경 내용이 서버에 저장됐습니다/);
 });
 
 test("resume PDF uses server geometry while the editor and modal retain screen-only styles", async () => {
@@ -311,19 +312,32 @@ test("experience presentation exposes persisted sort and duration controls in ed
   assert.doesNotMatch(durationNode, /print:hidden|resume-section-controls/);
 });
 
-test("all item editors expose explicit end-month controls with experience mutual exclusion", async () => {
-  const [builder, panel] = await Promise.all([
+test("all item editors share semantic item-kind date controls", async () => {
+  const [builder, panel, fields] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeItemDateFields.tsx", import.meta.url), "utf8"),
   ]);
-  assert.ok((builder.match(/종료연월 있음/g) ?? []).length >= 2);
-  assert.match(builder, /endMonthEnabled/);
-  assert.match(builder, /isItemEndMonthEnabled/);
-  assert.match(builder, /endMonth: ""/);
-  assert.match(builder, /isCurrent: false/);
-  assert.match(panel, /종료연월 있음/);
-  assert.match(panel, /disabled={disabled \|\| !endMonthEnabled}/);
-  assert.match(panel, /endMonth: event\.target\.checked[\s\S]*?: ""/);
+  assert.match(builder, /ResumeItemDateFields/);
+  assert.match(panel, /ResumeItemDateFields/);
+  assert.doesNotMatch(builder, /종료연월 있음/);
+  assert.doesNotMatch(panel, /종료연월 있음/);
+  for (const label of ["취득 연월", "수상 연월", "유효기간 있음", "재직 중", "진행 중", "재학 중"]) {
+    assert.match(fields, new RegExp(label));
+  }
+  assert.match(fields, /resolveResumeItemDatePolicy/);
+  assert.match(fields, /endEnabled && endInput/);
+});
+
+test("edit dialogs disclose scope and use explicit draft save semantics", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(builder, /편집 범위/);
+  assert.match(builder, /저장 범위 변경/);
+  assert.match(builder, /저장하지 않은 변경 사항을 버릴까요/);
+  assert.match(builder, /draftState/);
+  assert.match(builder, /상위 정보 작성하기/);
+  assert.match(builder, /이 이력서에 직접 작성/);
+  assert.doesNotMatch(builder, /변경 사항은 문서에 바로 반영/);
 });
 
 test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {

@@ -1,3 +1,5 @@
+import { findResumeItemDateIssue, normalizeResumeItemDateValues } from "./itemDatePolicy";
+
 export type SectionMode = "inherit" | "override" | "hidden";
 export type SectionLayout = "standard" | "compact" | "cards";
 export type SectionKind = "identity" | "eligibility" | "narrative" | "items" | "tags";
@@ -345,12 +347,13 @@ export function isItemEndMonthEnabled(item: Pick<ItemContent, "endMonth" | "endM
   return item.endMonthEnabled ?? Boolean(item.endMonth);
 }
 
-export function formatItemPeriod(item: Pick<ItemContent, "meta" | "startMonth" | "endMonth" | "endMonthEnabled" | "isCurrent">) {
+export function formatItemPeriod(item: Pick<ItemContent, "itemKind" | "detailType" | "meta" | "startMonth" | "endMonth" | "endMonthEnabled" | "isCurrent">) {
+  const normalized = item.itemKind ? normalizeResumeItemDateValues(item) : item;
   const formatMonth = (value?: string) => value?.trim().replace("-", ".") ?? "";
-  const start = formatMonth(item.startMonth);
-  const end = item.isCurrent ? "현재" : isItemEndMonthEnabled(item) ? formatMonth(item.endMonth) : "";
+  const start = formatMonth(normalized.startMonth);
+  const end = normalized.isCurrent ? "현재" : isItemEndMonthEnabled(normalized) ? formatMonth(normalized.endMonth) : "";
   if (start && end) return `${start} — ${end}`;
-  return start || end || item.meta;
+  return start || end || normalized.meta;
 }
 
 function updateProfileSetting(state: ResumeDocumentState, profileId: string, sectionId: string, updater: (setting: SectionSetting) => SectionSetting) {
@@ -842,7 +845,7 @@ export function inspectResumeReadiness(state: ResumeDocumentState, profileId: st
       const itemLabel = item.title.trim() || `${index + 1}번째 항목`;
       if (!item.title.trim()) add({ code: "missing-item-title", sectionId: section.id, itemId: item.id, message: `${title}: ${index + 1}번째 항목의 제목이 비어 있습니다.` });
       if (section.id === "experience" && !item.body.trim()) add({ code: "missing-item-body", sectionId: section.id, itemId: item.id, message: `${title}: ${itemLabel}의 설명이 비어 있습니다.` });
-      if (item.startMonth && item.endMonth && !item.isCurrent && item.startMonth > item.endMonth) add({ code: "reversed-period", sectionId: section.id, itemId: item.id, message: `${title}: ${itemLabel}의 종료 연월이 시작 연월보다 빠릅니다.` });
+      if (findResumeItemDateIssue(item, section.id)) add({ code: "reversed-period", sectionId: section.id, itemId: item.id, message: `${title}: ${itemLabel}의 종료 연월이 시작 연월보다 빠릅니다.` });
     });
   }
   return issues;
