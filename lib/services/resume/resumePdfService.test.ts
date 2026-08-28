@@ -137,7 +137,14 @@ test("long identity contacts wrap before the profile photo and page margin", { t
     const textItems = content.items.filter((item) => "str" in item);
     const name = textItems.find((item) => item.str === "홍길동");
     const facts = textItems.find((item) => item.str === "생년월일 1990-01-02");
+    const firstContact = textItems.find((item) => item.str.includes("very-long-address"));
     assert.ok(name && facts);
+    assert.ok(firstContact);
+    const nameToContactGap = name.transform[5] - (firstContact.transform[5] + firstContact.height);
+    assert.ok(
+      nameToContactGap >= points(3),
+      `identity contacts need safe space below the rendered name; received ${nameToContactGap.toFixed(2)}pt`,
+    );
     const contacts = textItems.filter((item) => item.transform[5] < name.transform[5] && item.transform[5] > facts.transform[5]);
     assert.ok(contacts.some((item) => item.str.includes("very-long-address")));
     assert.ok(contacts.some((item) => item.str.includes("portfolio.example.com")));

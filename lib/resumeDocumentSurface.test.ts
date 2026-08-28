@@ -146,10 +146,11 @@ test("server-backed resume copy does not claim durable edits or photos only live
 });
 
 test("resume PDF uses server geometry while the editor and modal retain screen-only styles", async () => {
-  const [source, styles, pdf, layout] = await Promise.all([
+  const [source, styles, pdf, editor, layout] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/ResumePdfDocument.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeEditorDocument.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
 
@@ -159,6 +160,10 @@ test("resume PDF uses server geometry while the editor and modal retain screen-o
   assert.match(pdf, /orphans=\{3\}/);
   assert.match(pdf, /widows=\{3\}/);
   assert.match(pdf, /minPresenceAhead/);
+  assert.match(pdf, /RESUME_IDENTITY_LAYOUT/);
+  assert.match(editor, /RESUME_IDENTITY_LAYOUT/);
+  assert.match(editor, /--resume-identity-name-size/);
+  assert.match(styles, /var\(--resume-identity-name-size\)/);
   assert.match(styles, /\.resume-paper \.resume-item/);
   assert.match(styles, /\.resume-pdf-output iframe/);
   assert.doesNotMatch(source, /measurePrintedPageCount|ResizeObserver|estimateResumePrintPageCount/);

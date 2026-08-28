@@ -1,6 +1,7 @@
 import path from "node:path";
+import { RESUME_DOCUMENT_FONT_FAMILY } from "@/domain/resume-documents/identityLayout";
 
-export const RESUME_PDF_FONT_FAMILY = "Nanum Gothic";
+export const RESUME_PDF_FONT_FAMILY = RESUME_DOCUMENT_FONT_FAMILY;
 
 let registered = false;
 

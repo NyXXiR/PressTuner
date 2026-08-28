@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 
 import {
@@ -20,6 +20,13 @@ import {
   resolveCareerDurationMonths,
   sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
+import {
+  identityContactItems,
+  identityFactItems,
+  RESUME_DOCUMENT_FONT_FAMILY,
+  RESUME_IDENTITY_LAYOUT,
+  wrapIdentityContact,
+} from "@/domain/resume-documents/identityLayout";
 
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
@@ -91,17 +98,32 @@ function HighlightGridBody({ content, heading }: { content: ItemsContent; headin
 }
 
 function IdentityBody({ content, layout }: { content: IdentityContent; layout: SectionLayout }) {
-  const contactItems = [
-    content.email && { label: "EMAIL", value: content.email },
-    content.phone && { label: "PHONE", value: content.phone },
-    content.location && { label: "LOCATION", value: content.location },
-    ...content.links.filter(Boolean).map((value) => ({ label: "LINK", value })),
-  ].filter(Boolean) as Array<{ label: string; value: string }>;
-  const factItems = [content.birthDate && `생년월일 ${content.birthDate}`, content.gender && `성별 ${content.gender}`].filter(Boolean) as string[];
-  return <div className={`resume-identity resume-layout-${layout}`} data-photo-position="right">
+  const contactItems = identityContactItems(content);
+  const factItems = identityFactItems(content);
+  const identityStyle = {
+    "--resume-document-font": RESUME_DOCUMENT_FONT_FAMILY,
+    "--resume-identity-column-gap": `${RESUME_IDENTITY_LAYOUT.columnGapMm}mm`,
+    "--resume-identity-name-gap": `${RESUME_IDENTITY_LAYOUT.nameToContactsGapMm}mm`,
+    "--resume-identity-name-size": `${RESUME_IDENTITY_LAYOUT.nameFontSizePt}pt`,
+    "--resume-identity-name-line-height": RESUME_IDENTITY_LAYOUT.nameLineHeight,
+    "--resume-identity-name-letter-spacing": `${RESUME_IDENTITY_LAYOUT.nameLetterSpacingPt}pt`,
+    "--resume-contact-row-gap": `${RESUME_IDENTITY_LAYOUT.contactRowGapMm}mm`,
+    "--resume-contact-label-width": `${RESUME_IDENTITY_LAYOUT.contactLabelWidthMm}mm`,
+    "--resume-contact-column-gap": `${RESUME_IDENTITY_LAYOUT.contactColumnGapMm}mm`,
+    "--resume-contact-label-size": `${RESUME_IDENTITY_LAYOUT.contactLabelFontSizePt}pt`,
+    "--resume-contact-label-letter-spacing": `${RESUME_IDENTITY_LAYOUT.contactLabelLetterSpacingPt}pt`,
+    "--resume-contact-value-size": `${RESUME_IDENTITY_LAYOUT.contactValueFontSizePt}pt`,
+    "--resume-contact-value-line-height": RESUME_IDENTITY_LAYOUT.contactValueLineHeight,
+    "--resume-identity-facts-gap": `${RESUME_IDENTITY_LAYOUT.factsTopGapMm}mm`,
+    "--resume-identity-facts-padding": `${RESUME_IDENTITY_LAYOUT.factsTopPaddingMm}mm`,
+    "--resume-identity-facts-size": `${RESUME_IDENTITY_LAYOUT.factsFontSizePt}pt`,
+    "--resume-identity-photo-width": `${RESUME_IDENTITY_LAYOUT.photoWidthMm}mm`,
+    "--resume-identity-photo-height": `${RESUME_IDENTITY_LAYOUT.photoHeightMm}mm`,
+  } as CSSProperties;
+  return <div className={`resume-identity resume-layout-${layout}`} data-photo-position="right" style={identityStyle}>
     <div className="resume-identity-copy">
       <div className="resume-identity-heading"><h2>{content.name || "이름 미입력"}</h2></div>
-      {contactItems.length > 0 && <div className="resume-contact-grid">{contactItems.map((item, index) => <div className="resume-contact-item" key={`${item.label}-${item.value}-${index}`}><span>{item.label}</span><p>{item.value}</p></div>)}</div>}
+      {contactItems.length > 0 && <div className="resume-contact-grid">{contactItems.map((item, index) => <div className="resume-contact-item" key={`${item.label}-${item.value}-${index}`}><span>{item.label}</span><p>{wrapIdentityContact(item.value, Boolean(content.photo))}</p></div>)}</div>}
       {factItems.length > 0 && <div className="resume-facts">{factItems.map((item) => <span key={item}>{item}</span>)}</div>}
     </div>
     {content.photo && <Image alt={`${content.name || "지원자"} 증명사진`} className="resume-profile-photo" height={640} loading="eager" src={content.photo} unoptimized width={480} />}

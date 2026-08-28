@@ -15,6 +15,12 @@ import {
   RESUME_PAGE_MARGIN_TOP_MM,
 } from "@/domain/resume-documents/pdfLayout";
 import type { ResumePdfSection, ResumePdfSnapshot } from "@/domain/resume-documents/pdfSnapshot";
+import {
+  identityContactItems,
+  identityFactItems,
+  RESUME_IDENTITY_LAYOUT,
+  wrapIdentityContact,
+} from "@/domain/resume-documents/identityLayout";
 import { RESUME_PDF_FONT_FAMILY } from "@/lib/services/resume/resumePdfFonts";
 
 const mm = (value: number) => value * 72 / 25.4;
@@ -83,16 +89,16 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   sectionHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(4), marginBottom: mm(3), paddingBottom: mm(1.5), borderBottomWidth: mm(0.3), borderBottomColor: "#0f172a" },
   sectionTitle: { fontSize: 13, fontWeight: 800 },
   duration: { color: "#475569", fontSize: 8.5, fontWeight: 700 },
-  identity: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: mm(7) },
-  identityCopy: { flexGrow: 1, flexShrink: 1 },
-  identityHeading: { marginBottom: mm(3) },
-  name: { fontSize: 25, fontWeight: 800, letterSpacing: -1 },
-  contactGrid: { gap: mm(1.5) },
-  contactItem: { flexDirection: "row", alignItems: "flex-start", gap: mm(3) },
-  contactLabel: { width: mm(18), flexShrink: 0, color: "#94a3b8", fontSize: 6.5, fontWeight: 800, letterSpacing: 0.7, paddingTop: mm(0.6) },
-  contactValue: { flexGrow: 1, flexShrink: 1, color: "#334155", fontSize: 8.5, lineHeight: 1.4 },
-  facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(3), paddingTop: mm(2), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: 8 },
-  photo: { width: mm(25), height: mm(33), objectFit: "cover", borderWidth: mm(0.3), borderColor: "#cbd5e1" },
+  identity: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: mm(RESUME_IDENTITY_LAYOUT.columnGapMm) },
+  identityCopy: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
+  identityHeading: { marginBottom: mm(RESUME_IDENTITY_LAYOUT.nameToContactsGapMm) },
+  name: { fontSize: RESUME_IDENTITY_LAYOUT.nameFontSizePt, fontWeight: 800, letterSpacing: RESUME_IDENTITY_LAYOUT.nameLetterSpacingPt, lineHeight: RESUME_IDENTITY_LAYOUT.nameLineHeight },
+  contactGrid: { gap: mm(RESUME_IDENTITY_LAYOUT.contactRowGapMm) },
+  contactItem: { width: "100%", flexDirection: "row", alignItems: "flex-start", gap: mm(RESUME_IDENTITY_LAYOUT.contactColumnGapMm) },
+  contactLabel: { width: mm(RESUME_IDENTITY_LAYOUT.contactLabelWidthMm), flexShrink: 0, color: "#94a3b8", fontSize: RESUME_IDENTITY_LAYOUT.contactLabelFontSizePt, fontWeight: 800, letterSpacing: RESUME_IDENTITY_LAYOUT.contactLabelLetterSpacingPt, paddingTop: mm(0.6) },
+  contactValue: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0, color: "#334155", fontSize: RESUME_IDENTITY_LAYOUT.contactValueFontSizePt, lineHeight: RESUME_IDENTITY_LAYOUT.contactValueLineHeight },
+  facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(RESUME_IDENTITY_LAYOUT.factsTopGapMm), paddingTop: mm(RESUME_IDENTITY_LAYOUT.factsTopPaddingMm), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: RESUME_IDENTITY_LAYOUT.factsFontSizePt },
+  photo: { width: mm(RESUME_IDENTITY_LAYOUT.photoWidthMm), height: mm(RESUME_IDENTITY_LAYOUT.photoHeightMm), objectFit: "cover", borderWidth: mm(0.3), borderColor: "#cbd5e1" },
   empty: { color: "#94a3b8", fontSize: 9 },
   item: { flexDirection: "row", gap: mm(4), marginBottom: mm(4) },
   itemFlow: { marginBottom: mm(4) },
@@ -146,14 +152,9 @@ function EmptyCopy({ children = EMPTY_COPY }: { children?: string }) {
 
 function IdentitySection({ section }: { section: Extract<ResumePdfSection, { kind: "identity" }> }) {
   const { content } = section;
-  const contacts = [
-    content.email && { label: "EMAIL", value: content.email },
-    content.phone && { label: "PHONE", value: content.phone },
-    content.location && { label: "LOCATION", value: content.location },
-    ...content.links.filter(Boolean).map((value) => ({ label: "LINK", value })),
-  ].filter(Boolean) as Array<{ label: string; value: string }>;
-  const facts = [content.birthDate && `생년월일 ${content.birthDate}`, content.gender && `성별 ${content.gender}`].filter(Boolean) as string[];
-  const contactValueWidth = mm(RESUME_PDF_CONTENT_WIDTH_MM - (content.photo ? 32 : 0) - 21);
+  const contacts = identityContactItems(content);
+  const facts = identityFactItems(content);
+  const hasPhoto = Boolean(content.photo);
   // eslint-disable-next-line jsx-a11y/alt-text -- React PDF's Image primitive has no HTML alt prop.
   const photo = content.photo ? <Image src={content.photo} style={styles.photo} /> : null;
   return <View style={styles.identity} wrap={false}>
@@ -161,7 +162,7 @@ function IdentitySection({ section }: { section: Extract<ResumePdfSection, { kin
       <View style={styles.identityHeading}>
         <Text style={styles.name}>{content.name || "이름 미입력"}</Text>
       </View>
-      {contacts.length ? <View style={styles.contactGrid}>{contacts.map((contact, index) => <View key={`${contact.label}-${contact.value}-${index}`} style={styles.contactItem}><Text style={styles.contactLabel}>{contact.label}</Text><Text style={styles.contactValue}>{withSimpleLineWrap(contact.value, 8.5, section.layout, contactValueWidth)}</Text></View>)}</View> : null}
+      {contacts.length ? <View style={styles.contactGrid}>{contacts.map((contact, index) => <View key={`${contact.label}-${contact.value}-${index}`} style={styles.contactItem}><Text style={styles.contactLabel}>{contact.label}</Text><Text style={styles.contactValue}>{wrapIdentityContact(contact.value, hasPhoto)}</Text></View>)}</View> : null}
       {facts.length ? <View style={styles.facts}>{facts.map((fact) => <Text key={fact}>{fact}</Text>)}</View> : null}
     </View>
     {photo}
