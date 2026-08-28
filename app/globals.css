@@ -639,6 +639,7 @@ html {
 .resume-paper .resume-highlight-card h3 { font-size: var(--resume-highlight-title-size); font-weight: 800; }
 .resume-paper .resume-highlight-card .resume-highlight-subtitle { margin-top: 1mm; color: #64748b; font-size: var(--resume-highlight-subtitle-size); font-weight: 700; }
 .resume-paper .resume-highlight-card .resume-highlight-body { margin-top: 2mm; color: #475569; font-size: var(--resume-highlight-body-size); line-height: var(--resume-highlight-body-line-height); white-space: pre-line; }
+.resume-paper .resume-highlight-rich-body { display: grid; gap: 1mm; }
 .resume-paper .resume-narrative > * { margin: 0; white-space: pre-line; }
 .resume-paper .resume-narrative > * + * { margin-top: var(--resume-narrative-block-gap); }
 .resume-paper .resume-narrative-continuation { margin-top: var(--resume-narrative-block-gap); }

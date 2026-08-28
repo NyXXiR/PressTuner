@@ -201,12 +201,13 @@ function splitItemBodyOpening(body: string): [opening: string, continuation: str
   return [body, ""];
 }
 
-function RichItemBody({ item }: { item: ItemContent }) {
-  if (!item.bodyBlocks?.length) return item.body ? <Text style={styles.itemBody}>{item.body}</Text> : <EmptyCopy />;
-  return <View style={styles.itemRichBody}>{item.bodyBlocks.map((block) => {
-    const heading = block.type !== "p";
-    const fontSize = heading ? Math.min(RESUME_NARRATIVE_FONT_SIZES_PT[block.type], 13) : RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt;
-    return <Text key={block.id} minPresenceAhead={heading ? 24 : 0} orphans={3} style={[heading ? styles.narrativeHeading : styles.itemBody, { fontSize, marginTop: 0 }]} widows={3}>{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={run.bold ? { fontWeight: 700 } : undefined}>{withSimpleLineWrap(run.text, fontSize, "standard")}</Text>)}</Text>;
+function RichItemBody({ item, variant = "item" }: { item: ItemContent; variant?: "item" | "highlight" }) {
+  const plainStyle = variant === "highlight" ? styles.highlightBody : styles.itemBody;
+  if (!item.bodyBlocks?.length) return item.body ? <Text style={plainStyle}>{item.body}</Text> : variant === "item" ? <EmptyCopy /> : null;
+  return <View style={variant === "highlight" ? styles.highlightBody : styles.itemRichBody}>{item.bodyBlocks.map((block) => {
+    const heading = variant === "item" && block.type !== "p";
+    const fontSize = variant === "highlight" ? RESUME_DOCUMENT_LAYOUT.highlightBodyFontSizePt : heading ? Math.min(RESUME_NARRATIVE_FONT_SIZES_PT[block.type], 13) : RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt;
+    return <Text key={block.id} minPresenceAhead={heading ? 24 : 0} orphans={3} style={variant === "highlight" ? undefined : [heading ? styles.narrativeHeading : styles.itemBody, { fontSize, marginTop: 0 }]} widows={3}>{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={run.bold ? { fontWeight: 700 } : undefined}>{withSimpleLineWrap(run.text, fontSize, "standard")}</Text>)}</Text>;
   })}</View>;
 }
 
@@ -231,7 +232,7 @@ function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent;
       </View> : null}
     </View>;
   }
-  return <View style={styles.item} wrap={false}>
+  return <View style={styles.item} wrap={Boolean(item.bodyBlocks?.length && !compact)}>
     <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
     <View style={styles.itemCopy}>
       <View wrap={false}>
@@ -286,7 +287,7 @@ function GroupedCareerSection({ relatedWorkItems, section }: { relatedWorkItems:
 
 function ItemsSection({ currentMonth, relatedWorkItems, section }: { currentMonth?: string; relatedWorkItems: ItemContent[]; section: Extract<ResumePdfSection, { kind: "items" }> }) {
   if (section.layout === "highlight-grid") return <><SectionHeading section={section} />{section.content.items.length
-    ? <View style={styles.highlightGrid}>{section.content.items.map((item, index) => <View key={item.id} style={styles.highlightCard} wrap={false}><Text style={styles.highlightIndex}>{String(index + 1).padStart(2, "0")}</Text><Text style={styles.highlightTitle}>{item.title || "강점 제목"}</Text>{item.subtitle ? <Text style={styles.highlightSubtitle}>{item.subtitle}</Text> : null}{item.body ? <Text style={styles.highlightBody}>{item.body}</Text> : null}</View>)}</View>
+    ? <View style={styles.highlightGrid}>{section.content.items.map((item, index) => <View key={item.id} style={styles.highlightCard} wrap={false}><Text style={styles.highlightIndex}>{String(index + 1).padStart(2, "0")}</Text><Text style={styles.highlightTitle}>{item.title || "강점 제목"}</Text>{item.subtitle ? <Text style={styles.highlightSubtitle}>{item.subtitle}</Text> : null}<RichItemBody item={item} variant="highlight" /></View>)}</View>
     : <EmptyCopy />}</>;
   if (section.id === "projects") return <GroupedCareerSection relatedWorkItems={relatedWorkItems} section={section} />;
   const items = section.id === "experience"

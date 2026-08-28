@@ -449,6 +449,24 @@ test("resume section editing exposes flexible career-detail, grouped keyword, an
   assert.match(source, /bodyBlocks: next\.blocks/);
 });
 
+test("highlight cards reuse structured body editing and preserve bold text in preview and PDF", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  const preview = await readFile(new URL("../components/resume/ResumeEditorDocument.tsx", import.meta.url), "utf8");
+  const pdf = await readFile(new URL("../components/resume/ResumePdfDocument.tsx", import.meta.url), "utf8");
+  assert.match(builder, /inlineOnly placeholder="강점을 보여주는 경험과 결과를 2~3문장으로 적어주세요\."/);
+  assert.match(builder, /bodyBlocks: next\.blocks/);
+  assert.match(preview, /resume-highlight-rich-body/);
+  assert.match(pdf, /item\.bodyBlocks\?\.length/);
+});
+
+test("every printable item description uses the shared resume body editor contract", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(builder, /function ResumeBodyEditor/);
+  assert.match(builder, /inlineOnly=\{sectionId !== "projects"\}/);
+  assert.doesNotMatch(builder, /function TextArea/);
+  assert.match(builder, /body: next\.body, bodyBlocks: next\.blocks/);
+});
+
 test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8");
   assert.match(source, /`\/api\/resume\/documents\/imports\/\$\{selectedId\}`/);

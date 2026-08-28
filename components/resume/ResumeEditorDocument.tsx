@@ -153,7 +153,7 @@ function HighlightGridBody({ content, heading }: { content: ItemsContent; headin
     <p className="resume-highlight-index">{String(index + 1).padStart(2, "0")}</p>
     <h3>{item.title || "강점 제목"}</h3>
     {item.subtitle && <p className="resume-highlight-subtitle">{item.subtitle}</p>}
-    {item.body && <p className="resume-highlight-body">{item.body}</p>}
+    <ItemBody item={item} variant="highlight" />
   </article>)}</div> : null}</div>;
 }
 
@@ -195,8 +195,10 @@ function EligibilityBody({ content }: { content: EligibilityContent }) {
   return facts.length > 0 ? <div className="resume-facts">{facts.map((item) => <span key={item}>{item}</span>)}</div> : <p className="resume-empty-copy">선택한 정보가 없습니다.</p>;
 }
 
-function ItemBody({ item }: { item: ItemContent }) {
-  if (!item.bodyBlocks?.length) return item.body ? <p className="resume-item-body">{item.body}</p> : null;
+function ItemBody({ item, variant = "item" }: { item: ItemContent; variant?: "item" | "highlight" }) {
+  const plainClassName = variant === "highlight" ? "resume-highlight-body" : "resume-item-body";
+  if (!item.bodyBlocks?.length) return item.body ? <p className={plainClassName}>{item.body}</p> : null;
+  if (variant === "highlight") return <div className="resume-highlight-body resume-highlight-rich-body">{item.bodyBlocks.map((block) => <p key={block.id}>{block.runs.map((run, index) => run.bold ? <strong key={index}>{run.text}</strong> : run.text)}</p>)}</div>;
   const classes: Record<NarrativeBlockType, string> = { p: "resume-item-body", h1: "resume-narrative-h1", h2: "resume-narrative-h2", h3: "resume-narrative-h3", h4: "resume-narrative-h4", h5: "resume-narrative-h5", h6: "resume-narrative-h6" };
   return <div className="resume-item-rich-body">{item.bodyBlocks.map((block) => createElement(block.type, { className: classes[block.type], key: block.id }, block.runs.map((run, index) => run.bold ? <strong key={index}>{run.text}</strong> : run.text)))}</div>;
 }

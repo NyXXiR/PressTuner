@@ -434,14 +434,6 @@ function EditorBlock({ title, note, children }: { title: string; note?: string; 
 }
 function Field({ label, value, onChange, placeholder, type = "text", required, hint, large }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: "text" | "tel" | "date"; required?: boolean; hint?: string; large?: boolean }) { const needsInput = Boolean(required) && !value.trim(); return <label className="grid gap-1.5"><FieldLabel label={label} needsInput={needsInput} required={required} /><input className={cx("wg-field px-3 font-normal", large ? "h-12 text-lg font-extrabold" : "h-10 text-sm")} data-todo={needsInput || undefined} placeholder={placeholder} type={type} value={value} onChange={(event) => onChange(event.target.value)} />{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
 function SelectField({ label, value, options, onChange, required, hint }: { label: string; value?: string; options: string[]; onChange: (value: string) => void; required?: boolean; hint?: string }) { return <label className="grid gap-1.5"><FieldLabel label={label} needsInput={Boolean(required) && !(value ?? "").trim()} required={required} /><select className="wg-field h-10 px-3 text-sm font-normal" data-todo={(Boolean(required) && !(value ?? "").trim()) || undefined} value={value ?? ""} onChange={(event) => onChange(event.target.value)}><option value="">선택 안 함</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{hint && <span className="text-[11px] leading-4 text-muted-foreground">{hint}</span>}</label>; }
-function TextArea({ label, value, onChange, placeholder, required, hint, minRows = 4, showCount, ruled }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; required?: boolean; hint?: string; minRows?: number; showCount?: boolean; ruled?: boolean }) {
-  const needsInput = Boolean(required) && !value.trim();
-  const areaRef = useRef<HTMLTextAreaElement>(null);
-  const grow = (node: HTMLTextAreaElement | null) => { if (!node) return; node.style.height = "auto"; node.style.height = `${node.scrollHeight}px`; };
-  useEffect(() => { grow(areaRef.current); }, [value]);
-  return <label className="grid gap-1.5"><FieldLabel label={label} needsInput={needsInput} required={required} /><textarea className={cx("wg-field resize-y p-3 text-sm font-normal", ruled ? "wg-ruled" : "leading-6")} data-todo={needsInput || undefined} placeholder={placeholder} ref={areaRef} rows={minRows} value={value} onChange={(event) => { grow(event.target); onChange(event.target.value); }} />{(hint || showCount) && <span className="flex flex-wrap items-baseline justify-between gap-2 text-[11px] leading-4 text-muted-foreground">{hint ? <span>{hint}</span> : <span />}{showCount && <strong className="font-bold text-foreground">공백 포함 {value.length.toLocaleString()}자</strong>}</span>}</label>;
-}
-
 function NewRoleResume({ onAdd }: { onAdd: (name: string, roleTitle: string) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -606,7 +598,7 @@ function serializeNarrativeEditor(root: HTMLElement): NarrativeContent {
   return { body: safeBlocks.map((block) => block.runs.map((run) => run.text).join("")).join("\n"), blocks: safeBlocks };
 }
 
-function RichNarrativeEditor({ content, onChange, compact = false, ariaLabel = "소개글 내용", placeholder = "예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." }: { content: NarrativeContent; onChange: (content: NarrativeContent) => void; compact?: boolean; ariaLabel?: string; placeholder?: string }) {
+function ResumeBodyEditor({ content, onChange, compact = false, inlineOnly = false, ariaLabel = "소개글 내용", placeholder = "예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." }: { content: NarrativeContent; onChange: (content: NarrativeContent) => void; compact?: boolean; inlineOnly?: boolean; ariaLabel?: string; placeholder?: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const initialContent = useRef(content);
   const [characterCount, setCharacterCount] = useState(() => narrativeCharacterCount(content));
@@ -614,8 +606,11 @@ function RichNarrativeEditor({ content, onChange, compact = false, ariaLabel = "
   useEffect(() => {
     const root = editorRef.current;
     if (!root) return;
-    replaceNarrativeEditorDom(root, initialContent.current);
-  }, []);
+    const editorContent = inlineOnly && initialContent.current.blocks?.length
+      ? { ...initialContent.current, blocks: initialContent.current.blocks.map((block) => ({ ...block, type: "p" as const })) }
+      : initialContent.current;
+    replaceNarrativeEditorDom(root, editorContent);
+  }, [inlineOnly]);
   const emit = () => {
     if (!editorRef.current) return;
     const next = serializeNarrativeEditor(editorRef.current);
@@ -635,7 +630,8 @@ function RichNarrativeEditor({ content, onChange, compact = false, ariaLabel = "
     const root = editorRef.current;
     if (!root) return;
     const container = document.createElement("div");
-    container.append(...parseNarrativeClipboard(event.clipboardData).map(createNarrativeBlockElement));
+    const pastedBlocks = parseNarrativeClipboard(event.clipboardData).map((block) => inlineOnly ? { ...block, type: "p" as const } : block);
+    container.append(...pastedBlocks.map(createNarrativeBlockElement));
     root.focus();
     document.execCommand("insertHTML", false, container.innerHTML);
     const selection = window.getSelection();
@@ -652,8 +648,8 @@ function RichNarrativeEditor({ content, onChange, compact = false, ariaLabel = "
     setParagraphCount(next.blocks?.length ?? 1);
     onChange(next);
   };
-  const blockTypes: Array<{ type: NarrativeBlockType; label: string }> = [{ type: "p", label: "본문" }, ...([1, 2, 3, 4, 5, 6].map((level) => ({ type: `h${level}` as NarrativeBlockType, label: `H${level}` })) )];
-  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label={ariaLabel} className={cx("wg-ruled bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold", compact ? "min-h-48" : "min-h-[22rem]")} contentEditable data-narrative-placeholder={placeholder} onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
+  const blockTypes: Array<{ type: NarrativeBlockType; label: string }> = inlineOnly ? [] : [{ type: "p", label: "본문" }, ...([1, 2, 3, 4, 5, 6].map((level) => ({ type: `h${level}` as NarrativeBlockType, label: `H${level}` })) )];
+  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}{blockTypes.length > 0 && <span className="mx-1 h-6 w-px bg-border" />}<button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label={ariaLabel} className={cx("wg-ruled bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold", compact ? "min-h-48" : "min-h-[22rem]")} contentEditable data-narrative-placeholder={placeholder} onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>{inlineOnly ? "굵게만 유지하며 색상과 배경 등은 제거합니다." : "붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다."}</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
 }
 
 async function optimizeIdentityPhoto(file: File) {
@@ -769,7 +765,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
       <Field label="제목" placeholder={placeholder.title} required value={item.title} onChange={(title) => onChange({ title })} />
       <Field label="조직·부제" placeholder={placeholder.subtitle} value={item.subtitle} onChange={(subtitle) => onChange({ subtitle })} />
       {sectionId === "projects" && <div className="grid gap-4 sm:grid-cols-2"><CareerDetailControls item={item} workItems={workItems} onChange={onChange} /></div>}
-      {sectionId === "projects" ? <div><FieldLabel label={bodyLabel} needsInput={false} required={bodyRequired} /><p className="mb-2 mt-1 text-[11px] leading-5 text-muted-foreground">핵심 성과나 문제 해결 과정을 제목과 굵게로 나눠 작성할 수 있습니다.</p><RichNarrativeEditor ariaLabel={`${label} 상세 설명`} compact content={{ body: item.body, blocks: item.bodyBlocks }} placeholder={placeholder.body} onChange={(next) => onChange({ body: next.body, bodyBlocks: next.blocks })} /></div> : <TextArea hint="괘선이 그어진 넓은 칸입니다. 한 항목당 2~4줄이 읽기 좋습니다." label={bodyLabel} minRows={4} placeholder={placeholder.body} required={bodyRequired} ruled showCount value={item.body} onChange={(text) => onChange({ body: text })} />}
+      <div><FieldLabel label={bodyLabel} needsInput={Boolean(bodyRequired) && !item.body.trim()} required={bodyRequired} /><p className="mb-2 mt-1 text-[11px] leading-5 text-muted-foreground">{sectionId === "projects" ? "핵심 성과나 문제 해결 과정을 제목과 굵게로 나눠 작성할 수 있습니다." : "PDF에 표시되는 설명입니다. 중요한 문장은 굵게 강조할 수 있습니다."}</p><ResumeBodyEditor ariaLabel={`${label} ${bodyLabel}`} compact content={{ body: item.body, blocks: item.bodyBlocks }} inlineOnly={sectionId !== "projects"} placeholder={placeholder.body} onChange={(next) => onChange({ body: next.body, bodyBlocks: next.blocks })} /></div>
     </div>
   </div>;
   const header = <>
@@ -922,7 +918,7 @@ function StructuredEditor({ section, content, workItems = [], onChange }: { sect
       </div>
     </EditorBlock>;
   }
-  if (section.kind === "narrative") return <RichNarrativeEditor content={content as NarrativeContent} onChange={onChange} />;
+  if (section.kind === "narrative") return <ResumeBodyEditor content={content as NarrativeContent} onChange={onChange} />;
   if (section.kind === "tags") return <TagGroupsEditor content={content as TagsContent} onChange={onChange} />;
   if (section.layout === "highlight-grid") return <HighlightGridEditor content={content as ItemsContent} onChange={onChange} />;
   return <ItemsEditor content={content as ItemsContent} section={section} workItems={workItems} onChange={onChange} />;
@@ -941,7 +937,7 @@ function HighlightGridEditor({ content, onChange }: { content: ItemsContent; onC
     <p className="mb-4 text-[11px] leading-5 text-muted-foreground">핵심 역량처럼 먼저 보여주고 싶은 내용을 제목과 짧은 근거로 작성하세요. 카드가 늘어나면 두 개씩 다음 줄에 배치됩니다.</p>
     <div className="grid gap-4 sm:grid-cols-2">{content.items.map((item, index) => <fieldset className="border border-border bg-background" key={item.id}>
       <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2"><span className="flex items-center gap-2 text-xs font-extrabold"><span className="text-orange-600">{String(index + 1).padStart(2, "0")}</span>{item.title || "강점 제목"}</span><span className="flex gap-1"><button aria-label={`${item.title || `카드 ${index + 1}`} 위로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-30" disabled={index === 0} onClick={() => moveItem(index, -1)} type="button"><ArrowUp className="h-3.5 w-3.5" /></button><button aria-label={`${item.title || `카드 ${index + 1}`} 아래로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-30" disabled={index === content.items.length - 1} onClick={() => moveItem(index, 1)} type="button"><ArrowDown className="h-3.5 w-3.5" /></button><button aria-label={`${item.title || `카드 ${index + 1}`} 삭제`} className="grid h-8 w-8 place-items-center border border-red-200 bg-background text-red-600" onClick={() => onChange({ ...content, items: content.items.filter((entry) => entry.id !== item.id) })} type="button"><Trash2 className="h-3.5 w-3.5" /></button></span></div>
-      <div className="grid gap-4 p-4"><Field label="강점 제목" placeholder="예: 문제를 구조화하는 힘" required value={item.title} onChange={(title) => updateItem(item.id, { title })} /><Field label="짧은 보조 문구" placeholder="예: 복잡한 요구사항을 실행 단위로 전환" value={item.subtitle} onChange={(subtitle) => updateItem(item.id, { subtitle })} /><TextArea label="근거 설명" minRows={4} placeholder="강점을 보여주는 경험과 결과를 2~3문장으로 적어주세요." ruled showCount value={item.body} onChange={(body) => updateItem(item.id, { body })} /></div>
+      <div className="grid gap-4 p-4"><Field label="강점 제목" placeholder="예: 문제를 구조화하는 힘" required value={item.title} onChange={(title) => updateItem(item.id, { title })} /><Field label="짧은 보조 문구" placeholder="예: 복잡한 요구사항을 실행 단위로 전환" value={item.subtitle} onChange={(subtitle) => updateItem(item.id, { subtitle })} /><div><FieldLabel label="근거 설명" needsInput={false} /><div className="mt-2"><ResumeBodyEditor ariaLabel={`${item.title || `핵심 역량 ${index + 1}`} 근거 설명`} compact content={{ body: item.body, blocks: item.bodyBlocks }} inlineOnly placeholder="강점을 보여주는 경험과 결과를 2~3문장으로 적어주세요." onChange={(next) => updateItem(item.id, { body: next.body, bodyBlocks: next.blocks })} /></div></div></div>
     </fieldset>)}</div>
     <button className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 border border-dashed border-primary px-4 text-sm font-bold text-primary" onClick={() => onChange({ ...content, items: [...content.items, { id: `highlight-${Date.now()}`, meta: "", title: "", subtitle: "", body: "" }] })} type="button"><Plus className="h-4 w-4" /> 강조 카드 추가</button>
   </EditorBlock>;
