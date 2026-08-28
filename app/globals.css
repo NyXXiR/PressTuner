@@ -526,14 +526,6 @@ html {
   border-radius: 0;
 }
 
-.resume-page-guides {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0 calc(297mm - 1px),
-    hsl(var(--primary) / 0.35) calc(297mm - 1px) 297mm
-  );
-}
-
 /* Resume editor-only paper preview. The downloadable PDF is rendered on the server. */
 .resume-paper {
   color: #0f172a;

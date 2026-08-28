@@ -55,7 +55,7 @@ test("resume documents exposes simplified section actions and an exact PDF resou
   assert.doesNotMatch(source, /다음 페이지에서 시작/);
   assert.doesNotMatch(source, /resume-page-break/);
   assert.match(source, /ResumePdfPreviewDialog/);
-  assert.match(source, /PDF 미리보기에서 정확한 페이지 수/);
+  assert.match(source, /실제 페이지 구분은 PDF 미리보기/);
   assert.doesNotMatch(source, /예상 \{pageCount\}페이지/);
   assert.match(editor, /data-resume-section-id/);
   assert.match(editor, /data-resume-item-id/);
@@ -138,6 +138,9 @@ test("resume PDF uses server geometry while the editor and modal retain screen-o
   assert.match(styles, /\.resume-pdf-output iframe/);
   assert.doesNotMatch(source, /measurePrintedPageCount|ResizeObserver|estimateResumePrintPageCount/);
   assert.match(source, /px-\[18mm\] py-\[16mm\]/);
+  assert.match(source, /페이지 구분은 PDF 미리보기/);
+  assert.doesNotMatch(source, /resume-page-guides/);
+  assert.doesNotMatch(styles, /\.resume-page-guides/);
   assert.doesNotMatch(layout, /resume-print\.css/);
 });
 
