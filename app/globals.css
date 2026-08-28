@@ -623,29 +623,158 @@ html {
 .resume-pdf-placeholder { display: grid; min-height: calc(100dvh - 190px); place-items: center; padding: 32px; color: #475569; font-size: 14px; font-weight: 700; text-align: center; }
 .resume-pdf-error { color: #b91c1c; background: #fef2f2; }
 
+.resume-mobile-actions { display: none; }
+.resume-editable-section .resume-section-toolbar,
+.resume-editable-section .resume-section-insert {
+  opacity: 1;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.resume-editable-section .resume-section-toolbar {
+  position: absolute;
+  z-index: 30;
+  top: -22px;
+  right: 0;
+  left: 0;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.12);
+}
+.resume-editable-section .resume-section-insert {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: -24px;
+  left: 0;
+}
+.resume-editable-section:not(.is-selected) .resume-section-toolbar,
+.resume-editable-section:not(.is-selected) .resume-section-insert {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+}
+.resume-editable-section:is(:hover, :focus-within) .resume-section-toolbar,
+.resume-editable-section:is(:hover, :focus-within) .resume-section-insert {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+.resume-section-issue-badge {
+  position: absolute;
+  z-index: 15;
+  top: -10px;
+  right: 6px;
+  padding: 3px 7px;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 9px;
+  font-weight: 800;
+}
+
 @media screen and (max-width: 767px) {
+  .resume-builder-actions {
+    display: flex;
+  }
+
+  .resume-builder-actions button:not(:first-child) {
+    display: none;
+  }
+
+  .resume-mobile-actions {
+    position: fixed;
+    z-index: 70;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: 520px;
+    margin-inline: auto;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--background) / 0.96);
+    box-shadow: 0 14px 34px rgb(0 0 0 / 0.28);
+    backdrop-filter: blur(12px);
+  }
+
+  .resume-mobile-actions button {
+    display: inline-flex;
+    min-height: 52px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px;
+    color: hsl(var(--foreground));
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .resume-mobile-actions button + button {
+    border-left: 1px solid hsl(var(--border));
+  }
+
+  .resume-mobile-actions button:last-child {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
   .resume-preview-shell {
     min-width: 0;
   }
 
   .resume-paper {
     background-image: none;
-    box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+    background: transparent;
+    box-shadow: none;
   }
 
   .resume-paper-inner {
     min-height: 0;
-    padding: 24px 16px;
+    padding: 0;
   }
 
   .resume-print-header {
     align-items: flex-start;
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
+    padding: 18px 16px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
   }
 
   .resume-print-sections {
-    gap: 24px;
+    gap: 16px;
+  }
+
+  .resume-print-section {
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    box-shadow: 0 6px 18px rgb(15 23 42 / 0.08);
+  }
+
+  .resume-editable-section .resume-section-toolbar,
+  .resume-editable-section .resume-section-insert {
+    position: static;
+    display: none;
+    margin-bottom: 12px;
+    transform: none;
+  }
+
+  .resume-editable-section.is-selected .resume-section-toolbar,
+  .resume-editable-section.is-selected .resume-section-insert,
+  .resume-editable-section:is(:hover, :focus-within) .resume-section-toolbar,
+  .resume-editable-section:is(:hover, :focus-within) .resume-section-insert {
+    display: flex;
+  }
+
+  .resume-editable-section .resume-section-insert {
+    margin-top: 14px;
+    margin-bottom: 0;
+  }
+
+  .resume-section-issue-badge {
+    top: 6px;
+    right: 6px;
   }
 
   .resume-paper .resume-section-controls {

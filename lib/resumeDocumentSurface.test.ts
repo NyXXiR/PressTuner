@@ -45,7 +45,7 @@ test("resume documents exposes simplified section actions and an exact PDF resou
   ]);
 
   assert.match(source, /지원 버전 복제/);
-  assert.match(source, /작성 상태 점검/);
+  assert.match(source, /작성 점검/);
   assert.match(source, /inspectResumeReadiness/);
   assert.match(source, /섹션 더보기/);
   assert.match(source, /섹션 숨기기/);
@@ -55,7 +55,7 @@ test("resume documents exposes simplified section actions and an exact PDF resou
   assert.doesNotMatch(source, /다음 페이지에서 시작/);
   assert.doesNotMatch(source, /resume-page-break/);
   assert.match(source, /ResumePdfPreviewDialog/);
-  assert.match(source, /저장 미리보기에서 정확한 페이지 수/);
+  assert.match(source, /PDF 미리보기에서 정확한 페이지 수/);
   assert.doesNotMatch(source, /예상 \{pageCount\}페이지/);
   assert.match(editor, /data-resume-section-id/);
   assert.match(editor, /data-resume-item-id/);
@@ -67,6 +67,55 @@ test("resume documents exposes simplified section actions and an exact PDF resou
   assert.match(dialog, /title="생성된 이력서 PDF 미리보기"/);
   assert.match(dialog, /href=\{resource\.url\}/);
   assert.match(dialog, /download=\{resource\.filename\}/);
+});
+
+test("resume documents progressively disclose support branches and use task-oriented primary actions", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /roleVariants\.length > 0/);
+  assert.match(source, /지원처별 버전 추가/);
+  assert.match(source, /기존 이력서 가져오기/);
+  assert.match(source, /작성 점검/);
+  assert.match(source, /PDF 미리보기/);
+  assert.doesNotMatch(source, /> PDF로 채우기</);
+  assert.doesNotMatch(source, /> PDF로 저장</);
+});
+
+test("resume sections reveal controls on selection and readiness issues navigate back to their section", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /selectedSectionId/);
+  assert.match(source, /data-resume-editor-section-id/);
+  assert.match(source, /섹션으로 이동/);
+  assert.match(source, /scrollIntoView/);
+  assert.match(source, /resume-section-issue-badge/);
+  assert.match(styles, /\.resume-editable-section:not\(\.is-selected\)[\s\S]*\.resume-section-toolbar/);
+  assert.match(styles, /\.resume-editable-section:is\(:hover, :focus-within\)/);
+});
+
+test("mobile resume editing uses cards and a fixed compact action bar", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /resume-mobile-actions/);
+  assert.match(source, /섹션 추가/);
+  assert.match(styles, /\.resume-mobile-actions/);
+  assert.match(styles, /position:\s*fixed/);
+  assert.match(styles, /\.resume-print-section\s*\{[\s\S]*background:\s*#fff/);
+});
+
+test("server-backed resume copy does not claim durable edits or photos only live in the browser", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /사진은 크기를 줄여 이 브라우저에 저장/);
+  assert.doesNotMatch(source, /변경 사항은 이 브라우저의 로컬 저장소에 자동 저장/);
+  assert.match(source, /문서에 저장합니다/);
+  assert.match(source, /서버에 자동 저장됩니다/);
 });
 
 test("resume PDF uses server geometry while the editor and modal retain screen-only styles", async () => {
@@ -296,7 +345,7 @@ test("PDF imports stay review-first and recover approved but unapplied candidate
     readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/applied/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(builder, /PDF로 채우기/);
+  assert.match(builder, /기존 이력서 가져오기/);
   assert.match(builder, /applyResumeImportCommand/);
   assert.match(persistence, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
   assert.match(panel, /AI는 섹션별 후보만 만듭니다/);
