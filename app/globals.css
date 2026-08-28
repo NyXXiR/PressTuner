@@ -628,7 +628,7 @@ html {
   position: absolute;
   z-index: 20;
   right: 0;
-  bottom: -24px;
+  bottom: -42px;
   left: 0;
 }
 .resume-editable-section:not(.is-selected) .resume-section-insert {
