@@ -872,6 +872,15 @@ export function orderResumeSections(sections: ResumeSection[], profile: ResumeRo
   return [...documentOrdered, ...afterRoleById.values()];
 }
 
+export function moveSectionInOrder(sectionOrder: string[], sectionId: string, offset: -1 | 1) {
+  const currentIndex = sectionOrder.indexOf(sectionId);
+  const nextIndex = currentIndex + offset;
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sectionOrder.length) return sectionOrder;
+  const nextOrder = [...sectionOrder];
+  [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex]!, nextOrder[currentIndex]!];
+  return nextOrder;
+}
+
 export function updateRoleProfileSectionOrder(state: ResumeDocumentState, profileId: string, sectionOrder: string[]) {
   const profile = state.roleProfiles.find((item) => item.id === profileId);
   if (!profile) return state;

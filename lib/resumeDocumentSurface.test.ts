@@ -97,9 +97,10 @@ test("resume section toolbars stay visible while insertion controls remain conte
   assert.doesNotMatch(styles, /\.resume-editable-section:not\(\.is-selected\) \.resume-section-toolbar/);
   assert.match(styles, /\.resume-editable-section:not\(\.is-selected\) \.resume-section-insert/);
   assert.match(styles, /\.resume-editable-section:is\(:hover, :focus-within\) \.resume-section-insert/);
-  assert.match(source, /resume-print-sections grid gap-12/);
-  assert.match(styles, /\.resume-editable-section \.resume-section-insert\s*\{[\s\S]*?bottom:\s*-42px/);
-  assert.match(styles, /\.resume-editable-section::after\s*\{[\s\S]*?bottom:\s*-48px;[\s\S]*?height:\s*48px/);
+  assert.match(source, /resume-print-sections grid/);
+  assert.doesNotMatch(source, /resume-print-sections grid gap-12/);
+  assert.match(styles, /\.resume-editable-section \.resume-section-insert\s*\{[\s\S]*?top:\s*calc\(100% \+ 1px\)/);
+  assert.match(styles, /\.resume-editable-section::after\s*\{[\s\S]*?top:\s*100%;[\s\S]*?height:\s*var\(--resume-section-gap\)/);
   assert.match(styles, /@media screen and \(max-width: 767px\)[\s\S]*?\.resume-editable-section::after\s*\{[\s\S]*?display:\s*none/);
 });
 
@@ -123,6 +124,10 @@ test("section reordering exposes titles, commits the final mobile order, and avo
   assert.match(source, /onDragEnd=\{onReorderEnd\}/);
   assert.match(source, /layout="position"/);
   assert.match(source, />\{section\.title\}<\/span>/);
+  assert.match(source, /aria-keyshortcuts="ArrowUp ArrowDown"/);
+  assert.match(source, /event\.key === "ArrowUp"/);
+  assert.match(source, /event\.key === "ArrowDown"/);
+  assert.match(source, /resume-reorder-announcement/);
 });
 
 test("resume headers keep the document name as file metadata instead of repeating it on the page", async () => {
@@ -162,6 +167,9 @@ test("resume PDF uses server geometry while the editor and modal retain screen-o
   assert.match(pdf, /minPresenceAhead/);
   assert.match(pdf, /RESUME_IDENTITY_LAYOUT/);
   assert.match(editor, /RESUME_IDENTITY_LAYOUT/);
+  assert.match(editor, /RESUME_DOCUMENT_LAYOUT/);
+  assert.match(pdf, /RESUME_DOCUMENT_LAYOUT/);
+  assert.match(styles, /var\(--resume-section-gap\)/);
   assert.match(editor, /--resume-identity-name-size/);
   assert.match(styles, /var\(--resume-identity-name-size\)/);
   assert.match(styles, /\.wongoji \.wg-ruled[\s\S]*background-origin: content-box/);
@@ -173,6 +181,18 @@ test("resume PDF uses server geometry while the editor and modal retain screen-o
   assert.doesNotMatch(source, /resume-page-guides/);
   assert.doesNotMatch(styles, /\.resume-page-guides/);
   assert.doesNotMatch(layout, /resume-print\.css/);
+});
+
+test("resume browser fonts prefer WOFF2 and ship with long-lived immutable caching", async () => {
+  const [styles, config] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(styles, /NanumGothic-Regular\.woff2/);
+  assert.match(styles, /format\("woff2"\)/);
+  assert.match(config, /\/fonts\/resume\/:path\*\*?/);
+  assert.match(config, /public, max-age=31536000, immutable/);
 });
 
 test("common information explains role overrides without owning their reset action", async () => {

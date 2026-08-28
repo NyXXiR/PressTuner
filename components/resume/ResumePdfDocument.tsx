@@ -6,7 +6,8 @@ import {
   resolveCareerDurationMonths,
   sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
-import { formatItemPeriod, type ItemContent, type NarrativeBlockType } from "@/domain/resume-documents/model";
+import { formatItemPeriod, type ItemContent } from "@/domain/resume-documents/model";
+import { RESUME_DOCUMENT_LAYOUT, RESUME_NARRATIVE_FONT_SIZES_PT } from "@/domain/resume-documents/documentLayout";
 import {
   RESUME_PAGE_MARGIN_BOTTOM_MM,
   RESUME_PDF_CONTENT_WIDTH_MM,
@@ -26,7 +27,6 @@ import { RESUME_PDF_FONT_FAMILY } from "@/lib/services/resume/resumePdfFonts";
 const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
-const narrativeSizes: Record<NarrativeBlockType, number> = { p: 9.5, h1: 18, h2: 15.5, h3: 13.5, h4: 12, h5: 11, h6: 10 };
 const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_OPENING_BODY_UNITS = 360;
 const ITEM_BODY_WIDOWS = 3;
@@ -75,20 +75,20 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
     backgroundColor: "#ffffff",
     color: "#0f172a",
     fontFamily: RESUME_PDF_FONT_FAMILY,
-    fontSize: 9.5,
-    lineHeight: 1.55,
+    fontSize: RESUME_DOCUMENT_LAYOUT.baseFontSizePt,
+    lineHeight: RESUME_DOCUMENT_LAYOUT.baseLineHeight,
     paddingTop: mm(RESUME_PAGE_MARGIN_TOP_MM),
     paddingRight: mm(RESUME_PAGE_MARGIN_RIGHT_MM),
     paddingBottom: mm(RESUME_PAGE_MARGIN_BOTTOM_MM),
     paddingLeft: mm(RESUME_PAGE_MARGIN_LEFT_MM),
   },
-  header: { marginBottom: mm(8), paddingBottom: mm(3), borderBottomWidth: mm(0.6), borderBottomColor: "#0f172a" },
-  company: { color: "#64748b", fontSize: 8.5, fontWeight: 700, letterSpacing: 1.2 },
-  role: { marginTop: mm(1), fontSize: 14, fontWeight: 800 },
-  section: { marginBottom: mm(7) },
-  sectionHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(4), marginBottom: mm(3), paddingBottom: mm(1.5), borderBottomWidth: mm(0.3), borderBottomColor: "#0f172a" },
-  sectionTitle: { fontSize: 13, fontWeight: 800 },
-  duration: { color: "#475569", fontSize: 8.5, fontWeight: 700 },
+  header: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.headerBottomGapMm), paddingBottom: mm(RESUME_DOCUMENT_LAYOUT.headerBottomPaddingMm), borderBottomWidth: mm(RESUME_DOCUMENT_LAYOUT.headerBorderWidthMm), borderBottomColor: "#0f172a" },
+  company: { color: "#64748b", fontSize: RESUME_DOCUMENT_LAYOUT.companyFontSizePt, fontWeight: 700, letterSpacing: 1.2 },
+  role: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.roleTopGapMm), fontSize: RESUME_DOCUMENT_LAYOUT.roleFontSizePt, fontWeight: 800 },
+  section: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.sectionGapMm) },
+  sectionHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingGapMm), marginBottom: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingBottomGapMm), paddingBottom: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingBottomPaddingMm), borderBottomWidth: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingBorderWidthMm), borderBottomColor: "#0f172a" },
+  sectionTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.sectionTitleFontSizePt, fontWeight: 800 },
+  duration: { color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.durationFontSizePt, fontWeight: 700 },
   identity: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: mm(RESUME_IDENTITY_LAYOUT.columnGapMm) },
   identityCopy: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
   identityHeading: { marginBottom: mm(RESUME_IDENTITY_LAYOUT.nameToContactsGapMm) },
@@ -99,34 +99,34 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   contactValue: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0, color: "#334155", fontSize: RESUME_IDENTITY_LAYOUT.contactValueFontSizePt, lineHeight: RESUME_IDENTITY_LAYOUT.contactValueLineHeight },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(RESUME_IDENTITY_LAYOUT.factsTopGapMm), paddingTop: mm(RESUME_IDENTITY_LAYOUT.factsTopPaddingMm), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: RESUME_IDENTITY_LAYOUT.factsFontSizePt },
   photo: { width: mm(RESUME_IDENTITY_LAYOUT.photoWidthMm), height: mm(RESUME_IDENTITY_LAYOUT.photoHeightMm), objectFit: "cover", borderWidth: mm(0.3), borderColor: "#cbd5e1" },
-  empty: { color: "#94a3b8", fontSize: 9 },
-  item: { flexDirection: "row", gap: mm(4), marginBottom: mm(4) },
-  itemFlow: { marginBottom: mm(4) },
-  itemRow: { flexDirection: "row", gap: mm(4) },
-  itemPeriod: { width: mm(26), flexShrink: 0, color: "#64748b", fontSize: 8.5, fontWeight: 700 },
-  itemPeriodSpacer: { width: mm(26), flexShrink: 0 },
+  empty: { color: "#94a3b8", fontSize: RESUME_DOCUMENT_LAYOUT.emptyFontSizePt },
+  item: { flexDirection: "row", gap: mm(RESUME_DOCUMENT_LAYOUT.itemColumnGapMm), marginBottom: mm(RESUME_DOCUMENT_LAYOUT.itemGapMm) },
+  itemFlow: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.itemGapMm) },
+  itemRow: { flexDirection: "row", gap: mm(RESUME_DOCUMENT_LAYOUT.itemColumnGapMm) },
+  itemPeriod: { width: mm(RESUME_DOCUMENT_LAYOUT.itemPeriodWidthMm), flexShrink: 0, color: "#64748b", fontSize: RESUME_DOCUMENT_LAYOUT.itemPeriodFontSizePt, fontWeight: 700 },
+  itemPeriodSpacer: { width: mm(RESUME_DOCUMENT_LAYOUT.itemPeriodWidthMm), flexShrink: 0 },
   itemCopy: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
-  detailType: { color: "#ea580c", fontSize: 7.5, fontWeight: 800 },
-  itemTitle: { fontSize: 10.5, fontWeight: 800 },
-  itemSubtitle: { color: "#ea580c", fontSize: 8.5, fontWeight: 700 },
-  itemBody: { marginTop: mm(1), color: "#475569", fontSize: 9, lineHeight: 1.65 },
-  group: { paddingLeft: mm(3), borderLeftWidth: mm(0.5), borderLeftColor: "#cbd5e1", marginBottom: mm(5) },
-  groupHeading: { marginBottom: mm(3) },
-  groupTitle: { fontSize: 10.5, fontWeight: 800 },
-  groupMeta: { color: "#64748b", fontSize: 8.5, fontWeight: 700 },
+  detailType: { color: "#ea580c", fontSize: RESUME_DOCUMENT_LAYOUT.detailTypeFontSizePt, fontWeight: 800 },
+  itemTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.itemTitleFontSizePt, fontWeight: 800 },
+  itemSubtitle: { color: "#ea580c", fontSize: RESUME_DOCUMENT_LAYOUT.itemSubtitleFontSizePt, fontWeight: 700 },
+  itemBody: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.itemBodyTopGapMm), color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt, lineHeight: RESUME_DOCUMENT_LAYOUT.itemBodyLineHeight },
+  group: { paddingLeft: mm(RESUME_DOCUMENT_LAYOUT.groupLeftPaddingMm), borderLeftWidth: mm(RESUME_DOCUMENT_LAYOUT.groupBorderWidthMm), borderLeftColor: "#cbd5e1", marginBottom: mm(RESUME_DOCUMENT_LAYOUT.groupGapMm) },
+  groupHeading: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.groupHeadingBottomGapMm) },
+  groupTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.groupTitleFontSizePt, fontWeight: 800 },
+  groupMeta: { color: "#64748b", fontSize: RESUME_DOCUMENT_LAYOUT.groupMetaFontSizePt, fontWeight: 700 },
   warning: { color: "#b45309" },
-  tags: { flexDirection: "row", flexWrap: "wrap", gap: mm(2) },
-  tag: { paddingVertical: mm(1.5), paddingHorizontal: mm(3), backgroundColor: "#f1f5f9", fontSize: 9.5, fontWeight: 700 },
-  narrative: { color: "#334155", lineHeight: 1.7, marginBottom: mm(2) },
-  narrativeHeading: { color: "#0f172a", lineHeight: 1.25, fontWeight: 800, marginBottom: mm(2) },
+  tags: { flexDirection: "row", flexWrap: "wrap", gap: mm(RESUME_DOCUMENT_LAYOUT.tagGapMm) },
+  tag: { paddingVertical: mm(RESUME_DOCUMENT_LAYOUT.tagVerticalPaddingMm), paddingHorizontal: mm(RESUME_DOCUMENT_LAYOUT.tagHorizontalPaddingMm), backgroundColor: "#f1f5f9", fontSize: RESUME_DOCUMENT_LAYOUT.tagFontSizePt, fontWeight: 700 },
+  narrative: { color: "#334155", lineHeight: RESUME_DOCUMENT_LAYOUT.narrativeBodyLineHeight, marginBottom: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
+  narrativeHeading: { color: "#0f172a", lineHeight: RESUME_DOCUMENT_LAYOUT.narrativeHeadingLineHeight, fontWeight: 800, marginBottom: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
   compact: { marginBottom: mm(4) },
   cards: { padding: mm(4), borderWidth: mm(0.2), borderColor: "#e2e8f0", backgroundColor: "#f8fafc" },
-  highlightGrid: { flexDirection: "row", flexWrap: "wrap", gap: mm(3) },
-  highlightCard: { width: "48%", minHeight: mm(27), padding: mm(4), borderWidth: mm(0.35), borderColor: "#cbd5e1", backgroundColor: "#f8fafc" },
-  highlightIndex: { color: "#ea580c", fontSize: 7, fontWeight: 800, letterSpacing: 0.8, marginBottom: mm(2) },
-  highlightTitle: { fontSize: 11, fontWeight: 800 },
-  highlightSubtitle: { color: "#64748b", fontSize: 8, fontWeight: 700, marginTop: mm(1) },
-  highlightBody: { color: "#475569", fontSize: 8.5, lineHeight: 1.55, marginTop: mm(2) },
+  highlightGrid: { flexDirection: "row", flexWrap: "wrap", gap: mm(RESUME_DOCUMENT_LAYOUT.highlightGapMm) },
+  highlightCard: { width: "48%", minHeight: mm(RESUME_DOCUMENT_LAYOUT.highlightMinHeightMm), padding: mm(RESUME_DOCUMENT_LAYOUT.highlightPaddingMm), borderWidth: mm(RESUME_DOCUMENT_LAYOUT.highlightBorderWidthMm), borderColor: "#cbd5e1", backgroundColor: "#f8fafc" },
+  highlightIndex: { color: "#ea580c", fontSize: RESUME_DOCUMENT_LAYOUT.highlightIndexFontSizePt, fontWeight: 800, letterSpacing: 0.8, marginBottom: mm(2) },
+  highlightTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.highlightTitleFontSizePt, fontWeight: 800 },
+  highlightSubtitle: { color: "#64748b", fontSize: RESUME_DOCUMENT_LAYOUT.highlightSubtitleFontSizePt, fontWeight: 700, marginTop: mm(1) },
+  highlightBody: { color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.highlightBodyFontSizePt, lineHeight: RESUME_DOCUMENT_LAYOUT.highlightBodyLineHeight, marginTop: mm(2) },
   });
 }
 
@@ -238,7 +238,7 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
     : section.content.body.replace(/\r\n?/gu, "\n").split(/\n\s*\n/gu).filter(Boolean).map((text, index) => ({ id: `${section.id}-legacy-${index + 1}`, type: "p" as const, runs: [{ text }] }));
   return <><SectionHeading section={section} />{blocks.length ? blocks.map((block) => {
     const heading = block.type !== "p";
-    const fontSize = narrativeSizes[block.type];
+    const fontSize = RESUME_NARRATIVE_FONT_SIZES_PT[block.type];
     return <Text
       key={block.id}
       minPresenceAhead={heading ? 32 : 0}

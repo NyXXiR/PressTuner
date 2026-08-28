@@ -18,6 +18,7 @@ import {
   inspectResumeReadiness,
   isItemEndMonthEnabled,
   linkExperienceBricks,
+  moveSectionInOrder,
   narrativeCharacterCount,
   narrativePlainText,
   orderResumeSections,
@@ -263,6 +264,16 @@ test("role and support versions keep independent section order", () => {
   const withVersion = createSupportVariant(roleOrdered, profile.id, { name: "A사", company: "A사" });
   const versionOrdered = updateSectionOrder(withVersion, withVersion.variants[0].id, ids);
   assert.deepEqual(orderResumeSections(versionOrdered.sharedSections, versionOrdered.roleProfiles[0], versionOrdered.variants[0]).map((item) => item.id), [...ids, coverLetterId]);
+});
+
+test("keyboard section movement swaps adjacent sections without crossing boundaries", () => {
+  const order = ["profile", "summary", "experience"];
+
+  assert.deepEqual(moveSectionInOrder(order, "summary", -1), ["summary", "profile", "experience"]);
+  assert.deepEqual(moveSectionInOrder(order, "summary", 1), ["profile", "experience", "summary"]);
+  assert.deepEqual(moveSectionInOrder(order, "profile", -1), order);
+  assert.deepEqual(moveSectionInOrder(order, "experience", 1), order);
+  assert.deepEqual(moveSectionInOrder(order, "missing", 1), order);
 });
 
 test("deleting a role resume also removes only its support versions", () => {
