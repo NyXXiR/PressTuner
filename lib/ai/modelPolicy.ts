@@ -7,6 +7,7 @@ export const AI_FEATURE_MODELS = {
   "resume.intake.compose": AI_MODELS.DEFAULT,
   "resume.intake.questions": AI_MODELS.MINI,
   "resume.brick.organize": AI_MODELS.MINI,
+  "resume.document.quick-fill": AI_MODELS.SMART_MINI,
 } as const satisfies Record<string, AiModel>;
 
 export type AiFeature = keyof typeof AI_FEATURE_MODELS;

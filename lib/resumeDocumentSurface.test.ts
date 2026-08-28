@@ -75,7 +75,7 @@ test("resume documents progressively disclose support branches and use task-orie
 
   assert.match(source, /roleVariants\.length > 0/);
   assert.match(source, /지원처별 버전 추가/);
-  assert.match(source, /기존 이력서 가져오기/);
+  assert.match(source, /자료로 공통 정보 채우기/);
   assert.match(source, /작성 점검/);
   assert.match(source, /PDF 미리보기/);
   assert.doesNotMatch(source, /> PDF로 채우기</);
@@ -452,18 +452,40 @@ test("PDF imports stay review-first and recover approved but unapplied candidate
     readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/applied/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(builder, /기존 이력서 가져오기/);
+  assert.match(builder, /자료로 공통 정보 채우기/);
   assert.match(builder, /applyResumeImportCommand/);
   assert.match(persistence, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
-  assert.match(panel, /AI는 섹션별 후보만 만듭니다/);
+  assert.match(panel, /AI가 섹션별 후보만 만듭니다/);
   assert.match(panel, /확인하고 반영/);
   assert.match(panel, /문서 반영 다시 시도/);
-  assert.match(panel, /PDF 원문 근거/);
+  assert.match(panel, /입력 원문 근거/);
   assert.match(panel, /경력 보관함/);
-  assert.match(panel, /추천일 뿐이며 승인 전에 바꿀 수 있습니다/);
+  assert.match(panel, /승인 전에는 내용과 대상 섹션을 바꿀 수 있습니다/);
   assert.match(builder, /sections=\{orderedSections\}/);
   assert.match(decisionRoute, /decideResumeDocumentCandidate/);
   assert.match(appliedRoute, /acknowledgeResumeDocumentCandidateApplied/);
+});
+
+test("pasted notes create grounded common-section suggestions behind explicit approval", async () => {
+  const [builder, panel, route, service] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/resume/documents/imports/text/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/services/resume/resumeDocumentQuickFillService.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(builder, /자료로 공통 정보 채우기/);
+  assert.match(builder, /commonSections=\{state\.sharedSections\}/);
+  for (const phrase of ["줄글 입력", "AI에게 추가로 요청", "채울 공통 정보 섹션", "검토할 제안 만들기", "승인하거나 거부"]) {
+    assert.match(panel, new RegExp(phrase));
+  }
+  assert.match(panel, /\/api\/resume\/documents\/imports\/text/);
+  assert.match(route, /ResumeDocumentQuickFillRequestSchema/);
+  assert.match(route, /createResumeDocumentQuickFill/);
+  assert.match(service, /normalizeQuickFillExtraction/);
+  assert.match(service, /evidenceExcerpt/);
+  assert.match(service, /ResumeDocumentImportStatus\.REVIEW_REQUIRED/);
+  assert.match(service, /consumeAiQuota/);
 });
 
 test("PDF import review supports one-click bulk approval and rejection", async () => {

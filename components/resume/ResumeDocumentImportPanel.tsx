@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,6 +50,7 @@ type ResumeImport = {
   source: {
     id: string;
     originalName: string;
+    mimeType: string;
     status: string;
     pageCount: number | null;
     errorCode: string | null;
@@ -123,11 +125,13 @@ function validateCandidates(value: unknown): Candidate[] {
 
 export function ResumeDocumentImportPanel({
   sections,
+  commonSections,
   workItems,
   onApply,
   onClose,
 }: {
   sections: ResumeSection[];
+  commonSections: ResumeSection[];
   workItems: ItemContent[];
   onApply: (command: ResumeDocumentImportCommand) => void;
   onClose: () => void;
@@ -137,6 +141,14 @@ export function ResumeDocumentImportPanel({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [inputMode, setInputMode] = useState<"text" | "pdf">("text");
+  const [sourceText, setSourceText] = useState("");
+  const [instruction, setInstruction] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [targetSectionIds, setTargetSectionIds] = useState<string[]>(() => {
+    const preferred = commonSections.find((section) => section.id === "projects");
+    return preferred ? [preferred.id] : commonSections[0] ? [commonSections[0].id] : [];
+  });
   const [error, setError] = useState("");
   const selected = imports.find((item) => item.id === selectedId) ?? null;
   const detailControllerRef = useRef<AbortController | null>(null);
@@ -315,6 +327,41 @@ export function ResumeDocumentImportPanel({
     }
   };
 
+  const createFromText = async () => {
+    const targets = commonSections.filter((section) => targetSectionIds.includes(section.id));
+    if (sourceText.trim().length < 20) {
+      setError("정리할 내용을 20자 이상 붙여넣어 주세요.");
+      return;
+    }
+    if (!targets.length) {
+      setError("채울 공통 정보 섹션을 하나 이상 선택해 주세요.");
+      return;
+    }
+    setGenerating(true);
+    setError("");
+    try {
+      const payload = await jsonRequest<{ import: ResumeImport }>(
+        "/api/resume/documents/imports/text",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            text: sourceText,
+            instruction,
+            sections: targets.map(({ id, title, kind }) => ({ id, title, kind })),
+          }),
+        },
+      );
+      upsertImport(payload.import);
+      setSelectedId(payload.import.id);
+      setCandidates([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "AI 제안을 만들지 못했습니다.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const retry = async () => {
     if (!selected) return;
     setError("");
@@ -360,17 +407,17 @@ export function ResumeDocumentImportPanel({
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5">
           <div>
             <p className="text-[10px] font-bold tracking-widest text-primary">
-              AI PDF IMPORT
+              REVIEW-FIRST IMPORT
             </p>
             <h2
               className="mt-1 text-xl font-extrabold"
               id="resume-import-title"
             >
-              PDF 내용 검토 후 채우기
+              자료를 검토하고 공통 정보 채우기
             </h2>
             <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-              AI는 섹션별 후보만 만듭니다. 내용을 확인하고 승인한 항목만 선택한
-              섹션에 반영됩니다. 추천 섹션은 추천일 뿐이며 승인 전에 바꿀 수 있습니다.
+              줄글을 붙여넣거나 PDF를 가져오면 AI가 섹션별 후보만 만듭니다.
+              승인한 항목만 문서에 반영되며, 승인 전에는 내용과 대상 섹션을 바꿀 수 있습니다.
             </p>
           </div>
           <button
@@ -383,7 +430,14 @@ export function ResumeDocumentImportPanel({
         </header>
         <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="overflow-y-auto border-b border-border bg-muted/20 p-4 lg:border-b-0 lg:border-r">
-            <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center border border-dashed border-primary/50 bg-background p-4 text-center">
+            <div aria-label="자료 입력 방식" className="mb-3 grid grid-cols-2 border border-border bg-background p-1" role="tablist"><button aria-selected={inputMode === "text"} className={`h-9 text-xs font-extrabold ${inputMode === "text" ? "bg-foreground text-background" : "text-muted-foreground"}`} onClick={() => setInputMode("text")} role="tab" type="button">줄글 입력</button><button aria-selected={inputMode === "pdf"} className={`h-9 text-xs font-extrabold ${inputMode === "pdf" ? "bg-foreground text-background" : "text-muted-foreground"}`} onClick={() => setInputMode("pdf")} role="tab" type="button">PDF</button></div>
+            {inputMode === "text" ? <div className="grid gap-3 border border-primary/30 bg-background p-3">
+              <label className="grid gap-1.5 text-xs font-extrabold">정리할 줄글<textarea className="wg-field min-h-36 resize-y p-3 text-xs font-normal leading-5" maxLength={20_000} placeholder="기존 이력서나 메모에서 내용을 대충 붙여넣으세요. AI는 여기에 명시된 사실만 제안으로 만듭니다." value={sourceText} onChange={(event) => setSourceText(event.target.value)} /></label>
+              <label className="grid gap-1.5 text-xs font-extrabold">AI에게 추가로 요청 <span className="font-normal text-muted-foreground">(선택)</span><textarea className="wg-field min-h-20 resize-y p-3 text-xs font-normal leading-5" maxLength={1_000} placeholder="예: 프로젝트별 문제·행동·성과가 드러나게 경력 상세로 나눠줘" value={instruction} onChange={(event) => setInstruction(event.target.value)} /></label>
+              <fieldset><legend className="text-xs font-extrabold">채울 공통 정보 섹션</legend><div className="mt-2 grid gap-1.5">{commonSections.map((section) => <label className="flex cursor-pointer items-center gap-2 border border-border px-2.5 py-2 text-xs font-bold" key={section.id}><input checked={targetSectionIds.includes(section.id)} type="checkbox" onChange={(event) => setTargetSectionIds((current) => event.target.checked ? [...current, section.id] : current.filter((id) => id !== section.id))} /><span className="min-w-0 truncate">{section.title}</span><span className="ml-auto text-[9px] font-normal text-muted-foreground">{section.kind}</span></label>)}</div></fieldset>
+              <button className="inline-flex h-10 items-center justify-center gap-2 bg-primary px-3 text-xs font-extrabold text-primary-foreground disabled:opacity-40" disabled={generating || sourceText.trim().length < 20 || targetSectionIds.length === 0} onClick={() => void createFromText()} type="button">{generating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "제안 만드는 중…" : "검토할 제안 만들기"}</button>
+              <p className="text-[10px] leading-4 text-muted-foreground">AI가 바로 문서를 수정하지 않습니다. 생성된 각 제안을 승인하거나 거부해 주세요.</p>
+            </div> : <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center border border-dashed border-primary/50 bg-background p-4 text-center">
               <input
                 accept="application/pdf,.pdf"
                 className="sr-only"
@@ -401,11 +455,11 @@ export function ResumeDocumentImportPanel({
               <span className="mt-1 text-[10px] text-muted-foreground">
                 텍스트 PDF · 최대 20MB
               </span>
-            </label>
+            </label>}
             <div className="mt-4 border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-950">
               <ShieldCheck className="mb-2 h-4 w-4" />
-              문서 섹션 배분 단계에서는 이메일·전화·생년월일을 토큰화합니다.
-              병역·보훈 등 민감 정보는 각각 별도 승인이 필요합니다.
+              입력 자료는 AI 제안 생성에 사용됩니다. 민감한 내용은 필요한 부분만 넣고,
+              인적사항·병역·보훈 제안은 특히 확인한 뒤 승인해 주세요.
             </div>
             <p className="mt-5 text-xs font-extrabold">가져오기 기록</p>
             <div className="mt-2 grid gap-2">
@@ -419,11 +473,11 @@ export function ResumeDocumentImportPanel({
                   onClick={() => setSelectedId(item.id)}
                 >
                   <span className="block truncate text-xs font-extrabold">
-                    {item.source.originalName}
+                    {item.source.mimeType === "text/plain" ? "줄글로 공통 정보 채우기" : item.source.originalName}
                   </span>
                   <span className="mt-1 block text-[10px] text-muted-foreground">
                     {item.source.status === "FAILED"
-                      ? "PDF 원문 분석 실패"
+                      ? "원문 분석 실패"
                       : statusLabel[item.status]}{" "}
                     · 후보 {item.candidateCount}개
                   </span>
@@ -443,13 +497,13 @@ export function ResumeDocumentImportPanel({
                 <div>
                   <FileSearch className="mx-auto h-8 w-8 text-muted-foreground" />
                   <p className="mt-3 text-sm font-extrabold">
-                    PDF를 선택해 시작하세요.
+                    왼쪽에서 줄글을 입력하거나 PDF를 선택해 시작하세요.
                   </p>
                 </div>
               </div>
             ) : failed ? (
               <div className="border border-red-200 bg-red-50 p-5 text-red-800">
-                <p className="font-extrabold">PDF 분석에 실패했습니다.</p>
+                <p className="font-extrabold">자료 분석에 실패했습니다.</p>
                 <p className="mt-2 text-xs leading-5">
                   {selected.errorCode ||
                     selected.source.errorCode ||
@@ -911,7 +965,7 @@ function CandidateCard({
       </div>
       <details className="mt-4 border border-border bg-muted/20 p-3">
         <summary className="cursor-pointer text-xs font-extrabold">
-          PDF 원문 근거 {candidate.evidence.length}개
+          입력 원문 근거 {candidate.evidence.length}개
         </summary>
         <div className="mt-3 grid gap-2">
           {candidate.evidence.map((evidence) => (

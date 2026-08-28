@@ -13,6 +13,7 @@ const importInclude = {
     select: {
       id: true,
       originalName: true,
+      mimeType: true,
       status: true,
       pageCount: true,
       errorCode: true,
