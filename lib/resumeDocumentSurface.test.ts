@@ -114,6 +114,26 @@ test("mobile resume editing uses cards and a fixed compact action bar", async ()
   assert.match(styles, /\.resume-print-section\s*\{[\s\S]*background:\s*#fff/);
 });
 
+test("section reordering exposes titles, commits the final mobile order, and avoids size-squash animation", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /latestSectionOrderRef/);
+  assert.match(source, /onDragEnd=\{onReorderEnd\}/);
+  assert.match(source, /layout="position"/);
+  assert.match(source, />\{section\.title\}<\/span>/);
+});
+
+test("resume headers keep the document name as file metadata instead of repeating it on the page", async () => {
+  const [editor, pdf] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeEditorDocument.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumePdfDocument.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(editor, /resume-print-document-name/);
+  assert.doesNotMatch(pdf, /styles\.documentName/);
+  assert.match(pdf, /<Document title=\{snapshot\.documentName\}/);
+});
+
 test("server-backed resume copy does not claim durable edits or photos only live in the browser", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
 

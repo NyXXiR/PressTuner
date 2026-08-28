@@ -28,12 +28,11 @@ export type ResumeEditorSection = ResumeSection & { hidden?: boolean };
 
 export type ResumeEditorHeaderProps = {
   company: string;
-  documentName: string;
   role: string;
 };
 
-export function ResumeEditorHeader({ company, documentName, role }: ResumeEditorHeaderProps) {
-  return <header className="resume-print-header"><div><p className="resume-print-company">{company}</p><p className="resume-print-role">{role}</p></div><p className="resume-print-document-name">{documentName}</p></header>;
+export function ResumeEditorHeader({ company, role }: ResumeEditorHeaderProps) {
+  return <header className="resume-print-header"><p className="resume-print-company">{company}</p><p className="resume-print-role">{role}</p></header>;
 }
 
 export function ResumeEditorSection({ currentMonth, relatedWorkItems = [], section }: {
@@ -82,10 +81,19 @@ function ResumePrintableSectionBody({ content, heading, layout, relatedWorkItems
 }
 
 function IdentityBody({ content, layout }: { content: IdentityContent; layout: SectionLayout }) {
-  const contactItems = [content.email, content.phone, content.location, ...content.links].filter(Boolean) as string[];
+  const contactItems = [
+    content.email && { label: "EMAIL", value: content.email },
+    content.phone && { label: "PHONE", value: content.phone },
+    content.location && { label: "LOCATION", value: content.location },
+    ...content.links.filter(Boolean).map((value) => ({ label: "LINK", value })),
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
   const factItems = [content.birthDate && `생년월일 ${content.birthDate}`, content.gender && `성별 ${content.gender}`].filter(Boolean) as string[];
   return <div className={`resume-identity resume-layout-${layout}`} data-photo-position="right">
-    <div className="resume-identity-copy"><div className="resume-identity-heading"><h2>{content.name}</h2>{contactItems.length > 0 && <div className="resume-contact">{contactItems.map((item) => <p key={item}>{item}</p>)}</div>}</div>{factItems.length > 0 && <div className="resume-facts">{factItems.map((item) => <span key={item}>{item}</span>)}</div>}</div>
+    <div className="resume-identity-copy">
+      <div className="resume-identity-heading"><h2>{content.name || "이름 미입력"}</h2></div>
+      {contactItems.length > 0 && <div className="resume-contact-grid">{contactItems.map((item, index) => <div className="resume-contact-item" key={`${item.label}-${item.value}-${index}`}><span>{item.label}</span><p>{item.value}</p></div>)}</div>}
+      {factItems.length > 0 && <div className="resume-facts">{factItems.map((item) => <span key={item}>{item}</span>)}</div>}
+    </div>
     {content.photo && <Image alt={`${content.name || "지원자"} 증명사진`} className="resume-profile-photo" height={640} loading="eager" src={content.photo} unoptimized width={480} />}
   </div>;
 }

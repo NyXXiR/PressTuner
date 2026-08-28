@@ -43,6 +43,9 @@ test("service renders the deterministic Korean snapshot as a parseable multi-pag
       "다중-항목-18",
       ...RESUME_PDF_VISIBLE_SENTINELS,
     ]) assert.ok(text.includes(expected), `missing extracted text: ${expected}`);
+    const compactText = text.replace(/\s/gu, "");
+    for (const label of ["EMAIL", "PHONE", "LOCATION", "LINK"]) assert.ok(compactText.includes(label), `missing identity label: ${label}`);
+    assert.ok(!text.includes(resumePdfFixture.documentName), "the filename must not be repeated inside the resume header");
     for (const absent of RESUME_PDF_ABSENT_SENTINELS) assert.ok(!text.includes(absent), `unexpected extracted text: ${absent}`);
     for (const sentinel of RESUME_PDF_VISIBLE_SENTINELS) assert.equal(text.split(sentinel).length - 1, 1, `${sentinel} must occur once`);
     assert.ok(text.indexOf("항목-최신-유일") < text.indexOf("항목-과거-유일"));

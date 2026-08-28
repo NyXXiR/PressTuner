@@ -76,21 +76,23 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
     paddingBottom: mm(RESUME_PAGE_MARGIN_BOTTOM_MM),
     paddingLeft: mm(RESUME_PAGE_MARGIN_LEFT_MM),
   },
-  header: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(8), marginBottom: mm(8), paddingBottom: mm(3), borderBottomWidth: mm(0.6), borderBottomColor: "#0f172a" },
+  header: { marginBottom: mm(8), paddingBottom: mm(3), borderBottomWidth: mm(0.6), borderBottomColor: "#0f172a" },
   company: { color: "#64748b", fontSize: 8.5, fontWeight: 700, letterSpacing: 1.2 },
   role: { marginTop: mm(1), fontSize: 14, fontWeight: 800 },
-  documentName: { color: "#64748b", fontSize: 10, fontWeight: 700, maxWidth: "45%", textAlign: "right" },
   section: { marginBottom: mm(7) },
   sectionHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(4), marginBottom: mm(3), paddingBottom: mm(1.5), borderBottomWidth: mm(0.3), borderBottomColor: "#0f172a" },
   sectionTitle: { fontSize: 13, fontWeight: 800 },
   duration: { color: "#475569", fontSize: 8.5, fontWeight: 700 },
-  identity: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(6) },
+  identity: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: mm(7) },
   identityCopy: { flexGrow: 1, flexShrink: 1 },
-  identityHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(4), marginBottom: mm(2) },
-  name: { fontSize: 26, fontWeight: 800, letterSpacing: -1 },
-  contact: { color: "#64748b", fontSize: 8.5, lineHeight: 1.65, textAlign: "right" },
+  identityHeading: { marginBottom: mm(3) },
+  name: { fontSize: 25, fontWeight: 800, letterSpacing: -1 },
+  contactGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: mm(5), rowGap: mm(2) },
+  contactItem: { width: "47%" },
+  contactLabel: { color: "#94a3b8", fontSize: 6.5, fontWeight: 800, letterSpacing: 0.7, marginBottom: mm(0.4) },
+  contactValue: { color: "#334155", fontSize: 8.5, lineHeight: 1.4 },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(3), paddingTop: mm(2), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: 8 },
-  photo: { width: mm(24), height: mm(32), objectFit: "cover", borderWidth: mm(0.2), borderColor: "#e2e8f0" },
+  photo: { width: mm(25), height: mm(33), objectFit: "cover", borderWidth: mm(0.3), borderColor: "#cbd5e1" },
   empty: { color: "#94a3b8", fontSize: 9 },
   item: { flexDirection: "row", gap: mm(4), marginBottom: mm(4) },
   itemFlow: { marginBottom: mm(4) },
@@ -120,8 +122,8 @@ let styles: ReturnType<typeof createStyles>;
 
 function Header({ snapshot }: { snapshot: ResumePdfSnapshot }) {
   return <View style={styles.header} wrap={false}>
-    <View><Text style={styles.company}>{snapshot.company}</Text><Text style={styles.role}>{snapshot.role}</Text></View>
-    <Text style={styles.documentName}>{snapshot.documentName}</Text>
+    <Text style={styles.company}>{snapshot.company}</Text>
+    <Text style={styles.role}>{snapshot.role}</Text>
   </View>;
 }
 
@@ -138,7 +140,12 @@ function EmptyCopy({ children = EMPTY_COPY }: { children?: string }) {
 
 function IdentitySection({ section }: { section: Extract<ResumePdfSection, { kind: "identity" }> }) {
   const { content } = section;
-  const contacts = [content.email, content.phone, content.location, ...content.links].filter(Boolean) as string[];
+  const contacts = [
+    content.email && { label: "EMAIL", value: content.email },
+    content.phone && { label: "PHONE", value: content.phone },
+    content.location && { label: "LOCATION", value: content.location },
+    ...content.links.filter(Boolean).map((value) => ({ label: "LINK", value })),
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
   const facts = [content.birthDate && `생년월일 ${content.birthDate}`, content.gender && `성별 ${content.gender}`].filter(Boolean) as string[];
   // eslint-disable-next-line jsx-a11y/alt-text -- React PDF's Image primitive has no HTML alt prop.
   const photo = content.photo ? <Image src={content.photo} style={styles.photo} /> : null;
@@ -146,8 +153,8 @@ function IdentitySection({ section }: { section: Extract<ResumePdfSection, { kin
     <View style={styles.identityCopy}>
       <View style={styles.identityHeading}>
         <Text style={styles.name}>{content.name || "이름 미입력"}</Text>
-        {contacts.length ? <View>{contacts.map((contact, index) => <Text key={`${contact}-${index}`} style={styles.contact}>{contact}</Text>)}</View> : null}
       </View>
+      {contacts.length ? <View style={styles.contactGrid}>{contacts.map((contact, index) => <View key={`${contact.label}-${contact.value}-${index}`} style={styles.contactItem}><Text style={styles.contactLabel}>{contact.label}</Text><Text style={styles.contactValue}>{contact.value}</Text></View>)}</View> : null}
       {facts.length ? <View style={styles.facts}>{facts.map((fact) => <Text key={fact}>{fact}</Text>)}</View> : null}
     </View>
     {photo}
