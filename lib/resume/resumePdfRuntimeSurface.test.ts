@@ -42,6 +42,13 @@ test("browser builder passes its typed PDF snapshot directly without runtime sch
   assert.match(builder, /setPdfSnapshot\(snapshot\)/u);
 });
 
+test("PDF pagination keeps keyword chips atomic and only protects a short item opening", async () => {
+  const document = await source("components/resume/ResumePdfDocument.tsx");
+  assert.match(document, /<Text key=\{`\$\{item\}-\$\{index\}`\} style=\{styles\.tag\} wrap=\{false\}>/u);
+  assert.match(document, /ITEM_UNBREAKABLE_BODY_UNITS/u);
+  assert.doesNotMatch(document, /item\.body\.length <= 700/u);
+});
+
 test("resume surface has no browser pagination or native-print infrastructure", async () => {
   const files = [
     "components/resume/ResumeDocumentBuilder.tsx",

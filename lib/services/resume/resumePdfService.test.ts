@@ -107,7 +107,7 @@ test("identity facts rule keeps a safe vertical gap below the name", { timeout: 
     const content = await page.getTextContent();
     const textItems = content.items.filter((item) => "str" in item);
     const name = textItems.find((item) => item.str === "홍길동");
-    const birthDate = textItems.find((item) => item.str === "생년월일 1990-01-02");
+    const birthDate = textItems.find((item) => item.str.startsWith("생년월일 1990-01-02"));
 
     assert.ok(name && birthDate);
     const gapAboveFactsText = name.transform[5] - (birthDate.transform[5] + birthDate.height);
@@ -136,7 +136,7 @@ test("long identity contacts wrap before the profile photo and page margin", { t
     const content = await page.getTextContent();
     const textItems = content.items.filter((item) => "str" in item);
     const name = textItems.find((item) => item.str === "홍길동");
-    const facts = textItems.find((item) => item.str === "생년월일 1990-01-02");
+    const facts = textItems.find((item) => item.str.startsWith("생년월일 1990-01-02"));
     const firstContact = textItems.find((item) => item.str.includes("very-long-address"));
     assert.ok(name && facts);
     assert.ok(firstContact);
@@ -302,10 +302,48 @@ test("long career items move their opening together and still split when they ex
     const openingPage = pageTexts.findIndex((text) => text.includes("긴 경력 항목"));
     const endingPage = pageTexts.findIndex((text) => text.includes("상세-50"));
     assert.ok(openingPage > 0, "career item opening should move away from an undersized remainder");
-    for (const marker of ["상세-01", "상세-02", "상세-03", "상세-04"]) {
+    for (const marker of ["상세-01", "상세-02"]) {
       assert.ok(pageTexts[openingPage]?.includes(marker), `career item opening should keep ${marker} with its heading`);
     }
     assert.ok(endingPage > openingPage, "an oversized career item should continue naturally on a later page");
+  } finally {
+    await pdf.destroy();
+  }
+});
+
+test("a long career detail uses meaningful remaining space before continuing on the next page", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  const filler = Array.from({ length: 24 }, (_, index) =>
+    `앞내용-${String(index + 1).padStart(2, "0")} 현재 페이지의 절반가량을 사용하되 다음 섹션의 시작 부분은 표시할 수 있습니다.`,
+  ).join("\n");
+  const longCareerDetail = Array.from({ length: 14 }, (_, index) =>
+    `남은공간-${String(index + 1).padStart(2, "0")} 긴 프로젝트 설명이 현재 페이지부터 자연스럽게 이어지는지 확인합니다.`,
+  ).join("\n");
+  snapshot.relatedWorkItems = [];
+  snapshot.sections = [
+    { id: "summary", title: "앞선 소개", kind: "narrative", layout: "standard", content: { body: filler } },
+    {
+      id: "projects",
+      title: "경력 상세",
+      kind: "items",
+      layout: "compact",
+      content: { items: [{ id: "flowing-project", itemKind: "career-detail", meta: "2025", title: "남은 공간을 활용하는 프로젝트", subtitle: "플랫폼", body: longCareerDetail }] },
+    },
+  ];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const pageTexts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const content = await (await pdf.getPage(pageNumber)).getTextContent();
+      pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+    }
+    const openingPage = pageTexts.findIndex((text) => text.includes("남은 공간을 활용하는 프로젝트"));
+    const endingPage = pageTexts.findIndex((text) => text.includes("남은공간-14"));
+    assert.equal(openingPage, 0, "a long project should start in meaningful space left on the current page");
+    assert.ok(pageTexts[0]?.includes("남은공간-01"));
+    assert.ok(endingPage > openingPage, "the remaining project body should continue on a later page");
   } finally {
     await pdf.destroy();
   }

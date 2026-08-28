@@ -28,7 +28,8 @@ import { careerDetailLabel, careerDetailSubtitle, normalizeTagGroups } from "@/d
 const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
 const SECTION_OPENING_PRESENCE_POINTS = 72;
-const ITEM_OPENING_BODY_UNITS = 360;
+const ITEM_UNBREAKABLE_BODY_UNITS = 220;
+const ITEM_OPENING_BODY_UNITS = 180;
 const ITEM_BODY_WIDOWS = 3;
 const UNINTERRUPTED_TEXT = /\S{24,}/gu;
 const FULL_WIDTH_GLYPH_EM = 0.94;
@@ -110,6 +111,7 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   itemTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.itemTitleFontSizePt, fontWeight: 800 },
   itemSubtitle: { color: "#ea580c", fontSize: RESUME_DOCUMENT_LAYOUT.itemSubtitleFontSizePt, fontWeight: 700 },
   itemBody: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.itemBodyTopGapMm), color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt, lineHeight: RESUME_DOCUMENT_LAYOUT.itemBodyLineHeight },
+  itemBodyContinuation: { color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt, lineHeight: RESUME_DOCUMENT_LAYOUT.itemBodyLineHeight },
   group: { paddingLeft: mm(RESUME_DOCUMENT_LAYOUT.groupLeftPaddingMm), borderLeftWidth: mm(RESUME_DOCUMENT_LAYOUT.groupBorderWidthMm), borderLeftColor: "#cbd5e1", marginBottom: mm(RESUME_DOCUMENT_LAYOUT.groupGapMm) },
   groupHeading: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.groupHeadingBottomGapMm) },
   groupTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.groupTitleFontSizePt, fontWeight: 800 },
@@ -201,6 +203,15 @@ function splitItemBodyOpening(body: string): [opening: string, continuation: str
   return [body, ""];
 }
 
+function itemBodyUnits(item: ItemContent) {
+  const text = item.bodyBlocks?.length
+    ? item.bodyBlocks.flatMap((block) => block.runs.map((run) => run.text)).join("\n")
+    : item.body;
+  let units = 0;
+  for (const character of text) units += /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Extended_Pictographic}]/u.test(character) ? 2 : 1;
+  return units;
+}
+
 function RichItemBody({ item, variant = "item" }: { item: ItemContent; variant?: "item" | "highlight" }) {
   const plainStyle = variant === "highlight" ? styles.highlightBody : styles.itemBody;
   if (!item.bodyBlocks?.length) return item.body ? <Text style={plainStyle}>{item.body}</Text> : variant === "item" ? <EmptyCopy /> : null;
@@ -212,7 +223,7 @@ function RichItemBody({ item, variant = "item" }: { item: ItemContent; variant?:
 }
 
 function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent; detailLabel?: string; grouped?: boolean }) {
-  const compact = item.body.length <= 700;
+  const compact = itemBodyUnits(item) <= ITEM_UNBREAKABLE_BODY_UNITS;
   const subtitle = careerDetailSubtitle(item, grouped);
   if (!compact && !item.bodyBlocks?.length) {
     const [openingBody, continuationBody] = splitItemBodyOpening(item.body);
@@ -228,7 +239,7 @@ function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent;
       </View>
       {continuationBody ? <View style={styles.itemRow}>
         <View style={styles.itemPeriodSpacer} />
-        <Text orphans={ITEM_BODY_WIDOWS} style={styles.itemCopy} widows={ITEM_BODY_WIDOWS}>{continuationBody}</Text>
+        <Text orphans={ITEM_BODY_WIDOWS} style={[styles.itemCopy, styles.itemBodyContinuation]} widows={ITEM_BODY_WIDOWS}>{continuationBody}</Text>
       </View> : null}
     </View>;
   }
@@ -265,7 +276,7 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
 function TagsSection({ section }: { section: Extract<ResumePdfSection, { kind: "tags" }> }) {
   const groups = normalizeTagGroups(section.content);
   return <><SectionHeading section={section} />{groups.some((group) => group.items.length)
-    ? <View style={styles.tagGroups}>{groups.map((group) => <View key={group.id}>{group.title ? <Text style={styles.tagGroupTitle}>{group.title}</Text> : null}<View style={styles.tags}>{group.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag}>{item}</Text>)}</View></View>)}</View>
+    ? <View style={styles.tagGroups}>{groups.map((group) => <View key={group.id}>{group.title ? <Text style={styles.tagGroupTitle}>{group.title}</Text> : null}<View style={styles.tags}>{group.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag} wrap={false}>{item}</Text>)}</View></View>)}</View>
     : <EmptyCopy />}</>;
 }
 

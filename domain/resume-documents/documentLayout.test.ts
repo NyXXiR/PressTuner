@@ -5,6 +5,7 @@ import { RESUME_DOCUMENT_LAYOUT, RESUME_NARRATIVE_FONT_SIZES_PT } from "./docume
 
 test("shared resume document geometry uses PDF-ready units", () => {
   assert.equal(RESUME_DOCUMENT_LAYOUT.sectionGapMm, 7);
+  assert.equal(RESUME_DOCUMENT_LAYOUT.sectionHeadingBottomGapMm, 4);
   assert.equal(RESUME_DOCUMENT_LAYOUT.sectionTitleFontSizePt, 13);
   assert.equal(RESUME_DOCUMENT_LAYOUT.itemTitleFontSizePt, 10.5);
   assert.equal(RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt, 9);

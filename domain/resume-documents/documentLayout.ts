@@ -11,7 +11,7 @@ export const RESUME_DOCUMENT_LAYOUT = Object.freeze({
   roleFontSizePt: 14,
   sectionGapMm: 7,
   sectionHeadingGapMm: 4,
-  sectionHeadingBottomGapMm: 3,
+  sectionHeadingBottomGapMm: 4,
   sectionHeadingBottomPaddingMm: 1.5,
   sectionHeadingBorderWidthMm: 0.3,
   sectionTitleFontSizePt: 13,
