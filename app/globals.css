@@ -893,6 +893,7 @@ html {
     transparent 0 calc(2.1em - 1px),
     hsl(var(--primary) / 0.16) calc(2.1em - 1px) 2.1em
   );
+  background-origin: content-box;
   background-attachment: local;
 }
 

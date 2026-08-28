@@ -164,6 +164,7 @@ test("resume PDF uses server geometry while the editor and modal retain screen-o
   assert.match(editor, /RESUME_IDENTITY_LAYOUT/);
   assert.match(editor, /--resume-identity-name-size/);
   assert.match(styles, /var\(--resume-identity-name-size\)/);
+  assert.match(styles, /\.wongoji \.wg-ruled[\s\S]*background-origin: content-box/);
   assert.match(styles, /\.resume-paper \.resume-item/);
   assert.match(styles, /\.resume-pdf-output iframe/);
   assert.doesNotMatch(source, /measurePrintedPageCount|ResizeObserver|estimateResumePrintPageCount/);
