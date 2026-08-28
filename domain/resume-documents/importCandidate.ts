@@ -11,7 +11,7 @@ import type {
   SectionKind,
   TagsContent,
 } from "./model";
-import { normalizeTagGroups, serializeTagGroups } from "./contentPresentation";
+import { createTagKeyword, normalizeTagGroups, serializeTagGroups } from "./contentPresentation";
 import { findResumeItemDateIssue, normalizeResumeItemDates } from "./itemDatePolicy";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -372,7 +372,7 @@ function applyPayloadToSection(
     if (!importedItems.length) return current;
     const importedIndex = groups.findIndex((group) => group.title === "가져온 키워드");
     const nextGroups = importedIndex >= 0
-      ? groups.map((group, index) => index === importedIndex ? { ...group, items: [...group.items, ...importedItems] } : group)
+      ? groups.map((group, index) => index === importedIndex ? { ...group, keywords: [...group.keywords, ...importedItems.map((label, itemIndex) => createTagKeyword(group.id, label, `${command.candidateKey}-${itemIndex}`))] } : group)
       : [...groups, { id: `imported-${Date.now()}`, title: "가져온 키워드", items: importedItems }];
     return { ...current, content: serializeTagGroups(nextGroups) };
   }

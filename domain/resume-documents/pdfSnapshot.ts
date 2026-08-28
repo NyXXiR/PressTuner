@@ -85,7 +85,12 @@ const itemsContentSchema = z.object({
 
 const tagsContentSchema = z.object({
   items: z.array(boundedText(500)).max(300),
-  groups: z.array(z.object({ id: identifier, title: boundedText(200), items: z.array(boundedText(500)).max(300) }).strict()).max(50).optional(),
+  groups: z.array(z.object({
+    id: identifier,
+    title: boundedText(200),
+    items: z.array(boundedText(500)).max(300),
+    keywords: z.array(z.object({ id: identifier, label: boundedText(500) }).strict()).max(300).optional(),
+  }).strict()).max(50).optional(),
 }).strict();
 
 const sectionBase = {

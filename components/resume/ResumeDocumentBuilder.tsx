@@ -65,6 +65,7 @@ import {
   type SectionMode,
   type TagsContent,
   type TagGroup,
+  type TagKeyword,
 } from "@/domain/resume-documents/model";
 import { DateInput } from "@/components/ui/DateInput";
 import { formatDateOnly } from "@/components/ui/dateOnly";
@@ -86,7 +87,7 @@ import { useResumeDocumentPersistence } from "@/components/resume/useResumeDocum
 import { ResumeItemDateFields } from "@/components/resume/ResumeItemDateFields";
 import { findResumeItemDateIssue, normalizeResumeItemDates, resolveResumeItemKind } from "@/domain/resume-documents/itemDatePolicy";
 import { calculateAge } from "@/domain/resume-documents/identityLayout";
-import { normalizeTagGroups, serializeTagGroups } from "@/domain/resume-documents/contentPresentation";
+import { normalizeTagGroups, serializeTagGroups, type NormalizedTagGroup } from "@/domain/resume-documents/contentPresentation";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
 const sectionKindGuidance: Record<SectionKind, string> = {
@@ -979,32 +980,86 @@ function ListEditor({ label, addLabel, items, placeholder, onChange, variant = "
   </div>;
 }
 
-function TagGroupEditor({ group, index, defaultOpen, onChange, onDelete }: { group: TagGroup; index: number; defaultOpen: boolean; onChange: (group: TagGroup) => void; onDelete: () => void }) {
+function newTagEditorId(prefix: string) {
+  return `${prefix}-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+}
+
+function SortableTagCategory({ active, group, orderMode, onSelect }: { active: boolean; group: NormalizedTagGroup; orderMode: boolean; onSelect: () => void }) {
   const dragControls = useDragControls();
-  const [open, setOpen] = useState(defaultOpen);
+  return <Reorder.Item className={cx("border bg-background", active ? "border-primary ring-1 ring-primary/30" : "border-border")} dragControls={dragControls} dragListener={false} value={group.id}>
+    <div className="flex min-w-0 items-center gap-2 p-3">
+      {orderMode && <button aria-label={`${group.title || "이름 없는 카테고리"} 순서 끌어 이동`} className="grid h-9 w-9 shrink-0 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button>}
+      <button aria-pressed={active} className="min-w-0 flex-1 text-left" onClick={onSelect} type="button"><span className="flex items-center gap-2"><strong className="truncate text-sm">{group.title || "이름 없는 카테고리"}</strong><span className="shrink-0 text-[10px] font-extrabold text-muted-foreground">{group.keywords.length}개</span></span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{group.keywords.slice(0, 4).map((keyword) => keyword.label).join(" · ") || "아직 키워드가 없습니다."}</span></button>
+      <ChevronDown className={cx("h-4 w-4 shrink-0 -rotate-90 text-muted-foreground", active && "text-primary")} />
+    </div>
+  </Reorder.Item>;
+}
+
+function SortableTagKeyword({ keyword, groupTitle, onDelete }: { keyword: TagKeyword; groupTitle: string; onDelete: () => void }) {
+  const dragControls = useDragControls();
+  return <Reorder.Item className="flex min-w-0 items-center gap-2 border border-border bg-background p-2" dragControls={dragControls} dragListener={false} value={keyword.id}>
+    <button aria-label={`${keyword.label} 순서 끌어 이동`} className="grid h-8 w-8 shrink-0 touch-none cursor-grab place-items-center border border-border text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button><span className="min-w-0 flex-1 truncate text-sm font-bold">{keyword.label}</span><button aria-label={`${groupTitle}의 ${keyword.label} 삭제`} className="grid h-8 w-8 shrink-0 place-items-center border border-red-200 text-red-600" onClick={onDelete} type="button"><X className="h-3.5 w-3.5" /></button>
+  </Reorder.Item>;
+}
+
+function ActiveTagGroupEditor({ group, groupTitles, canDelete, onChange, onDelete }: { group: NormalizedTagGroup; groupTitles: string[]; canDelete: boolean; onChange: (group: NormalizedTagGroup) => void; onDelete: () => void }) {
   const [keywordDraft, setKeywordDraft] = useState("");
   const [keywordError, setKeywordError] = useState("");
-  const reorderItems = (items: string[]) => onChange({ ...group, items });
+  const [keywordOrderMode, setKeywordOrderMode] = useState(false);
+  const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null);
+  const [editingKeywordLabel, setEditingKeywordLabel] = useState("");
+  const [categoryEditing, setCategoryEditing] = useState(false);
+  const [categoryTitle, setCategoryTitle] = useState(group.title);
+  const [categoryError, setCategoryError] = useState("");
+  const updateKeywords = (keywords: TagKeyword[]) => onChange({ ...group, keywords, items: keywords.map((keyword) => keyword.label) });
   const addKeyword = () => {
-    const keyword = keywordDraft.trim();
-    if (!keyword) { setKeywordError("추가할 키워드를 입력해 주세요."); return; }
-    const normalized = keyword.toLocaleLowerCase("ko-KR");
-    if (group.items.some((item) => item.trim().toLocaleLowerCase("ko-KR") === normalized)) { setKeywordError("이미 이 카테고리에 있는 키워드입니다."); return; }
-    onChange({ ...group, items: [...group.items, keyword] });
+    const label = keywordDraft.trim();
+    if (!label) { setKeywordError("추가할 키워드를 입력해 주세요."); return; }
+    const normalized = label.toLocaleLowerCase("ko-KR");
+    if (group.keywords.some((keyword) => keyword.label.trim().toLocaleLowerCase("ko-KR") === normalized)) { setKeywordError("이미 이 카테고리에 있는 키워드입니다."); return; }
+    updateKeywords([...group.keywords, { id: newTagEditorId("tag-keyword"), label }]);
     setKeywordDraft("");
     setKeywordError("");
   };
-  return <Reorder.Item className="border border-border bg-background" dragControls={dragControls} dragListener={false} value={group.id}>
-    <div className={cx("flex items-center gap-2 bg-muted/30 p-3", open && "border-b border-border")}><button aria-label={`${group.title || `카테고리 ${index + 1}`} 순서 끌어 이동`} className="grid h-9 w-9 shrink-0 touch-none cursor-grab place-items-center border border-border bg-background text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button><input aria-label={`카테고리 ${index + 1} 이름`} className="wg-field h-9 min-w-0 flex-1 px-3 text-sm font-extrabold" placeholder="예: 프론트엔드" value={group.title} onChange={(event) => onChange({ ...group, title: event.target.value })} /><span className="shrink-0 text-[10px] font-extrabold text-muted-foreground">{group.items.length}개</span><button aria-expanded={open} aria-label={`${group.title || `카테고리 ${index + 1}`} ${open ? "접기" : "펼치기"}`} className="grid h-9 w-9 shrink-0 place-items-center border border-border bg-background" onClick={() => setOpen((value) => !value)} type="button"><ChevronDown className={cx("h-4 w-4 transition-transform", open && "rotate-180")} /></button><button aria-label={`${group.title || `카테고리 ${index + 1}`} 삭제`} className="grid h-9 w-9 shrink-0 place-items-center border border-red-200 text-red-600" onClick={onDelete} type="button"><Trash2 className="h-4 w-4" /></button></div>
-    {open && <><form className="border-b border-border p-3" onSubmit={(event) => { event.preventDefault(); addKeyword(); }}><label className="grid gap-1.5 text-[11px] font-bold text-muted-foreground">새 키워드<span className="flex min-w-0 gap-2"><input aria-describedby={keywordError ? `keyword-error-${group.id}` : undefined} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm font-normal" placeholder="입력 후 Enter" value={keywordDraft} onChange={(event) => { setKeywordDraft(event.target.value); if (keywordError) setKeywordError(""); }} /><button className="h-10 shrink-0 bg-primary px-4 text-xs font-extrabold text-primary-foreground" type="submit"><Plus className="mr-1 inline h-3.5 w-3.5" /> 추가</button></span></label>{keywordError && <p aria-live="polite" className="mt-1.5 text-[11px] font-bold text-red-600" id={`keyword-error-${group.id}`}>{keywordError}</p>}</form>
-    <Reorder.Group axis="y" className="grid max-h-72 gap-2 overflow-y-auto overscroll-contain p-3" onReorder={reorderItems} values={group.items}>{group.items.length ? group.items.map((item, itemIndex) => <Reorder.Item className="flex min-w-0 items-center gap-2" key={`${group.id}-${itemIndex}`} value={item}><GripVertical aria-hidden="true" className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" /><input aria-label={`${group.title || "카테고리"} 키워드 ${itemIndex + 1}`} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm" value={item} onChange={(event) => onChange({ ...group, items: group.items.map((value, indexValue) => indexValue === itemIndex ? event.target.value : value) })} /><button aria-label={`${item || `키워드 ${itemIndex + 1}`} 삭제`} className="grid h-10 w-10 shrink-0 place-items-center border border-red-200 text-red-600" onClick={() => onChange({ ...group, items: group.items.filter((_, indexValue) => indexValue !== itemIndex) })} type="button"><X className="h-3.5 w-3.5" /></button></Reorder.Item>) : <p className="py-2 text-center text-[11px] text-muted-foreground">상단 입력창에서 첫 키워드를 추가하세요.</p>}</Reorder.Group></>}
-  </Reorder.Item>;
+  const saveKeyword = () => {
+    if (!editingKeywordId) return;
+    const label = editingKeywordLabel.trim();
+    const normalized = label.toLocaleLowerCase("ko-KR");
+    if (!label) { setKeywordError("키워드 이름을 비워둘 수 없습니다."); return; }
+    if (group.keywords.some((keyword) => keyword.id !== editingKeywordId && keyword.label.trim().toLocaleLowerCase("ko-KR") === normalized)) { setKeywordError("이미 이 카테고리에 있는 키워드입니다."); return; }
+    updateKeywords(group.keywords.map((keyword) => keyword.id === editingKeywordId ? { ...keyword, label } : keyword));
+    setEditingKeywordId(null);
+    setEditingKeywordLabel("");
+    setKeywordError("");
+  };
+  const saveCategoryTitle = () => {
+    const title = categoryTitle.trim();
+    const normalized = title.toLocaleLowerCase("ko-KR");
+    if (!title) { setCategoryError("카테고리 이름을 입력해 주세요."); return; }
+    if (groupTitles.some((value) => value.trim().toLocaleLowerCase("ko-KR") === normalized)) { setCategoryError("이미 같은 이름의 카테고리가 있습니다."); return; }
+    onChange({ ...group, title });
+    setCategoryEditing(false);
+    setCategoryError("");
+  };
+  const reorderKeywords = (ids: string[]) => {
+    const byId = new Map(group.keywords.map((keyword) => [keyword.id, keyword]));
+    updateKeywords(ids.flatMap((id) => byId.get(id) ?? []));
+  };
+  return <section className="mt-4 border border-primary/30 bg-background">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary/5 p-4"><div className="min-w-0 flex-1">{categoryEditing ? <form className="flex min-w-0 gap-2" onSubmit={(event) => { event.preventDefault(); saveCategoryTitle(); }}><input aria-label="카테고리 이름 수정" className="wg-field h-9 min-w-0 flex-1 px-3 text-sm font-extrabold" value={categoryTitle} onChange={(event) => { setCategoryTitle(event.target.value); if (categoryError) setCategoryError(""); }} autoFocus /><button className="h-9 bg-primary px-3 text-xs font-bold text-primary-foreground" type="submit">완료</button><button className="h-9 border border-border px-3 text-xs font-bold" onClick={() => { setCategoryEditing(false); setCategoryTitle(group.title); setCategoryError(""); }} type="button">취소</button></form> : <><h3 className="truncate text-base font-extrabold">{group.title}</h3><p className="mt-1 text-[11px] text-muted-foreground">키워드 {group.keywords.length}개</p></>}</div><div className="flex shrink-0 gap-2">{!categoryEditing && <button className="h-9 border border-border bg-background px-3 text-xs font-bold" onClick={() => setCategoryEditing(true)} type="button"><Edit3 className="mr-1 inline h-3.5 w-3.5" /> 이름 변경</button>}<button className="h-9 border border-red-200 bg-background px-3 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={!canDelete} onClick={onDelete} type="button"><Trash2 className="mr-1 inline h-3.5 w-3.5" /> 삭제</button></div>{categoryError && <p aria-live="polite" className="w-full text-[11px] font-bold text-red-600">{categoryError}</p>}</header>
+    <form className="border-b border-border p-4" onSubmit={(event) => { event.preventDefault(); addKeyword(); }}><label className="grid gap-1.5 text-xs font-extrabold">새 키워드<span className="flex min-w-0 gap-2"><input aria-describedby={keywordError ? `keyword-error-${group.id}` : undefined} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm font-normal" placeholder="키워드 입력 후 Enter" value={keywordDraft} onChange={(event) => { setKeywordDraft(event.target.value); if (keywordError) setKeywordError(""); }} /><button className="h-10 shrink-0 bg-primary px-4 text-xs font-extrabold text-primary-foreground" type="submit"><Plus className="mr-1 inline h-3.5 w-3.5" /> 추가</button></span></label>{keywordError && <p aria-live="polite" className="mt-1.5 text-[11px] font-bold text-red-600" id={`keyword-error-${group.id}`}>{keywordError}</p>}</form>
+    <div className="flex items-center justify-between gap-3 px-4 pt-4"><p className="text-[11px] font-bold text-muted-foreground">{keywordOrderMode ? "핸들로 키워드 순서를 이동하세요." : "키워드를 눌러 이름을 수정할 수 있습니다."}</p><button aria-pressed={keywordOrderMode} className={cx("h-9 shrink-0 border px-3 text-xs font-extrabold", keywordOrderMode ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")} onClick={() => { setKeywordOrderMode((value) => !value); setEditingKeywordId(null); }} type="button">{keywordOrderMode ? "순서 편집 완료" : "순서 편집"}</button></div>
+    {keywordOrderMode ? <Reorder.Group axis="y" className="grid max-h-80 gap-2 overflow-y-auto overscroll-contain p-4" onReorder={reorderKeywords} values={group.keywords.map((keyword) => keyword.id)}>{group.keywords.map((keyword) => <SortableTagKeyword groupTitle={group.title} key={keyword.id} keyword={keyword} onDelete={() => updateKeywords(group.keywords.filter((value) => value.id !== keyword.id))} />)}</Reorder.Group> : <div className="flex max-h-80 flex-wrap content-start gap-2 overflow-y-auto overscroll-contain p-4">{group.keywords.length ? group.keywords.map((keyword) => editingKeywordId === keyword.id ? <form className="flex min-w-48 gap-1 border border-primary bg-primary/5 p-1" key={keyword.id} onSubmit={(event) => { event.preventDefault(); saveKeyword(); }}><input aria-label={`${keyword.label} 수정`} className="h-8 min-w-0 flex-1 bg-background px-2 text-xs outline-none" value={editingKeywordLabel} onChange={(event) => setEditingKeywordLabel(event.target.value)} autoFocus /><button className="h-8 bg-primary px-2 text-[10px] font-bold text-primary-foreground" type="submit">완료</button><button aria-label="키워드 수정 취소" className="grid h-8 w-8 place-items-center border border-border bg-background" onClick={() => setEditingKeywordId(null)} type="button"><X className="h-3 w-3" /></button></form> : <span className="inline-flex h-9 items-center border border-border bg-muted/30" key={keyword.id}><button className="h-full px-3 text-xs font-bold hover:text-primary" onClick={() => { setEditingKeywordId(keyword.id); setEditingKeywordLabel(keyword.label); setKeywordError(""); }} type="button">{keyword.label}</button><button aria-label={`${keyword.label} 삭제`} className="grid h-full w-8 place-items-center border-l border-border text-red-600" onClick={() => updateKeywords(group.keywords.filter((value) => value.id !== keyword.id))} type="button"><X className="h-3 w-3" /></button></span>) : <p className="w-full py-6 text-center text-xs text-muted-foreground">상단 입력창에서 첫 키워드를 추가하세요.</p>}</div>}
+  </section>;
 }
 
 function TagGroupsEditor({ content, onChange }: { content: TagsContent; onChange: (content: SectionContent) => void }) {
   const groups = normalizeTagGroups(content);
+  const [selectedGroupId, setSelectedGroupId] = useState(() => groups[0]?.id ?? "");
   const [categoryDraft, setCategoryDraft] = useState("");
   const [categoryError, setCategoryError] = useState("");
+  const [categoryOrderMode, setCategoryOrderMode] = useState(false);
+  const activeGroup = groups.find((group) => group.id === selectedGroupId) ?? groups[0];
   const update = (next: TagGroup[]) => onChange(serializeTagGroups(next));
   const reorderGroups = (ids: string[]) => {
     const byId = new Map(groups.map((group) => [group.id, group]));
@@ -1015,13 +1070,26 @@ function TagGroupsEditor({ content, onChange }: { content: TagsContent; onChange
     if (!title) { setCategoryError("추가할 카테고리 이름을 입력해 주세요."); return; }
     const normalized = title.toLocaleLowerCase("ko-KR");
     if (groups.some((group) => group.title.trim().toLocaleLowerCase("ko-KR") === normalized)) { setCategoryError("이미 같은 이름의 카테고리가 있습니다."); return; }
-    update([{ id: `tag-group-${Date.now()}`, title, items: [] }, ...groups]);
+    const group: NormalizedTagGroup = { id: newTagEditorId("tag-group"), title, items: [], keywords: [] };
+    update([group, ...groups]);
+    setSelectedGroupId(group.id);
     setCategoryDraft("");
     setCategoryError("");
   };
-  return <EditorBlock note="카테고리를 접고 펼치거나 끌어 표시 순서를 바꿀 수 있습니다" title="역량 · 키워드"><form className="sticky top-0 z-10 mb-3 border border-primary/30 bg-background p-3 shadow-sm" onSubmit={(event) => { event.preventDefault(); addCategory(); }}><label className="grid gap-1.5 text-xs font-extrabold">새 카테고리<span className="flex min-w-0 gap-2"><input aria-describedby={categoryError ? "tag-category-error" : undefined} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm font-normal" placeholder="예: 프론트엔드 · 입력 후 Enter" value={categoryDraft} onChange={(event) => { setCategoryDraft(event.target.value); if (categoryError) setCategoryError(""); }} /><button className="h-10 shrink-0 bg-primary px-4 text-xs font-extrabold text-primary-foreground" type="submit"><Plus className="mr-1 inline h-3.5 w-3.5" /> 카테고리 추가</button></span></label>{categoryError && <p aria-live="polite" className="mt-1.5 text-[11px] font-bold text-red-600" id="tag-category-error">{categoryError}</p>}</form><Reorder.Group axis="y" className="grid gap-3" onReorder={reorderGroups} values={groups.map((group) => group.id)}>{groups.map((group, index) => <TagGroupEditor defaultOpen={index === 0} group={group} index={index} key={group.id} onChange={(next) => update(groups.map((value) => value.id === group.id ? next : value))} onDelete={() => update(groups.filter((value) => value.id !== group.id))} />)}</Reorder.Group></EditorBlock>;
+  const updateGroup = (next: NormalizedTagGroup) => update(groups.map((group) => group.id === next.id ? next : group));
+  const deleteActiveGroup = () => {
+    if (!activeGroup || groups.length <= 1) return;
+    const remaining = groups.filter((group) => group.id !== activeGroup.id);
+    setSelectedGroupId(remaining[0]?.id ?? "");
+    update(remaining);
+  };
+  return <EditorBlock note="평소에는 요약만 보고, 선택한 카테고리 하나만 편집합니다" title="역량 · 키워드">
+    <form className="sticky top-0 z-10 border border-primary/30 bg-background p-3 shadow-sm" onSubmit={(event) => { event.preventDefault(); addCategory(); }}><label className="grid gap-1.5 text-xs font-extrabold">새 카테고리<span className="flex min-w-0 gap-2"><input aria-describedby={categoryError ? "tag-category-error" : undefined} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm font-normal" placeholder="예: 프론트엔드 · 입력 후 Enter" value={categoryDraft} onChange={(event) => { setCategoryDraft(event.target.value); if (categoryError) setCategoryError(""); }} /><button className="h-10 shrink-0 bg-primary px-4 text-xs font-extrabold text-primary-foreground" type="submit"><Plus className="mr-1 inline h-3.5 w-3.5" /> 추가</button></span></label>{categoryError && <p aria-live="polite" className="mt-1.5 text-[11px] font-bold text-red-600" id="tag-category-error">{categoryError}</p>}</form>
+    <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-extrabold">카테고리 {groups.length}개</p><button aria-pressed={categoryOrderMode} className={cx("h-9 border px-3 text-xs font-extrabold", categoryOrderMode ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")} onClick={() => setCategoryOrderMode((value) => !value)} type="button">{categoryOrderMode ? "순서 편집 완료" : "카테고리 순서 편집"}</button></div>
+    <Reorder.Group axis="y" className="mt-2 grid max-h-64 gap-2 overflow-y-auto overscroll-contain" onReorder={reorderGroups} values={groups.map((group) => group.id)}>{groups.map((group) => <SortableTagCategory active={group.id === activeGroup?.id} group={group} key={group.id} orderMode={categoryOrderMode} onSelect={() => setSelectedGroupId(group.id)} />)}</Reorder.Group>
+    {activeGroup && <ActiveTagGroupEditor canDelete={groups.length > 1} group={activeGroup} groupTitles={groups.filter((group) => group.id !== activeGroup.id).map((group) => group.title)} key={activeGroup.id} onChange={updateGroup} onDelete={deleteActiveGroup} />}
+  </EditorBlock>;
 }
-
 function ItemTailoringDialog({ state, profileId, variantId, scope, section, workItems, onSave, onClose, onEditParent, onEditCurrent }: { state: ResumeDocumentState; profileId: string; variantId?: string; scope: "role" | "document"; section: ResumeSection; workItems: ItemContent[]; onSave: (state: ResumeDocumentState) => void; onClose: () => void; onEditParent: () => void; onEditCurrent: () => void }) {
   const [draftState, setDraftState] = useState(() => clone(state));
   const [dirty, setDirty] = useState(false);

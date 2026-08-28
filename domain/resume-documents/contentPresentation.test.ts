@@ -18,15 +18,35 @@ test("grouped career details omit the employer already shown by the group headin
 });
 
 test("legacy flat tags become one editable group and grouped tags retain a flat compatibility list", () => {
-  assert.deepEqual(normalizeTagGroups({ items: ["React", "Node.js"] }), [{ id: "keywords", title: "기타", items: ["React", "Node.js"] }]);
-  assert.deepEqual(serializeTagGroups([
+  const legacy = normalizeTagGroups({ items: ["React", "Node.js"] });
+  assert.deepEqual(legacy.map((group) => ({ id: group.id, title: group.title, items: group.items })), [{ id: "keywords", title: "기타", items: ["React", "Node.js"] }]);
+  assert.equal(legacy[0].keywords.length, 2);
+  const serialized = serializeTagGroups([
     { id: "front", title: "프론트엔드", items: ["React"] },
     { id: "infra", title: "인프라", items: ["AWS"] },
-  ]), {
+  ]);
+  assert.deepEqual({ ...serialized, groups: serialized.groups?.map((group) => ({ id: group.id, title: group.title, items: group.items })) }, {
     items: ["React", "AWS"],
     groups: [
       { id: "front", title: "프론트엔드", items: ["React"] },
       { id: "infra", title: "인프라", items: ["AWS"] },
     ],
   });
+  assert.ok(serialized.groups?.every((group) => group.keywords?.every((keyword) => keyword.id && keyword.label)));
+});
+
+test("persisted keyword ids survive label edits and reordering", () => {
+  const content = serializeTagGroups([{ id: "front", title: "프론트엔드", items: [], keywords: [
+    { id: "keyword-react", label: "React" },
+    { id: "keyword-next", label: "Next.js" },
+  ] }]);
+  const [group] = normalizeTagGroups(content);
+  const reordered = serializeTagGroups([{ ...group, keywords: [
+    { ...group.keywords[1], label: "Next.js 16" },
+    group.keywords[0],
+  ] }]);
+  assert.deepEqual(reordered.groups?.[0].keywords, [
+    { id: "keyword-next", label: "Next.js 16" },
+    { id: "keyword-react", label: "React" },
+  ]);
 });

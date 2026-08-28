@@ -52,7 +52,8 @@ export type ItemsContent = {
   sortDirection?: "latest-first" | "oldest-first";
   careerDurationOverrideMonths?: number;
 };
-export type TagGroup = { id: string; title: string; items: string[] };
+export type TagKeyword = { id: string; label: string };
+export type TagGroup = { id: string; title: string; items: string[]; keywords?: TagKeyword[] };
 export type TagsContent = { items: string[]; groups?: TagGroup[] };
 export type SectionContent = IdentityContent | EligibilityContent | NarrativeContent | ItemsContent | TagsContent;
 

@@ -470,20 +470,27 @@ test("every printable item description uses the shared resume body editor contra
 
 test("keyword categories add tokens from a top composer instead of an empty trailing row", async () => {
   const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
-  assert.match(builder, /<form className="border-b border-border p-3" onSubmit=/);
-  assert.match(builder, /placeholder="입력 후 Enter"/);
+  assert.match(builder, /placeholder="키워드 입력 후 Enter"/);
   assert.match(builder, /이미 이 카테고리에 있는 키워드입니다/);
   assert.doesNotMatch(builder, /키워드 추가<\/button>/);
 });
 
-test("large keyword sets use a top category composer and collapsible bounded groups", async () => {
+test("large keyword sets use a top category composer and one selected editing surface", async () => {
   const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
-  assert.match(builder, /sticky top-0 z-10 mb-3/);
+  assert.match(builder, /sticky top-0 z-10 border border-primary/);
   assert.match(builder, /placeholder="예: 프론트엔드 · 입력 후 Enter"/);
-  assert.match(builder, /update\(\[\{ id: `tag-group-\$\{Date\.now\(\)\}`, title, items: \[\] \}, \.\.\.groups\]\)/);
-  assert.match(builder, /defaultOpen=\{index === 0\}/);
-  assert.match(builder, /max-h-72 gap-2 overflow-y-auto overscroll-contain/);
-  assert.match(builder, /\{group\.items\.length\}개/);
+  assert.match(builder, /평소에는 요약만 보고, 선택한 카테고리 하나만 편집합니다/);
+  assert.match(builder, /activeGroup && <ActiveTagGroupEditor/);
+  assert.match(builder, /카테고리 순서 편집/);
+  assert.match(builder, /max-h-80 flex-wrap/);
+});
+
+test("keyword dragging uses stable ids and appears only in explicit order mode", async () => {
+  const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(builder, /values=\{group\.keywords\.map\(\(keyword\) => keyword\.id\)\}/);
+  assert.match(builder, /key=\{keyword\.id\} keyword=\{keyword\}/);
+  assert.match(builder, /dragListener=\{false\} value=\{keyword\.id\}/);
+  assert.match(builder, /keywordOrderMode \? "순서 편집 완료" : "순서 편집"/);
 });
 
 test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {
