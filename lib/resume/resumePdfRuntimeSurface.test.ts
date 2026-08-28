@@ -45,7 +45,8 @@ test("browser builder passes its typed PDF snapshot directly without runtime sch
 test("PDF pagination keeps keyword chips atomic and only protects a short item opening", async () => {
   const document = await source("components/resume/ResumePdfDocument.tsx");
   assert.match(document, /<Text key=\{`\$\{item\}-\$\{index\}`\} style=\{styles\.tag\} wrap=\{false\}>/u);
-  assert.match(document, /minPresenceAhead=\{TAG_GROUP_OPENING_PRESENCE_POINTS\}/u);
+  assert.match(document, /<View style=\{styles\.tagGroupOpening\} wrap=\{false\}>/u);
+  assert.match(document, /splitTagOpeningRow\(group\.items, section\.layout\)/u);
   assert.match(document, /ITEM_UNBREAKABLE_BODY_UNITS/u);
   assert.doesNotMatch(document, /item\.body\.length <= 700/u);
 });

@@ -31,7 +31,7 @@ const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_UNBREAKABLE_BODY_UNITS = 220;
 const ITEM_OPENING_BODY_UNITS = 180;
 const ITEM_BODY_WIDOWS = 3;
-const TAG_GROUP_OPENING_PRESENCE_POINTS = 32;
+const TAG_ROW_WIDTH_SAFETY_POINTS = 2;
 const UNINTERRUPTED_TEXT = /\S{24,}/gu;
 const FULL_WIDTH_GLYPH_EM = 0.94;
 
@@ -121,7 +121,9 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   tags: { flexDirection: "row", flexWrap: "wrap", gap: mm(RESUME_DOCUMENT_LAYOUT.tagGapMm) },
   tag: { paddingVertical: mm(RESUME_DOCUMENT_LAYOUT.tagVerticalPaddingMm), paddingHorizontal: mm(RESUME_DOCUMENT_LAYOUT.tagHorizontalPaddingMm), backgroundColor: "#f1f5f9", fontSize: RESUME_DOCUMENT_LAYOUT.tagFontSizePt, fontWeight: 700 },
   tagGroups: { gap: mm(3) },
+  tagGroupOpening: {},
   tagGroupTitle: { marginBottom: mm(1.5), color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemSubtitleFontSizePt, fontWeight: 800 },
+  tagContinuation: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.tagGapMm) },
   itemRichBody: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.itemBodyTopGapMm), gap: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
   narrative: { color: "#334155", lineHeight: RESUME_DOCUMENT_LAYOUT.narrativeBodyLineHeight, marginBottom: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
   narrativeHeading: { color: "#0f172a", lineHeight: RESUME_DOCUMENT_LAYOUT.narrativeHeadingLineHeight, fontWeight: 800, marginBottom: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
@@ -274,10 +276,46 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
   }) : <EmptyCopy />}</>;
 }
 
+function tagWidth(item: string) {
+  const textWidth = Array.from(item).reduce((width, character) => width + estimatedGlyphWidth(character, RESUME_DOCUMENT_LAYOUT.tagFontSizePt), 0);
+  return textWidth + mm(RESUME_DOCUMENT_LAYOUT.tagHorizontalPaddingMm * 2);
+}
+
+function splitTagOpeningRow(items: string[], layout: ResumePdfSection["layout"]) {
+  const cardsInset = layout === "cards" ? mm(8) : 0;
+  const availableWidth = mm(RESUME_PDF_CONTENT_WIDTH_MM) - cardsInset - TAG_ROW_WIDTH_SAFETY_POINTS;
+  const gap = mm(RESUME_DOCUMENT_LAYOUT.tagGapMm);
+  let occupiedWidth = 0;
+  let openingCount = 0;
+
+  for (const item of items) {
+    const nextWidth = tagWidth(item) + (openingCount ? gap : 0);
+    if (openingCount && occupiedWidth + nextWidth > availableWidth) break;
+    occupiedWidth += nextWidth;
+    openingCount += 1;
+  }
+
+  return [items.slice(0, openingCount), items.slice(openingCount)] as const;
+}
+
+function TagList({ items, continuation = false }: { items: string[]; continuation?: boolean }) {
+  return <View style={[styles.tags, continuation ? styles.tagContinuation : undefined]}>{items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag} wrap={false}>{item}</Text>)}</View>;
+}
+
 function TagsSection({ section }: { section: Extract<ResumePdfSection, { kind: "tags" }> }) {
   const groups = normalizeTagGroups(section.content);
   return <><SectionHeading section={section} />{groups.some((group) => group.items.length)
-    ? <View style={styles.tagGroups}>{groups.map((group) => <View key={group.id}>{group.title ? <Text minPresenceAhead={TAG_GROUP_OPENING_PRESENCE_POINTS} style={styles.tagGroupTitle} wrap={false}>{group.title}</Text> : null}<View style={styles.tags}>{group.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag} wrap={false}>{item}</Text>)}</View></View>)}</View>
+    ? <View style={styles.tagGroups}>{groups.map((group) => {
+      if (!group.title) return <TagList items={group.items} key={group.id} />;
+      const [openingItems, continuationItems] = splitTagOpeningRow(group.items, section.layout);
+      return <View key={group.id}>
+        <View style={styles.tagGroupOpening} wrap={false}>
+          <Text style={styles.tagGroupTitle}>{group.title}</Text>
+          <TagList items={openingItems} />
+        </View>
+        {continuationItems.length ? <TagList continuation items={continuationItems} /> : null}
+      </View>;
+    })}</View>
     : <EmptyCopy />}</>;
 }
 

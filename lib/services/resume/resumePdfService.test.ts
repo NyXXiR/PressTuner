@@ -186,6 +186,46 @@ test("highlight sections render two bordered cards on the same PDF row", { timeo
   }
 });
 
+test("tag category headings move with their first keyword row", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.sections = [{
+    id: "skills",
+    title: "핵심 역량",
+    kind: "tags",
+    layout: "standard",
+    content: {
+      items: [],
+      groups: [
+        {
+          id: "frontend",
+          title: "Frontend",
+          items: Array.from({ length: 101 }, (_, index) => `프론트기술-${String(index + 1).padStart(3, "0")}`),
+        },
+        { id: "infra", title: "Infra", items: ["Docker", "Ubuntu", "Kubernetes", "AWS"] },
+      ],
+    },
+  }];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const pageTexts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const content = await (await pdf.getPage(pageNumber)).getTextContent();
+      pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+    }
+
+    const precedingTagPage = pageTexts.findIndex((text) => text.includes("프론트기술-101"));
+    const infraPage = pageTexts.findIndex((text) => text.includes("Infra"));
+    assert.ok(precedingTagPage >= 0 && infraPage > precedingTagPage, "the fixture must place Infra at a page boundary");
+    for (const keyword of ["Docker", "Ubuntu", "Kubernetes", "AWS"]) {
+      assert.ok(pageTexts[infraPage]?.includes(keyword), `${keyword} must stay with the Infra category opening`);
+    }
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("PDF fills each line and preserves a long narrative without whitespace or inserted hyphens", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   const uninterruptedText = "가나다라마바사아자차카타파하".repeat(80);
