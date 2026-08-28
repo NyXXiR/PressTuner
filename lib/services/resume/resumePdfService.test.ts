@@ -87,6 +87,71 @@ test("service renders the deterministic Korean snapshot as a parseable multi-pag
   }
 });
 
+test("identity facts rule keeps a safe vertical gap below the name", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.sections = snapshot.sections.filter((section) => section.id === "profile");
+  const profile = snapshot.sections[0];
+  assert.equal(profile?.kind, "identity");
+  if (profile?.kind === "identity") {
+    delete profile.content.photo;
+    delete profile.content.photoName;
+  }
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const page = await pdf.getPage(1);
+    const content = await page.getTextContent();
+    const textItems = content.items.filter((item) => "str" in item);
+    const name = textItems.find((item) => item.str === "홍길동");
+    const birthDate = textItems.find((item) => item.str === "생년월일 1990-01-02");
+
+    assert.ok(name && birthDate);
+    const gapAboveFactsText = name.transform[5] - (birthDate.transform[5] + birthDate.height);
+    assert.ok(
+      gapAboveFactsText >= points(4),
+      `identity facts rule needs safe space below the name; received ${gapAboveFactsText.toFixed(2)}pt`,
+    );
+  } finally {
+    await pdf.destroy();
+  }
+});
+
+test("PDF wraps and preserves a long narrative without whitespace", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  const uninterruptedText = "ㅁ".repeat(1_000);
+  snapshot.sections = [{
+    id: "cover-letter",
+    title: "자기소개서",
+    kind: "narrative",
+    layout: "standard",
+    content: { body: uninterruptedText },
+  }];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const renderedRuns: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      for (const item of content.items) {
+        if (!("str" in item) || !item.str.includes("ㅁ")) continue;
+        assert.ok(
+          item.transform[4] + item.width <= points(A4_WIDTH_MM - RESUME_PAGE_MARGIN_RIGHT_MM) + 3,
+          `uninterrupted narrative crossed the right margin on page ${pageNumber}`,
+        );
+        renderedRuns.push(item.str);
+      }
+    }
+
+    assert.ok(renderedRuns.length > 1, "uninterrupted narrative should wrap onto multiple lines");
+    assert.equal(renderedRuns.join("").replace(/\s/gu, ""), uninterruptedText);
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("service renders blank and legacy item month strings without mutating the shared fixture", { timeout: 30_000 }, async () => {
   const originalFixture = structuredClone(resumePdfFixture);
   const legacySnapshot = structuredClone(resumePdfFixture);

@@ -23,6 +23,19 @@ const narrativeSizes: Record<NarrativeBlockType, number> = { p: 9.5, h1: 18, h2:
 const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_OPENING_BODY_UNITS = 360;
 const ITEM_BODY_WIDOWS = 3;
+const UNINTERRUPTED_TEXT = /\S{24,}/gu;
+const WRAP_CHUNK_SIZE = 8;
+
+function withWrapOpportunities(text: string) {
+  return text.replace(UNINTERRUPTED_TEXT, (run) => {
+    const characters = Array.from(run);
+    const chunks: string[] = [];
+    for (let index = 0; index < characters.length; index += WRAP_CHUNK_SIZE) {
+      chunks.push(characters.slice(index, index + WRAP_CHUNK_SIZE).join(""));
+    }
+    return chunks.join("\u200b");
+  });
+}
 
 type ReactPdfRenderer = typeof import("@react-pdf/renderer");
 
@@ -55,7 +68,7 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   duration: { color: "#475569", fontSize: 8.5, fontWeight: 700 },
   identity: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(6) },
   identityCopy: { flexGrow: 1, flexShrink: 1 },
-  identityHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(4) },
+  identityHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(4), marginBottom: mm(2) },
   name: { fontSize: 26, fontWeight: 800, letterSpacing: -1 },
   contact: { color: "#64748b", fontSize: 8.5, lineHeight: 1.65, textAlign: "right" },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(3), paddingTop: mm(2), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: 8 },
@@ -198,7 +211,7 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
       orphans={3}
       style={[heading ? styles.narrativeHeading : styles.narrative, { fontSize: narrativeSizes[block.type] }]}
       widows={3}
-    >{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={("bold" in run && run.bold) ? { fontWeight: 700 } : undefined}>{run.text}</Text>)}</Text>;
+    >{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={("bold" in run && run.bold) ? { fontWeight: 700 } : undefined}>{withWrapOpportunities(run.text)}</Text>)}</Text>;
   }) : <EmptyCopy />}</>;
 }
 
