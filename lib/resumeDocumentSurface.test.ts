@@ -81,7 +81,7 @@ test("resume documents progressively disclose support branches and use task-orie
   assert.doesNotMatch(source, /> PDF로 저장</);
 });
 
-test("resume sections reveal controls on selection and readiness issues navigate back to their section", async () => {
+test("resume section toolbars stay visible while insertion controls remain contextual", async () => {
   const [source, styles] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -92,8 +92,10 @@ test("resume sections reveal controls on selection and readiness issues navigate
   assert.match(source, /섹션으로 이동/);
   assert.match(source, /scrollIntoView/);
   assert.match(source, /resume-section-issue-badge/);
-  assert.match(styles, /\.resume-editable-section:not\(\.is-selected\)[\s\S]*\.resume-section-toolbar/);
-  assert.match(styles, /\.resume-editable-section:is\(:hover, :focus-within\)/);
+  assert.match(styles, /\.resume-editable-section \.resume-section-toolbar\s*\{[\s\S]*?position:\s*static/);
+  assert.doesNotMatch(styles, /\.resume-editable-section:not\(\.is-selected\) \.resume-section-toolbar/);
+  assert.match(styles, /\.resume-editable-section:not\(\.is-selected\) \.resume-section-insert/);
+  assert.match(styles, /\.resume-editable-section:is\(:hover, :focus-within\) \.resume-section-insert/);
 });
 
 test("mobile resume editing uses cards and a fixed compact action bar", async () => {

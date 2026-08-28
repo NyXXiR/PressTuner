@@ -624,18 +624,13 @@ html {
 .resume-pdf-error { color: #b91c1c; background: #fef2f2; }
 
 .resume-mobile-actions { display: none; }
-.resume-editable-section .resume-section-toolbar,
 .resume-editable-section .resume-section-insert {
   opacity: 1;
   transition: opacity 140ms ease, transform 140ms ease;
 }
 .resume-editable-section .resume-section-toolbar {
-  position: absolute;
-  z-index: 30;
-  top: -22px;
-  right: 0;
-  left: 0;
-  box-shadow: 0 8px 20px rgb(15 23 42 / 0.12);
+  position: static;
+  margin-bottom: 8px;
 }
 .resume-editable-section .resume-section-insert {
   position: absolute;
@@ -644,14 +639,12 @@ html {
   bottom: -24px;
   left: 0;
 }
-.resume-editable-section:not(.is-selected) .resume-section-toolbar,
 .resume-editable-section:not(.is-selected) .resume-section-insert {
   visibility: hidden;
   pointer-events: none;
   opacity: 0;
   transform: translateY(2px);
 }
-.resume-editable-section:is(:hover, :focus-within) .resume-section-toolbar,
 .resume-editable-section:is(:hover, :focus-within) .resume-section-insert {
   visibility: visible;
   pointer-events: auto;
@@ -659,10 +652,9 @@ html {
   transform: translateY(0);
 }
 .resume-section-issue-badge {
-  position: absolute;
-  z-index: 15;
-  top: -10px;
-  right: 6px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
   padding: 3px 7px;
   border: 1px solid #f59e0b;
   background: #fffbeb;
@@ -752,7 +744,13 @@ html {
     box-shadow: 0 6px 18px rgb(15 23 42 / 0.08);
   }
 
-  .resume-editable-section .resume-section-toolbar,
+  .resume-editable-section .resume-section-toolbar {
+    position: static;
+    display: flex;
+    margin-bottom: 12px;
+    transform: none;
+  }
+
   .resume-editable-section .resume-section-insert {
     position: static;
     display: none;
@@ -760,9 +758,7 @@ html {
     transform: none;
   }
 
-  .resume-editable-section.is-selected .resume-section-toolbar,
   .resume-editable-section.is-selected .resume-section-insert,
-  .resume-editable-section:is(:hover, :focus-within) .resume-section-toolbar,
   .resume-editable-section:is(:hover, :focus-within) .resume-section-insert {
     display: flex;
   }
@@ -770,11 +766,6 @@ html {
   .resume-editable-section .resume-section-insert {
     margin-top: 14px;
     margin-bottom: 0;
-  }
-
-  .resume-section-issue-badge {
-    top: 6px;
-    right: 6px;
   }
 
   .resume-paper .resume-section-controls {
