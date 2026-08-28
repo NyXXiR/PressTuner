@@ -117,12 +117,15 @@ test("identity facts rule keeps a safe vertical gap below the name", { timeout: 
   }
 });
 
-test("PDF wraps and preserves a long narrative without whitespace", { timeout: 30_000 }, async () => {
+test("PDF fills each line and preserves a long narrative without whitespace or inserted hyphens", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
-  const uninterruptedText = "ㅁ".repeat(1_000);
+  const uninterruptedText = "가나다라마바사아자차카타파하".repeat(80);
+  snapshot.company = "Company";
+  snapshot.documentName = "Document";
+  snapshot.role = "Role";
   snapshot.sections = [{
     id: "cover-letter",
-    title: "자기소개서",
+    title: "Introduction",
     kind: "narrative",
     layout: "standard",
     content: { body: uninterruptedText },
@@ -132,21 +135,32 @@ test("PDF wraps and preserves a long narrative without whitespace", { timeout: 3
   const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
   try {
     const renderedRuns: string[] = [];
+    const renderedLines = new Map<string, number>();
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
       for (const item of content.items) {
-        if (!("str" in item) || !item.str.includes("ㅁ")) continue;
+        if (!("str" in item) || !/[가-하-]/u.test(item.str)) continue;
         assert.ok(
           item.transform[4] + item.width <= points(A4_WIDTH_MM - RESUME_PAGE_MARGIN_RIGHT_MM) + 3,
           `uninterrupted narrative crossed the right margin on page ${pageNumber}`,
         );
         renderedRuns.push(item.str);
+        const lineKey = `${pageNumber}:${item.transform[5].toFixed(2)}`;
+        renderedLines.set(lineKey, Math.max(
+          renderedLines.get(lineKey) ?? 0,
+          item.transform[4] + item.width,
+        ));
       }
     }
 
     assert.ok(renderedRuns.length > 1, "uninterrupted narrative should wrap onto multiple lines");
     assert.equal(renderedRuns.join("").replace(/\s/gu, ""), uninterruptedText);
+    const lineEnds = [...renderedLines.values()];
+    for (const rightEdge of lineEnds.slice(0, -1)) {
+      const unusedWidth = points(A4_WIDTH_MM - RESUME_PAGE_MARGIN_RIGHT_MM) - rightEdge;
+      assert.ok(unusedWidth <= points(4), `wrapped line left ${unusedWidth.toFixed(2)}pt unused`);
+    }
   } finally {
     await pdf.destroy();
   }

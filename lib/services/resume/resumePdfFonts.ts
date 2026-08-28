@@ -15,5 +15,6 @@ export function registerResumePdfFonts(Font: typeof import("@react-pdf/renderer"
       { src: path.join(fontDirectory, "NanumGothic-ExtraBold.ttf"), fontWeight: 800 },
     ],
   });
+  Font.registerHyphenationCallback((word) => [word]);
   registered = true;
 }

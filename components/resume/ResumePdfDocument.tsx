@@ -9,6 +9,7 @@ import {
 import { formatItemPeriod, type ItemContent, type NarrativeBlockType } from "@/domain/resume-documents/model";
 import {
   RESUME_PAGE_MARGIN_BOTTOM_MM,
+  RESUME_PDF_CONTENT_WIDTH_MM,
   RESUME_PAGE_MARGIN_LEFT_MM,
   RESUME_PAGE_MARGIN_RIGHT_MM,
   RESUME_PAGE_MARGIN_TOP_MM,
@@ -24,16 +25,33 @@ const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_OPENING_BODY_UNITS = 360;
 const ITEM_BODY_WIDOWS = 3;
 const UNINTERRUPTED_TEXT = /\S{24,}/gu;
-const WRAP_CHUNK_SIZE = 8;
+const FULL_WIDTH_GLYPH_EM = 0.94;
 
-function withWrapOpportunities(text: string) {
+function estimatedGlyphWidth(character: string, fontSize: number) {
+  if (/^[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Extended_Pictographic}]$/u.test(character)) {
+    return fontSize * FULL_WIDTH_GLYPH_EM;
+  }
+  if (/^[A-Z]$/u.test(character)) return fontSize * 0.68;
+  if (/^[a-z0-9]$/u.test(character)) return fontSize * 0.55;
+  return fontSize * 0.45;
+}
+
+function withSimpleLineWrap(text: string, fontSize: number, layout: ResumePdfSection["layout"]) {
+  const horizontalInset = layout === "cards" ? mm(8) : 0;
+  const availableWidth = mm(RESUME_PDF_CONTENT_WIDTH_MM) - horizontalInset - 1;
   return text.replace(UNINTERRUPTED_TEXT, (run) => {
-    const characters = Array.from(run);
-    const chunks: string[] = [];
-    for (let index = 0; index < characters.length; index += WRAP_CHUNK_SIZE) {
-      chunks.push(characters.slice(index, index + WRAP_CHUNK_SIZE).join(""));
+    let lineWidth = 0;
+    let wrapped = "";
+    for (const character of Array.from(run)) {
+      const characterWidth = estimatedGlyphWidth(character, fontSize);
+      if (lineWidth > 0 && lineWidth + characterWidth > availableWidth) {
+        wrapped += "\n";
+        lineWidth = 0;
+      }
+      wrapped += character;
+      lineWidth += characterWidth;
     }
-    return chunks.join("\u200b");
+    return wrapped;
   });
 }
 
@@ -205,13 +223,14 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
     : section.content.body.replace(/\r\n?/gu, "\n").split(/\n\s*\n/gu).filter(Boolean).map((text, index) => ({ id: `${section.id}-legacy-${index + 1}`, type: "p" as const, runs: [{ text }] }));
   return <><SectionHeading section={section} />{blocks.length ? blocks.map((block) => {
     const heading = block.type !== "p";
+    const fontSize = narrativeSizes[block.type];
     return <Text
       key={block.id}
       minPresenceAhead={heading ? 32 : 0}
       orphans={3}
-      style={[heading ? styles.narrativeHeading : styles.narrative, { fontSize: narrativeSizes[block.type] }]}
+      style={[heading ? styles.narrativeHeading : styles.narrative, { fontSize }]}
       widows={3}
-    >{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={("bold" in run && run.bold) ? { fontWeight: 700 } : undefined}>{withWrapOpportunities(run.text)}</Text>)}</Text>;
+    >{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={("bold" in run && run.bold) ? { fontWeight: 700 } : undefined}>{withSimpleLineWrap(run.text, fontSize, section.layout)}</Text>)}</Text>;
   }) : <EmptyCopy />}</>;
 }
 
