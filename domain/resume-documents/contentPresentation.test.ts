@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { careerDetailLabel, careerDetailSubtitle, normalizeTagGroups, serializeTagGroups } from "./contentPresentation";
+import { careerDetailLabel, careerDetailSubtitle, normalizeTagGroups, parseTagKeywordDraft, serializeTagGroups } from "./contentPresentation";
 import type { ItemContent } from "./model";
 
 const detail = (patch: Partial<ItemContent> = {}): ItemContent => ({ id: "detail", itemKind: "career-detail", meta: "", title: "결제 개선", subtitle: "샘플테크 · 백엔드", relatedWorkTitle: "샘플테크", body: "", ...patch });
@@ -49,4 +49,11 @@ test("persisted keyword ids survive label edits and reordering", () => {
     { id: "keyword-next", label: "Next.js 16" },
     { id: "keyword-react", label: "React" },
   ]);
+});
+
+test("keyword drafts split on commas and line breaks while removing blanks and duplicates", () => {
+  assert.deepEqual(
+    parseTagKeywordDraft(" React, TypeScript\nNext.js, react,\r\nNode.js ", ["TypeScript"]),
+    ["React", "Next.js", "Node.js"],
+  );
 });

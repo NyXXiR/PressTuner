@@ -470,8 +470,9 @@ test("every printable item description uses the shared resume body editor contra
 
 test("keyword categories add tokens from a top composer instead of an empty trailing row", async () => {
   const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
-  assert.match(builder, /placeholder="키워드 입력 후 Enter"/);
-  assert.match(builder, /이미 이 카테고리에 있는 키워드입니다/);
+  assert.match(builder, /쉼표 또는 줄바꿈으로 여러 키워드를 한 번에 추가할 수 있어요/);
+  assert.match(builder, /parseTagKeywordDraft\(keywordDraft/);
+  assert.match(builder, /모두 이미 이 카테고리에 있는 키워드입니다/);
   assert.doesNotMatch(builder, /키워드 추가<\/button>/);
 });
 

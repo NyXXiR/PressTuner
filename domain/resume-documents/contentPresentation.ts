@@ -24,6 +24,20 @@ export function careerDetailSubtitle(item: ItemContent, grouped = false) {
 
 export type NormalizedTagGroup = TagGroup & { keywords: TagKeyword[] };
 
+export function parseTagKeywordDraft(draft: string, existingLabels: string[] = []) {
+  const seen = new Set(existingLabels.map((label) => label.trim().toLocaleLowerCase("ko-KR")));
+  return draft
+    .split(/[,\r\n]+/u)
+    .map((label) => label.trim())
+    .filter((label) => {
+      if (!label) return false;
+      const normalized = label.toLocaleLowerCase("ko-KR");
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+}
+
 function stableKeywordId(groupId: string, label: string, seed: string | number) {
   let hash = 2166136261;
   for (const character of `${groupId}:${label}:${seed}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
