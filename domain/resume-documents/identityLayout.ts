@@ -71,9 +71,23 @@ export function identityContactItems(content: IdentityContent) {
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 }
 
-export function identityFactItems(content: IdentityContent) {
+export function calculateAge(birthDate: string | undefined, today = new Date()) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(birthDate ?? "");
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return null;
+  let age = today.getUTCFullYear() - year;
+  const birthdayPassed = today.getUTCMonth() + 1 > month || (today.getUTCMonth() + 1 === month && today.getUTCDate() >= day);
+  if (!birthdayPassed) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+export function identityFactItems(content: IdentityContent, today = new Date()) {
+  const age = calculateAge(content.birthDate, today);
   return [
-    content.birthDate && `생년월일 ${content.birthDate}`,
+    content.birthDate && `생년월일 ${content.birthDate}${age === null ? "" : ` (만 ${age}세)`}`,
     content.gender && `성별 ${content.gender}`,
   ].filter(Boolean) as string[];
 }

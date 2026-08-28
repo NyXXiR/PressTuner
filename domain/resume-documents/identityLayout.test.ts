@@ -55,5 +55,10 @@ test("identity preview and PDF can share one ordered content projection", () => 
     { label: "LOCATION", value: "서울" },
     { label: "LINK", value: "https://example.com" },
   ]);
-  assert.deepEqual(identityFactItems(content), ["생년월일 1990-01-02", "성별 비공개"]);
+  assert.deepEqual(identityFactItems(content, new Date("2026-08-28T00:00:00Z")), ["생년월일 1990-01-02 (만 36세)", "성별 비공개"]);
+});
+
+test("identity age observes whether this year's birthday has passed", () => {
+  assert.deepEqual(identityFactItems({ name: "", email: "", links: [], birthDate: "1992-06-05" }, new Date("2026-06-04T00:00:00Z")), ["생년월일 1992-06-05 (만 33세)"]);
+  assert.deepEqual(identityFactItems({ name: "", email: "", links: [], birthDate: "1992-06-05" }, new Date("2026-06-05T00:00:00Z")), ["생년월일 1992-06-05 (만 34세)"]);
 });

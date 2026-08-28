@@ -39,9 +39,12 @@ export type ItemContent = {
   title: string;
   subtitle: string;
   detailType?: CareerDetailType;
+  detailLabel?: string;
   relatedWorkItemId?: string;
   relatedWorkTitle?: string;
   body: string;
+  bodyBlocks?: NarrativeBlock[];
+  excludeFromCareerDuration?: boolean;
   source?: { type: "experience-brick"; id: string };
 };
 export type ItemsContent = {
@@ -49,7 +52,8 @@ export type ItemsContent = {
   sortDirection?: "latest-first" | "oldest-first";
   careerDurationOverrideMonths?: number;
 };
-export type TagsContent = { items: string[] };
+export type TagGroup = { id: string; title: string; items: string[] };
+export type TagsContent = { items: string[]; groups?: TagGroup[] };
 export type SectionContent = IdentityContent | EligibilityContent | NarrativeContent | ItemsContent | TagsContent;
 
 export type ResumeSection = {

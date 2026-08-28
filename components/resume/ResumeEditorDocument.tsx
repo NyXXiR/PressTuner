@@ -27,6 +27,7 @@ import {
   RESUME_IDENTITY_LAYOUT,
   wrapIdentityContact,
 } from "@/domain/resume-documents/identityLayout";
+import { careerDetailLabel, careerDetailSubtitle, normalizeTagGroups } from "@/domain/resume-documents/contentPresentation";
 import { RESUME_DOCUMENT_LAYOUT, RESUME_NARRATIVE_FONT_SIZES_PT } from "@/domain/resume-documents/documentLayout";
 
 export const RESUME_DOCUMENT_CSS_VARIABLES = {
@@ -88,7 +89,6 @@ export const RESUME_DOCUMENT_CSS_VARIABLES = {
   "--resume-narrative-h6-size": `${RESUME_NARRATIVE_FONT_SIZES_PT.h6}pt`,
 } as CSSProperties;
 
-const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
 
 export type ResumeEditorSection = ResumeSection & { hidden?: boolean };
@@ -136,7 +136,7 @@ function ResumePrintableSectionBody({ content, heading, layout, relatedWorkItems
   if (section.kind === "identity") return <IdentityBody content={content as IdentityContent} layout={layout} />;
   if (section.kind === "eligibility") return <div className="resume-section-opening">{heading}<EligibilityBody content={content as EligibilityContent} /></div>;
   if (section.kind === "narrative") return <NarrativeBody content={content as NarrativeContent} heading={heading} layout={layout} sectionId={section.id} />;
-  if (section.kind === "tags") return <div className="resume-section-opening">{heading}<div className={`resume-tags resume-layout-${layout}`}>{(content as TagsContent).items.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}</div></div>;
+  if (section.kind === "tags") return <div className="resume-section-opening">{heading}<div className={`resume-tag-groups resume-layout-${layout}`}>{normalizeTagGroups(content as TagsContent).map((group) => <div className="resume-tag-group" key={group.id}>{group.title && <h3 className="resume-tag-group-title">{group.title}</h3>}<div className="resume-tags">{group.items.map((item, index) => <span key={`${item}-${index}`}>{item}</span>)}</div></div>)}</div></div>;
   const itemContent = content as ItemsContent;
   if (layout === "highlight-grid") return <HighlightGridBody content={itemContent} heading={heading} />;
   if (section.id === "projects") return <GroupedCareerBody content={itemContent} heading={heading} relatedWorkItems={relatedWorkItems} />;
@@ -195,16 +195,23 @@ function EligibilityBody({ content }: { content: EligibilityContent }) {
   return facts.length > 0 ? <div className="resume-facts">{facts.map((item) => <span key={item}>{item}</span>)}</div> : <p className="resume-empty-copy">선택한 정보가 없습니다.</p>;
 }
 
-function ResumeItem({ item, detailLabel }: { item: ItemContent; detailLabel?: string }) {
+function ItemBody({ item }: { item: ItemContent }) {
+  if (!item.bodyBlocks?.length) return item.body ? <p className="resume-item-body">{item.body}</p> : null;
+  const classes: Record<NarrativeBlockType, string> = { p: "resume-item-body", h1: "resume-narrative-h1", h2: "resume-narrative-h2", h3: "resume-narrative-h3", h4: "resume-narrative-h4", h5: "resume-narrative-h5", h6: "resume-narrative-h6" };
+  return <div className="resume-item-rich-body">{item.bodyBlocks.map((block) => createElement(block.type, { className: classes[block.type], key: block.id }, block.runs.map((run, index) => run.bold ? <strong key={index}>{run.text}</strong> : run.text)))}</div>;
+}
+
+function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent; detailLabel?: string; grouped?: boolean }) {
+  const subtitle = careerDetailSubtitle(item, grouped);
   return <article className="resume-item" data-resume-item-id={item.id}>
     <p className="resume-item-period">{formatItemPeriod(item)}</p>
-    <div className="resume-item-copy"><div className="resume-item-header">{detailLabel && <p className="resume-detail-type">{detailLabel}</p>}<h3 className="resume-item-title">{item.title}</h3><p className="resume-item-subtitle">{[item.relatedWorkTitle, item.subtitle].filter(Boolean).join(" · ")}</p></div><p className="resume-item-body">{item.body}</p></div>
+    <div className="resume-item-copy"><div className="resume-item-header">{detailLabel && <p className="resume-detail-type">{detailLabel}</p>}<h3 className="resume-item-title">{item.title}</h3>{subtitle && <p className="resume-item-subtitle">{subtitle}</p>}</div><ItemBody item={item} /></div>
   </article>;
 }
 
 function GroupedCareerBody({ content, heading, relatedWorkItems }: { content: ItemsContent; heading: ReactNode; relatedWorkItems: ItemContent[] }) {
   const grouped = groupCareerDetails(relatedWorkItems, content.items, { detailSortDirection: content.sortDirection });
-  const detail = (item: ItemContent) => <ResumeItem detailLabel={detailTypeLabels[item.detailType ?? "project"]} item={item} key={item.id} />;
+  const detail = (item: ItemContent) => <ResumeItem detailLabel={careerDetailLabel(item)} grouped item={item} key={item.id} />;
   const groups = [
     ...grouped.employmentGroups.filter((group) => group.details.length).map((group) => ({ id: group.work.id, title: group.work.title, meta: `${group.work.subtitle} · ${formatItemPeriod(group.work)}`, items: group.details, warning: false })),
     ...(grouped.independentDetails.length > 0 ? [{ id: "independent", title: "독립 프로젝트", meta: "", items: grouped.independentDetails, warning: false }] : []),

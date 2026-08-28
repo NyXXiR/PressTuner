@@ -38,6 +38,7 @@ export function normalizeExperienceIntervals(
   const current = parseYearMonth(currentMonth);
   if (current === null) return [];
   return items.flatMap((item) => {
+    if (item.excludeFromCareerDuration) return [];
     if (item.itemKind && item.itemKind !== "work") return [];
     const start = parseYearMonth(item.startMonth);
     const hasEndMonth = item.endMonthEnabled ?? Boolean(item.endMonth);

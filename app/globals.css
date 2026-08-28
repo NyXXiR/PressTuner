@@ -620,6 +620,8 @@ html {
 .resume-paper .resume-detail-type { color: #ea580c; font-size: var(--resume-item-subtitle-size); font-weight: 700; }
 .resume-paper .resume-detail-type { font-size: var(--resume-detail-type-size); font-weight: 800; }
 .resume-paper .resume-item-body { margin-top: var(--resume-item-body-top-gap) !important; color: #475569; font-size: var(--resume-item-body-size); line-height: var(--resume-item-body-line-height); white-space: pre-line; }
+.resume-paper .resume-item-rich-body { display: grid; gap: var(--resume-narrative-block-gap); margin-top: var(--resume-item-body-top-gap); }
+.resume-paper .resume-item-rich-body .resume-item-body { margin-top: 0 !important; }
 .resume-paper .resume-career-group { padding-left: var(--resume-group-left-padding); border-left: var(--resume-group-border-width) solid #cbd5e1; }
 .resume-paper .resume-career-group + .resume-career-group { margin-top: var(--resume-group-gap); }
 .resume-paper .resume-group-heading { margin-bottom: var(--resume-group-heading-bottom-gap); }
@@ -629,6 +631,8 @@ html {
 .resume-paper .resume-warning { color: #b45309; }
 .resume-paper .resume-tags { display: flex; flex-wrap: wrap; gap: var(--resume-tag-gap); }
 .resume-paper .resume-tags span { padding: var(--resume-tag-vertical-padding) var(--resume-tag-horizontal-padding); background: #f1f5f9; font-size: var(--resume-tag-size); font-weight: 700; }
+.resume-paper .resume-tag-groups { display: grid; gap: 3mm; }
+.resume-paper .resume-tag-group-title { margin-bottom: 1.5mm; color: #475569; font-size: var(--resume-item-subtitle-size); font-weight: 800; }
 .resume-paper .resume-highlight-grid { display: grid; grid-template-columns: repeat(var(--resume-highlight-columns), minmax(0, 1fr)); gap: var(--resume-highlight-gap); }
 .resume-paper .resume-highlight-card { min-height: var(--resume-highlight-min-height); padding: var(--resume-highlight-padding); border: var(--resume-highlight-border-width) solid #cbd5e1; background: #f8fafc; }
 .resume-paper .resume-highlight-card .resume-highlight-index { margin-bottom: 2mm; color: #ea580c; font-size: var(--resume-highlight-index-size); font-weight: 800; letter-spacing: 0.8pt; }

@@ -27,9 +27,16 @@ const resumeItemSchema = z.object({
   title: boundedText(500),
   subtitle: boundedText(1_000),
   detailType: z.enum(["project", "responsibility", "improvement", "troubleshooting"]).optional(),
+  detailLabel: optionalText(200),
   relatedWorkItemId: optionalText(160),
   relatedWorkTitle: optionalText(500),
   body: boundedText(30_000),
+  bodyBlocks: z.array(z.object({
+    id: identifier,
+    type: z.enum(["p", "h1", "h2", "h3", "h4", "h5", "h6"]),
+    runs: z.array(z.object({ text: boundedText(30_000), bold: z.boolean().optional() }).strict()).max(300),
+  }).strict()).max(500).optional(),
+  excludeFromCareerDuration: z.boolean().optional(),
   source: z.object({
     type: z.literal("experience-brick"),
     id: identifier,
@@ -78,6 +85,7 @@ const itemsContentSchema = z.object({
 
 const tagsContentSchema = z.object({
   items: z.array(boundedText(500)).max(300),
+  groups: z.array(z.object({ id: identifier, title: boundedText(200), items: z.array(boundedText(500)).max(300) }).strict()).max(50).optional(),
 }).strict();
 
 const sectionBase = {

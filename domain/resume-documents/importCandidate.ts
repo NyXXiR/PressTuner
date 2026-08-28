@@ -11,6 +11,7 @@ import type {
   SectionKind,
   TagsContent,
 } from "./model";
+import { normalizeTagGroups, serializeTagGroups } from "./contentPresentation";
 import { findResumeItemDateIssue, normalizeResumeItemDates } from "./itemDatePolicy";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -357,17 +358,23 @@ function applyPayloadToSection(
       : content.items;
     const values = command.applyMode === "REPLACE" ? payload.values : [...existingItems, ...payload.values];
     const seen = new Set<string>();
-    return {
-      ...current,
-      content: {
-        items: values.filter((value) => {
+    const items = values.filter((value) => {
           const key = normalizeKey(value);
           if (!key || seen.has(key)) return false;
           seen.add(key);
           return true;
-        }),
-      },
-    };
+        });
+    if (!content.groups?.length) return { ...current, content: { items } };
+    if (command.applyMode === "REPLACE") return { ...current, content: serializeTagGroups([{ id: `imported-${Date.now()}`, title: "가져온 키워드", items }]) };
+    const groups = normalizeTagGroups(content);
+    const existingKeys = new Set(content.items.map(normalizeKey));
+    const importedItems = payload.values.filter((value) => !existingKeys.has(normalizeKey(value)));
+    if (!importedItems.length) return current;
+    const importedIndex = groups.findIndex((group) => group.title === "가져온 키워드");
+    const nextGroups = importedIndex >= 0
+      ? groups.map((group, index) => index === importedIndex ? { ...group, items: [...group.items, ...importedItems] } : group)
+      : [...groups, { id: `imported-${Date.now()}`, title: "가져온 키워드", items: importedItems }];
+    return { ...current, content: serializeTagGroups(nextGroups) };
   }
   if (command.applyMode !== "APPEND") throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
   const content = current.content as ItemsContent;

@@ -253,8 +253,9 @@ test("identity keeps reusable contact, birth date, and gender fields", async () 
   }
   assert.match(source, /import \{ DateInput \} from "@\/components\/ui\/DateInput"/);
   assert.match(source, /const localToday = formatDateOnly\(new Date\(\)\)/);
-  const birthDateField = source.match(/<DateInput\s+label="생년월일"[\s\S]*?\/>/)?.[0];
+  const birthDateField = source.match(/<DateInput\s+label=\{`생년월일[\s\S]*?\/>/)?.[0];
   assert.ok(birthDateField);
+  assert.match(birthDateField, /calculateAge\(value\.birthDate\)/);
   assert.match(birthDateField, /min="1900-01-01"/);
   assert.match(birthDateField, /max=\{localToday\}/);
   assert.match(birthDateField, /startMonth="1900-01-01"/);
@@ -430,6 +431,22 @@ test("section save actions name their destination and explain propagation inline
   assert.match(builder, /saveButtonLabel/);
   assert.match(builder, /propagationMessage/);
   assert.doesNotMatch(builder, /저장할 범위를 선택해 주세요/);
+});
+
+test("section editors preserve the resolved common, role, or support source by default", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(source, /resolved\.source === "shared" \? openEditor\("shared"/);
+  assert.match(source, /resolved\.source === "role" \? openEditor\(active \? "variant" : "role", section, resolved\.content, active \? "parent" : "current"\)/);
+  assert.match(source, /공통 정보에 저장·전파/);
+});
+
+test("resume section editing exposes flexible career-detail, grouped keyword, and template controls", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+  assert.match(source, /총 경력 합산에서 제외/);
+  assert.match(source, /list=\{`career-detail-type-options-\$\{item\.id\}`\}/);
+  assert.match(source, /function TagGroupsEditor/);
+  assert.match(source, /양식 · \{sectionTemplateLabel\(section\)\}/);
+  assert.match(source, /bodyBlocks: next\.blocks/);
 });
 
 test("PDF import lifecycle polling is selected-detail-only, abortable, and visibility-aware", async () => {

@@ -64,6 +64,7 @@ import {
   type SectionLayout,
   type SectionMode,
   type TagsContent,
+  type TagGroup,
 } from "@/domain/resume-documents/model";
 import { DateInput } from "@/components/ui/DateInput";
 import { formatDateOnly } from "@/components/ui/dateOnly";
@@ -84,6 +85,8 @@ import {
 import { useResumeDocumentPersistence } from "@/components/resume/useResumeDocumentPersistence";
 import { ResumeItemDateFields } from "@/components/resume/ResumeItemDateFields";
 import { findResumeItemDateIssue, normalizeResumeItemDates, resolveResumeItemKind } from "@/domain/resume-documents/itemDatePolicy";
+import { calculateAge } from "@/domain/resume-documents/identityLayout";
+import { normalizeTagGroups, serializeTagGroups } from "@/domain/resume-documents/contentPresentation";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
 const sectionKindGuidance: Record<SectionKind, string> = {
@@ -153,6 +156,14 @@ const currentLocalMonth = () => {
 const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
 const defaultItemKind = (sectionId: string) => resolveResumeItemKind({}, sectionId);
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
+const sectionTemplateLabel = (section: ResumeSection) => {
+  if (section.layout === "highlight-grid") return "2열 핵심역량 카드";
+  if (section.id === "experience") return "경력 목록";
+  if (section.id === "projects") return "프로젝트·성과";
+  if (section.id === "education") return "학력·교육";
+  if (section.id === "credentials") return "자격·수상";
+  return sectionTemplates.find((template) => template.kind === section.kind && template.layout === (section.layout ?? "standard"))?.title ?? sectionKindGuidance[section.kind].split(" ")[0];
+};
 
 export function ResumeDocumentBuilder() {
   const { state, setState, hydrated, storageStatus, loadServerCopy, overwriteServerCopy } = useResumeDocumentPersistence();
@@ -273,8 +284,8 @@ export function ResumeDocumentBuilder() {
   };
   const updateActive = (patch: Partial<NonNullable<typeof active>>) => active && setState((current) => ({ ...current, variants: current.variants.map((item) => item.id === active.id ? { ...item, ...patch } : item) }));
   const setting = (sectionId: string, patch: Parameters<typeof updateSectionSetting>[3]) => setState((current) => active ? updateSectionSetting(current, active.id, sectionId, patch) : updateRoleProfileSectionSetting(current, activeProfile.id, sectionId, patch));
-  const openEditor = (scope: EditDraft["scope"], section: ResumeSection, content: SectionContent) => {
-    setDraft({ scope, section, content: clone(content), title: resolveSectionTitle(section, activeProfile, active), saveTarget: "current" });
+  const openEditor = (scope: EditDraft["scope"], section: ResumeSection, content: SectionContent, saveTarget: EditDraft["saveTarget"] = "current") => {
+    setDraft({ scope, section, content: clone(content), title: resolveSectionTitle(section, activeProfile, active), saveTarget });
   };
   const saveDraft = (nextDraft?: EditDraft) => {
     const savedDraft = nextDraft ?? draft;
@@ -384,7 +395,7 @@ export function ResumeDocumentBuilder() {
               if (keepsCustomization) setting(section.id, { mode: "override" });
               else resetToParent();
             };
-            return <SortableSection key={section.id} onKeyboardMove={(offset) => moveSectionByKeyboard(section.id, offset)} onReorderEnd={finalizeSectionOrder} onSelect={() => setSelectedSectionId(section.id)} sectionId={section.id} selected={selectedSectionId === section.id}>{(dragControls, onKeyboardMove) => <>{resolved.mode === "hidden" ? <HiddenSection section={{ ...section, title }} dragControls={dragControls} onKeyboardMove={onKeyboardMove} onShow={restoreVisibility} /> : <DocumentSection dragControls={dragControls} onKeyboardMove={onKeyboardMove} section={{ ...section, title, layout: resolved.layout }} content={resolved.content} issueCount={readinessIssueCounts[section.id] ?? 0} relatedWorkItems={resolvedWorkItems} source={resolved.source} onHide={!section.custom ? () => setting(section.id, { mode: "hidden" }) : undefined} onReset={canReset ? () => window.confirm(`${active ? "이 지원 버전의 맞춤 내용" : "이 직군 이력서의 맞춤 내용"}을 버리고 ${active ? "직군 이력서" : "공통 정보"}로 되돌릴까요?`) && resetToParent() : undefined} resetLabel={active ? "직군 이력서로 되돌리기" : "공통 정보로 되돌리기"} onEdit={() => openEditor(roleCustom ? active ? "variant" : "role-custom" : variantCustom ? "variant-custom" : active ? "variant" : "role", section, resolved.content)} onItems={section.kind === "items" && !section.custom ? () => setItemEditor({ scope: active ? "document" : "role", section }) : undefined} onPromote={section.custom ? () => promoteCustom(section, variantCustom ? "variant" : "role") : undefined} deletePending={pendingDeleteId === section.id} onDelete={section.custom && (!roleCustom || !active) ? () => pendingDeleteId === section.id ? removeCustom(section) : setPendingDeleteId(section.id) : undefined} />}<button className="resume-section-controls resume-section-insert inline-flex h-9 w-full items-center justify-center gap-2 border border-dashed border-slate-300 bg-white text-[10px] font-bold text-slate-500 hover:border-orange-400 hover:text-orange-600" onClick={() => { setInsertAfterId(section.id); prepareNewSection(); }}><Plus className="h-3.5 w-3.5" /> {title} 뒤에 새 섹션 추가</button></>}</SortableSection>;
+            return <SortableSection key={section.id} onKeyboardMove={(offset) => moveSectionByKeyboard(section.id, offset)} onReorderEnd={finalizeSectionOrder} onSelect={() => setSelectedSectionId(section.id)} sectionId={section.id} selected={selectedSectionId === section.id}>{(dragControls, onKeyboardMove) => <>{resolved.mode === "hidden" ? <HiddenSection section={{ ...section, title }} dragControls={dragControls} onKeyboardMove={onKeyboardMove} onShow={restoreVisibility} /> : <DocumentSection dragControls={dragControls} onKeyboardMove={onKeyboardMove} section={{ ...section, title, layout: resolved.layout }} content={resolved.content} issueCount={readinessIssueCounts[section.id] ?? 0} relatedWorkItems={resolvedWorkItems} source={resolved.source} onHide={!section.custom ? () => setting(section.id, { mode: "hidden" }) : undefined} onReset={canReset ? () => window.confirm(`${active ? "이 지원 버전의 맞춤 내용" : "이 직군 이력서의 맞춤 내용"}을 버리고 ${active ? "직군 이력서" : "공통 정보"}로 되돌릴까요?`) && resetToParent() : undefined} resetLabel={active ? "직군 이력서로 되돌리기" : "공통 정보로 되돌리기"} onEdit={() => variantCustom ? openEditor("variant-custom", section, resolved.content) : roleCustom ? openEditor(active && resolved.source === "document" ? "variant" : "role-custom", section, resolved.content) : resolved.source === "shared" ? openEditor("shared", section, resolved.content) : resolved.source === "role" ? openEditor(active ? "variant" : "role", section, resolved.content, active ? "parent" : "current") : openEditor("variant", section, resolved.content)} onItems={section.kind === "items" && !section.custom ? () => setItemEditor({ scope: active ? "document" : "role", section }) : undefined} onPromote={section.custom ? () => promoteCustom(section, variantCustom ? "variant" : "role") : undefined} deletePending={pendingDeleteId === section.id} onDelete={section.custom && (!roleCustom || !active) ? () => pendingDeleteId === section.id ? removeCustom(section) : setPendingDeleteId(section.id) : undefined} />}<button className="resume-section-controls resume-section-insert inline-flex h-9 w-full items-center justify-center gap-2 border border-dashed border-slate-300 bg-white text-[10px] font-bold text-slate-500 hover:border-orange-400 hover:text-orange-600" onClick={() => { setInsertAfterId(section.id); prepareNewSection(); }}><Plus className="h-3.5 w-3.5" /> {title} 뒤에 새 섹션 추가</button></>}</SortableSection>;
           })}</Reorder.Group></div></article></div>
         </div>
       )}
@@ -477,7 +488,7 @@ function HiddenSection({ dragControls, onKeyboardMove, onShow, section }: { drag
 function DocumentSection({ section, content, issueCount, relatedWorkItems, source, onHide, onReset, resetLabel, onEdit, onItems, onPromote, onDelete, deletePending, dragControls, onKeyboardMove }: { section: ResumeSection; content: SectionContent; issueCount: number; relatedWorkItems: ItemContent[]; source: "shared" | "role" | "document"; onHide?: () => void; onReset?: () => void; resetLabel: string; onEdit: () => void; onItems?: () => void; onPromote?: () => void; onDelete?: () => void; deletePending?: boolean; dragControls: DragControls; onKeyboardMove: (offset: -1 | 1) => void }) {
   const sourceLabel = source === "shared" ? "공통 정보" : source === "role" ? "직군 이력서" : "지원 버전 맞춤";
   const hasMoreActions = Boolean(onReset || onItems || onPromote || onDelete);
-  return <div><div className="resume-section-controls resume-section-toolbar flex items-center justify-between gap-2 border border-dashed border-slate-300 bg-slate-50 p-2"><span className="flex min-w-0 items-center gap-2"><DragHandle dragControls={dragControls} onKeyboardMove={onKeyboardMove} title={section.title} /><span className="min-w-0 truncate text-xs font-extrabold text-slate-700">{section.title}</span><span className={cx("hidden shrink-0 border px-2 py-1 text-[10px] font-extrabold sm:inline-flex", source === "document" ? "border-orange-300 bg-orange-50 text-orange-700" : source === "role" ? "border-primary/30 bg-primary/5 text-primary" : "border-slate-300 bg-white text-slate-600")}>{section.custom ? "현재 단계 전용" : sourceLabel}</span>{issueCount > 0 && <span className="resume-section-issue-badge shrink-0">확인 {issueCount}</span>}</span><div className="flex shrink-0 items-center gap-1">{onHide && <button aria-label={`${section.title} 섹션 숨기기`} className="grid h-10 w-10 place-items-center border border-slate-300 bg-white text-slate-500 hover:border-primary hover:text-primary sm:h-8 sm:w-8" onClick={onHide} title="섹션 숨기기"><EyeOff className="h-4 w-4" /></button>}<button className="inline-flex h-10 items-center gap-2 border border-slate-400 bg-white px-3 text-xs font-bold hover:border-primary hover:text-primary sm:h-8" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /> 편집</button>{hasMoreActions && <details className="relative"><summary aria-label={`${section.title} 섹션 더보기`} className="grid h-10 w-10 cursor-pointer list-none place-items-center border border-slate-300 bg-white sm:h-8 sm:w-8"><MoreHorizontal className="h-4 w-4" /></summary><div className="absolute right-0 z-40 mt-1 grid w-60 gap-3 border border-slate-300 bg-white p-3 text-slate-700 shadow-xl">{onReset && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onReset}><RotateCcw className="mr-1 inline h-3.5 w-3.5" /> {resetLabel}</button>}{onItems && <button className="h-9 border border-orange-300 bg-white px-2 text-xs font-bold text-orange-700" onClick={onItems}>{section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</button>}{onPromote && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onPromote}><LayoutTemplate className="mr-1 inline h-3.5 w-3.5" /> 공통 섹션으로 전환</button>}{onDelete && <button aria-label={deletePending ? `${section.title} 섹션 삭제 확인` : `${section.title} 섹션 삭제`} className="h-9 border border-red-200 bg-white px-2 text-xs font-bold text-red-600" onClick={onDelete}>{deletePending ? "정말 삭제" : "섹션 삭제"}</button>}</div></details>}</div></div><ResumeEditorSection currentMonth={currentLocalMonth()} relatedWorkItems={relatedWorkItems} section={{ ...section, content, layout: section.layout ?? "standard" }} /></div>;
+  return <div><div className="resume-section-controls resume-section-toolbar flex items-center justify-between gap-2 border border-dashed border-slate-300 bg-slate-50 p-2"><span className="flex min-w-0 items-center gap-2"><DragHandle dragControls={dragControls} onKeyboardMove={onKeyboardMove} title={section.title} /><span className="min-w-0 truncate text-xs font-extrabold text-slate-700">{section.title}</span><span className="hidden shrink-0 border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold text-slate-500 md:inline-flex">양식 · {sectionTemplateLabel(section)}</span><span className={cx("hidden shrink-0 border px-2 py-1 text-[10px] font-extrabold sm:inline-flex", source === "document" ? "border-orange-300 bg-orange-50 text-orange-700" : source === "role" ? "border-primary/30 bg-primary/5 text-primary" : "border-slate-300 bg-white text-slate-600")}>{section.custom ? "현재 단계 전용" : sourceLabel}</span>{issueCount > 0 && <span className="resume-section-issue-badge shrink-0">확인 {issueCount}</span>}</span><div className="flex shrink-0 items-center gap-1">{onHide && <button aria-label={`${section.title} 섹션 숨기기`} className="grid h-10 w-10 place-items-center border border-slate-300 bg-white text-slate-500 hover:border-primary hover:text-primary sm:h-8 sm:w-8" onClick={onHide} title="섹션 숨기기"><EyeOff className="h-4 w-4" /></button>}<button className="inline-flex h-10 items-center gap-2 border border-slate-400 bg-white px-3 text-xs font-bold hover:border-primary hover:text-primary sm:h-8" onClick={onEdit}><Edit3 className="h-3.5 w-3.5" /> 편집</button>{hasMoreActions && <details className="relative"><summary aria-label={`${section.title} 섹션 더보기`} className="grid h-10 w-10 cursor-pointer list-none place-items-center border border-slate-300 bg-white sm:h-8 sm:w-8"><MoreHorizontal className="h-4 w-4" /></summary><div className="absolute right-0 z-40 mt-1 grid w-60 gap-3 border border-slate-300 bg-white p-3 text-slate-700 shadow-xl">{onReset && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onReset}><RotateCcw className="mr-1 inline h-3.5 w-3.5" /> {resetLabel}</button>}{onItems && <button className="h-9 border border-orange-300 bg-white px-2 text-xs font-bold text-orange-700" onClick={onItems}>{section.id === "experience" ? "경험 선택·편집" : "포함 항목 선택"}</button>}{onPromote && <button className="h-9 border border-primary/40 bg-primary/5 px-2 text-xs font-bold text-primary" onClick={onPromote}><LayoutTemplate className="mr-1 inline h-3.5 w-3.5" /> 공통 섹션으로 전환</button>}{onDelete && <button aria-label={deletePending ? `${section.title} 섹션 삭제 확인` : `${section.title} 섹션 삭제`} className="h-9 border border-red-200 bg-white px-2 text-xs font-bold text-red-600" onClick={onDelete}>{deletePending ? "정말 삭제" : "섹션 삭제"}</button>}</div></details>}</div></div><ResumeEditorSection currentMonth={currentLocalMonth()} relatedWorkItems={relatedWorkItems} section={{ ...section, content, layout: section.layout ?? "standard" }} /></div>;
 }
 
 
@@ -595,7 +606,7 @@ function serializeNarrativeEditor(root: HTMLElement): NarrativeContent {
   return { body: safeBlocks.map((block) => block.runs.map((run) => run.text).join("")).join("\n"), blocks: safeBlocks };
 }
 
-function RichNarrativeEditor({ content, onChange }: { content: NarrativeContent; onChange: (content: SectionContent) => void }) {
+function RichNarrativeEditor({ content, onChange, compact = false, ariaLabel = "소개글 내용", placeholder = "예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." }: { content: NarrativeContent; onChange: (content: NarrativeContent) => void; compact?: boolean; ariaLabel?: string; placeholder?: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const initialContent = useRef(content);
   const [characterCount, setCharacterCount] = useState(() => narrativeCharacterCount(content));
@@ -642,7 +653,7 @@ function RichNarrativeEditor({ content, onChange }: { content: NarrativeContent;
     onChange(next);
   };
   const blockTypes: Array<{ type: NarrativeBlockType; label: string }> = [{ type: "p", label: "본문" }, ...([1, 2, 3, 4, 5, 6].map((level) => ({ type: `h${level}` as NarrativeBlockType, label: `H${level}` })) )];
-  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label="소개글 내용" className="wg-ruled min-h-[22rem] bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold" contentEditable data-narrative-placeholder="예: 결제 도메인에서 6년간 일하며, 장애가 잦던 정산 파이프라인을 다시 세웠습니다." onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
+  return <div className="border border-border"><div aria-label="서술형 서식 도구" className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 p-2">{blockTypes.map((item) => <button className="h-9 min-w-10 border border-border bg-background px-2 text-xs font-bold hover:border-primary hover:text-primary" key={item.type} onMouseDown={(event) => { event.preventDefault(); command("formatBlock", item.type); }} type="button">{item.label}</button>)}<span className="mx-1 h-6 w-px bg-border" /><button aria-label="굵게" className="h-9 min-w-10 border border-border bg-background px-3 text-sm font-black hover:border-primary hover:text-primary" onMouseDown={(event) => { event.preventDefault(); command("bold"); }} type="button">B</button></div><div aria-label={ariaLabel} className={cx("wg-ruled bg-background p-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-sm [&_h1]:font-black [&_h2]:font-black [&_h3]:font-extrabold [&_h4]:font-extrabold [&_h5]:font-bold [&_h6]:font-bold", compact ? "min-h-48" : "min-h-[22rem]")} contentEditable data-narrative-placeholder={placeholder} onInput={emit} onPaste={paste} ref={editorRef} role="textbox" suppressContentEditableWarning /><div className="flex flex-wrap justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground"><span>붙여넣기는 H1~H6·문단·굵게만 유지하며, 색상과 배경 등은 제거합니다.</span><strong aria-live="polite" className="text-foreground">공백 포함 {characterCount.toLocaleString()}자 · {paragraphCount}단락</strong></div></div>;
 }
 
 async function optimizeIdentityPhoto(file: File) {
@@ -751,13 +762,14 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
     <div className="border-b border-border bg-muted/20 p-3 sm:border-b-0 sm:border-r">
       <p className="mb-2 text-[10px] font-extrabold tracking-wide text-muted-foreground">기간</p>
       <ResumeItemDateFields layout="stack" sectionId={sectionId} value={item} onChange={onChange} />
+      {sectionId === "experience" && <label className="mt-4 flex items-start gap-2 border-t border-border pt-3 text-[11px] font-bold leading-4 text-muted-foreground"><input checked={Boolean(item.excludeFromCareerDuration)} className="mt-0.5 h-4 w-4 shrink-0" type="checkbox" onChange={(event) => onChange({ excludeFromCareerDuration: event.target.checked || undefined })} /> 총 경력 합산에서 제외</label>}
       <p className="mt-3 hidden text-[10px] leading-4 text-muted-foreground sm:block">PDF에서도 이 자리에 좁게 찍힙니다.</p>
     </div>
     <div className="grid gap-4 p-4">
       <Field label="제목" placeholder={placeholder.title} required value={item.title} onChange={(title) => onChange({ title })} />
       <Field label="조직·부제" placeholder={placeholder.subtitle} value={item.subtitle} onChange={(subtitle) => onChange({ subtitle })} />
       {sectionId === "projects" && <div className="grid gap-4 sm:grid-cols-2"><CareerDetailControls item={item} workItems={workItems} onChange={onChange} /></div>}
-      <TextArea hint="괘선이 그어진 넓은 칸입니다. 한 항목당 2~4줄이 읽기 좋습니다." label={bodyLabel} minRows={4} placeholder={placeholder.body} required={bodyRequired} ruled showCount value={item.body} onChange={(text) => onChange({ body: text })} />
+      {sectionId === "projects" ? <div><FieldLabel label={bodyLabel} needsInput={false} required={bodyRequired} /><p className="mb-2 mt-1 text-[11px] leading-5 text-muted-foreground">핵심 성과나 문제 해결 과정을 제목과 굵게로 나눠 작성할 수 있습니다.</p><RichNarrativeEditor ariaLabel={`${label} 상세 설명`} compact content={{ body: item.body, blocks: item.bodyBlocks }} placeholder={placeholder.body} onChange={(next) => onChange({ body: next.body, bodyBlocks: next.blocks })} /></div> : <TextArea hint="괘선이 그어진 넓은 칸입니다. 한 항목당 2~4줄이 읽기 좋습니다." label={bodyLabel} minRows={4} placeholder={placeholder.body} required={bodyRequired} ruled showCount value={item.body} onChange={(text) => onChange({ body: text })} />}
     </div>
   </div>;
   const header = <>
@@ -880,7 +892,7 @@ function StructuredEditor({ section, content, workItems = [], onChange }: { sect
         </EditorBlock>
         <EditorBlock note="PDF 이름 아래 한 줄" title="신상 정보 · 공통">
           <div className="grid gap-4 sm:grid-cols-2 pt-overflow-visible"><DateInput
-      label="생년월일"
+      label={`생년월일${calculateAge(value.birthDate) === null ? "" : ` (만 ${calculateAge(value.birthDate)}세)`}`}
       value={value.birthDate ?? ""}
       onChange={(birthDate) => onChange({ ...value, birthDate })}
       min="1900-01-01"
@@ -911,7 +923,7 @@ function StructuredEditor({ section, content, workItems = [], onChange }: { sect
     </EditorBlock>;
   }
   if (section.kind === "narrative") return <RichNarrativeEditor content={content as NarrativeContent} onChange={onChange} />;
-  if (section.kind === "tags") { const value = content as TagsContent; return <EditorBlock note="PDF에도 같은 칩 모양으로 나열됩니다" title="역량 · 키워드"><ListEditor addLabel="항목 추가" hint="짧은 낱말이 좋습니다. 문장을 넣으면 칩이 줄을 넘깁니다." items={value.items} label="항목" placeholder="예: 문제 해결" required variant="chips" onChange={(items) => onChange({ items })} /></EditorBlock>; }
+  if (section.kind === "tags") return <TagGroupsEditor content={content as TagsContent} onChange={onChange} />;
   if (section.layout === "highlight-grid") return <HighlightGridEditor content={content as ItemsContent} onChange={onChange} />;
   return <ItemsEditor content={content as ItemsContent} section={section} workItems={workItems} onChange={onChange} />;
 }
@@ -939,8 +951,8 @@ function CareerDetailControls({ item, workItems, onChange }: { item: ItemContent
   const hasValidParent = Boolean(item.relatedWorkItemId && workItems.some((work) => work.id === item.relatedWorkItemId));
   const unresolved = Boolean((item.relatedWorkItemId || item.relatedWorkTitle?.trim()) && !hasValidParent);
   return <>
-    <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<select className="wg-field h-10 px-3 text-sm font-normal" value={item.detailType ?? "project"} onChange={(event) => onChange({ detailType: event.target.value as ItemContent["detailType"], itemKind: "career-detail" })}>{Object.entries(detailTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-    <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력<select className="wg-field h-10 px-3 text-sm font-normal" value={hasValidParent ? item.relatedWorkItemId : unresolved ? "__unresolved" : ""} onChange={(event) => {
+    <label className="grid min-w-0 gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<input className="wg-field h-10 min-w-0 w-full px-3 text-sm font-normal" list={`career-detail-type-options-${item.id}`} placeholder="예: 핵심 성과" value={item.detailLabel ?? detailTypeLabels[item.detailType ?? "project"]} onChange={(event) => onChange({ detailLabel: event.target.value, itemKind: "career-detail" })} /><datalist id={`career-detail-type-options-${item.id}`}>{Object.values(detailTypeLabels).map((label) => <option key={label} value={label} />)}</datalist></label>
+    <label className="grid min-w-0 gap-1.5 text-xs font-bold text-muted-foreground">연결 경력<select className="wg-field h-10 min-w-0 w-full max-w-full px-3 text-sm font-normal" value={hasValidParent ? item.relatedWorkItemId : unresolved ? "__unresolved" : ""} onChange={(event) => {
       const work = workItems.find((candidate) => candidate.id === event.target.value);
       onChange(work ? { relatedWorkItemId: work.id, relatedWorkTitle: work.title } : { relatedWorkItemId: undefined, relatedWorkTitle: undefined });
     }}><option value="">독립 프로젝트</option>{unresolved && <option value="__unresolved" disabled>연결 확인 필요 · {item.relatedWorkTitle}</option>}{workItems.map((work) => <option key={work.id} value={work.id}>{work.title} · {work.subtitle} · {formatItemPeriod(work)}</option>)}</select>{unresolved && <span className="text-[11px] font-bold text-amber-700">연결 확인 필요</span>}</label>
@@ -969,6 +981,26 @@ function ListEditor({ label, addLabel, items, placeholder, onChange, variant = "
     <button className="mt-2 inline-flex h-9 items-center gap-2 border border-border px-3 text-xs font-bold" onClick={() => onChange([...items, ""])} type="button"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
     {hint && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{hint}</p>}
   </div>;
+}
+
+function TagGroupEditor({ group, index, onChange, onDelete }: { group: TagGroup; index: number; onChange: (group: TagGroup) => void; onDelete: () => void }) {
+  const dragControls = useDragControls();
+  const reorderItems = (items: string[]) => onChange({ ...group, items });
+  return <Reorder.Item className="border border-border bg-background" dragControls={dragControls} dragListener={false} value={group.id}>
+    <div className="flex items-center gap-2 border-b border-border bg-muted/30 p-3"><button aria-label={`${group.title || `카테고리 ${index + 1}`} 순서 끌어 이동`} className="grid h-9 w-9 shrink-0 touch-none cursor-grab place-items-center border border-border bg-background text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button><input aria-label={`카테고리 ${index + 1} 이름`} className="wg-field h-9 min-w-0 flex-1 px-3 text-sm font-extrabold" placeholder="예: 프론트엔드" value={group.title} onChange={(event) => onChange({ ...group, title: event.target.value })} /><button aria-label={`${group.title || `카테고리 ${index + 1}`} 삭제`} className="grid h-9 w-9 shrink-0 place-items-center border border-red-200 text-red-600" onClick={onDelete} type="button"><Trash2 className="h-4 w-4" /></button></div>
+    <Reorder.Group axis="y" className="grid gap-2 p-3" onReorder={reorderItems} values={group.items}>{group.items.map((item, itemIndex) => <Reorder.Item className="flex min-w-0 items-center gap-2" key={`${group.id}-${itemIndex}`} value={item}><GripVertical aria-hidden="true" className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" /><input aria-label={`${group.title || "카테고리"} 키워드 ${itemIndex + 1}`} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm" placeholder="예: React" value={item} onChange={(event) => onChange({ ...group, items: group.items.map((value, indexValue) => indexValue === itemIndex ? event.target.value : value) })} /><button aria-label={`${item || `키워드 ${itemIndex + 1}`} 삭제`} className="grid h-10 w-10 shrink-0 place-items-center border border-red-200 text-red-600" onClick={() => onChange({ ...group, items: group.items.filter((_, indexValue) => indexValue !== itemIndex) })} type="button"><X className="h-3.5 w-3.5" /></button></Reorder.Item>)}</Reorder.Group>
+    <button className="mb-3 ml-3 inline-flex h-9 items-center gap-2 border border-dashed border-primary px-3 text-xs font-bold text-primary" onClick={() => onChange({ ...group, items: [...group.items, ""] })} type="button"><Plus className="h-3.5 w-3.5" /> 키워드 추가</button>
+  </Reorder.Item>;
+}
+
+function TagGroupsEditor({ content, onChange }: { content: TagsContent; onChange: (content: SectionContent) => void }) {
+  const groups = normalizeTagGroups(content);
+  const update = (next: TagGroup[]) => onChange(serializeTagGroups(next));
+  const reorderGroups = (ids: string[]) => {
+    const byId = new Map(groups.map((group) => [group.id, group]));
+    update(ids.flatMap((id) => byId.get(id) ?? []));
+  };
+  return <EditorBlock note="카테고리와 키워드를 끌어 표시 순서를 바꿀 수 있습니다" title="역량 · 키워드"><Reorder.Group axis="y" className="grid gap-3" onReorder={reorderGroups} values={groups.map((group) => group.id)}>{groups.map((group, index) => <TagGroupEditor group={group} index={index} key={group.id} onChange={(next) => update(groups.map((value) => value.id === group.id ? next : value))} onDelete={() => update(groups.filter((value) => value.id !== group.id))} />)}</Reorder.Group><button className="mt-3 inline-flex h-10 items-center gap-2 border border-dashed border-primary px-4 text-xs font-bold text-primary" onClick={() => update([...groups, { id: `tag-group-${Date.now()}`, title: "", items: [] }])} type="button"><Plus className="h-4 w-4" /> 카테고리 추가</button></EditorBlock>;
 }
 
 function ItemTailoringDialog({ state, profileId, variantId, scope, section, workItems, onSave, onClose, onEditParent, onEditCurrent }: { state: ResumeDocumentState; profileId: string; variantId?: string; scope: "role" | "document"; section: ResumeSection; workItems: ItemContent[]; onSave: (state: ResumeDocumentState) => void; onClose: () => void; onEditParent: () => void; onEditCurrent: () => void }) {

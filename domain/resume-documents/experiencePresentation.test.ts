@@ -53,6 +53,14 @@ test("automatic career duration excludes career details and legacy project/activ
   assert.equal(calculateAutomaticCareerDurationMonths(items, "2026-08"), 12);
 });
 
+test("automatic career duration excludes employment explicitly marked out of the total", () => {
+  const items = [
+    item("included", { itemKind: "work", startMonth: "2024-01", endMonth: "2024-12" }),
+    item("excluded", { itemKind: "work", startMonth: "2020-01", endMonth: "2023-12", excludeFromCareerDuration: true }),
+  ];
+  assert.equal(calculateAutomaticCareerDurationMonths(items, "2026-08"), 12);
+});
+
 test("current roles end at the injected current month and invalid ranges are ignored", () => {
   const items = [
     item("current", { startMonth: "2024-11", isCurrent: true }), item("malformed", { startMonth: "2024-1", endMonth: "2024-12" }),

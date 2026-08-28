@@ -23,10 +23,10 @@ import {
   wrapIdentityContact,
 } from "@/domain/resume-documents/identityLayout";
 import { RESUME_PDF_FONT_FAMILY } from "@/lib/services/resume/resumePdfFonts";
+import { careerDetailLabel, careerDetailSubtitle, normalizeTagGroups } from "@/domain/resume-documents/contentPresentation";
 
 const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
-const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
 const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_OPENING_BODY_UNITS = 360;
 const ITEM_BODY_WIDOWS = 3;
@@ -117,6 +117,9 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   warning: { color: "#b45309" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: mm(RESUME_DOCUMENT_LAYOUT.tagGapMm) },
   tag: { paddingVertical: mm(RESUME_DOCUMENT_LAYOUT.tagVerticalPaddingMm), paddingHorizontal: mm(RESUME_DOCUMENT_LAYOUT.tagHorizontalPaddingMm), backgroundColor: "#f1f5f9", fontSize: RESUME_DOCUMENT_LAYOUT.tagFontSizePt, fontWeight: 700 },
+  tagGroups: { gap: mm(3) },
+  tagGroupTitle: { marginBottom: mm(1.5), color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemSubtitleFontSizePt, fontWeight: 800 },
+  itemRichBody: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.itemBodyTopGapMm), gap: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
   narrative: { color: "#334155", lineHeight: RESUME_DOCUMENT_LAYOUT.narrativeBodyLineHeight, marginBottom: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
   narrativeHeading: { color: "#0f172a", lineHeight: RESUME_DOCUMENT_LAYOUT.narrativeHeadingLineHeight, fontWeight: 800, marginBottom: mm(RESUME_DOCUMENT_LAYOUT.narrativeBlockGapMm) },
   compact: { marginBottom: mm(4) },
@@ -198,10 +201,19 @@ function splitItemBodyOpening(body: string): [opening: string, continuation: str
   return [body, ""];
 }
 
-function ResumeItem({ item, detailLabel }: { item: ItemContent; detailLabel?: string }) {
+function RichItemBody({ item }: { item: ItemContent }) {
+  if (!item.bodyBlocks?.length) return item.body ? <Text style={styles.itemBody}>{item.body}</Text> : <EmptyCopy />;
+  return <View style={styles.itemRichBody}>{item.bodyBlocks.map((block) => {
+    const heading = block.type !== "p";
+    const fontSize = heading ? Math.min(RESUME_NARRATIVE_FONT_SIZES_PT[block.type], 13) : RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt;
+    return <Text key={block.id} minPresenceAhead={heading ? 24 : 0} orphans={3} style={[heading ? styles.narrativeHeading : styles.itemBody, { fontSize, marginTop: 0 }]} widows={3}>{block.runs.map((run, index) => <Text key={`${block.id}-${index}`} style={run.bold ? { fontWeight: 700 } : undefined}>{withSimpleLineWrap(run.text, fontSize, "standard")}</Text>)}</Text>;
+  })}</View>;
+}
+
+function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent; detailLabel?: string; grouped?: boolean }) {
   const compact = item.body.length <= 700;
-  const subtitle = [item.relatedWorkTitle, item.subtitle].filter(Boolean).join(" · ");
-  if (!compact) {
+  const subtitle = careerDetailSubtitle(item, grouped);
+  if (!compact && !item.bodyBlocks?.length) {
     const [openingBody, continuationBody] = splitItemBodyOpening(item.body);
     return <View style={styles.itemFlow} wrap>
       <View style={styles.itemRow} wrap={false}>
@@ -227,7 +239,7 @@ function ResumeItem({ item, detailLabel }: { item: ItemContent; detailLabel?: st
         <Text style={styles.itemTitle}>{item.title || "제목 미입력"}</Text>
         {subtitle ? <Text style={styles.itemSubtitle}>{subtitle}</Text> : null}
       </View>
-      {item.body ? <Text style={styles.itemBody}>{item.body}</Text> : <EmptyCopy />}
+      <RichItemBody item={item} />
     </View>
   </View>;
 }
@@ -250,8 +262,9 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
 }
 
 function TagsSection({ section }: { section: Extract<ResumePdfSection, { kind: "tags" }> }) {
-  return <><SectionHeading section={section} />{section.content.items.length
-    ? <View style={styles.tags}>{section.content.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag}>{item}</Text>)}</View>
+  const groups = normalizeTagGroups(section.content);
+  return <><SectionHeading section={section} />{groups.some((group) => group.items.length)
+    ? <View style={styles.tagGroups}>{groups.map((group) => <View key={group.id}>{group.title ? <Text style={styles.tagGroupTitle}>{group.title}</Text> : null}<View style={styles.tags}>{group.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag}>{item}</Text>)}</View></View>)}</View>
     : <EmptyCopy />}</>;
 }
 
@@ -267,7 +280,7 @@ function GroupedCareerSection({ relatedWorkItems, section }: { relatedWorkItems:
       <Text style={[styles.groupTitle, group.warning ? styles.warning : {}]}>{group.title}</Text>
       {group.meta ? <Text style={styles.groupMeta}>{group.meta}</Text> : null}
     </View>
-    {group.items.map((item) => <ResumeItem detailLabel={detailTypeLabels[item.detailType ?? "project"]} item={item} key={item.id} />)}
+    {group.items.map((item) => <ResumeItem detailLabel={careerDetailLabel(item)} grouped item={item} key={item.id} />)}
   </View>) : <EmptyCopy />}</>;
 }
 
