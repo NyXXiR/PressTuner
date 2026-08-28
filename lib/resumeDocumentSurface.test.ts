@@ -99,6 +99,8 @@ test("resume section toolbars stay visible while insertion controls remain conte
   assert.match(styles, /\.resume-editable-section:is\(:hover, :focus-within\) \.resume-section-insert/);
   assert.match(source, /resume-print-sections grid gap-12/);
   assert.match(styles, /\.resume-editable-section \.resume-section-insert\s*\{[\s\S]*?bottom:\s*-42px/);
+  assert.match(styles, /\.resume-editable-section::after\s*\{[\s\S]*?bottom:\s*-48px;[\s\S]*?height:\s*48px/);
+  assert.match(styles, /@media screen and \(max-width: 767px\)[\s\S]*?\.resume-editable-section::after\s*\{[\s\S]*?display:\s*none/);
 });
 
 test("mobile resume editing uses cards and a fixed compact action bar", async () => {

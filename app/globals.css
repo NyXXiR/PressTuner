@@ -653,6 +653,15 @@ html {
   bottom: -42px;
   left: 0;
 }
+.resume-editable-section::after {
+  position: absolute;
+  z-index: 10;
+  right: 0;
+  bottom: -48px;
+  left: 0;
+  height: 48px;
+  content: "";
+}
 .resume-editable-section:not(.is-selected) .resume-section-insert {
   visibility: hidden;
   pointer-events: none;
@@ -768,6 +777,10 @@ html {
     display: none;
     margin-bottom: 12px;
     transform: none;
+  }
+
+  .resume-editable-section::after {
+    display: none;
   }
 
   .resume-editable-section.is-selected .resume-section-insert,
