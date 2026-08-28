@@ -485,6 +485,10 @@ test("pasted notes create grounded common-section suggestions behind explicit ap
   for (const phrase of ["줄글 입력", "AI에게 추가로 요청", "채울 공통 정보 섹션", "검토할 제안 만들기", "승인하거나 거부"]) {
     assert.match(panel, new RegExp(phrase));
   }
+  assert.ok(panel.indexOf("정리할 줄글") > panel.indexOf("<main"));
+  assert.match(panel, /lg:grid-cols-\[240px_minmax\(0,1fr\)\]/);
+  assert.match(panel, /textarea className="wg-field block min-h-40 w-full min-w-0/);
+  assert.match(panel, /채울 공통 정보 섹션[\s\S]*sm:grid-cols-2/);
   assert.match(panel, /\/api\/resume\/documents\/imports\/text/);
   assert.match(route, /ResumeDocumentQuickFillRequestSchema/);
   assert.match(route, /createResumeDocumentQuickFill/);

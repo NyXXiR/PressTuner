@@ -428,35 +428,9 @@ export function ResumeDocumentImportPanel({
             <X className="h-4 w-4" />
           </button>
         </header>
-        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="overflow-y-auto border-b border-border bg-muted/20 p-4 lg:border-b-0 lg:border-r">
-            <div aria-label="자료 입력 방식" className="mb-3 grid grid-cols-2 border border-border bg-background p-1" role="tablist"><button aria-selected={inputMode === "text"} className={`h-9 text-xs font-extrabold ${inputMode === "text" ? "bg-foreground text-background" : "text-muted-foreground"}`} onClick={() => setInputMode("text")} role="tab" type="button">줄글 입력</button><button aria-selected={inputMode === "pdf"} className={`h-9 text-xs font-extrabold ${inputMode === "pdf" ? "bg-foreground text-background" : "text-muted-foreground"}`} onClick={() => setInputMode("pdf")} role="tab" type="button">PDF</button></div>
-            {inputMode === "text" ? <div className="grid gap-3 border border-primary/30 bg-background p-3">
-              <label className="grid min-w-0 gap-1.5 text-xs font-extrabold">정리할 줄글<textarea className="wg-field box-border min-h-36 w-full min-w-0 max-w-full resize-y p-3 text-xs font-normal leading-5" maxLength={20_000} placeholder="기존 이력서나 메모에서 내용을 대충 붙여넣으세요. AI는 여기에 명시된 사실만 제안으로 만듭니다." value={sourceText} onChange={(event) => setSourceText(event.target.value)} /></label>
-              <label className="grid min-w-0 gap-1.5 text-xs font-extrabold">AI에게 추가로 요청 <span className="font-normal text-muted-foreground">(선택)</span><textarea className="wg-field box-border min-h-20 w-full min-w-0 max-w-full resize-y p-3 text-xs font-normal leading-5" maxLength={1_000} placeholder="예: 프로젝트별 문제·행동·성과가 드러나게 경력 상세로 나눠줘" value={instruction} onChange={(event) => setInstruction(event.target.value)} /></label>
-              <fieldset><legend className="text-xs font-extrabold">채울 공통 정보 섹션</legend><div className="mt-2 grid gap-1.5">{commonSections.map((section) => <label className="flex cursor-pointer items-center gap-2 border border-border px-2.5 py-2 text-xs font-bold" key={section.id}><input checked={targetSectionIds.includes(section.id)} type="checkbox" onChange={(event) => setTargetSectionIds((current) => event.target.checked ? [...current, section.id] : current.filter((id) => id !== section.id))} /><span className="min-w-0 truncate">{section.title}</span><span className="ml-auto text-[9px] font-normal text-muted-foreground">{section.kind}</span></label>)}</div></fieldset>
-              <button className="inline-flex h-10 items-center justify-center gap-2 bg-primary px-3 text-xs font-extrabold text-primary-foreground disabled:opacity-40" disabled={generating || sourceText.trim().length < 20 || targetSectionIds.length === 0} onClick={() => void createFromText()} type="button">{generating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "제안 만드는 중…" : "검토할 제안 만들기"}</button>
-              <p className="text-[10px] leading-4 text-muted-foreground">AI가 바로 문서를 수정하지 않습니다. 생성된 각 제안을 승인하거나 거부해 주세요.</p>
-            </div> : <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center border border-dashed border-primary/50 bg-background p-4 text-center">
-              <input
-                accept="application/pdf,.pdf"
-                className="sr-only"
-                disabled={uploading}
-                type="file"
-                onChange={(event) => {
-                  void upload(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
-              />
-              <FileUp className="h-6 w-6 text-primary" />
-              <span className="mt-2 text-sm font-extrabold">
-                {uploading ? "업로드 중…" : "잡코리아 PDF 선택"}
-              </span>
-              <span className="mt-1 text-[10px] text-muted-foreground">
-                텍스트 PDF · 최대 20MB
-              </span>
-            </label>}
-            <div className="mt-4 border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-950">
+        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[240px_minmax(0,1fr)] lg:overflow-hidden">
+          <aside className="order-2 border-t border-border bg-muted/20 p-4 lg:order-1 lg:overflow-y-auto lg:border-r lg:border-t-0">
+            <div className="border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-950">
               <ShieldCheck className="mb-2 h-4 w-4" />
               입력 자료는 AI 제안 생성에 사용됩니다. 민감한 내용은 필요한 부분만 넣고,
               인적사항·병역·보훈 제안은 특히 확인한 뒤 승인해 주세요.
@@ -485,19 +459,46 @@ export function ResumeDocumentImportPanel({
               ))}
             </div>
           </aside>
-          <main className="min-h-0 overflow-y-auto p-5">
+          <main className="order-1 min-w-0 p-4 sm:p-5 lg:order-2 lg:overflow-y-auto">
             {error && (
               <div className="mb-4 flex items-start gap-2 border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
+            <section className="mb-5 min-w-0 border border-primary/30 bg-background">
+              <div aria-label="자료 입력 방식" className="grid grid-cols-2 border-b border-border bg-muted/20 p-1" role="tablist"><button aria-selected={inputMode === "text"} className={`h-10 text-xs font-extrabold ${inputMode === "text" ? "bg-foreground text-background" : "text-muted-foreground"}`} onClick={() => setInputMode("text")} role="tab" type="button">줄글 입력</button><button aria-selected={inputMode === "pdf"} className={`h-10 text-xs font-extrabold ${inputMode === "pdf" ? "bg-foreground text-background" : "text-muted-foreground"}`} onClick={() => setInputMode("pdf")} role="tab" type="button">PDF</button></div>
+              {inputMode === "text" ? <div className="grid min-w-0 gap-4 p-4 sm:p-5">
+                <label className="grid min-w-0 gap-2"><span className="text-xs font-extrabold">정리할 줄글</span><textarea className="wg-field block min-h-40 w-full min-w-0 resize-y p-3 text-sm font-normal leading-6" maxLength={20_000} placeholder="기존 이력서나 메모에서 내용을 대충 붙여넣으세요. AI는 여기에 명시된 사실만 제안으로 만듭니다." value={sourceText} onChange={(event) => setSourceText(event.target.value)} /></label>
+                <label className="grid min-w-0 gap-2"><span className="text-xs font-extrabold">AI에게 추가로 요청 <span className="font-normal text-muted-foreground">(선택)</span></span><textarea className="wg-field block min-h-24 w-full min-w-0 resize-y p-3 text-sm font-normal leading-6" maxLength={1_000} placeholder="예: 프로젝트별 문제·행동·성과가 드러나게 경력 상세로 나눠줘" value={instruction} onChange={(event) => setInstruction(event.target.value)} /></label>
+                <fieldset className="min-w-0"><legend className="text-xs font-extrabold">채울 공통 정보 섹션</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{commonSections.map((section) => <label className="flex min-w-0 cursor-pointer items-center gap-2 border border-border px-3 py-2.5 text-xs font-bold" key={section.id}><input checked={targetSectionIds.includes(section.id)} type="checkbox" onChange={(event) => setTargetSectionIds((current) => event.target.checked ? [...current, section.id] : current.filter((id) => id !== section.id))} /><span className="min-w-0 truncate">{section.title}</span><span className="ml-auto shrink-0 text-[9px] font-normal text-muted-foreground">{section.kind}</span></label>)}</div></fieldset>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><p className="text-[11px] leading-5 text-muted-foreground">AI가 바로 문서를 수정하지 않습니다. 생성된 각 제안을 승인하거나 거부해 주세요.</p><button className="inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-primary px-4 text-xs font-extrabold text-primary-foreground disabled:opacity-40" disabled={generating || sourceText.trim().length < 20 || targetSectionIds.length === 0} onClick={() => void createFromText()} type="button">{generating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "제안 만드는 중…" : "검토할 제안 만들기"}</button></div>
+              </div> : <label className="m-4 flex min-h-44 cursor-pointer flex-col items-center justify-center border border-dashed border-primary/50 bg-muted/10 p-5 text-center sm:m-5">
+                <input
+                  accept="application/pdf,.pdf"
+                  className="sr-only"
+                  disabled={uploading}
+                  type="file"
+                  onChange={(event) => {
+                    void upload(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <FileUp className="h-7 w-7 text-primary" />
+                <span className="mt-3 text-sm font-extrabold">
+                  {uploading ? "업로드 중…" : "잡코리아 PDF 선택"}
+                </span>
+                <span className="mt-1 text-[10px] text-muted-foreground">
+                  텍스트 PDF · 최대 20MB
+                </span>
+              </label>}
+            </section>
             {!selected ? (
-              <div className="grid min-h-64 place-items-center border border-dashed border-border text-center">
+              <div className="grid min-h-24 place-items-center border border-dashed border-border p-4 text-center">
                 <div>
-                  <FileSearch className="mx-auto h-8 w-8 text-muted-foreground" />
-                  <p className="mt-3 text-sm font-extrabold">
-                    왼쪽에서 줄글을 입력하거나 PDF를 선택해 시작하세요.
+                  <FileSearch className="mx-auto h-6 w-6 text-muted-foreground" />
+                  <p className="mt-2 text-xs font-extrabold">
+                    위에서 자료를 입력하면 검토할 제안이 여기에 표시됩니다.
                   </p>
                 </div>
               </div>
