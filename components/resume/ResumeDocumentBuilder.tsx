@@ -78,6 +78,7 @@ import type { ResumePdfSnapshot } from "@/domain/resume-documents/pdfSnapshot";
 import {
   calculateAutomaticCareerDurationMonths,
   normalizeCareerDurationOverride,
+  sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
 import { useResumeDocumentPersistence } from "@/components/resume/useResumeDocumentPersistence";
 import { ResumeItemDateFields } from "@/components/resume/ResumeItemDateFields";
@@ -712,7 +713,7 @@ function TodoChip({ count }: { count: number }) {
   return <span className="shrink-0 border border-wg-todo/40 bg-wg-todo/10 px-1.5 py-0.5 text-[10px] font-extrabold text-wg-todo">작성 필요 {count}</span>;
 }
 
-function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
+function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", dragControls, headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
   index: number;
   item: ItemContent;
   sectionId: string;
@@ -722,6 +723,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
   showBody?: boolean;
   collapsible?: boolean;
   tone?: "default" | "override" | "hidden";
+  dragControls?: DragControls;
   headerExtra?: React.ReactNode;
   headerNote?: React.ReactNode;
   canMoveUp?: boolean;
@@ -758,6 +760,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
       {showBody && (todoCount > 0 ? <TodoChip count={todoCount} /> : <DoneMark />)}
     </span>
     <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+      {dragControls && <button aria-label={`${label} 순서 끌어 이동`} className="grid h-8 w-8 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button>}
       {headerExtra}
       {collapsible && <span aria-hidden="true" className="grid h-8 w-8 place-items-center border border-border bg-background" data-item-chevron><ChevronDown className="h-4 w-4" /></span>}
       {onMoveUp && <button aria-label={`${label} 위로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-40" disabled={!canMoveUp} onClick={onMoveUp} type="button"><ArrowUp className="h-3.5 w-3.5" /></button>}
@@ -779,23 +782,61 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
   </fieldset>;
 }
 
+function SortableItemEditorCard(props: React.ComponentProps<typeof ItemEditorCard>) {
+  const dragControls = useDragControls();
+  return <Reorder.Item className="list-none" dragControls={dragControls} dragListener={false} layout="position" transition={{ layout: { duration: .18, ease: "easeOut" } }} value={props.item.id} whileDrag={{ opacity: .86, scale: 1.005, zIndex: 30 }}>
+    <ItemEditorCard {...props} dragControls={dragControls} />
+  </Reorder.Item>;
+}
+
 function ItemsEditor({ section, content, workItems, onChange }: { section: ResumeSection; content: ItemsContent; workItems: ItemContent[]; onChange: (content: SectionContent) => void }) {
-  const updateItem = (id: string, patch: Partial<ItemContent>) => onChange({ ...content, items: content.items.map((item) => item.id === id ? { ...item, ...patch } : item) });
+  const isTimeline = isCareerTimelineSectionId(section.id);
+  const orderedItems = isTimeline ? sortExperienceItems(content.items, content.sortDirection) : content.items;
+  const updateItem = (id: string, patch: Partial<ItemContent>) => {
+    const nextItems = content.items.map((item) => item.id === id ? { ...item, ...patch } : item);
+    onChange({
+      ...content,
+      items: isTimeline && content.sortDirection
+        ? sortExperienceItems(nextItems, content.sortDirection)
+        : nextItems,
+    });
+  };
+  const reorderItems = (itemIds: string[]) => {
+    const byId = new Map(content.items.map((item) => [item.id, item]));
+    const items = itemIds.flatMap((id) => byId.get(id) ?? []);
+    onChange({ ...content, sortDirection: undefined, items });
+  };
+  const moveItem = (itemId: string, offset: -1 | 1) => {
+    const itemIds = orderedItems.map((item) => item.id);
+    const index = itemIds.indexOf(itemId);
+    const target = index + offset;
+    if (index < 0 || target < 0 || target >= itemIds.length) return;
+    [itemIds[index], itemIds[target]] = [itemIds[target], itemIds[index]];
+    reorderItems(itemIds);
+  };
+  const updateSortDirection = (sortDirection: ItemsContent["sortDirection"]) => onChange({
+    ...content,
+    sortDirection,
+    items: sortDirection ? sortExperienceItems(content.items, sortDirection) : content.items,
+  });
   const hasManualDuration = content.careerDurationOverrideMonths !== undefined
     && Number.isFinite(content.careerDurationOverrideMonths)
     && content.careerDurationOverrideMonths >= 0;
   const durationMonths = hasManualDuration ? Math.trunc(content.careerDurationOverrideMonths!) : 0;
   const durationControls = isCareerTimelineSectionId(section.id) && <EditorBlock note="PDF 제목 옆에 표시됩니다" title={section.id === "experience" ? "경력 표시 설정" : "경력 상세 표시 설정"}>
     <div className="grid gap-4 sm:grid-cols-2">
-      <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">시작 연월 정렬<select className="wg-field h-10 px-3 text-sm font-normal" value={content.sortDirection ?? ""} onChange={(event) => onChange({ ...content, sortDirection: (event.target.value || undefined) as ItemsContent["sortDirection"] })}><option value="">수동 순서</option><option value="latest-first">최신순</option><option value="oldest-first">오래된순</option></select></label>
+      <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">시작 연월 정렬<select className="wg-field h-10 px-3 text-sm font-normal" value={content.sortDirection ?? ""} onChange={(event) => updateSortDirection((event.target.value || undefined) as ItemsContent["sortDirection"])}><option value="">수동 순서</option><option value="latest-first">최신순</option><option value="oldest-first">오래된순</option></select></label>
       {section.id === "experience" && <fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">총 경력</legend><div className="flex flex-wrap gap-3"><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={!hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...content, careerDurationOverrideMonths: undefined })} /> 자동 계산</label><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...content, careerDurationOverrideMonths: calculateAutomaticCareerDurationMonths(content.items, currentLocalMonth()) })} /> 직접 입력</label></div>{hasManualDuration && <div className="mt-3 grid grid-cols-2 gap-2"><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 연<input aria-label="경력 연" className="wg-field h-10 px-3 text-sm" min={0} type="number" value={Math.floor(durationMonths / 12)} onChange={(event) => onChange({ ...content, careerDurationOverrideMonths: normalizeCareerDurationOverride(Number(event.target.value), durationMonths % 12) })} /></label><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 개월<input aria-label="경력 개월" className="wg-field h-10 px-3 text-sm" max={11} min={0} type="number" value={durationMonths % 12} onChange={(event) => onChange({ ...content, careerDurationOverrideMonths: normalizeCareerDurationOverride(Math.floor(durationMonths / 12), Number(event.target.value)) })} /></label></div>}</fieldset>}
     </div>
   </EditorBlock>;
   return <div className="grid gap-4">
     {durationControls}
-    <div className="grid gap-3">{content.items.map((item, index) => <ItemEditorCard
+    {orderedItems.length > 1 && <p className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground"><GripVertical className="h-3.5 w-3.5" /> 핸들을 드래그하거나 화살표 버튼으로 실제 표시 순서를 바꿀 수 있습니다.{content.sortDirection && " 드래그하면 수동 순서로 전환됩니다."}</p>}
+    <Reorder.Group axis="y" className="grid gap-3" onReorder={reorderItems} values={orderedItems.map((item) => item.id)}>{orderedItems.map((item, index) => <SortableItemEditorCard
       bodyLabel="설명"
       bodyRequired={section.id === "experience"}
+      canMoveDown={index < orderedItems.length - 1}
+      canMoveUp={index > 0}
       collapsible
       index={index}
       item={item}
@@ -804,7 +845,9 @@ function ItemsEditor({ section, content, workItems, onChange }: { section: Resum
       workItems={workItems}
       onChange={(patch) => updateItem(item.id, patch)}
       onDelete={() => onChange({ ...content, items: content.items.filter((entry) => entry.id !== item.id) })}
-    />)}</div>
+      onMoveDown={() => moveItem(item.id, 1)}
+      onMoveUp={() => moveItem(item.id, -1)}
+    />)}</Reorder.Group>
     <button className="inline-flex h-11 items-center justify-center gap-2 border border-dashed border-primary px-4 text-sm font-bold text-primary" onClick={() => onChange({ ...content, items: [...content.items, { id: `item-${Date.now()}`, itemKind: defaultItemKind(section.id), detailType: section.id === "projects" ? "project" : undefined, meta: "", startMonth: "", endMonth: "", endMonthEnabled: false, isCurrent: false, title: "", subtitle: "", body: "" }] })} type="button"><Plus className="h-4 w-4" /> 항목 추가</button>
   </div>;
 }

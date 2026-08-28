@@ -377,6 +377,17 @@ test("experience presentation exposes persisted sort and duration controls in ed
   assert.doesNotMatch(durationNode, /print:hidden|resume-section-controls/);
 });
 
+test("timeline item editors visibly apply date sorting and support persisted manual reordering", async () => {
+  const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /sortExperienceItems\(nextItems, content\.sortDirection\)/);
+  assert.match(source, /sortExperienceItems\(content\.items, sortDirection\)/);
+  assert.match(source, /Reorder\.Group[^>]+onReorder=\{reorderItems\}/);
+  assert.match(source, /dragControls\.start\(event\)/);
+  assert.match(source, /sortDirection: undefined, items/);
+  assert.match(source, /드래그하면 수동 순서로 전환/);
+});
+
 test("all item editors share semantic item-kind date controls", async () => {
   const [builder, panel, fields] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
