@@ -31,6 +31,7 @@ const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_UNBREAKABLE_BODY_UNITS = 220;
 const ITEM_OPENING_BODY_UNITS = 180;
 const ITEM_BODY_WIDOWS = 3;
+const TAG_GROUP_OPENING_PRESENCE_POINTS = 32;
 const UNINTERRUPTED_TEXT = /\S{24,}/gu;
 const FULL_WIDTH_GLYPH_EM = 0.94;
 
@@ -276,7 +277,7 @@ function NarrativeSection({ section }: { section: Extract<ResumePdfSection, { ki
 function TagsSection({ section }: { section: Extract<ResumePdfSection, { kind: "tags" }> }) {
   const groups = normalizeTagGroups(section.content);
   return <><SectionHeading section={section} />{groups.some((group) => group.items.length)
-    ? <View style={styles.tagGroups}>{groups.map((group) => <View key={group.id}>{group.title ? <Text style={styles.tagGroupTitle}>{group.title}</Text> : null}<View style={styles.tags}>{group.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag} wrap={false}>{item}</Text>)}</View></View>)}</View>
+    ? <View style={styles.tagGroups}>{groups.map((group) => <View key={group.id}>{group.title ? <Text minPresenceAhead={TAG_GROUP_OPENING_PRESENCE_POINTS} style={styles.tagGroupTitle} wrap={false}>{group.title}</Text> : null}<View style={styles.tags}>{group.items.map((item, index) => <Text key={`${item}-${index}`} style={styles.tag} wrap={false}>{item}</Text>)}</View></View>)}</View>
     : <EmptyCopy />}</>;
 }
 
