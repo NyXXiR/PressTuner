@@ -211,15 +211,11 @@ export function ResumeAiJsonEditDialog({
 
           {prepared && (
             <section className="mt-6 border border-primary/30 bg-primary/5 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-primary">PREVIEW</p>
                   <h3 className="mt-1 text-lg font-extrabold">섹션별 검토 · 변경 {prepared.changes.length}개</h3>
                   <p className="mt-1 text-xs text-muted-foreground">모든 섹션이 기본 선택됩니다. 반영하지 않을 섹션만 체크 해제하세요.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="inline-flex h-10 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={applyAll} type="button"><Check className="h-4 w-4" /> 전체 승인·반영</button>
-                  <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button"><Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용</button>
                 </div>
               </div>
 
@@ -266,8 +262,15 @@ export function ResumeAiJsonEditDialog({
           )}
         </div>
 
-        <footer className="flex shrink-0 justify-end border-t border-border bg-muted/30 p-4">
-          <button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onClose} type="button">닫기</button>
+        <footer className="flex shrink-0 flex-col gap-3 border-t border-border bg-background p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] sm:flex-row sm:items-center sm:justify-between" data-ai-review-actions>
+          {prepared ? <p className="text-xs font-bold">선택 {selectedSectionIds.length}/{sectionGroups.length}개 섹션 · 변경 {selectedChangeCount}개</p> : <span />}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onClose} type="button">닫기</button>
+            {prepared && <>
+              <button className="inline-flex h-10 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={applyAll} type="button"><Check className="h-4 w-4" /> 전체 승인·반영</button>
+              <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button"><Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용</button>
+            </>}
+          </div>
         </footer>
       </section>
     </div>

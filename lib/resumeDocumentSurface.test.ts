@@ -101,6 +101,8 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /섹션별 검토/);
   assert.match(dialog, /선택한 섹션/);
   assert.match(dialog, /전체 승인·반영/);
+  assert.match(dialog, /data-ai-review-actions/);
+  assert.match(dialog, /shadow-\[0_-8px_24px/);
   assert.match(dialog, /ResumeEditorSection/);
   assert.match(dialog, /수정 전/);
   assert.match(dialog, /수정 후/);
