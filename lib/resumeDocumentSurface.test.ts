@@ -86,6 +86,25 @@ test("resume documents progressively disclose support branches and use task-orie
   assert.doesNotMatch(source, /> PDF로 저장</);
 });
 
+test("resume documents exchange scoped AI edits as one validated JSON bundle", async () => {
+  const [builder, dialog, contract] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeAiJsonEditDialog.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../domain/resume-documents/aiEdit.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(builder, /ResumeAiJsonEditDialog/);
+  assert.match(builder, /AI JSON 편집/);
+  assert.match(dialog, /GPT에 전달할 JSON 복사/);
+  assert.match(dialog, /GPT의 결과 JSON 붙여넣기/);
+  assert.match(dialog, /변경 내용 확인/);
+  assert.match(dialog, /이 변경 적용/);
+  assert.match(contract, /baseFingerprint/);
+  assert.match(contract, /RESUME_AI_EDIT_CONTEXT_CHANGED/);
+  assert.match(contract, /UPDATE_NARRATIVE/);
+  assert.doesNotMatch(dialog, /prisma/i);
+});
+
 test("resume section toolbars stay visible while insertion controls remain contextual", async () => {
   const [source, styles] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),

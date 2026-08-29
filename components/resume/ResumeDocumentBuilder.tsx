@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Braces, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
 import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,7 +72,9 @@ import { DateInput } from "@/components/ui/DateInput";
 import { formatDateOnly } from "@/components/ui/dateOnly";
 import { applyResumeImportCommand, type ResumeDocumentImportCommand } from "@/domain/resume-documents/importCandidate";
 import { ResumeDocumentImportPanel } from "@/components/resume/ResumeDocumentImportPanel";
+import { ResumeAiJsonEditDialog } from "@/components/resume/ResumeAiJsonEditDialog";
 import { ResumePdfPreviewDialog } from "@/components/resume/ResumePdfPreviewDialog";
+import type { ResumeAiEditContext } from "@/domain/resume-documents/aiEdit";
 import {
   ResumeEditorHeader,
   ResumeEditorSection,
@@ -174,6 +176,7 @@ export function ResumeDocumentBuilder() {
   const [itemEditor, setItemEditor] = useState<ItemEditorState | null>(null);
   const [experienceDialogOpen, setExperienceDialogOpen] = useState(false);
   const [importPanelOpen, setImportPanelOpen] = useState(false);
+  const [aiEditOpen, setAiEditOpen] = useState(false);
   const [sharedSectionDialogOpen, setSharedSectionDialogOpen] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [newSectionTemplateId, setNewSectionTemplateId] = useState(DEFAULT_SECTION_TEMPLATE_ID);
@@ -186,11 +189,11 @@ export function ResumeDocumentBuilder() {
   const [pdfSnapshot, setPdfSnapshot] = useState<ResumePdfSnapshot | null>(null);
   const experienceSyncUndoRef = useRef<ResumeDocumentState | null>(null);
   useEffect(() => {
-    if (!draft && !insertAfterId && !experienceDialogOpen && !importPanelOpen && !readinessOpen && !sharedSectionDialogOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setExperienceDialogOpen(false); setImportPanelOpen(false); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
+    if (!draft && !insertAfterId && !experienceDialogOpen && !importPanelOpen && !aiEditOpen && !readinessOpen && !sharedSectionDialogOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setExperienceDialogOpen(false); setImportPanelOpen(false); setAiEditOpen(false); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [draft, experienceDialogOpen, importPanelOpen, insertAfterId, readinessOpen, sharedSectionDialogOpen]);
+  }, [aiEditOpen, draft, experienceDialogOpen, importPanelOpen, insertAfterId, readinessOpen, sharedSectionDialogOpen]);
 
   const active = useMemo(() => state.variants.find((item) => item.id === state.activeVariantId), [state]);
   const activeProfile = useMemo(() => state.roleProfiles.find((item) => item.id === (active?.roleProfileId ?? state.activeRoleProfileId)) ?? state.roleProfiles[0], [active?.roleProfileId, state.activeRoleProfileId, state.roleProfiles]);
@@ -251,6 +254,16 @@ export function ResumeDocumentBuilder() {
     setState((current) => applyResumeImportCommand(current, command));
   }, [setState]);
   if (!activeProfile) return null;
+  const aiEditContext: ResumeAiEditContext = view === "shared"
+    ? { scope: "shared" }
+    : active
+      ? { scope: "variant", roleProfileId: activeProfile.id, variantId: active.id }
+      : { scope: "role", roleProfileId: activeProfile.id };
+  const aiEditContextLabel = view === "shared"
+    ? "공통 정보"
+    : active
+      ? `${activeProfile.name} → ${active.name}`
+      : `${activeProfile.name} 직군 기본`;
   const printableSections = orderedSections.map((section) => {
     const resolved = resolveSection(section, activeProfile, active);
     return {
@@ -361,7 +374,10 @@ export function ResumeDocumentBuilder() {
       <header className="resume-builder-chrome border-b-2 border-foreground pb-5">
         <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
           <div><p className="flex items-center gap-2 text-[11px] font-bold tracking-[.18em] text-primary"><FileText className="h-4 w-4" /> RESUME DOCUMENTS</p><h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">이력서 문서 편집</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">공통 정보를 직군별 이력서로 다듬으세요. 같은 직군에 여러 장이 필요할 때만 회사별 지원 버전을 추가할 수 있습니다.</p></div>
-          {view === "resume" && <div className="resume-builder-actions flex flex-wrap gap-2"><button className="inline-flex h-11 items-center gap-2 border border-border bg-background px-4 text-sm font-bold text-foreground hover:border-primary hover:text-primary" onClick={() => setImportPanelOpen(true)}><FileUp className="h-4 w-4" /> 자료로 공통 정보 채우기</button><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setReadinessOpen(true)}><ClipboardCheck className="h-4 w-4" /> 작성 점검{readinessIssues.length > 0 && <span className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{readinessIssues.length}</span>}</button><button className="inline-flex h-11 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" disabled={!hydrated} onClick={openPdfPreview}><Printer className="h-4 w-4" /> PDF 미리보기</button></div>}
+          <div className="resume-builder-actions flex flex-wrap gap-2">
+            <button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={!hydrated} onClick={() => setAiEditOpen(true)} type="button"><Braces className="h-4 w-4" /> AI JSON 편집</button>
+            {view === "resume" && <><button className="inline-flex h-11 items-center gap-2 border border-border bg-background px-4 text-sm font-bold text-foreground hover:border-primary hover:text-primary" onClick={() => setImportPanelOpen(true)}><FileUp className="h-4 w-4" /> 자료로 공통 정보 채우기</button><button className="inline-flex h-11 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={() => setReadinessOpen(true)}><ClipboardCheck className="h-4 w-4" /> 작성 점검{readinessIssues.length > 0 && <span className="bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{readinessIssues.length}</span>}</button><button className="inline-flex h-11 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" disabled={!hydrated} onClick={openPdfPreview}><Printer className="h-4 w-4" /> PDF 미리보기</button></>}
+          </div>
         </div>
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div aria-label="이력서 문서 화면" className="flex flex-wrap border border-border bg-background p-1" role="tablist"><Tab active={view === "resume"} onClick={() => setView("resume")}>직군 이력서</Tab><Tab active={view === "shared"} onClick={() => setView("shared")}>공통 정보</Tab></div>
@@ -420,6 +436,7 @@ export function ResumeDocumentBuilder() {
       {itemEditor && <ItemTailoringDialog state={state} profileId={activeProfile.id} variantId={itemEditor.scope === "document" ? active?.id : undefined} scope={itemEditor.scope} section={itemEditor.section} workItems={resolvedWorkItems} onSave={setState} onClose={() => setItemEditor(null)} onEditParent={() => { const parentContent = itemEditor.scope === "role" ? itemEditor.section.content : resolveSection(itemEditor.section, activeProfile).content; setItemEditor(null); openEditor(itemEditor.scope === "role" ? "shared" : "role", itemEditor.section, parentContent); }} onEditCurrent={() => { const content = resolveSection(itemEditor.section, activeProfile, itemEditor.scope === "document" ? active : undefined).content; setItemEditor(null); openEditor(itemEditor.scope === "document" ? "variant" : "role", itemEditor.section, content); }} />}
       {experienceDialogOpen && <ExperienceBrickSyncDialog state={state} onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} onUndo={undoExperienceBrickSync} />}
       {importPanelOpen && <ResumeDocumentImportPanel commonSections={state.sharedSections} sections={orderedSections} workItems={resolvedWorkItems} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
+      {aiEditOpen && <ResumeAiJsonEditDialog context={aiEditContext} contextLabel={aiEditContextLabel} state={state} onApply={setState} onClose={() => setAiEditOpen(false)} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} onIssue={focusReadinessIssue} />}
       {pdfSnapshot && <ResumePdfPreviewDialog onClose={() => setPdfSnapshot(null)} onPageBreakBeforeChange={setPdfSectionPageBreak} snapshot={pdfSnapshot} />}
     </div>
