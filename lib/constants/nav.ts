@@ -46,9 +46,9 @@ export const PRESS_DASHBOARD_GROUPS: AppNavGroup[] = [
     label: "MY SPACE",
     items: [
       { label: "새 보도자료 작성", href: "/press/new", icon: Sparkles },
-      { label: "내 대시보드", href: "/my/dashboard", icon: LayoutDashboard },
-      { label: "내 보도자료 목록", href: "/my/articles", icon: FileText },
-      { label: "검토 대기 목록", href: "/my/articles/pending", icon: Clock },
+      { label: "내 대시보드", href: "/press/dashboard", icon: LayoutDashboard },
+      { label: "내 보도자료 목록", href: "/press/articles", icon: FileText },
+      { label: "검토 대기 목록", href: "/press/articles", icon: Clock },
     ],
   },
   {

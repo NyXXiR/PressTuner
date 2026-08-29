@@ -39,19 +39,19 @@ const NAV_ITEMS = [
   {
     label: "대시보드",
     mobileLabel: "현황",
-    href: "/my/dashboard",
+    href: "/press/dashboard",
     icon: LayoutDashboard,
-    match: (pathname: string) => pathname.startsWith("/my/dashboard"),
+    match: (pathname: string) => pathname.startsWith("/press/dashboard"),
     primary: false,
     prefetch: false,
   },
   {
     label: "보도자료 목록",
     mobileLabel: "목록",
-    href: "/my/articles",
+    href: "/press/articles",
     icon: Files,
     match: (pathname: string) =>
-      pathname === "/my/articles" || pathname.startsWith("/articles/"),
+      pathname === "/press/articles" || pathname.startsWith("/press/articles/"),
     primary: false,
     prefetch: false,
   },

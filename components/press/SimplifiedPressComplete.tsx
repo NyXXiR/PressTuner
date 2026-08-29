@@ -184,7 +184,7 @@ export function SimplifiedPressComplete() {
       <PressSimplifiedWorkspace mainClassName="max-w-4xl">
         <div className="mb-6 border-b border-border/70 pb-5">
           <Link
-            href="/my/articles"
+            href="/press/articles"
             className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -251,7 +251,7 @@ export function SimplifiedPressComplete() {
               {copied ? "복사됨" : "복사"}
             </button>
             <Link
-              href="/my/articles"
+              href="/press/articles"
               className="inline-flex h-11 items-center justify-center gap-2 bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90"
             >
               보도자료 목록

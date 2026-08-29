@@ -70,11 +70,11 @@ test("mobile workspace nav uses sticky segmented tabs instead of horizontal chip
   );
 });
 
-test("legacy pending-review article page redirects to the personal article list", () => {
+test("legacy pending-review article page redirects to the canonical press article list", () => {
   const pendingPage = source("app/(dashboard)/my/articles/pending/page.tsx");
 
   assert.match(pendingPage, /import\s+\{\s*redirect\s*\}\s+from\s+"next\/navigation"/);
-  assert.match(pendingPage, /redirect\(\s*"\/my\/articles"\s*\)/);
+  assert.match(pendingPage, /redirect\(\s*"\/press\/articles"\s*\)/);
   assertAbsent(pendingPage, ["fetchWithLoading", "검토 요청 관리", "/api/my/articles/pending"], "pending page");
 });
 

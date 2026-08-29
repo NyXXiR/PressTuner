@@ -41,7 +41,7 @@ const TRACKS = [
 export function BriefFlowLandingPage() {
   return (
     <>
-      <AuthRedirectIfAuthed redirectTo="/my/dashboard" />
+      <AuthRedirectIfAuthed usePreferredProductEntry />
       <MarketingHome />
     </>
   );

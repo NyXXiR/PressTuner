@@ -41,11 +41,10 @@ function isPressWorkspacePath(pathname: string | null) {
   if (!pathname) return false;
   return (
     pathname === "/press/knowledge" ||
-    pathname === "/my/dashboard" ||
-    pathname === "/my/articles" ||
+    pathname === "/press/dashboard" ||
+    pathname === "/press/articles" ||
     pathname === "/my/notifications" ||
-    pathname.startsWith("/my/articles/") ||
-    pathname.startsWith("/articles/") ||
+    pathname.startsWith("/press/articles/") ||
     pathname.startsWith("/press/notices") ||
     pathname === "/press/pricing" ||
     pathname === "/press/contact"

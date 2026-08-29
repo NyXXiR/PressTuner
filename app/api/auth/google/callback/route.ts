@@ -125,7 +125,7 @@ export async function GET(req: Request) {
       } catch (e: any) {
         const res = NextResponse.redirect(
           new URL(
-            "/my/dashboard?error=oauth_already_linked",
+            "/press/dashboard?error=oauth_already_linked",
             process.env.NEXT_PUBLIC_APP_URL,
           ),
         );
@@ -134,7 +134,7 @@ export async function GET(req: Request) {
       }
 
       const res = NextResponse.redirect(
-        new URL("/my/dashboard?linked=google", process.env.NEXT_PUBLIC_APP_URL),
+        new URL("/press/dashboard?linked=google", process.env.NEXT_PUBLIC_APP_URL),
       );
       clearOauthCookies(res);
       return res;

@@ -44,7 +44,7 @@ export default function NextSteps({ articleId }: { articleId: string }) {
           팀 지식
         </a>
         <a
-          href={`/articles/${articleId}/edit`}
+          href={`/press/${articleId}/edit`}
           className="inline-flex items-center border border-border px-2 py-1 text-[11px] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           본문 다듬기

@@ -159,7 +159,7 @@ export default async function BillingCheckoutCompletePage() {
       {/* ✅ 하단 액션 버튼 */}
       <div className="mt-10 flex flex-col gap-3 print:hidden">
         <Link
-          href="/my/dashboard"
+          href="/press/dashboard"
           className="flex h-12 w-full items-center justify-center bg-primary text-sm font-bold text-primary-foreground transition-all hover:opacity-90 active:scale-[0.98]"
         >
           대시보드로 이동하여 시작하기

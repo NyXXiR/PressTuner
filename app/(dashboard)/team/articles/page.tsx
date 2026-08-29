@@ -370,7 +370,7 @@ function TeamArticlesContent() {
                   <td className="px-3 py-4">
                     <div className="flex flex-col min-w-0 max-w-[350px]">
                       <Link
-                        href={`/articles/${it.id}`}
+                        href={`/press/articles/${it.id}`}
                         className="text-sm font-semibold hover:underline decoration-primary/50 underline-offset-4 truncate"
                       >
                         {it.title || "(제목 없음)"}

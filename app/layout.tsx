@@ -7,6 +7,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import Toaster from "@/components/ui/Toaster";
 import { ClientPageTitle } from "@/components/common/ClientPageTitle";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
+import { ProductTrackPreferenceTracker } from "@/components/routing/ProductTrackPreferenceTracker";
 import { getPostHogClientConfig } from "@/lib/server/posthog-config";
 
 import { SITE_URL } from "@/lib/site-url";
@@ -87,6 +88,7 @@ export default function RootLayout({
           productArea="briefflow"
         >
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+            <ProductTrackPreferenceTracker />
             <ClientPageTitle />
             <div className="pt-app-spotlight min-h-screen">
               {children}

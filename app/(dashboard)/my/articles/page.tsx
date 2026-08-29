@@ -137,13 +137,13 @@ function MyArticlesContent() {
 
     setFilters({ status: nextStatus, period: null, type: [] });
     setPage(1);
-    router.replace("/my/articles");
+    router.replace("/press/articles");
   };
 
   const resetFilters = () => {
     setFilters({ q: "", type: [], period: null, status: [] });
     setQDraft("");
-    router.replace("/my/articles");
+    router.replace("/press/articles");
   };
 
   const totalPages = Math.max(1, list.totalPages || 1);
@@ -214,7 +214,7 @@ function MyArticlesContent() {
                 type="button"
                 onClick={() => {
                   setFilters({ period: null });
-                  router.replace("/my/articles");
+                  router.replace("/press/articles");
                 }}
                 className="text-primary/60 hover:text-primary"
                 aria-label="기간 필터 제거"
@@ -361,7 +361,7 @@ function MyArticlesContent() {
   );
 }
 
-export default function MyArticlesPage() {
+export function PressArticlesPage() {
   return (
     <Suspense
       fallback={
@@ -376,3 +376,5 @@ export default function MyArticlesPage() {
     </Suspense>
   );
 }
+
+export default PressArticlesPage;

@@ -63,7 +63,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         {/* 상단 툴바 */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-6">
           <Link
-            href="/my/articles"
+            href="/press/articles"
             className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft

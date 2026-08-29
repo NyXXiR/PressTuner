@@ -72,7 +72,7 @@ export function SignupForm({ email }: { email: string }) {
       const nextPath =
         data?.next && typeof data.next === "string" && data.next.startsWith("/")
           ? data.next
-          : "/my/dashboard";
+          : "/";
       trackGaEvent("signup_completed", {
         method: "google",
         next_path: nextPath,

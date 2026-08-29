@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const next =
       nextCookie?.value && nextCookie.value.startsWith("/")
         ? nextCookie.value
-        : "/my/dashboard";
+        : "/";
 
     const { session, userId } = await withTransientDatabaseRetry(() =>
       registerWithGoogle({

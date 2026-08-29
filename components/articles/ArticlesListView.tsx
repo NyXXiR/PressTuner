@@ -109,7 +109,7 @@ export function ArticlesListView({
 
   emptyTitle = "결과가 없습니다",
   emptyDescription = "검색어/필터를 조정해보세요.",
-  emptyCtaHref = "/articles/new",
+  emptyCtaHref = "/press/new",
   emptyCtaLabel = "새 보도자료 생성",
 }: ArticlesListViewProps) {
   const checkedSet = new Set(selectedIds);
@@ -192,7 +192,7 @@ export function ArticlesListView({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <Link
-                              href={`/articles/${it.id}`}
+                              href={`/press/articles/${it.id}`}
                               className="min-w-0 flex-1 truncate font-medium hover:underline"
                             >
                               {it.title || "(제목 없음)"}
@@ -229,7 +229,7 @@ export function ArticlesListView({
                             </select>
 
                             <Link
-                              href={`/articles/${it.id}/edit`}
+                              href={`/press/${it.id}/edit`}
                               className="border border-border px-2 py-1 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
                             >
                               수정
@@ -274,7 +274,7 @@ export function ArticlesListView({
                               />
                               <div className="min-w-0">
                                 <Link
-                                  href={`/articles/${it.id}`}
+                                  href={`/press/articles/${it.id}`}
                                   className="block truncate font-medium hover:underline"
                                 >
                                   {it.title || "(제목 없음)"}
@@ -282,7 +282,7 @@ export function ArticlesListView({
 
                                 <div className="mt-1 flex items-center gap-2 text-[12px] text-muted-foreground">
                                   <Link
-                                    href={`/articles/${it.id}/edit`}
+                                    href={`/press/${it.id}/edit`}
                                     className="hover:text-foreground"
                                   >
                                     수정

@@ -223,7 +223,7 @@ function buildPressRuleBasedGuide(input: {
       return {
         answer:
           "내가 작성 중이거나 저장한 보도자료는 개인 목록에서 확인하면 됩니다.",
-        links: [{ label: "개인 보도자료 목록", href: "/my/articles" }],
+        links: [{ label: "개인 보도자료 목록", href: "/press/articles" }],
       };
     }
 
@@ -385,7 +385,7 @@ Rules:
 Prefer linking to these pages when relevant:
 - /press/new : 새 보도자료 작성
 - /press/simplified : 새 보도자료 작성(compat redirect)
-- /my/articles : 개인 보도자료 목록
+- /press/articles : 개인 보도자료 목록
 - /team/articles : 팀 보도자료 목록
 - /contact : 문의
 

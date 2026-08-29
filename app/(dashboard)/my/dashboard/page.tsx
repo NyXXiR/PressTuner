@@ -36,7 +36,7 @@ function workHref(id: string, status: string) {
   return status === "FINAL" ? `/press/${id}/final` : `/press/${id}/edit`;
 }
 
-export default function MyDashboardPage() {
+export function PressDashboardPage() {
   const { me, loading: meLoading } = useMeStore();
   const {
     recent,
@@ -70,7 +70,7 @@ export default function MyDashboardPage() {
           description="최근 작업과 이번 달 작성 현황만 빠르게 확인합니다."
         />
         <PageCTAGroup>
-          <PageCTA href="/my/articles" variant="secondary">
+          <PageCTA href="/press/articles" variant="secondary">
             보도자료 목록
           </PageCTA>
           <PageCTA href="/press/new">
@@ -84,7 +84,7 @@ export default function MyDashboardPage() {
         aria-label="작업 요약"
         className="mt-10 grid grid-cols-3 divide-x divide-border border-y border-border"
       >
-        <Link href="/my/articles?period=current_month" className="block">
+        <Link href="/press/articles?period=current_month" className="block">
           <div className="px-4 py-5 sm:px-6">
             <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground">
               이번 달 생성
@@ -100,7 +100,7 @@ export default function MyDashboardPage() {
             </p>
           </div>
         </Link>
-        <Link href="/my/articles?status=FINAL&period=current_month" className="block">
+        <Link href="/press/articles?status=FINAL&period=current_month" className="block">
           <div className="px-4 py-5 sm:px-6">
             <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground">
               이번 달 완료
@@ -116,7 +116,7 @@ export default function MyDashboardPage() {
             </p>
           </div>
         </Link>
-        <Link href="/my/articles" className="block">
+        <Link href="/press/articles" className="block">
           <div className="px-4 py-5 sm:px-6">
             <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground">
               최근 작업
@@ -216,3 +216,5 @@ export default function MyDashboardPage() {
     </div>
   );
 }
+
+export default PressDashboardPage;

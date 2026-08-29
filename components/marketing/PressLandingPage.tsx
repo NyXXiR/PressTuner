@@ -43,7 +43,7 @@ const USE_CASES = [
 export function PressLandingPage() {
   return (
     <>
-      <AuthRedirectIfAuthed redirectTo="/my/dashboard" />
+      <AuthRedirectIfAuthed redirectTo="/press/dashboard" />
       <MarketingPressHome />
     </>
   );
