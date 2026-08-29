@@ -162,6 +162,37 @@ test("list items can be rewritten, hidden, reordered, and restored at role and v
   assert.equal((resolveSection(experience, restored.roleProfiles[0], restored.variants[0]).content as ItemsContent).items[0].body, "백엔드 설명");
 });
 
+test("item resolution follows shared, role section, role item, support section, support item precedence", () => {
+  const { state, profile } = roleContext();
+  const projects = state.sharedSections.find((section) => section.id === "projects")!;
+  const item = (projects.content as ItemsContent).items[0];
+  let next = updateRoleProfileSectionSetting(state, profile.id, projects.id, {
+    mode: "override",
+    content: { ...(projects.content as ItemsContent), items: [{ ...item, body: "직군 섹션 본문" }] },
+  });
+  next = updateRoleProfileItemSetting(next, profile.id, projects.id, item.id, {
+    mode: "override",
+    content: { ...item, body: "직군 항목 본문" },
+  });
+  assert.equal((resolveSection(projects, next.roleProfiles[0]).content as ItemsContent).items[0].body, "직군 항목 본문");
+
+  next = createSupportVariant(next, profile.id, { name: "지원 버전", company: "지원 회사" });
+  const variantId = next.variants[0].id;
+  next = updateSectionSetting(next, variantId, projects.id, {
+    mode: "override",
+    content: { ...(projects.content as ItemsContent), items: [{ ...item, body: "지원 섹션 본문" }] },
+  });
+  assert.equal((resolveSection(projects, next.roleProfiles[0], next.variants[0]).content as ItemsContent).items[0].body, "지원 섹션 본문");
+
+  next = updateDocumentItemSetting(next, variantId, projects.id, item.id, {
+    mode: "override",
+    content: { ...item, body: "지원 항목 본문" },
+  });
+  assert.equal((resolveSection(projects, next.roleProfiles[0], next.variants[0]).content as ItemsContent).items[0].body, "지원 항목 본문");
+  const restored = clearDocumentItemSetting(next, variantId, projects.id, item.id);
+  assert.equal((resolveSection(projects, restored.roleProfiles[0], restored.variants[0]).content as ItemsContent).items[0].body, "지원 섹션 본문");
+});
+
 test("structured year-month periods format ranges and in-progress experience", () => {
   assert.equal(formatItemPeriod({ meta: "", startMonth: "2024-01", endMonth: "2025-03", isCurrent: false }), "2024.01 — 2025.03");
   assert.equal(formatItemPeriod({ meta: "", startMonth: "2024-01", endMonth: "", isCurrent: true }), "2024.01 — 현재");

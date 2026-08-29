@@ -16,9 +16,13 @@ import {
 import {
   createResumeDocumentSeed,
   createSupportVariant,
+  parseResumeDocumentState,
   resolveSection,
   type ItemContent,
+  updateDocumentItemSetting,
+  updateRoleProfileItemSetting,
   updateRoleProfileSectionSetting,
+  updateSectionSetting,
 } from "./model";
 import { resumeDocumentFingerprint } from "./persistence";
 
@@ -213,6 +217,91 @@ test("moving a result line between projects replaces both complete bodies withou
   assert.match(target.body, /15~20초/);
   assert.equal(prepared.changes.length, 2);
   assert.equal(prepared.changes[0].itemEdit?.bodyReplaced, true);
+});
+
+test("item replacement wins over a stale item override layered on a role section override", () => {
+  const seed = createResumeDocumentSeed();
+  const section = seed.sharedSections.find((item) => item.id === "projects")!;
+  const item = (section.content as { items: ItemContent[] }).items[0];
+  const profileId = seed.activeRoleProfileId;
+  const sectionOverride = updateRoleProfileSectionSetting(seed, profileId, section.id, {
+    mode: "override",
+    content: {
+      ...(section.content as { items: ItemContent[] }),
+      items: [{ ...item, body: "프로젝트 기본 설명\n통계 조회를 15~20초에서 약 1초로 단축" }],
+    },
+  });
+  const state = updateRoleProfileItemSetting(sectionOverride, profileId, section.id, item.id, {
+    mode: "override",
+    content: { ...item, body: "이전에 남은 항목 설명\n통계 조회를 15~20초에서 약 1초로 단축" },
+  });
+  const context: ResumeAiEditContext = { scope: "role", roleProfileId: profileId };
+  const prepared = prepareResumeAiEdit(state, context, result(state, context, [{
+    type: "UPDATE_ITEM",
+    sectionId: section.id,
+    itemId: item.id,
+    patch: { body: "프로젝트 기본 설명\n장애 복구 흐름 구현" },
+  }]));
+  const resolved = resolveSection(section, prepared.state.roleProfiles[0]);
+  const updated = (resolved.content as { items: ItemContent[] }).items.find((candidate) => candidate.id === item.id)!;
+
+  assert.equal(updated.body, "프로젝트 기본 설명\n장애 복구 흐름 구현");
+  assert.doesNotMatch(updated.body, /15~20초/);
+  assert.equal(prepared.state.roleProfiles[0].settings.projects.itemSettings?.[item.id]?.content?.body, updated.body);
+});
+
+test("variant item replacement stays authoritative across role and variant override layers and persistence parsing", () => {
+  const seed = createResumeDocumentSeed();
+  const section = seed.sharedSections.find((item) => item.id === "projects")!;
+  const item = (section.content as { items: ItemContent[] }).items[0];
+  const roleId = seed.activeRoleProfileId;
+  const withRoleOverride = updateRoleProfileItemSetting(seed, roleId, section.id, item.id, {
+    mode: "override",
+    content: { ...item, body: "직군에 남은 과거 성능 문장" },
+  });
+  const withVariant = createSupportVariant(withRoleOverride, roleId, { name: "지원 버전", company: "지원 회사" });
+  const variantId = withVariant.variants[0].id;
+  const withSectionOverride = updateSectionSetting(withVariant, variantId, section.id, {
+    mode: "override",
+    content: section.content,
+  });
+  const state = updateDocumentItemSetting(withSectionOverride, variantId, section.id, item.id, {
+    mode: "override",
+    content: { ...item, body: "지원 버전에 남은 과거 성능 문장" },
+  });
+  const context: ResumeAiEditContext = { scope: "variant", roleProfileId: roleId, variantId };
+  const replacementBody = "현재 지원 버전의 최종 본문\n장애 복구 흐름 구현";
+  const prepared = prepareResumeAiEdit(state, context, result(state, context, [{
+    type: "UPDATE_ITEM",
+    sectionId: section.id,
+    itemId: item.id,
+    patch: { body: replacementBody },
+  }]));
+  const reparsed = parseResumeDocumentState(JSON.stringify(prepared.state))!;
+  const profile = reparsed.roleProfiles.find((candidate) => candidate.id === roleId)!;
+  const variant = reparsed.variants.find((candidate) => candidate.id === variantId)!;
+  const resolved = resolveSection(reparsed.sharedSections.find((candidate) => candidate.id === section.id)!, profile, variant);
+  const updated = (resolved.content as { items: ItemContent[] }).items.find((candidate) => candidate.id === item.id)!;
+
+  assert.equal(updated.body, replacementBody);
+  assert.equal(profile.settings.projects.itemSettings?.[item.id]?.content?.body, "직군에 남은 과거 성능 문장");
+  assert.equal(variant.settings.projects.itemSettings?.[item.id]?.content?.body, replacementBody);
+});
+
+test("the last explicit replacement of one item wins within a single AI edit result", () => {
+  const state = createResumeDocumentSeed();
+  const section = state.sharedSections.find((item) => item.id === "projects")!;
+  const item = (section.content as { items: ItemContent[] }).items[0];
+  const context: ResumeAiEditContext = { scope: "role", roleProfileId: state.activeRoleProfileId };
+  const prepared = prepareResumeAiEdit(state, context, result(state, context, [
+    { type: "UPDATE_ITEM", sectionId: section.id, itemId: item.id, patch: { body: "첫 번째 전체 본문" } },
+    { type: "UPDATE_ITEM", sectionId: section.id, itemId: item.id, patch: { body: "두 번째 최종 전체 본문" } },
+  ]));
+  const resolved = resolveSection(section, prepared.state.roleProfiles[0]);
+  const updated = (resolved.content as { items: ItemContent[] }).items.find((candidate) => candidate.id === item.id)!;
+
+  assert.equal(updated.body, "두 번째 최종 전체 본문");
+  assert.equal(prepared.changes.length, 2);
 });
 
 test("item body line diff exposes removed and added lines before replacement", () => {

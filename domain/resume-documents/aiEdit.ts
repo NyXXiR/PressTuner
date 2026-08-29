@@ -352,12 +352,18 @@ function writeItemContent(
   if (context.scope === "role") {
     const ownedSection = profile.customSections.find((item) => item.id === section.id);
     const sectionSetting = profile.settings[section.id];
-    if (ownedSection || sectionSetting?.mode === "override") {
+    if (ownedSection) {
       const current = effectiveContent(state, context, section.id) as ItemsContent;
       return writeSectionContent(state, context, section.id, {
         ...current,
         items: current.items.map((item) => item.id === itemId ? content : item),
       });
+    }
+    // UPDATE_ITEM owns the effective item at the selected layer. A section-level
+    // override may coexist with an older item override, so replacing that item
+    // override is required to keep the latest explicit edit authoritative.
+    if (sectionSetting?.mode === "override") {
+      return updateRoleProfileItemSetting(state, profile.id, section.id, itemId, { mode: "override", content });
     }
     const parentItem = (section.content as ItemsContent).items.find((item) => item.id === itemId);
     return parentItem && same(
@@ -370,12 +376,15 @@ function writeItemContent(
   if (!variant) return state;
   const ownedSection = variant.customSections.find((item) => item.id === section.id);
   const sectionSetting = variant.settings[section.id];
-  if (ownedSection || sectionSetting?.mode === "override") {
+  if (ownedSection) {
     const current = effectiveContent(state, context, section.id) as ItemsContent;
     return writeSectionContent(state, context, section.id, {
       ...current,
       items: current.items.map((item) => item.id === itemId ? content : item),
     });
+  }
+  if (sectionSetting?.mode === "override") {
+    return updateDocumentItemSetting(state, variant.id, section.id, itemId, { mode: "override", content });
   }
   const parent = resolveSection(section, profile).content as ItemsContent;
   const parentItem = parent.items.find((item) => item.id === itemId);
@@ -385,6 +394,16 @@ function writeItemContent(
   )
     ? clearDocumentItemSetting(state, variant.id, section.id, itemId)
     : updateDocumentItemSetting(state, variant.id, section.id, itemId, { mode: "override", content });
+}
+
+function assertItemBodyReplacementApplied(operation: ResumeAiEditOperation, content: SectionContent) {
+  if (operation.type !== "UPDATE_ITEM" || operation.patch.body === undefined) return;
+  const effectiveItem = (content as ItemsContent).items.find((item) => item.id === operation.itemId);
+  if (effectiveItem?.body === operation.patch.body) return;
+  throw new ResumeAiEditError(
+    "RESUME_AI_EDIT_ITEM_REPLACEMENT_FAILED",
+    `항목 본문 전체 교체 결과가 최종 문서에 반영되지 않았습니다: ${operation.itemId}`,
+  );
 }
 
 function normalizedText(value: string | undefined) {
@@ -723,6 +742,7 @@ export function prepareResumeAiEdit(
     const updated = applyOperation(next, expectedContext, operation, idFactory);
     const afterContent = effectiveContent(updated, expectedContext, operation.sectionId);
     const afterTitle = effectiveTitle(updated, expectedContext, operation.sectionId);
+    assertItemBodyReplacementApplied(operation, afterContent);
     if (same(beforeContent, afterContent) && beforeTitle === afterTitle) continue;
     changes.push({
       operationType: operation.type,

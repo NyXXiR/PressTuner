@@ -335,7 +335,10 @@ export function resolveSection(section: ResumeSection, profile?: ResumeRoleProfi
     layout: documentSetting.layout ?? role.setting.layout ?? "standard",
     pageBreakBefore: documentSetting.pageBreakBefore ?? role.setting.pageBreakBefore ?? section.pageBreakBefore ?? false,
     source,
-    content: applyLayeredItemSettings(content, role.setting, documentSetting),
+    // Layer contract: shared < role section < role item < document section < document item.
+    // A full document-section override already owns its item snapshot, so parent
+    // role item settings must not be replayed on top of that newer layer.
+    content: applyLayeredItemSettings(content, documentOverrides ? undefined : role.setting, documentSetting),
   };
 }
 
