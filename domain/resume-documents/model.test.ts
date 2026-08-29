@@ -177,6 +177,7 @@ test("pre-feature V5 item metadata remains optional while stored order is unchan
   const content = experience.content as ItemsContent;
   delete content.sortDirection;
   delete content.careerDurationOverrideMonths;
+  delete content.careerDurationLabel;
   content.items.reverse();
 
   const parsed = parseResumeDocumentState(JSON.stringify(state))!;
@@ -184,6 +185,7 @@ test("pre-feature V5 item metadata remains optional while stored order is unchan
   assert.equal(parsed.version, 5);
   assert.equal(parsedContent.sortDirection, undefined);
   assert.equal(parsedContent.careerDurationOverrideMonths, undefined);
+  assert.equal(parsedContent.careerDurationLabel, undefined);
   assert.deepEqual(parsedContent.items.map((item) => item.id), content.items.map((item) => item.id));
 });
 
@@ -193,6 +195,7 @@ test("experience metadata round-trips and survives layered item resolution", () 
   const content = experience.content as ItemsContent;
   content.sortDirection = "oldest-first";
   content.careerDurationOverrideMonths = 62;
+  content.careerDurationLabel = "relevant";
   const [first, second] = content.items;
   let tailored = updateRoleProfileItemSetting(state, state.activeRoleProfileId, experience.id, first.id, {
     mode: "override",
@@ -206,6 +209,7 @@ test("experience metadata round-trips and survives layered item resolution", () 
   const resolved = resolveSection(parsedExperience, parsed.roleProfiles[0]).content as ItemsContent;
   assert.equal(resolved.sortDirection, "oldest-first");
   assert.equal(resolved.careerDurationOverrideMonths, 62);
+  assert.equal(resolved.careerDurationLabel, "relevant");
   assert.deepEqual(resolved.items.map((item) => item.id), [first.id]);
   assert.equal(resolved.items[0].body, "직군 내용");
 });

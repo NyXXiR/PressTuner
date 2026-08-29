@@ -7,6 +7,7 @@ import {
   groupCareerDetails,
   normalizeCareerDurationOverride,
   parseYearMonth,
+  resolveCareerDurationLabel,
   resolveCareerDurationMonths,
   sortExperienceItems,
 } from "./experiencePresentation";
@@ -76,6 +77,19 @@ test("manual duration normalization and formatting use one nonnegative total-mon
   assert.equal(formatCareerDuration(62), "총 경력 5년 2개월");
   assert.equal(formatCareerDuration(12), "총 경력 1년");
   assert.equal(formatCareerDuration(0), "총 경력 0개월");
+  assert.equal(formatCareerDuration(38, "relevant"), "관련 경력 3년 2개월");
+});
+
+test("career duration label defaults to relevant when a work item is excluded", () => {
+  const items = [
+    item("included", { itemKind: "work" }),
+    item("excluded", { itemKind: "work", excludeFromCareerDuration: true }),
+  ];
+  assert.equal(resolveCareerDurationLabel(items, undefined), "relevant");
+  assert.equal(resolveCareerDurationLabel(items, "auto"), "relevant");
+  assert.equal(resolveCareerDurationLabel(items, "total"), "total");
+  assert.equal(resolveCareerDurationLabel(items, "relevant"), "relevant");
+  assert.equal(resolveCareerDurationLabel([items[0]], undefined), "total");
 });
 
 test("a valid manual override takes precedence over automatic duration", () => {

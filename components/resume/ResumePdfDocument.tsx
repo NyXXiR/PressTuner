@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import {
   formatCareerDuration,
   groupCareerDetails,
+  resolveCareerDurationLabel,
   resolveCareerDurationMonths,
   sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
@@ -344,7 +345,10 @@ function ItemsSection({ currentMonth, relatedWorkItems, section }: { currentMont
     ? sortExperienceItems(section.content.items, section.content.sortDirection)
     : section.content.items;
   const duration = section.id === "experience" && currentMonth
-    ? formatCareerDuration(resolveCareerDurationMonths(items, section.content.careerDurationOverrideMonths, currentMonth))
+    ? formatCareerDuration(
+      resolveCareerDurationMonths(items, section.content.careerDurationOverrideMonths, currentMonth),
+      resolveCareerDurationLabel(items, section.content.careerDurationLabel),
+    )
     : null;
   return <><SectionHeading duration={duration} section={section} />{items.length
     ? items.map((item) => <ResumeItem item={item} key={item.id} />)

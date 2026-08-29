@@ -494,7 +494,8 @@ test("section editors preserve the resolved common, role, or support source by d
 
 test("resume section editing exposes flexible career-detail, grouped keyword, and template controls", async () => {
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
-  assert.match(source, /총 경력 합산에서 제외/);
+  assert.match(source, /표시 경력 합산에서 제외/);
+  assert.match(source, /자동 · 제외 항목이 있으면 관련 경력/);
   assert.match(source, /상세 유형<input className="wg-field h-10 min-w-0 w-full appearance-none[^>]+type="text"/);
   assert.doesNotMatch(source, /career-detail-type-options/);
   assert.match(source, /function TagGroupsEditor/);

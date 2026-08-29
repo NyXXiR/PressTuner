@@ -17,6 +17,7 @@ import {
 import {
   formatCareerDuration,
   groupCareerDetails,
+  resolveCareerDurationLabel,
   resolveCareerDurationMonths,
   sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
@@ -111,7 +112,10 @@ export function ResumeEditorSection({ currentMonth, relatedWorkItems = [], secti
   const content = section.content;
   const experienceContent = section.id === "experience" && section.kind === "items" ? content as ItemsContent : null;
   const careerDuration = experienceContent && currentMonth
-    ? formatCareerDuration(resolveCareerDurationMonths(experienceContent.items, experienceContent.careerDurationOverrideMonths, currentMonth))
+    ? formatCareerDuration(
+      resolveCareerDurationMonths(experienceContent.items, experienceContent.careerDurationOverrideMonths, currentMonth),
+      resolveCareerDurationLabel(experienceContent.items, experienceContent.careerDurationLabel),
+    )
     : null;
   const splittable = section.kind === "items"
     ? (content as ItemsContent).items.length > 1

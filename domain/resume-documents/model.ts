@@ -51,6 +51,7 @@ export type ItemsContent = {
   items: ItemContent[];
   sortDirection?: "latest-first" | "oldest-first";
   careerDurationOverrideMonths?: number;
+  careerDurationLabel?: "auto" | "total" | "relevant";
 };
 export type TagKeyword = { id: string; label: string };
 export type TagGroup = { id: string; title: string; items: string[]; keywords?: TagKeyword[] };

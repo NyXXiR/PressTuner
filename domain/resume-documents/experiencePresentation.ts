@@ -1,6 +1,8 @@
 import { resolveCareerDetailRelation, type ItemContent } from "./model";
 
 export type ExperienceSortDirection = "latest-first" | "oldest-first";
+export type CareerDurationLabel = "auto" | "total" | "relevant";
+export type ResolvedCareerDurationLabel = Exclude<CareerDurationLabel, "auto">;
 
 const YEAR_MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
@@ -93,14 +95,27 @@ export function resolveCareerDurationMonths(
   return calculateAutomaticCareerDurationMonths(items, currentMonth);
 }
 
-export function formatCareerDuration(totalMonths: number): string {
+export function resolveCareerDurationLabel(
+  items: readonly ItemContent[],
+  label: CareerDurationLabel | undefined,
+): ResolvedCareerDurationLabel {
+  if (label === "total" || label === "relevant") return label;
+  return items.some((item) => (!item.itemKind || item.itemKind === "work") && item.excludeFromCareerDuration)
+    ? "relevant"
+    : "total";
+}
+
+export function formatCareerDuration(
+  totalMonths: number,
+  label: ResolvedCareerDurationLabel = "total",
+): string {
   const normalized = Number.isFinite(totalMonths) ? Math.max(0, Math.trunc(totalMonths)) : 0;
   const years = Math.floor(normalized / 12);
   const months = normalized % 12;
   const parts = [years > 0 ? `${years}년` : "", months > 0 || years === 0 ? `${months}개월` : ""]
     .filter(Boolean)
     .join(" ");
-  return `총 경력 ${parts}`;
+  return `${label === "relevant" ? "관련 경력" : "총 경력"} ${parts}`;
 }
 
 export type CareerDetailGroup = {

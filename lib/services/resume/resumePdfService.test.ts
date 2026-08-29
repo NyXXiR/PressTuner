@@ -90,6 +90,25 @@ test("service renders the deterministic Korean snapshot as a parseable multi-pag
   }
 });
 
+test("PDF labels an explicitly filtered duration as relevant career experience", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  const experience = snapshot.sections.find((section) => section.id === "experience");
+  assert.ok(experience?.kind === "items");
+  experience.content.items[0].excludeFromCareerDuration = true;
+  experience.content.careerDurationOverrideMonths = 66;
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const extracted = await extractText(pdf, { mergePages: true });
+    const text = Array.isArray(extracted.text) ? extracted.text.join("\n") : extracted.text;
+    assert.ok(text.includes("관련 경력 5년 6개월"));
+    assert.ok(!text.includes("총 경력 5년 6개월"));
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("identity facts rule keeps a safe vertical gap below the name", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   snapshot.sections = snapshot.sections.filter((section) => section.id === "profile");
