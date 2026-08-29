@@ -41,6 +41,7 @@ import {
 } from "@/domain/resume-documents/importPollingPolicy";
 
 const careerDetailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
+const alignedImportField = "grid min-w-0 content-start grid-rows-[auto_2.5rem_minmax(2.5rem,auto)] gap-1.5 text-xs font-bold text-muted-foreground";
 
 type ResumeImport = {
   id: string;
@@ -1274,11 +1275,11 @@ function PayloadEditor({
       </label>
       <ResumeItemDateFields disabled={disabled} value={{ ...payload, endMonthEnabled: Boolean(payload.endMonth) }} onChange={updateDates} />
       {payload.itemKind === "career-detail" && <>
-        <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<input className={inputClass} disabled={disabled} maxLength={200} placeholder={careerDetailTypeLabels[payload.detailType ?? "project"]} value={payload.detailLabel ?? ""} onChange={(event) => onChange({ ...payload, detailLabel: event.target.value })} /><span className="text-[11px] font-normal leading-5">자유롭게 입력할 수 있습니다. 비워두면 기본 분류명이 표시됩니다.</span></label>
-        <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">연결 경력<select className={inputClass} disabled={disabled} value={payload.relatedWorkItemId && workItems.some((item) => item.id === payload.relatedWorkItemId) ? payload.relatedWorkItemId : payload.relatedWorkTitle ? "__unresolved" : ""} onChange={(event) => {
+        <label className={alignedImportField}>상세 유형<input className={inputClass} disabled={disabled} maxLength={200} placeholder={careerDetailTypeLabels[payload.detailType ?? "project"]} value={payload.detailLabel ?? ""} onChange={(event) => onChange({ ...payload, detailLabel: event.target.value })} /><span className="text-[11px] font-normal leading-5">자유롭게 입력할 수 있습니다. 비워두면 기본 분류명이 표시됩니다.</span></label>
+        <label className={alignedImportField}>연결 경력<select className={inputClass} disabled={disabled} value={payload.relatedWorkItemId && workItems.some((item) => item.id === payload.relatedWorkItemId) ? payload.relatedWorkItemId : payload.relatedWorkTitle ? "__unresolved" : ""} onChange={(event) => {
           const work = workItems.find((item) => item.id === event.target.value);
           onChange(work ? { ...payload, relatedWorkItemId: work.id, relatedWorkTitle: work.title } : { ...payload, relatedWorkItemId: undefined, relatedWorkTitle: undefined });
-        }}><option value="">독립 프로젝트</option>{payload.relatedWorkTitle && !workItems.some((item) => item.id === payload.relatedWorkItemId) && <option disabled value="__unresolved">연결 확인 필요 · {payload.relatedWorkTitle}</option>}{workItems.map((work) => <option key={work.id} value={work.id}>{work.title} · {work.subtitle} · {formatItemPeriod(work)}</option>)}</select></label>
+        }}><option value="">독립 프로젝트</option>{payload.relatedWorkTitle && !workItems.some((item) => item.id === payload.relatedWorkItemId) && <option disabled value="__unresolved">연결 확인 필요 · {payload.relatedWorkTitle}</option>}{workItems.map((work) => <option key={work.id} value={work.id}>{work.title} · {work.subtitle} · {formatItemPeriod(work)}</option>)}</select><span className="text-[11px] font-normal leading-5">경력을 선택하면 해당 회사 아래에 묶어 표시됩니다.</span></label>
       </>}
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground sm:col-span-2">
         설명
