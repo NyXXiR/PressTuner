@@ -106,12 +106,13 @@ test("identity facts can be reviewed and applied as one section candidate", () =
 test("candidate payload schema accepts canonical details and normalizes legacy detail kinds", () => {
   for (const detailType of ["project", "responsibility", "improvement", "troubleshooting"] as const) {
     const parsed = ResumeDocumentCandidatePayloadSchema.parse({
-      type: "item", itemKind: "career-detail", detailType, title: `${detailType} title`, subtitle: "", body: "", tags: [],
+      type: "item", itemKind: "career-detail", detailType, detailLabel: "AI 제품", title: `${detailType} title`, subtitle: "", body: "", tags: [],
     });
     assert.equal(parsed.type, "item");
     if (parsed.type !== "item") assert.fail("Expected item");
     assert.equal(parsed.itemKind, "career-detail");
     assert.equal(parsed.detailType, detailType);
+    assert.equal(parsed.detailLabel, "AI 제품");
   }
   for (const itemKind of [
     "work",
@@ -170,6 +171,29 @@ test("legacy career-description candidates apply to canonical career details", (
     applyMode: "APPEND",
     payload,
   })), /RESUME_IMPORT_SECTION_KIND_MISMATCH/);
+});
+
+test("free career detail labels survive candidate application", () => {
+  const applied = applyResumeImportCommand(createResumeDocumentSeed(), command({
+    candidateKey: "document:free-detail-label",
+    payloadHash: "free-detail-label",
+    targetSectionId: "projects",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "career-detail",
+      detailType: "project",
+      detailLabel: "AI 제품 구현·검증",
+      title: "AI Process Console",
+      subtitle: "",
+      body: "",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const projects = applied.sharedSections.find((section) => section.id === "projects")!;
+  const imported = (projects.content as ItemsContent).items.find((item) => item.id === importedResumeItemId("document:free-detail-label"));
+  assert.equal(imported?.detailLabel, "AI 제품 구현·검증");
 });
 
 test("FILL_EMPTY treats starter placeholders as empty but never overwrites real content", () => {

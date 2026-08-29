@@ -245,6 +245,19 @@ test("experience metadata round-trips and survives layered item resolution", () 
   assert.equal(resolved.items[0].body, "직군 내용");
 });
 
+test("career detail display labels and independent group titles round-trip", () => {
+  const state = createResumeDocumentSeed();
+  const projects = state.sharedSections.find((section) => section.id === "projects")!;
+  const content = projects.content as ItemsContent;
+  content.independentGroupTitle = "개인·오픈소스 프로젝트";
+  content.items[0].detailLabel = "AI 제품 구현·검증";
+
+  const parsed = parseResumeDocumentState(JSON.stringify(state))!;
+  const parsedContent = parsed.sharedSections.find((section) => section.id === "projects")!.content as ItemsContent;
+  assert.equal(parsedContent.independentGroupTitle, "개인·오픈소스 프로젝트");
+  assert.equal(parsedContent.items[0].detailLabel, "AI 제품 구현·검증");
+});
+
 test("experience brick synchronization retains section presentation metadata", () => {
   const state = createResumeDocumentSeed();
   const experience = state.sharedSections.find((section) => section.id === "experience")!;

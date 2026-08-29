@@ -50,6 +50,7 @@ export type ItemContent = {
 export type ItemsContent = {
   items: ItemContent[];
   sortDirection?: "latest-first" | "oldest-first";
+  independentGroupTitle?: string;
   careerDurationOverrideMonths?: number;
   careerDurationLabel?: "auto" | "total" | "relevant";
 };

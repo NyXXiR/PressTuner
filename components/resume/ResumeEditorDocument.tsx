@@ -20,6 +20,7 @@ import {
   orderCareerDetailDisplayGroups,
   resolveCareerDurationLabel,
   resolveCareerDurationMonths,
+  resolveIndependentCareerDetailGroupTitle,
   sortExperienceItems,
 } from "@/domain/resume-documents/experiencePresentation";
 import {
@@ -218,10 +219,11 @@ function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent;
 
 function GroupedCareerBody({ content, heading, relatedWorkItems }: { content: ItemsContent; heading: ReactNode; relatedWorkItems: ItemContent[] }) {
   const grouped = groupCareerDetails(relatedWorkItems, content.items, { detailSortDirection: content.sortDirection });
+  const independentGroupTitle = resolveIndependentCareerDetailGroupTitle(content);
   const detail = (item: ItemContent) => <ResumeItem detailLabel={careerDetailLabel(item)} grouped item={item} key={item.id} />;
   const unorderedGroups = [
     ...grouped.employmentGroups.filter((group) => group.details.length).map((group) => ({ id: group.work.id, orderKey: `work:${group.work.id}`, title: group.work.title, meta: `${group.work.subtitle} · ${formatItemPeriod(group.work)}`, items: group.details, warning: false })),
-    ...(grouped.independentDetails.length > 0 ? [{ id: "independent", orderKey: "independent", title: "독립 프로젝트", meta: "", items: grouped.independentDetails, warning: false }] : []),
+    ...(grouped.independentDetails.length > 0 ? [{ id: "independent", orderKey: "independent", title: independentGroupTitle, meta: "", items: grouped.independentDetails, warning: false }] : []),
     ...(grouped.unresolvedDetails.length > 0 ? [{ id: "unresolved", orderKey: "unresolved", title: "연결 확인 필요", meta: "", items: grouped.unresolvedDetails, warning: true }] : []),
   ];
   const groups = content.sortDirection

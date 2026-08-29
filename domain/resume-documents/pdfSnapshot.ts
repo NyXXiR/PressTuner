@@ -80,6 +80,7 @@ const narrativeContentSchema = z.object({
 const itemsContentSchema = z.object({
   items: z.array(resumeItemSchema).max(300),
   sortDirection: z.enum(["latest-first", "oldest-first"]).optional(),
+  independentGroupTitle: optionalText(200),
   careerDurationOverrideMonths: z.number().int().min(0).max(1_200).optional(),
   careerDurationLabel: z.enum(["auto", "total", "relevant"]).optional(),
 }).strict();

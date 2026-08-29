@@ -661,10 +661,12 @@ test("resume documents expose canonical career details with type and relationshi
   assert.match(builder, /경력 상세/);
   assert.match(builder, /연결 경력/);
   assert.match(builder, /독립 프로젝트/);
+  assert.match(builder, /독립 항목 그룹명/);
+  assert.match(builder, /independentGroupTitle/);
+  assert.match(builder, /detailLabel: event\.target\.value/);
   assert.match(builder, /연결 확인 필요/);
-  assert.match(panel, /value="project">프로젝트/);
-  assert.match(panel, /value="responsibility">상시 책임/);
-  assert.match(panel, /value="improvement">개선/);
-  assert.match(panel, /value="troubleshooting">문제 해결/);
+  assert.match(panel, /payload\.detailLabel \?\? ""/);
+  assert.match(panel, /detailLabel: event\.target\.value/);
+  assert.match(panel, /자유롭게 입력할 수 있습니다/);
   assert.doesNotMatch(panel, /value="career-description">경력기술서/);
 });

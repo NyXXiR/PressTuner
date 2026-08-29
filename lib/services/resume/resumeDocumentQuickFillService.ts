@@ -48,7 +48,7 @@ Allowed payloads:
 - identity section: {"type":"identity-field","field":"name|email|phone|location|birthDate|gender|link","value":"..."}
 - narrative section: {"type":"narrative","body":"..."}
 - tags section: {"type":"tags","values":["..."]}
-- items section: {"type":"item","itemKind":"work|career-detail|education|credential|award|activity|language|training","detailType":"project|responsibility|improvement|troubleshooting" when itemKind is career-detail,"title":"...","subtitle":"...","relatedWorkTitle":"explicit employer when relevant","body":"...","startMonth":"YYYY-MM or empty","endMonth":"YYYY-MM or empty","isCurrent":false,"tags":[]}
+- items section: {"type":"item","itemKind":"work|career-detail|education|credential|award|activity|language|training","detailType":"project|responsibility|improvement|troubleshooting" when itemKind is career-detail,"detailLabel":"optional free-form label shown to the user","title":"...","subtitle":"...","relatedWorkTitle":"explicit employer when relevant","body":"...","startMonth":"YYYY-MM or empty","endMonth":"YYYY-MM or empty","isCurrent":false,"tags":[]}
 - eligibility section: {"type":"eligibility-field","field":"militaryStatus|veteranStatus|disabilityStatus|employmentProtectionStatus","value":"..."}
 
 Rules:
@@ -57,7 +57,7 @@ Rules:
 - Never invent employers, dates, tools, numbers, outcomes, credentials, or personal facts.
 - Every suggestion needs a short evidenceExcerpt copied verbatim from the pasted material without ellipses.
 - Keep each explicit employment, project, achievement, education, credential, or activity as a separate item candidate.
-- For a career-detail section, prefer career-detail items and choose a fitting detailType. Set relatedWorkTitle only when the employer is explicit.
+- For a career-detail section, prefer career-detail items and choose a fitting detailType. Use detailLabel when a more specific display label is grounded in the source. Set relatedWorkTitle only when the employer is explicit.
 - Rewrite for concise Korean resume style, but preserve the source meaning. If evidence is insufficient, omit the suggestion.
 - Return at most 30 candidates. The user will edit, approve, or reject every candidate before application.`,
       },

@@ -1,4 +1,4 @@
-import { resolveCareerDetailRelation, type ItemContent } from "./model";
+import { resolveCareerDetailRelation, type ItemContent, type ItemsContent } from "./model";
 
 export type ExperienceSortDirection = "latest-first" | "oldest-first";
 export type CareerDurationLabel = "auto" | "total" | "relevant";
@@ -122,6 +122,12 @@ export type CareerDetailGroup = {
   work: ItemContent;
   details: ItemContent[];
 };
+
+export const DEFAULT_INDEPENDENT_CAREER_DETAIL_GROUP_TITLE = "독립 프로젝트";
+
+export function resolveIndependentCareerDetailGroupTitle(content: Pick<ItemsContent, "independentGroupTitle">) {
+  return content.independentGroupTitle?.trim() || DEFAULT_INDEPENDENT_CAREER_DETAIL_GROUP_TITLE;
+}
 
 export function orderCareerDetailDisplayGroups<T extends { orderKey: string }>(
   groups: readonly T[],

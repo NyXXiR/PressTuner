@@ -10,6 +10,7 @@ import {
   parseYearMonth,
   resolveCareerDurationLabel,
   resolveCareerDurationMonths,
+  resolveIndependentCareerDetailGroupTitle,
   sortExperienceItems,
 } from "./experiencePresentation";
 import type { ItemContent } from "./model";
@@ -134,6 +135,13 @@ test("manual career detail order places each display group at its first item pos
   assert.deepEqual(grouped.detailGroupOrder, ["independent", "work:work-b", "work:work-a", "unresolved"]);
   assert.deepEqual(displayed.map((group) => group.title), ["independent", "work-b", "work-a", "unresolved"]);
   assert.deepEqual(grouped.independentDetails.map((item) => item.id), ["independent-first", "independent-second"]);
+});
+
+test("independent career detail group title accepts a free label with a stable fallback", () => {
+  assert.equal(resolveIndependentCareerDetailGroupTitle({ independentGroupTitle: "개인 프로젝트" }), "개인 프로젝트");
+  assert.equal(resolveIndependentCareerDetailGroupTitle({ independentGroupTitle: "  오픈소스 활동  " }), "오픈소스 활동");
+  assert.equal(resolveIndependentCareerDetailGroupTitle({ independentGroupTitle: " " }), "독립 프로젝트");
+  assert.equal(resolveIndependentCareerDetailGroupTitle({}), "독립 프로젝트");
 });
 
 test("fallback matching resolves only one exact normalized employer title", () => {

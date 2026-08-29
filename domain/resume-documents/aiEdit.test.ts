@@ -59,8 +59,12 @@ test("AI edit bundles preserve the selected inheritance context and resolved sou
   assert.equal(bundle.rules.updateItemBodyReplacesExistingBody, true);
   assert.equal(bundle.rules.identityEmptyStringClearsOptionalField, true);
   assert.equal(bundle.rules.identityLinksReplaceEntireList, true);
+  assert.equal(bundle.rules.careerDetailTypeIsSemanticCategory, true);
+  assert.equal(bundle.rules.careerDetailLabelIsFreeFormDisplayText, true);
   assert.equal(bundle.rules.doNotReorderSections, true);
   assert.match(bundle.operationContracts.UPDATE_ITEM.patch.body, /complete replacement body/);
+  assert.match(bundle.operationContracts.UPDATE_ITEM.patch.detailLabel, /free-form display label/);
+  assert.match(bundle.operationContracts.ADD_ITEM.item.detailLabel, /free-form display label/);
   assert.match(bundle.operationContracts.UPDATE_IDENTITY.patch.birthDate, /empty string to remove/);
   assert.match(bundle.operationContracts.UPDATE_IDENTITY.patch.gender, /empty string to remove/);
   assert.match(bundle.operationContracts.UPDATE_IDENTITY.patch.links[0], /empty array to remove all links/);

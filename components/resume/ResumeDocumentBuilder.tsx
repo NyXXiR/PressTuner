@@ -892,11 +892,12 @@ function useReorderAutoScroll() {
   return [onDrag, autoScroller.stop, dragScrollCompensation] as const;
 }
 
-function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", dragControls, headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
+function ItemEditorCard({ index, item, sectionId, workItems, independentGroupTitle = "독립 프로젝트", bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", dragControls, headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
   index: number;
   item: ItemContent;
   sectionId: string;
   workItems: ItemContent[];
+  independentGroupTitle?: string;
   bodyLabel: string;
   bodyRequired?: boolean;
   showBody?: boolean;
@@ -927,7 +928,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
     <div className="grid gap-4 p-4">
       <Field label="제목" placeholder={placeholder.title} required value={item.title} onChange={(title) => onChange({ title })} />
       <Field label="조직·부제" placeholder={placeholder.subtitle} value={item.subtitle} onChange={(subtitle) => onChange({ subtitle })} />
-      {sectionId === "projects" && <div className="grid gap-4 sm:grid-cols-2"><CareerDetailControls item={item} workItems={workItems} onChange={onChange} /></div>}
+      {sectionId === "projects" && <div className="grid gap-4 sm:grid-cols-2"><CareerDetailControls independentGroupTitle={independentGroupTitle} item={item} workItems={workItems} onChange={onChange} /></div>}
       <div><FieldLabel label={bodyLabel} needsInput={Boolean(bodyRequired) && !item.body.trim()} required={bodyRequired} /><p className="mb-2 mt-1 text-[11px] leading-5 text-muted-foreground">{sectionId === "projects" ? "핵심 성과나 문제 해결 과정을 제목과 굵게로 나눠 작성할 수 있습니다." : "PDF에 표시되는 설명입니다. 중요한 문장은 굵게 강조할 수 있습니다."}</p><ResumeBodyEditor ariaLabel={`${label} ${bodyLabel}`} compact content={{ body: item.body, blocks: item.bodyBlocks }} inlineOnly={sectionId !== "projects"} placeholder={placeholder.body} onChange={(next) => onChange({ body: next.body, bodyBlocks: next.blocks })} /></div>
     </div>
   </div>;
@@ -1005,13 +1006,14 @@ function ItemsEditor({ section, content, workItems, onChange }: { section: Resum
     && Number.isFinite(content.careerDurationOverrideMonths)
     && content.careerDurationOverrideMonths >= 0;
   const durationMonths = hasManualDuration ? Math.trunc(content.careerDurationOverrideMonths!) : 0;
-  const durationControls = isCareerTimelineSectionId(section.id) && <EditorBlock note="PDF 제목 옆에 표시됩니다" title={section.id === "experience" ? "경력 표시 설정" : "경력 상세 표시 설정"}>
+  const durationControls = isCareerTimelineSectionId(section.id) && <EditorBlock note={section.id === "experience" ? "PDF 제목 옆에 표시됩니다" : "미리보기와 PDF에 함께 적용됩니다"} title={section.id === "experience" ? "경력 표시 설정" : "경력 상세 표시 설정"}>
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">시작 연월 정렬<select className="wg-field h-10 px-3 text-sm font-normal" value={content.sortDirection ?? ""} onChange={(event) => updateSortDirection((event.target.value || undefined) as ItemsContent["sortDirection"])}><option value="">수동 순서</option><option value="latest-first">최신순</option><option value="oldest-first">오래된순</option></select></label>
       {section.id === "experience" && <div className="grid gap-4">
         <fieldset><legend className="mb-2 text-xs font-bold text-muted-foreground">경력 기간</legend><div className="flex flex-wrap gap-3"><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={!hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...content, careerDurationOverrideMonths: undefined })} /> 자동 계산</label><label className="inline-flex items-center gap-2 text-xs font-bold"><input checked={hasManualDuration} name="career-duration-mode" type="radio" onChange={() => onChange({ ...content, careerDurationOverrideMonths: calculateAutomaticCareerDurationMonths(content.items, currentLocalMonth()) })} /> 직접 입력</label></div>{hasManualDuration && <div className="mt-3 grid grid-cols-2 gap-2"><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 연<input aria-label="경력 연" className="wg-field h-10 px-3 text-sm" min={0} type="number" value={Math.floor(durationMonths / 12)} onChange={(event) => onChange({ ...content, careerDurationOverrideMonths: normalizeCareerDurationOverride(Number(event.target.value), durationMonths % 12) })} /></label><label className="grid gap-1 text-[11px] font-bold text-muted-foreground">경력 개월<input aria-label="경력 개월" className="wg-field h-10 px-3 text-sm" max={11} min={0} type="number" value={durationMonths % 12} onChange={(event) => onChange({ ...content, careerDurationOverrideMonths: normalizeCareerDurationOverride(Math.floor(durationMonths / 12), Number(event.target.value)) })} /></label></div>}</fieldset>
         <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">표시 문구<select aria-label="경력 표시 문구" className="wg-field h-10 px-3 text-sm font-normal" value={content.careerDurationLabel ?? "auto"} onChange={(event) => onChange({ ...content, careerDurationLabel: event.target.value === "auto" ? undefined : event.target.value as "total" | "relevant" })}><option value="auto">자동 · 제외 항목이 있으면 관련 경력</option><option value="total">총 경력</option><option value="relevant">관련 경력</option></select></label>
       </div>}
+      {section.id === "projects" && <label className="grid gap-1.5 text-xs font-bold text-muted-foreground">독립 항목 그룹명<input className="wg-field h-10 px-3 text-sm font-normal" maxLength={200} placeholder="독립 프로젝트" value={content.independentGroupTitle ?? ""} onChange={(event) => onChange({ ...content, independentGroupTitle: event.target.value })} /><span className="text-[11px] font-normal leading-5">연결 경력이 없는 항목을 묶어 표시할 제목입니다. 비워두면 ‘독립 프로젝트’를 사용합니다.</span></label>}
     </div>
   </EditorBlock>;
   return <div className="grid gap-4">
@@ -1025,6 +1027,7 @@ function ItemsEditor({ section, content, workItems, onChange }: { section: Resum
       collapsible
       index={index}
       item={item}
+      independentGroupTitle={content.independentGroupTitle?.trim() || "독립 프로젝트"}
       key={item.id}
       sectionId={section.id}
       workItems={workItems}
@@ -1110,15 +1113,15 @@ function HighlightGridEditor({ content, onChange }: { content: ItemsContent; onC
   </EditorBlock>;
 }
 
-function CareerDetailControls({ item, workItems, onChange }: { item: ItemContent; workItems: ItemContent[]; onChange: (patch: Partial<ItemContent>) => void }) {
+function CareerDetailControls({ item, workItems, independentGroupTitle, onChange }: { item: ItemContent; workItems: ItemContent[]; independentGroupTitle: string; onChange: (patch: Partial<ItemContent>) => void }) {
   const hasValidParent = Boolean(item.relatedWorkItemId && workItems.some((work) => work.id === item.relatedWorkItemId));
   const unresolved = Boolean((item.relatedWorkItemId || item.relatedWorkTitle?.trim()) && !hasValidParent);
   return <>
-    <label className="grid min-w-0 gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<input className="wg-field h-10 min-w-0 w-full appearance-none px-3 text-sm font-normal" placeholder="예: 핵심 성과" type="text" value={item.detailLabel ?? detailTypeLabels[item.detailType ?? "project"]} onChange={(event) => onChange({ detailLabel: event.target.value, itemKind: "career-detail" })} /></label>
+    <label className="grid min-w-0 gap-1.5 text-xs font-bold text-muted-foreground">상세 유형<input className="wg-field h-10 min-w-0 w-full appearance-none px-3 text-sm font-normal" maxLength={200} placeholder={detailTypeLabels[item.detailType ?? "project"]} type="text" value={item.detailLabel ?? ""} onChange={(event) => onChange({ detailLabel: event.target.value, itemKind: "career-detail" })} /><span className="text-[11px] font-normal leading-5">자유롭게 입력할 수 있습니다. 비워두면 기본 분류명이 표시됩니다.</span></label>
     <label className="grid min-w-0 gap-1.5 text-xs font-bold text-muted-foreground">연결 경력<select className="wg-field h-10 min-w-0 w-full max-w-full px-3 text-sm font-normal" value={hasValidParent ? item.relatedWorkItemId : unresolved ? "__unresolved" : ""} onChange={(event) => {
       const work = workItems.find((candidate) => candidate.id === event.target.value);
       onChange(work ? { relatedWorkItemId: work.id, relatedWorkTitle: work.title } : { relatedWorkItemId: undefined, relatedWorkTitle: undefined });
-    }}><option value="">독립 프로젝트</option>{unresolved && <option value="__unresolved" disabled>연결 확인 필요 · {item.relatedWorkTitle}</option>}{workItems.map((work) => <option key={work.id} value={work.id}>{work.title} · {work.subtitle} · {formatItemPeriod(work)}</option>)}</select>{unresolved && <span className="text-[11px] font-bold text-amber-700">연결 확인 필요</span>}</label>
+    }}><option value="">{independentGroupTitle}</option>{unresolved && <option value="__unresolved" disabled>연결 확인 필요 · {item.relatedWorkTitle}</option>}{workItems.map((work) => <option key={work.id} value={work.id}>{work.title} · {work.subtitle} · {formatItemPeriod(work)}</option>)}</select>{unresolved && <span className="text-[11px] font-bold text-amber-700">연결 확인 필요</span>}</label>
   </>;
 }
 

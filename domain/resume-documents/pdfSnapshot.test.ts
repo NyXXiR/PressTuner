@@ -85,6 +85,35 @@ test("PDF snapshot preserves blank and legacy item months while currentMonth rem
   assert.equal(resumePdfRequestSchema.safeParse({ snapshot: { ...value, currentMonth: "2026년 8월" } }).success, false);
 });
 
+test("PDF snapshot preserves free career detail and independent group labels", () => {
+  const value = snapshot();
+  value.sections.push({
+    id: "projects",
+    title: "경력 상세",
+    kind: "items",
+    content: {
+      independentGroupTitle: "개인·오픈소스 프로젝트",
+      items: [{
+        id: "independent-ai-product",
+        itemKind: "career-detail",
+        detailType: "project",
+        detailLabel: "AI 제품 구현",
+        meta: "",
+        title: "AI Process Console",
+        subtitle: "",
+        body: "",
+      }],
+    },
+  });
+
+  const parsed = resumePdfRequestSchema.parse({ snapshot: value }).snapshot;
+  const projects = parsed.sections.find((section) => section.id === "projects");
+  assert.equal(projects?.kind, "items");
+  if (projects?.kind !== "items") assert.fail("Expected items section");
+  assert.equal(projects.content.independentGroupTitle, "개인·오픈소스 프로젝트");
+  assert.equal(projects.content.items[0]?.detailLabel, "AI 제품 구현");
+});
+
 test("safe PDF names preserve Korean while removing path, control, and duplicate suffix characters", () => {
   assert.equal(safeResumePdfFilename(" 홍길동: 플랫폼/이력서.PDF.pdf. "), "홍길동 플랫폼 이력서.pdf");
   assert.equal(safeResumePdfFilename("../\u0000.."), "resume.pdf");
