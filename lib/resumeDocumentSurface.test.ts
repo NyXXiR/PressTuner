@@ -557,7 +557,11 @@ test("keyword dragging uses stable ids and appears only in explicit order mode",
   const builder = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
   assert.match(builder, /values=\{group\.keywords\.map\(\(keyword\) => keyword\.id\)\}/);
   assert.match(builder, /key=\{keyword\.id\} keyword=\{keyword\}/);
-  assert.match(builder, /dragListener=\{false\} value=\{keyword\.id\}/);
+  assert.match(builder, /dragListener=\{false\}[^>]+value=\{keyword\.id\}/);
+  assert.match(builder, /useReorderAutoScroll/);
+  assert.match(builder, /requestAnimationFrame\(tick\)/);
+  assert.match(builder, /pointercancel/);
+  assert.match(builder, /layoutScroll onReorder=\{reorderKeywords\}/);
   assert.match(builder, /keywordOrderMode \? "순서 편집 완료" : "순서 편집"/);
 });
 

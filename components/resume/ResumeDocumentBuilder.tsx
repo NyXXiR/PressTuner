@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Braces, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, LoaderCircle, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
-import { Reorder, useDragControls, type DragControls } from "framer-motion";
+import { Reorder, useDragControls, type DragControls, type PanInfo } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -92,6 +92,7 @@ import { findResumeItemDateIssue, normalizeResumeItemDates, resolveResumeItemKin
 import { calculateAge } from "@/domain/resume-documents/identityLayout";
 import { normalizeTagGroups, parseTagKeywordDraft, serializeTagGroups, type NormalizedTagGroup } from "@/domain/resume-documents/contentPresentation";
 import { toast } from "@/stores/toastStore";
+import { nextReorderScrollTop, reorderAutoScrollVelocity } from "@/components/resume/dragAutoScroll";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
 const sectionKindGuidance: Record<SectionKind, string> = {
@@ -810,6 +811,80 @@ function TodoChip({ count }: { count: number }) {
   return <span className="shrink-0 border border-wg-todo/40 bg-wg-todo/10 px-1.5 py-0.5 text-[10px] font-extrabold text-wg-todo">작성 필요 {count}</span>;
 }
 
+function dragClientY(event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
+  if ("clientY" in event && typeof event.clientY === "number") return event.clientY;
+  const touch = "touches" in event ? event.touches[0] ?? event.changedTouches[0] : undefined;
+  return touch?.clientY ?? info.point.y - window.scrollY;
+}
+
+function verticalScrollAncestors(element: HTMLElement | null) {
+  const containers: HTMLElement[] = [];
+  let current = element?.parentElement ?? null;
+  while (current) {
+    const overflowY = window.getComputedStyle(current).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) containers.push(current);
+    current = current.parentElement;
+  }
+  return containers;
+}
+
+function createReorderAutoScroller() {
+  let containers: HTMLElement[] = [];
+  let pointerY: number | null = null;
+  let frame: number | null = null;
+
+  function stop() {
+    pointerY = null;
+    containers = [];
+    if (frame !== null) window.cancelAnimationFrame(frame);
+    frame = null;
+    window.removeEventListener("pointerup", stop);
+    window.removeEventListener("pointercancel", stop);
+    window.removeEventListener("blur", stop);
+  }
+
+  function tick() {
+    if (pointerY === null) {
+      frame = null;
+      return;
+    }
+    for (const container of containers) {
+      const velocity = reorderAutoScrollVelocity(pointerY, container.getBoundingClientRect());
+      if (velocity === 0) continue;
+      const maximum = container.scrollHeight - container.clientHeight;
+      const next = nextReorderScrollTop(container.scrollTop, velocity, maximum);
+      if (next === container.scrollTop) continue;
+      container.scrollTo({ top: next });
+      break;
+    }
+    frame = window.requestAnimationFrame(tick);
+  }
+
+  function update(element: HTMLElement | null, nextPointerY: number) {
+    pointerY = nextPointerY;
+    if (!containers.length) containers = verticalScrollAncestors(element);
+    if (frame !== null) return;
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
+    frame = window.requestAnimationFrame(tick);
+  }
+
+  return { stop, update };
+}
+
+function useReorderAutoScroll() {
+  const [autoScroller] = useState(createReorderAutoScroller);
+  const onDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const element = event.currentTarget instanceof HTMLElement
+      ? event.currentTarget
+      : event.target instanceof HTMLElement ? event.target : null;
+    autoScroller.update(element, dragClientY(event, info));
+  }, [autoScroller]);
+  useEffect(() => autoScroller.stop, [autoScroller]);
+  return [onDrag, autoScroller.stop] as const;
+}
+
 function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", dragControls, headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
   index: number;
   item: ItemContent;
@@ -882,7 +957,8 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
 
 function SortableItemEditorCard(props: React.ComponentProps<typeof ItemEditorCard>) {
   const dragControls = useDragControls();
-  return <Reorder.Item className="list-none" dragControls={dragControls} dragListener={false} layout="position" transition={{ layout: { duration: .18, ease: "easeOut" } }} value={props.item.id} whileDrag={{ opacity: .86, scale: 1.005, zIndex: 30 }}>
+  const [onDrag, stopAutoScroll] = useReorderAutoScroll();
+  return <Reorder.Item className="list-none" dragControls={dragControls} dragListener={false} layout="position" onDrag={onDrag} onDragEnd={stopAutoScroll} transition={{ layout: { duration: .18, ease: "easeOut" } }} value={props.item.id} whileDrag={{ opacity: .86, scale: 1.005, zIndex: 30 }}>
     <ItemEditorCard {...props} dragControls={dragControls} />
   </Reorder.Item>;
 }
@@ -933,7 +1009,7 @@ function ItemsEditor({ section, content, workItems, onChange }: { section: Resum
   return <div className="grid gap-4">
     {durationControls}
     {orderedItems.length > 1 && <p className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground"><GripVertical className="h-3.5 w-3.5" /> 핸들을 드래그하거나 화살표 버튼으로 실제 표시 순서를 바꿀 수 있습니다.{content.sortDirection && " 드래그하면 수동 순서로 전환됩니다."}</p>}
-    <Reorder.Group axis="y" className="grid gap-3" onReorder={reorderItems} values={orderedItems.map((item) => item.id)}>{orderedItems.map((item, index) => <SortableItemEditorCard
+    <Reorder.Group axis="y" className="grid gap-3" layoutScroll onReorder={reorderItems} values={orderedItems.map((item) => item.id)}>{orderedItems.map((item, index) => <SortableItemEditorCard
       bodyLabel="설명"
       bodyRequired={section.id === "experience"}
       canMoveDown={index < orderedItems.length - 1}
@@ -1068,7 +1144,8 @@ function newTagEditorId(prefix: string) {
 
 function SortableTagCategory({ active, group, orderMode, onSelect }: { active: boolean; group: NormalizedTagGroup; orderMode: boolean; onSelect: () => void }) {
   const dragControls = useDragControls();
-  return <Reorder.Item className={cx("border bg-background", active ? "border-primary ring-1 ring-primary/30" : "border-border")} dragControls={dragControls} dragListener={false} value={group.id}>
+  const [onDrag, stopAutoScroll] = useReorderAutoScroll();
+  return <Reorder.Item className={cx("border bg-background", active ? "border-primary ring-1 ring-primary/30" : "border-border")} dragControls={dragControls} dragListener={false} onDrag={onDrag} onDragEnd={stopAutoScroll} value={group.id}>
     <div className="flex min-w-0 items-center gap-2 p-3">
       {orderMode && <button aria-label={`${group.title || "이름 없는 카테고리"} 순서 끌어 이동`} className="grid h-9 w-9 shrink-0 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button>}
       <button aria-pressed={active} className="min-w-0 flex-1 text-left" onClick={onSelect} type="button"><span className="flex items-center gap-2"><strong className="truncate text-sm">{group.title || "이름 없는 카테고리"}</strong><span className="shrink-0 text-[10px] font-extrabold text-muted-foreground">{group.keywords.length}개</span></span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{group.keywords.slice(0, 4).map((keyword) => keyword.label).join(" · ") || "아직 키워드가 없습니다."}</span></button>
@@ -1079,7 +1156,8 @@ function SortableTagCategory({ active, group, orderMode, onSelect }: { active: b
 
 function SortableTagKeyword({ keyword, groupTitle, onDelete }: { keyword: TagKeyword; groupTitle: string; onDelete: () => void }) {
   const dragControls = useDragControls();
-  return <Reorder.Item className="flex min-w-0 items-center gap-2 border border-border bg-background p-2" dragControls={dragControls} dragListener={false} value={keyword.id}>
+  const [onDrag, stopAutoScroll] = useReorderAutoScroll();
+  return <Reorder.Item className="flex min-w-0 items-center gap-2 border border-border bg-background p-2" dragControls={dragControls} dragListener={false} onDrag={onDrag} onDragEnd={stopAutoScroll} value={keyword.id}>
     <button aria-label={`${keyword.label} 순서 끌어 이동`} className="grid h-8 w-8 shrink-0 touch-none cursor-grab place-items-center border border-border text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button><span className="min-w-0 flex-1 truncate text-sm font-bold">{keyword.label}</span><button aria-label={`${groupTitle}의 ${keyword.label} 삭제`} className="grid h-8 w-8 shrink-0 place-items-center border border-red-200 text-red-600" onClick={onDelete} type="button"><X className="h-3.5 w-3.5" /></button>
   </Reorder.Item>;
 }
@@ -1130,7 +1208,7 @@ function ActiveTagGroupEditor({ group, groupTitles, canDelete, onChange, onDelet
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary/5 p-4"><div className="min-w-0 flex-1">{categoryEditing ? <form className="flex min-w-0 gap-2" onSubmit={(event) => { event.preventDefault(); saveCategoryTitle(); }}><input aria-label="카테고리 이름 수정" className="wg-field h-9 min-w-0 flex-1 px-3 text-sm font-extrabold" value={categoryTitle} onChange={(event) => { setCategoryTitle(event.target.value); if (categoryError) setCategoryError(""); }} autoFocus /><button className="h-9 bg-primary px-3 text-xs font-bold text-primary-foreground" type="submit">완료</button><button className="h-9 border border-border px-3 text-xs font-bold" onClick={() => { setCategoryEditing(false); setCategoryTitle(group.title); setCategoryError(""); }} type="button">취소</button></form> : <><h3 className="truncate text-base font-extrabold">{group.title}</h3><p className="mt-1 text-[11px] text-muted-foreground">키워드 {group.keywords.length}개</p></>}</div><div className="flex shrink-0 gap-2">{!categoryEditing && <button className="h-9 border border-border bg-background px-3 text-xs font-bold" onClick={() => setCategoryEditing(true)} type="button"><Edit3 className="mr-1 inline h-3.5 w-3.5" /> 이름 변경</button>}<button className="h-9 border border-red-200 bg-background px-3 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={!canDelete} onClick={onDelete} type="button"><Trash2 className="mr-1 inline h-3.5 w-3.5" /> 삭제</button></div>{categoryError && <p aria-live="polite" className="w-full text-[11px] font-bold text-red-600">{categoryError}</p>}</header>
     <form className="border-b border-border p-4" onSubmit={(event) => { event.preventDefault(); addKeyword(); }}><label className="grid gap-1.5 text-xs font-extrabold">새 키워드<span className="flex min-w-0 items-stretch gap-2"><textarea aria-describedby={`keyword-help-${group.id}${keywordError ? ` keyword-error-${group.id}` : ""}`} className="wg-field min-h-16 min-w-0 flex-1 resize-y px-3 py-2 text-sm font-normal" placeholder="React, TypeScript, Next.js" rows={2} value={keywordDraft} onChange={(event) => { setKeywordDraft(event.target.value); if (keywordError) setKeywordError(""); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); addKeyword(); } }} /><button className="shrink-0 bg-primary px-4 text-xs font-extrabold text-primary-foreground" type="submit"><Plus className="mr-1 inline h-3.5 w-3.5" /> 추가</button></span></label><p className="mt-1.5 text-[11px] text-muted-foreground" id={`keyword-help-${group.id}`}>쉼표 또는 줄바꿈으로 여러 키워드를 한 번에 추가할 수 있어요. Enter로 추가하고 Shift+Enter로 줄을 바꿉니다.</p>{keywordError && <p aria-live="polite" className="mt-1.5 text-[11px] font-bold text-red-600" id={`keyword-error-${group.id}`}>{keywordError}</p>}</form>
     <div className="flex items-center justify-between gap-3 px-4 pt-4"><p className="text-[11px] font-bold text-muted-foreground">{keywordOrderMode ? "핸들로 키워드 순서를 이동하세요." : "키워드를 눌러 이름을 수정할 수 있습니다."}</p><button aria-pressed={keywordOrderMode} className={cx("h-9 shrink-0 border px-3 text-xs font-extrabold", keywordOrderMode ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")} onClick={() => { setKeywordOrderMode((value) => !value); setEditingKeywordId(null); }} type="button">{keywordOrderMode ? "순서 편집 완료" : "순서 편집"}</button></div>
-    {keywordOrderMode ? <Reorder.Group axis="y" className="grid max-h-80 gap-2 overflow-y-auto overscroll-contain p-4" onReorder={reorderKeywords} values={group.keywords.map((keyword) => keyword.id)}>{group.keywords.map((keyword) => <SortableTagKeyword groupTitle={group.title} key={keyword.id} keyword={keyword} onDelete={() => updateKeywords(group.keywords.filter((value) => value.id !== keyword.id))} />)}</Reorder.Group> : <div className="flex max-h-80 flex-wrap content-start gap-2 overflow-y-auto overscroll-contain p-4">{group.keywords.length ? group.keywords.map((keyword) => editingKeywordId === keyword.id ? <form className="flex min-w-48 gap-1 border border-primary bg-primary/5 p-1" key={keyword.id} onSubmit={(event) => { event.preventDefault(); saveKeyword(); }}><input aria-label={`${keyword.label} 수정`} className="h-8 min-w-0 flex-1 bg-background px-2 text-xs outline-none" value={editingKeywordLabel} onChange={(event) => setEditingKeywordLabel(event.target.value)} autoFocus /><button className="h-8 bg-primary px-2 text-[10px] font-bold text-primary-foreground" type="submit">완료</button><button aria-label="키워드 수정 취소" className="grid h-8 w-8 place-items-center border border-border bg-background" onClick={() => setEditingKeywordId(null)} type="button"><X className="h-3 w-3" /></button></form> : <span className="inline-flex h-9 items-center border border-border bg-muted/30" key={keyword.id}><button className="h-full px-3 text-xs font-bold hover:text-primary" onClick={() => { setEditingKeywordId(keyword.id); setEditingKeywordLabel(keyword.label); setKeywordError(""); }} type="button">{keyword.label}</button><button aria-label={`${keyword.label} 삭제`} className="grid h-full w-8 place-items-center border-l border-border text-red-600" onClick={() => updateKeywords(group.keywords.filter((value) => value.id !== keyword.id))} type="button"><X className="h-3 w-3" /></button></span>) : <p className="w-full py-6 text-center text-xs text-muted-foreground">상단 입력창에서 첫 키워드를 추가하세요.</p>}</div>}
+    {keywordOrderMode ? <Reorder.Group axis="y" className="grid max-h-80 gap-2 overflow-y-auto overscroll-contain p-4" layoutScroll onReorder={reorderKeywords} values={group.keywords.map((keyword) => keyword.id)}>{group.keywords.map((keyword) => <SortableTagKeyword groupTitle={group.title} key={keyword.id} keyword={keyword} onDelete={() => updateKeywords(group.keywords.filter((value) => value.id !== keyword.id))} />)}</Reorder.Group> : <div className="flex max-h-80 flex-wrap content-start gap-2 overflow-y-auto overscroll-contain p-4">{group.keywords.length ? group.keywords.map((keyword) => editingKeywordId === keyword.id ? <form className="flex min-w-48 gap-1 border border-primary bg-primary/5 p-1" key={keyword.id} onSubmit={(event) => { event.preventDefault(); saveKeyword(); }}><input aria-label={`${keyword.label} 수정`} className="h-8 min-w-0 flex-1 bg-background px-2 text-xs outline-none" value={editingKeywordLabel} onChange={(event) => setEditingKeywordLabel(event.target.value)} autoFocus /><button className="h-8 bg-primary px-2 text-[10px] font-bold text-primary-foreground" type="submit">완료</button><button aria-label="키워드 수정 취소" className="grid h-8 w-8 place-items-center border border-border bg-background" onClick={() => setEditingKeywordId(null)} type="button"><X className="h-3 w-3" /></button></form> : <span className="inline-flex h-9 items-center border border-border bg-muted/30" key={keyword.id}><button className="h-full px-3 text-xs font-bold hover:text-primary" onClick={() => { setEditingKeywordId(keyword.id); setEditingKeywordLabel(keyword.label); setKeywordError(""); }} type="button">{keyword.label}</button><button aria-label={`${keyword.label} 삭제`} className="grid h-full w-8 place-items-center border-l border-border text-red-600" onClick={() => updateKeywords(group.keywords.filter((value) => value.id !== keyword.id))} type="button"><X className="h-3 w-3" /></button></span>) : <p className="w-full py-6 text-center text-xs text-muted-foreground">상단 입력창에서 첫 키워드를 추가하세요.</p>}</div>}
   </section>;
 }
 
@@ -1167,7 +1245,7 @@ function TagGroupsEditor({ content, onChange }: { content: TagsContent; onChange
   return <EditorBlock note="평소에는 요약만 보고, 선택한 카테고리 하나만 편집합니다" title="역량 · 키워드">
     <form className="sticky top-0 z-10 border border-primary/30 bg-background p-3 shadow-sm" onSubmit={(event) => { event.preventDefault(); addCategory(); }}><label className="grid gap-1.5 text-xs font-extrabold">새 카테고리<span className="flex min-w-0 gap-2"><input aria-describedby={categoryError ? "tag-category-error" : undefined} className="wg-field h-10 min-w-0 flex-1 px-3 text-sm font-normal" placeholder="예: 프론트엔드 · 입력 후 Enter" value={categoryDraft} onChange={(event) => { setCategoryDraft(event.target.value); if (categoryError) setCategoryError(""); }} /><button className="h-10 shrink-0 bg-primary px-4 text-xs font-extrabold text-primary-foreground" type="submit"><Plus className="mr-1 inline h-3.5 w-3.5" /> 추가</button></span></label>{categoryError && <p aria-live="polite" className="mt-1.5 text-[11px] font-bold text-red-600" id="tag-category-error">{categoryError}</p>}</form>
     <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs font-extrabold">카테고리 {groups.length}개</p><button aria-pressed={categoryOrderMode} className={cx("h-9 border px-3 text-xs font-extrabold", categoryOrderMode ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")} onClick={() => setCategoryOrderMode((value) => !value)} type="button">{categoryOrderMode ? "순서 편집 완료" : "카테고리 순서 편집"}</button></div>
-    <Reorder.Group axis="y" className="mt-2 grid max-h-64 gap-2 overflow-y-auto overscroll-contain" onReorder={reorderGroups} values={groups.map((group) => group.id)}>{groups.map((group) => <SortableTagCategory active={group.id === activeGroup?.id} group={group} key={group.id} orderMode={categoryOrderMode} onSelect={() => setSelectedGroupId(group.id)} />)}</Reorder.Group>
+    <Reorder.Group axis="y" className="mt-2 grid max-h-64 gap-2 overflow-y-auto overscroll-contain" layoutScroll onReorder={reorderGroups} values={groups.map((group) => group.id)}>{groups.map((group) => <SortableTagCategory active={group.id === activeGroup?.id} group={group} key={group.id} orderMode={categoryOrderMode} onSelect={() => setSelectedGroupId(group.id)} />)}</Reorder.Group>
     {activeGroup && <ActiveTagGroupEditor canDelete={groups.length > 1} group={activeGroup} groupTitles={groups.filter((group) => group.id !== activeGroup.id).map((group) => group.title)} key={activeGroup.id} onChange={updateGroup} onDelete={deleteActiveGroup} />}
   </EditorBlock>;
 }
