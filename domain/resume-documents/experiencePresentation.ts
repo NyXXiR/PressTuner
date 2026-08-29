@@ -123,6 +123,22 @@ export type CareerDetailGroup = {
   details: ItemContent[];
 };
 
+export function orderCareerDetailDisplayGroups<T extends { orderKey: string }>(
+  groups: readonly T[],
+  order: readonly string[],
+): T[] {
+  const positions = new Map(order.map((key, index) => [key, index]));
+  return groups
+    .map((group, index) => ({ group, index, position: positions.get(group.orderKey) }))
+    .sort((left, right) => {
+      if (left.position === undefined && right.position === undefined) return left.index - right.index;
+      if (left.position === undefined) return 1;
+      if (right.position === undefined) return -1;
+      return left.position - right.position || left.index - right.index;
+    })
+    .map(({ group }) => group);
+}
+
 export function groupCareerDetails(
   workItems: readonly ItemContent[],
   detailItems: readonly ItemContent[],
@@ -143,8 +159,15 @@ export function groupCareerDetails(
   const detailsByWorkId = new Map(sortedWorks.map((work) => [work.id, [] as ItemContent[]]));
   const independentDetails: ItemContent[] = [];
   const unresolvedDetails: ItemContent[] = [];
+  const detailGroupOrder: string[] = [];
+  const seenGroups = new Set<string>();
   for (const detail of sortedDetails) {
     const relation = resolveCareerDetailRelation(detail, sortedWorks, { matchFallbackTitles: options.matchFallbackTitles });
+    const groupKey = relation.status === "linked" ? `work:${relation.work.id}` : relation.status;
+    if (!seenGroups.has(groupKey)) {
+      seenGroups.add(groupKey);
+      detailGroupOrder.push(groupKey);
+    }
     if (relation.status === "linked") detailsByWorkId.get(relation.work.id)?.push(detail);
     else if (relation.status === "independent") independentDetails.push(detail);
     else unresolvedDetails.push(detail);
@@ -153,5 +176,6 @@ export function groupCareerDetails(
     employmentGroups: sortedWorks.map((work) => ({ work, details: detailsByWorkId.get(work.id) ?? [] })),
     independentDetails,
     unresolvedDetails,
+    detailGroupOrder,
   };
 }

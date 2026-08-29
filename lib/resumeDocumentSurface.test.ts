@@ -442,6 +442,8 @@ test("experience presentation exposes persisted sort and duration controls in ed
     assert.match(source, new RegExp(label));
   }
   assert.match(pdf, /sortExperienceItems/);
+  assert.match(pdf, /orderCareerDetailDisplayGroups\(unorderedGroups, grouped\.detailGroupOrder\)/);
+  assert.match(editor, /orderCareerDetailDisplayGroups\(unorderedGroups, grouped\.detailGroupOrder\)/);
   assert.match(pdf, /resolveCareerDurationMonths/);
   assert.match(pdf, /formatCareerDuration/);
   assert.match(editor, /data-experience-duration/);

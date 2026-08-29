@@ -6,6 +6,7 @@ import {
   formatCareerDuration,
   groupCareerDetails,
   normalizeCareerDurationOverride,
+  orderCareerDetailDisplayGroups,
   parseYearMonth,
   resolveCareerDurationLabel,
   resolveCareerDurationMonths,
@@ -110,6 +111,29 @@ test("career details group under valid parents and keep independent and unresolv
   assert.deepEqual(grouped.employmentGroups.map((group) => [group.work.id, group.details.map((item) => item.id)]), [["work-a", ["linked"]], ["work-b", []]]);
   assert.deepEqual(grouped.independentDetails.map((item) => item.id), ["independent"]);
   assert.deepEqual(grouped.unresolvedDetails.map((item) => item.id), ["stale", "fallback"]);
+});
+
+test("manual career detail order places each display group at its first item position", () => {
+  const grouped = groupCareerDetails(
+    [work("work-a", "샘플테크"), work("work-b", "다른회사")],
+    [
+      detail("independent-first"),
+      detail("linked-b", { relatedWorkItemId: "work-b" }),
+      detail("independent-second"),
+      detail("linked-a", { relatedWorkItemId: "work-a" }),
+      detail("stale", { relatedWorkItemId: "missing", relatedWorkTitle: "예전회사" }),
+    ],
+  );
+  const displayed = orderCareerDetailDisplayGroups([
+    { orderKey: "work:work-a", title: "work-a" },
+    { orderKey: "work:work-b", title: "work-b" },
+    { orderKey: "independent", title: "independent" },
+    { orderKey: "unresolved", title: "unresolved" },
+  ], grouped.detailGroupOrder);
+
+  assert.deepEqual(grouped.detailGroupOrder, ["independent", "work:work-b", "work:work-a", "unresolved"]);
+  assert.deepEqual(displayed.map((group) => group.title), ["independent", "work-b", "work-a", "unresolved"]);
+  assert.deepEqual(grouped.independentDetails.map((item) => item.id), ["independent-first", "independent-second"]);
 });
 
 test("fallback matching resolves only one exact normalized employer title", () => {
