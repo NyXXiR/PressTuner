@@ -58,23 +58,31 @@ export function ResumeAiJsonEditDialog({
     setSelectedSectionIds([]);
     try {
       const result = parseResumeAiEditResult(input);
-      setPrepared(prepareResumeAiEdit(state, context, result));
+      const nextPrepared = prepareResumeAiEdit(state, context, result);
+      setPrepared(nextPrepared);
       setParsedResult(result);
+      setSelectedSectionIds([...new Set(nextPrepared.changes.map((change) => change.sectionId))]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "AI 편집 결과를 확인하지 못했습니다.");
     }
   };
 
-  const apply = () => {
-    if (!parsedResult) return;
+  const applyResult = (result: ResumeAiEditResult) => {
     setError("");
     try {
-      const selected = selectResumeAiEditSections(parsedResult, selectedSectionIds);
-      onApply(prepareResumeAiEdit(state, context, selected).state);
+      onApply(prepareResumeAiEdit(state, context, result).state);
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.");
     }
+  };
+  const apply = () => {
+    if (!parsedResult) return;
+    applyResult(selectResumeAiEditSections(parsedResult, selectedSectionIds));
+  };
+  const applyAll = () => {
+    if (!parsedResult || !window.confirm(`검토한 ${sectionGroups.length}개 섹션의 변경을 모두 반영할까요?`)) return;
+    applyResult(parsedResult);
   };
 
   const sectionGroups = prepared ? Array.from(
@@ -175,11 +183,12 @@ export function ResumeAiJsonEditDialog({
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-primary">PREVIEW</p>
                   <h3 className="mt-1 text-lg font-extrabold">섹션별 검토 · 변경 {prepared.changes.length}개</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">반영할 섹션을 직접 선택하세요. 선택하지 않은 섹션은 이력서에 들어가지 않습니다.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">모든 섹션이 기본 선택됩니다. 반영하지 않을 섹션만 체크 해제하세요.</p>
                 </div>
-                <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button">
-                  <Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button className="inline-flex h-10 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={applyAll} type="button"><Check className="h-4 w-4" /> 전체 승인·반영</button>
+                  <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button"><Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용</button>
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border bg-background px-3 py-2">
