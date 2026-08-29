@@ -103,6 +103,10 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /AI용 섹션 자료 복사/);
   assert.match(dialog, /작성·수정 결과 붙여넣기/);
   assert.match(dialog, /JSON을 직접 수정/);
+  assert.match(dialog, /DEFAULT_AI_EDIT_PROMPT/);
+  assert.match(dialog, /프롬프트 예시 보기/);
+  assert.match(dialog, /프롬프트 복사/);
+  assert.match(dialog, /사실·수치·기간·경력은 새로 만들지 말고/);
   assert.match(dialog, /변경 내용 확인/);
   assert.match(dialog, /섹션별 검토/);
   assert.match(dialog, /선택한 섹션/);

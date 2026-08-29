@@ -18,6 +18,8 @@ import {
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
 import { toast } from "@/stores/toastStore";
 
+const DEFAULT_AI_EDIT_PROMPT = "아래 BriefFlow 이력서 자료를 채용 담당자가 빠르게 이해할 수 있도록 다듬어줘. 사실·수치·기간·경력은 새로 만들지 말고 중복 표현을 줄여줘. 각 경험은 행동과 결과가 드러나게 작성하고, 입력된 편집 범위와 규칙을 지켜 지정된 JSON 형식으로만 반환해줘.";
+
 const operationLabels: Record<ResumeAiEditChange["operationType"], string> = {
   UPDATE_SECTION_TITLE: "섹션 이름 수정",
   UPDATE_NARRATIVE: "본문 수정",
@@ -65,6 +67,7 @@ export function ResumeAiJsonEditDialog({
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
   const [prepared, setPrepared] = useState<PreparedResumeAiEdit | null>(null);
   const [parsedResult, setParsedResult] = useState<ResumeAiEditResult | null>(null);
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
@@ -77,6 +80,17 @@ export function ResumeAiJsonEditDialog({
       window.setTimeout(() => setCopied(false), 2_000);
     } catch {
       setError("클립보드에 복사하지 못했습니다. 아래 편집 자료를 직접 선택해 복사해 주세요.");
+    }
+  };
+
+  const copyPrompt = async () => {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(DEFAULT_AI_EDIT_PROMPT);
+      setPromptCopied(true);
+      window.setTimeout(() => setPromptCopied(false), 2_000);
+    } catch {
+      setError("프롬프트를 복사하지 못했습니다. 예시 문장을 직접 선택해 복사해 주세요.");
     }
   };
 
@@ -186,6 +200,16 @@ export function ResumeAiJsonEditDialog({
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
                 복사한 JSON을 외부 AI에 붙여넣고 원하는 수정 방향을 설명하세요. JSON을 이해한다면 아래 내용을 직접 수정해도 됩니다.
               </p>
+              <details className="mt-3 border border-border bg-background text-xs">
+                <summary className="cursor-pointer px-3 py-2 font-bold text-primary">프롬프트 예시 보기</summary>
+                <div className="border-t border-border p-3">
+                  <p className="leading-5 text-muted-foreground">{DEFAULT_AI_EDIT_PROMPT}</p>
+                  <button aria-label="기본 프롬프트 복사" className="mt-2 inline-flex h-8 items-center gap-1.5 border border-primary/40 px-2.5 text-[11px] font-bold text-primary" onClick={() => { void copyPrompt(); }} type="button">
+                    {promptCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {promptCopied ? "복사됨" : "프롬프트 복사"}
+                  </button>
+                </div>
+              </details>
               <textarea
                 aria-label="외부 AI에 전달할 이력서 편집 자료"
                 className="mt-4 h-80 w-full resize-y border border-border bg-muted/20 p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary"
