@@ -623,9 +623,12 @@ export function createResumeAiEditBundle(
       preserveSectionIdsAndItemIds: true,
       doNotInventMetricsDatesOrganizationsOrCredentials: true,
       doNotAddOrDeleteSections: true,
+      doNotReorderSections: true,
       editOnlyListedSectionIds: true,
       returnJsonOnly: true,
       updateItemBodyReplacesExistingBody: true,
+      identityEmptyStringClearsOptionalField: true,
+      identityLinksReplaceEntireList: true,
       allowedOperations: [
         "UPDATE_SECTION_TITLE",
         "UPDATE_NARRATIVE",
@@ -649,8 +652,8 @@ export function createResumeAiEditBundle(
     operationContracts: {
       UPDATE_SECTION_TITLE: { type: "UPDATE_SECTION_TITLE", sectionId: "existing section id", title: "new title" },
       UPDATE_NARRATIVE: { type: "UPDATE_NARRATIVE", sectionId: "existing narrative section id", body: "complete revised body" },
-      UPDATE_IDENTITY: { type: "UPDATE_IDENTITY", sectionId: "existing identity section id", patch: { name: "only fields that change", email: "optional", phone: "optional", location: "optional", gender: "optional", birthDate: "optional", links: ["optional"] } },
-      UPDATE_ELIGIBILITY: { type: "UPDATE_ELIGIBILITY", sectionId: "existing eligibility section id", patch: { militaryStatus: "only fields that change", veteranStatus: "optional", disabilityStatus: "optional", employmentProtectionStatus: "optional" } },
+      UPDATE_IDENTITY: { type: "UPDATE_IDENTITY", sectionId: "existing identity section id", patch: { name: "only when changing the name", email: "new value; use empty string to clear", phone: "new value; use empty string to clear", location: "new value; use empty string to clear", gender: "new value; use empty string to remove from the resume", birthDate: "YYYY-MM-DD; use empty string to remove from the resume", links: ["complete replacement list; use an empty array to remove all links"] } },
+      UPDATE_ELIGIBILITY: { type: "UPDATE_ELIGIBILITY", sectionId: "existing eligibility section id", patch: { militaryStatus: "new value; use empty string to clear", veteranStatus: "new value; use empty string to clear", disabilityStatus: "new value; use empty string to clear", employmentProtectionStatus: "new value; use empty string to clear" } },
       UPDATE_ITEM: { type: "UPDATE_ITEM", sectionId: "existing items section id", itemId: "existing item id", patch: { title: "only fields that change", subtitle: "optional", body: "optional complete replacement body; never append or merge with the existing body", meta: "optional", startMonth: "YYYY-MM optional", endMonth: "YYYY-MM optional", isCurrent: false } },
       ADD_ITEM: { type: "ADD_ITEM", sectionId: "existing items section id", item: { title: "required", body: "required", subtitle: "optional", meta: "optional", startMonth: "YYYY-MM optional", endMonth: "YYYY-MM optional", isCurrent: false } },
       UPDATE_TAGS: { type: "UPDATE_TAGS", sectionId: "existing tags section id", add: ["new tag"], remove: ["existing tag"] },

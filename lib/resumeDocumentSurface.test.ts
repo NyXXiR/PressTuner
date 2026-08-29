@@ -94,12 +94,15 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   ]);
 
   assert.match(builder, /ResumeAiJsonEditDialog/);
-  assert.match(builder, /AI로 섹션 작성/);
+  assert.match(builder, /AI로 전체 이력서 작성·수정/);
   assert.match(builder, /AI로 이 섹션 작성·수정/);
   assert.match(builder, /<Braces/);
   assert.match(builder, /onAiEdit/);
   assert.doesNotMatch(builder, /> JSON</);
-  assert.match(dialog, /외부 AI 섹션 편집/);
+  assert.match(dialog, /외부 AI \{sectionId \? "개별 섹션" : "전체 이력서"\} 편집/);
+  assert.match(dialog, /전체 이력서 편집으로 전환/);
+  assert.match(dialog, /개별 섹션만 포함/);
+  assert.match(dialog, /편집 가능한 전체 섹션이 포함/);
   assert.match(dialog, /AI용 섹션 자료 복사/);
   assert.match(dialog, /작성·수정 결과 붙여넣기/);
   assert.match(dialog, /JSON을 직접 수정/);
@@ -133,6 +136,11 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(contract, /RESUME_AI_EDIT_CONTEXT_CHANGED/);
   assert.match(contract, /UPDATE_NARRATIVE/);
   assert.match(contract, /updateItemBodyReplacesExistingBody/);
+  assert.match(contract, /identityEmptyStringClearsOptionalField/);
+  assert.match(contract, /identityLinksReplaceEntireList/);
+  assert.match(contract, /doNotReorderSections/);
+  assert.match(contract, /empty string to remove from the resume/);
+  assert.match(contract, /empty array to remove all links/);
   assert.match(contract, /complete replacement body; never append or merge/);
   assert.doesNotMatch(dialog, /prisma/i);
 });

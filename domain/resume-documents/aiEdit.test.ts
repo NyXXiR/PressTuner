@@ -57,7 +57,13 @@ test("AI edit bundles preserve the selected inheritance context and resolved sou
   assert.equal(summary?.resolution.mode, "inherit");
   assert.equal("photo" in (bundle.sections.find((section) => section.id === "profile")?.content ?? {}), false);
   assert.equal(bundle.rules.updateItemBodyReplacesExistingBody, true);
+  assert.equal(bundle.rules.identityEmptyStringClearsOptionalField, true);
+  assert.equal(bundle.rules.identityLinksReplaceEntireList, true);
+  assert.equal(bundle.rules.doNotReorderSections, true);
   assert.match(bundle.operationContracts.UPDATE_ITEM.patch.body, /complete replacement body/);
+  assert.match(bundle.operationContracts.UPDATE_IDENTITY.patch.birthDate, /empty string to remove/);
+  assert.match(bundle.operationContracts.UPDATE_IDENTITY.patch.gender, /empty string to remove/);
+  assert.match(bundle.operationContracts.UPDATE_IDENTITY.patch.links[0], /empty array to remove all links/);
 });
 
 test("AI edit bundles can be restricted to one section", () => {
@@ -89,6 +95,36 @@ test("role edits create an override without mutating shared content", () => {
   assert.equal((summary.content as { body: string }).body.includes("백엔드"), false);
   assert.equal((resolveSection(summary, profile).content as { body: string }).body, "백엔드 직군에 맞춘 소개");
   assert.equal(profile.settings.summary.mode, "override");
+});
+
+test("identity optional fields and links can be explicitly cleared in a role edit and survive parsing", () => {
+  const state = createResumeDocumentSeed();
+  const section = state.sharedSections.find((candidate) => candidate.id === "profile")!;
+  section.content = {
+    ...(section.content as { name: string; email: string; phone?: string; location?: string; gender?: string; birthDate?: string; links: string[] }),
+    gender: "남성",
+    birthDate: "1990-01-02",
+    links: ["https://example.com"],
+  };
+  const context: ResumeAiEditContext = { scope: "role", roleProfileId: state.activeRoleProfileId };
+  const prepared = prepareResumeAiEdit(state, context, result(state, context, [{
+    type: "UPDATE_IDENTITY",
+    sectionId: section.id,
+    patch: { gender: "", birthDate: "", links: [] },
+  }]));
+  const reparsed = parseResumeDocumentState(JSON.stringify(prepared.state))!;
+  const resolved = resolveSection(
+    reparsed.sharedSections.find((candidate) => candidate.id === section.id)!,
+    reparsed.roleProfiles.find((candidate) => candidate.id === state.activeRoleProfileId),
+  ).content as { gender?: string; birthDate?: string; links: string[] };
+  const shared = section.content as { gender?: string; birthDate?: string; links: string[] };
+
+  assert.equal(resolved.gender, "");
+  assert.equal(resolved.birthDate, "");
+  assert.deepEqual(resolved.links, []);
+  assert.equal(shared.gender, "남성");
+  assert.equal(shared.birthDate, "1990-01-02");
+  assert.deepEqual(shared.links, ["https://example.com"]);
 });
 
 test("an edit matching the parent clears the content override instead of duplicating it", () => {

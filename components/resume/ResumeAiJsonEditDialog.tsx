@@ -49,6 +49,7 @@ type ResumeAiJsonEditDialogProps = {
   state: ResumeDocumentState;
   onApply: (state: ResumeDocumentState, summary: ResumeAiEditApplySummary) => void;
   onClose: () => void;
+  onEditAll?: () => void;
 };
 
 export type ResumeAiEditApplySummary = {
@@ -64,6 +65,7 @@ export function ResumeAiJsonEditDialog({
   state,
   onApply,
   onClose,
+  onEditAll,
 }: ResumeAiJsonEditDialogProps) {
   const exportJson = useMemo(
     () => serializeResumeAiEditBundle(state, context, sectionId ? { sectionIds: [sectionId] } : {}),
@@ -97,6 +99,15 @@ export function ResumeAiJsonEditDialog({
     } catch {
       setError("프롬프트를 복사하지 못했습니다. 예시 문장을 직접 선택해 복사해 주세요.");
     }
+  };
+
+  const editAll = () => {
+    setInput("");
+    setError("");
+    setPrepared(null);
+    setParsedResult(null);
+    setSelectedSectionIds([]);
+    onEditAll?.();
   };
 
   const inspect = () => {
@@ -187,11 +198,14 @@ export function ResumeAiJsonEditDialog({
             <p className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-primary">
               <Braces className="h-4 w-4" /> JSON EDIT WORKFLOW
             </p>
-            <h2 className="mt-1 text-xl font-extrabold" id="resume-external-ai-title">외부 AI 섹션 편집</h2>
+            <h2 className="mt-1 text-xl font-extrabold" id="resume-external-ai-title">외부 AI {sectionId ? "개별 섹션" : "전체 이력서"} 편집</h2>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
               편집 범위: <strong className="text-foreground">{contextLabel}</strong>. 섹션 자료를 ChatGPT·Claude 등에 전달하거나 JSON을 직접 수정한 뒤 결과를 검토해 반영할 수 있습니다.
             </p>
-            {sectionId && <p className="mt-1 text-xs font-bold text-primary">개별 섹션: {sectionLabel ?? sectionId}</p>}
+            {sectionId ? <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold text-primary">개별 섹션만 포함: {sectionLabel ?? sectionId}</p>
+              {onEditAll && <button className="h-8 border border-primary px-2.5 text-[11px] font-extrabold text-primary" onClick={editAll} type="button">전체 이력서 편집으로 전환</button>}
+            </div> : <p className="mt-1 text-xs font-bold text-primary">현재 자료에는 편집 가능한 전체 섹션이 포함됩니다.</p>}
           </div>
           <button aria-label="외부 AI 편집 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onClose} type="button">
             <X className="h-4 w-4" />
@@ -214,6 +228,7 @@ export function ResumeAiJsonEditDialog({
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
                 복사한 JSON을 외부 AI에 붙여넣고 원하는 수정 방향을 설명하세요. JSON을 이해한다면 아래 내용을 직접 수정해도 됩니다.
               </p>
+              <p className="mt-2 text-[11px] leading-5 text-muted-foreground">섹션 내용은 수정할 수 있지만 섹션 추가·삭제·순서 변경은 지원하지 않습니다. 선택 정보는 빈 문자열, 링크 전체는 빈 배열로 제거할 수 있습니다.</p>
               <details className="mt-3 border border-border bg-background text-xs">
                 <summary className="cursor-pointer px-3 py-2 font-bold text-primary">프롬프트 예시 보기</summary>
                 <div className="border-t border-border p-3">
