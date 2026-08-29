@@ -3,16 +3,39 @@
 import { Check, ClipboardPaste, Copy, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { RESUME_DOCUMENT_CSS_VARIABLES, ResumeEditorSection } from "@/components/resume/ResumeEditorDocument";
 import {
   parseResumeAiEditResult,
   prepareResumeAiEdit,
   selectResumeAiEditSections,
   serializeResumeAiEditBundle,
   type PreparedResumeAiEdit,
+  type ResumeAiEditChange,
   type ResumeAiEditContext,
   type ResumeAiEditResult,
 } from "@/domain/resume-documents/aiEdit";
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
+
+const operationLabels: Record<ResumeAiEditChange["operationType"], string> = {
+  UPDATE_SECTION_TITLE: "섹션 이름 수정",
+  UPDATE_NARRATIVE: "본문 수정",
+  UPDATE_IDENTITY: "인적사항 수정",
+  UPDATE_ELIGIBILITY: "지원 자격 수정",
+  UPDATE_ITEM: "기존 항목 수정",
+  ADD_ITEM: "새 항목 추가",
+  UPDATE_TAGS: "키워드 수정",
+  RESET_SECTION_TO_PARENT: "상위 내용으로 되돌리기",
+};
+
+type SectionPreviewGroup = {
+  sectionId: string;
+  sectionTitle: string;
+  changes: ResumeAiEditChange[];
+  beforeSection: ResumeAiEditChange["beforeSection"];
+  afterSection: ResumeAiEditChange["afterSection"];
+  beforeRelatedWorkItems: ResumeAiEditChange["beforeRelatedWorkItems"];
+  afterRelatedWorkItems: ResumeAiEditChange["afterRelatedWorkItems"];
+};
 
 type ResumeAiJsonEditDialogProps = {
   context: ResumeAiEditContext;
@@ -88,14 +111,23 @@ export function ResumeAiJsonEditDialog({
   const sectionGroups = prepared ? Array.from(
     prepared.changes.reduce((groups, change) => {
       const group = groups.get(change.sectionId);
-      if (group) group.changes.push(change);
+      if (group) {
+        group.changes.push(change);
+        group.sectionTitle = change.sectionTitle;
+        group.afterSection = change.afterSection;
+        group.afterRelatedWorkItems = change.afterRelatedWorkItems;
+      }
       else groups.set(change.sectionId, {
         sectionId: change.sectionId,
         sectionTitle: change.sectionTitle,
         changes: [change],
+        beforeSection: change.beforeSection,
+        afterSection: change.afterSection,
+        beforeRelatedWorkItems: change.beforeRelatedWorkItems,
+        afterRelatedWorkItems: change.afterRelatedWorkItems,
       });
       return groups;
-    }, new Map<string, { sectionId: string; sectionTitle: string; changes: PreparedResumeAiEdit["changes"] }>()),
+    }, new Map<string, SectionPreviewGroup>()),
   ).map(([, group]) => group) : [];
   const selectedChangeCount = sectionGroups
     .filter((group) => selectedSectionIds.includes(group.sectionId))
@@ -216,19 +248,16 @@ export function ResumeAiJsonEditDialog({
                       <span className="ml-auto text-[10px] font-bold text-muted-foreground">변경 {group.changes.length}개</span>
                     </label>
                     <div className={selected ? "" : "opacity-55"}>
-                      {group.changes.map((change, index) => <details className="border-t border-border first:border-t-0" key={`${change.operationType}-${index}`} open={groupIndex === 0 && index === 0}>
-                        <summary className="cursor-pointer px-4 py-3 text-xs font-bold">{change.operationType}</summary>
-                        <div className="grid gap-px border-t border-border bg-border md:grid-cols-2">
-                          <div className="min-w-0 bg-background p-3">
-                            <p className="mb-2 text-[10px] font-bold tracking-widest text-red-600">BEFORE</p>
-                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">{change.before || "(비어 있음)"}</pre>
-                          </div>
-                          <div className="min-w-0 bg-background p-3">
-                            <p className="mb-2 text-[10px] font-bold tracking-widest text-primary">AFTER</p>
-                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5">{change.after || "(비어 있음)"}</pre>
-                          </div>
-                        </div>
-                      </details>)}
+                      <div className="grid gap-px bg-border md:grid-cols-2">
+                        <SectionDocumentPreview label="수정 전" relatedWorkItems={group.beforeRelatedWorkItems} section={group.beforeSection} tone="before" />
+                        <SectionDocumentPreview label="수정 후" relatedWorkItems={group.afterRelatedWorkItems} section={group.afterSection} tone="after" />
+                      </div>
+                      <details className="border-t border-border" open={groupIndex === 0}>
+                        <summary className="cursor-pointer px-4 py-3 text-xs font-bold">수정 내역 {group.changes.length}개</summary>
+                        <ul className="grid gap-1 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+                          {group.changes.map((change, index) => <li key={`${change.operationType}-${index}`}>{index + 1}. {operationLabels[change.operationType]}</li>)}
+                        </ul>
+                      </details>
                     </div>
                   </section>;
                 })}
@@ -243,4 +272,18 @@ export function ResumeAiJsonEditDialog({
       </section>
     </div>
   );
+}
+
+function SectionDocumentPreview({ label, relatedWorkItems, section, tone }: {
+  label: string;
+  relatedWorkItems: ResumeAiEditChange["beforeRelatedWorkItems"];
+  section: ResumeAiEditChange["beforeSection"];
+  tone: "before" | "after";
+}) {
+  return <div className="min-w-0 bg-muted/20 p-3">
+    <p className={`mb-2 text-[10px] font-bold tracking-widest ${tone === "before" ? "text-red-600" : "text-primary"}`}>{label}</p>
+    <div className="resume-paper overflow-auto bg-white p-4 text-slate-950 shadow-sm" style={RESUME_DOCUMENT_CSS_VARIABLES}>
+      <ResumeEditorSection relatedWorkItems={relatedWorkItems} section={section} />
+    </div>
+  </div>;
 }

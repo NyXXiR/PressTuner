@@ -236,6 +236,25 @@ test("section selection applies only operations belonging to approved sections",
   );
 });
 
+test("prepared changes include renderable section snapshots and related work context", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const section = state.sharedSections.find((item) => item.id === "projects")!;
+  const item = (section.content as { items: ItemContent[] }).items[0];
+  const prepared = prepareResumeAiEdit(state, context, result(state, context, [{
+    type: "UPDATE_ITEM",
+    sectionId: section.id,
+    itemId: item.id,
+    patch: { body: "읽기 쉬운 경력 상세" },
+  }]));
+  const change = prepared.changes[0];
+
+  assert.equal(change.beforeSection.kind, "items");
+  assert.equal(change.afterSection.title, section.title);
+  assert.equal((change.afterSection.content as { items: ItemContent[] }).items[0].body, "읽기 쉬운 경력 상세");
+  assert.ok(change.afterRelatedWorkItems.every((workItem) => workItem.itemKind === "work"));
+});
+
 test("JSON result parsing accepts a single JSON code fence and rejects unknown fields", () => {
   const state = createResumeDocumentSeed();
   const edit = result(state, { scope: "shared" }, [{

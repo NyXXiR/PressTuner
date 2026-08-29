@@ -178,6 +178,10 @@ export type ResumeAiEditChange = {
   sectionTitle: string;
   before: string;
   after: string;
+  beforeSection: ResumeSection;
+  afterSection: ResumeSection;
+  beforeRelatedWorkItems: ItemContent[];
+  afterRelatedWorkItems: ItemContent[];
 };
 
 export type PreparedResumeAiEdit = {
@@ -503,6 +507,33 @@ function sectionSummary(section: ResumeSection, content: SectionContent) {
   return JSON.stringify(simplifiedContent(section, content), null, 2);
 }
 
+function previewSection(
+  state: ResumeDocumentState,
+  context: ResumeAiEditContext,
+  sectionId: string,
+): ResumeSection {
+  const { section, profile, variant } = sectionInContext(state, context, sectionId);
+  const resolved = resolveSection(section, profile, variant);
+  return {
+    ...section,
+    title: resolveSectionTitle(section, profile, variant),
+    content: clone(resolved.content),
+    layout: resolved.layout,
+    pageBreakBefore: resolved.pageBreakBefore,
+  };
+}
+
+function previewRelatedWorkItems(
+  state: ResumeDocumentState,
+  context: ResumeAiEditContext,
+) {
+  const resolved = resolveContext(state, context);
+  const experience = resolved.sections.find((section) => section.id === "experience" && section.kind === "items");
+  if (!experience) return [];
+  const content = resolveSection(experience, resolved.profile, resolved.variant).content as ItemsContent;
+  return clone(content.items.filter((item) => item.itemKind === "work"));
+}
+
 export function createResumeAiEditBundle(
   state: ResumeDocumentState,
   context: ResumeAiEditContext,
@@ -629,6 +660,8 @@ export function prepareResumeAiEdit(
     const beforeContent = effectiveContent(next, expectedContext, operation.sectionId);
     const beforeTitle = effectiveTitle(next, expectedContext, operation.sectionId);
     const section = sectionInContext(next, expectedContext, operation.sectionId).section;
+    const beforeSection = previewSection(next, expectedContext, operation.sectionId);
+    const beforeRelatedWorkItems = previewRelatedWorkItems(next, expectedContext);
     const updated = applyOperation(next, expectedContext, operation, idFactory);
     const afterContent = effectiveContent(updated, expectedContext, operation.sectionId);
     const afterTitle = effectiveTitle(updated, expectedContext, operation.sectionId);
@@ -639,6 +672,10 @@ export function prepareResumeAiEdit(
       sectionTitle: afterTitle,
       before: operation.type === "UPDATE_SECTION_TITLE" ? beforeTitle : sectionSummary(section, beforeContent),
       after: operation.type === "UPDATE_SECTION_TITLE" ? afterTitle : sectionSummary(section, afterContent),
+      beforeSection,
+      afterSection: previewSection(updated, expectedContext, operation.sectionId),
+      beforeRelatedWorkItems,
+      afterRelatedWorkItems: previewRelatedWorkItems(updated, expectedContext),
     });
     next = updated;
   }
