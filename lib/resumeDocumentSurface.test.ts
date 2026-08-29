@@ -459,6 +459,9 @@ test("timeline item editors visibly apply date sorting and support persisted man
   assert.match(source, /dragControls\.start\(event\)/);
   assert.match(source, /sortDirection: undefined, items/);
   assert.match(source, /드래그하면 수동 순서로 전환/);
+  assert.match(source, /const \[expanded, setExpanded\] = useState\(true\)/);
+  assert.match(source, /<details open=\{expanded\} onToggle=\{\(event\) => setExpanded\(event\.currentTarget\.open\)\}>/);
+  assert.match(source, /onClick=\{\(event\) => \{ event\.preventDefault\(\); event\.stopPropagation\(\); \}\} onPointerDown=\{\(event\) => dragControls\.start\(event\)\}/);
 });
 
 test("all item editors share semantic item-kind date controls", async () => {

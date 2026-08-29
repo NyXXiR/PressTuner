@@ -912,6 +912,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
   onMoveUp?: () => void;
   onMoveDown?: () => void;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const label = item.title.trim() || `항목 ${index + 1}`;
   const placeholder = itemPlaceholder(sectionId);
   const todoCount = tone === "hidden" ? 0 : countItemTodos(item, sectionId);
@@ -940,7 +941,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
       {showBody && (todoCount > 0 ? <TodoChip count={todoCount} /> : <DoneMark />)}
     </span>
     <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-      {dragControls && <button aria-label={`${label} 순서 끌어 이동`} className="grid h-8 w-8 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button>}
+      {dragControls && <button aria-label={`${label} 순서 끌어 이동`} className="grid h-8 w-8 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary active:cursor-grabbing" onClick={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button>}
       {headerExtra}
       {collapsible && <span aria-hidden="true" className="grid h-8 w-8 place-items-center border border-border bg-background" data-item-chevron><ChevronDown className="h-4 w-4" /></span>}
       {onMoveUp && <button aria-label={`${label} 위로`} className="grid h-8 w-8 place-items-center border border-border bg-background disabled:opacity-40" disabled={!canMoveUp} onClick={onMoveUp} type="button"><ArrowUp className="h-3.5 w-3.5" /></button>}
@@ -951,7 +952,7 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
   const frame = cx("border bg-background", tone === "override" ? "border-primary/40" : tone === "hidden" ? "border-dashed border-border opacity-60" : "border-border", todoCount > 0 && showBody && "border-l-[3px] border-l-wg-todo");
   // collapsible일 때 details를 쓰면 저장 검증이 접힌 항목을 open 처리한 뒤 포커스할 수 있다.
   if (collapsible) return <fieldset className={frame} data-resume-edit-item-id={item.id}>
-    <details open>
+    <details open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">{header}</summary>
       {body}
     </details>
