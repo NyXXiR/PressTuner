@@ -5,6 +5,7 @@ import { createResumeDocumentSeed, updateSharedSectionTitle } from "./model";
 import {
   resolveResumeDocumentLoad,
   resumeDocumentFingerprint,
+  sameResumeDocumentState,
   type ResumeDocumentSyncMetadata,
 } from "./persistence";
 
@@ -40,4 +41,18 @@ test("unsynced local edits resume against the same server revision but conflict 
   assert.equal(conflict.state, local);
   assert.equal(conflict.needsSave, false);
   assert.equal(conflict.conflict, true);
+});
+
+test("resume document state equality supports content-addressed idempotent saves", () => {
+  const state = createResumeDocumentSeed();
+  const reverseObjectKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(reverseObjectKeys);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseObjectKeys(item)]));
+  };
+  const sameContent = reverseObjectKeys(state) as typeof state;
+  const changed = updateSharedSectionTitle(state, "summary", "다른 소개");
+
+  assert.equal(sameResumeDocumentState(state, sameContent), true);
+  assert.equal(sameResumeDocumentState(state, changed), false);
 });

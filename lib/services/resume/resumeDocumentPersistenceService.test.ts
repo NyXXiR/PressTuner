@@ -101,3 +101,27 @@ test("concurrent first saves produce one document and one domain conflict", asyn
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("replaying an acknowledged document snapshot is idempotent without hiding later edits", async () => {
+  const user = await createUser("idempotent-replay");
+  try {
+    const firstState = updateSharedSectionTitle(createResumeDocumentSeed(), "summary", "첫 저장");
+    const first = await saveResumeDocument({ userId: user.id, state: firstState, expectedRevision: 0 });
+
+    const lostResponseRetry = await saveResumeDocument({ userId: user.id, state: structuredClone(firstState), expectedRevision: 0 });
+    const noOpAtCurrentRevision = await saveResumeDocument({ userId: user.id, state: firstState, expectedRevision: first.revision });
+    assert.equal(lostResponseRetry.revision, first.revision);
+    assert.equal(noOpAtCurrentRevision.revision, first.revision);
+
+    const secondState = updateSharedSectionTitle(firstState, "summary", "다른 브라우저의 저장");
+    const second = await saveResumeDocument({ userId: user.id, state: secondState, expectedRevision: first.revision });
+    assert.equal(second.revision, first.revision + 1);
+
+    await assert.rejects(
+      saveResumeDocument({ userId: user.id, state: firstState, expectedRevision: 0 }),
+      (error: unknown) => (error as { code?: string }).code === "RESUME_DOCUMENT_CONFLICT",
+    );
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

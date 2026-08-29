@@ -4,6 +4,7 @@ import {
   parseResumeDocumentState,
   type ResumeDocumentState,
 } from "@/domain/resume-documents/model";
+import { sameResumeDocumentState } from "@/domain/resume-documents/persistence";
 import { prisma } from "@/lib/prisma";
 import { serviceError } from "@/lib/services/serviceError";
 
@@ -64,6 +65,10 @@ export async function saveResumeDocument(input: {
         },
       });
     }
+    const currentState = validatedState(current.payload);
+    // A lost response may make the browser retry an already committed snapshot
+    // with an older revision. Equal content is a successful replay, not a conflict.
+    if (sameResumeDocumentState(currentState, state)) return current;
     if (current.revision !== input.expectedRevision) {
       throw serviceError(409, "RESUME_DOCUMENT_CONFLICT", "Resume document changed", { currentRevision: current.revision });
     }
@@ -76,7 +81,9 @@ export async function saveResumeDocument(input: {
       },
     });
     if (updated.count !== 1) {
-      throw serviceError(409, "RESUME_DOCUMENT_CONFLICT", "Resume document changed");
+      const latest = await tx.resumeDocument.findUniqueOrThrow({ where: { id: current.id } });
+      if (sameResumeDocumentState(validatedState(latest.payload), state)) return latest;
+      throw serviceError(409, "RESUME_DOCUMENT_CONFLICT", "Resume document changed", { currentRevision: latest.revision });
     }
     return tx.resumeDocument.findUniqueOrThrow({ where: { id: current.id } });
   });

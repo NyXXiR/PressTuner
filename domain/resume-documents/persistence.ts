@@ -29,6 +29,21 @@ export function resumeDocumentFingerprint(serialized: string) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+function canonicalJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, canonicalJsonValue(item)]),
+  );
+}
+
+export function sameResumeDocumentState(left: ResumeDocumentState, right: ResumeDocumentState) {
+  return JSON.stringify(canonicalJsonValue(left)) === JSON.stringify(canonicalJsonValue(right));
+}
+
 export function parseResumeDocumentSyncMetadata(raw: string | null): ResumeDocumentSyncMetadata | null {
   try {
     const value = JSON.parse(raw ?? "null") as Partial<ResumeDocumentSyncMetadata> | null;
