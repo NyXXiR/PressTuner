@@ -16,7 +16,6 @@ import {
   type ResumeAiEditResult,
 } from "@/domain/resume-documents/aiEdit";
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
-import { toast } from "@/stores/toastStore";
 
 const DEFAULT_AI_EDIT_PROMPT = "아래 BriefFlow 이력서 자료를 채용 담당자가 빠르게 이해할 수 있도록 다듬어줘. 사실·수치·기간·경력은 새로 만들지 말고 중복 표현을 줄여줘. 각 경험은 행동과 결과가 드러나게 작성하고, 입력된 편집 범위와 규칙을 지켜 지정된 JSON 형식으로만 반환해줘.";
 
@@ -47,8 +46,13 @@ type ResumeAiJsonEditDialogProps = {
   sectionId?: string;
   sectionLabel?: string;
   state: ResumeDocumentState;
-  onApply: (state: ResumeDocumentState) => void;
+  onApply: (state: ResumeDocumentState, summary: ResumeAiEditApplySummary) => void;
   onClose: () => void;
+};
+
+export type ResumeAiEditApplySummary = {
+  sectionCount: number;
+  changeCount: number;
 };
 
 export function ResumeAiJsonEditDialog({
@@ -116,12 +120,8 @@ export function ResumeAiJsonEditDialog({
     try {
       const applied = prepareResumeAiEdit(state, context, result);
       const appliedSectionCount = new Set(applied.changes.map((change) => change.sectionId)).size;
-      onApply(applied.state);
+      onApply(applied.state, { sectionCount: appliedSectionCount, changeCount: applied.changes.length });
       onClose();
-      toast.success(
-        `${appliedSectionCount}개 섹션의 변경 ${applied.changes.length}개를 반영했습니다. 자동 저장을 시작합니다.`,
-        "섹션 편집 적용 완료",
-      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.");
     }

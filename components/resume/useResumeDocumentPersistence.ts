@@ -41,6 +41,7 @@ export function useResumeDocumentPersistence() {
   const [state, setState] = useState<ResumeDocumentState>(() => createResumeDocumentSeed());
   const [hydrated, setHydrated] = useState(false);
   const [storageStatus, setStorageStatus] = useState<ResumeDocumentStorageStatus>("loading");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const stateRef = useRef(state);
   const serverRevisionRef = useRef(0);
   const lastSavedStateRef = useRef<string | null>(null);
@@ -104,19 +105,21 @@ export function useResumeDocumentPersistence() {
           setStorageStatus("error");
           return;
         }
-        const savedSerialized = JSON.stringify(saved.state);
         serverRevisionRef.current = saved.revision;
-        lastSavedStateRef.current = savedSerialized;
+        // The successful response acknowledges the exact state sent by the client.
+        // Comparing against a normalized response can otherwise cause an endless resave loop.
+        lastSavedStateRef.current = serialized;
         try {
           localStorage.setItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY, JSON.stringify({
             revision: saved.revision,
-            fingerprint: resumeDocumentFingerprint(savedSerialized),
+            fingerprint: resumeDocumentFingerprint(serialized),
           }));
         } catch {
           setStorageStatus("error");
           return;
         }
-        if (JSON.stringify(stateRef.current) === savedSerialized) setStorageStatus("saved");
+        setLastSavedAt(Date.now());
+        if (JSON.stringify(stateRef.current) === serialized) setStorageStatus("saved");
       } while (saveQueuedRef.current || JSON.stringify(stateRef.current) !== lastSavedStateRef.current);
     } finally {
       saveInFlightRef.current = false;
@@ -145,6 +148,7 @@ export function useResumeDocumentPersistence() {
         saveBlockedRef.current = resolved.conflict;
         stateRef.current = resolved.state;
         setState(resolved.state);
+        setLastSavedAt(serverDocument ? Date.parse(serverDocument.updatedAt) : null);
         localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, serialized);
         if (!resolved.needsSave && !resolved.conflict) {
           localStorage.setItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY, JSON.stringify({
@@ -204,6 +208,7 @@ export function useResumeDocumentPersistence() {
         fingerprint: resumeDocumentFingerprint(serialized),
       }));
       setState(document.state);
+      setLastSavedAt(Date.parse(document.updatedAt));
       setStorageStatus("saved");
     } catch {
       setStorageStatus("error");
@@ -217,5 +222,5 @@ export function useResumeDocumentPersistence() {
     void persistLatestState();
   }, [persistLatestState]);
 
-  return { state, setState, hydrated, storageStatus, loadServerCopy, overwriteServerCopy };
+  return { state, setState, hydrated, storageStatus, lastSavedAt, loadServerCopy, overwriteServerCopy };
 }

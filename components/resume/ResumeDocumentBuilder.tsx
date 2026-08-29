@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Braces, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Braces, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, LoaderCircle, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
 import { Reorder, useDragControls, type DragControls } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,7 +72,7 @@ import { DateInput } from "@/components/ui/DateInput";
 import { formatDateOnly } from "@/components/ui/dateOnly";
 import { applyResumeImportCommand, type ResumeDocumentImportCommand } from "@/domain/resume-documents/importCandidate";
 import { ResumeDocumentImportPanel } from "@/components/resume/ResumeDocumentImportPanel";
-import { ResumeAiJsonEditDialog } from "@/components/resume/ResumeAiJsonEditDialog";
+import { ResumeAiJsonEditDialog, type ResumeAiEditApplySummary } from "@/components/resume/ResumeAiJsonEditDialog";
 import { ResumePdfPreviewDialog } from "@/components/resume/ResumePdfPreviewDialog";
 import type { ResumeAiEditContext } from "@/domain/resume-documents/aiEdit";
 import {
@@ -91,6 +91,7 @@ import { ResumeItemDateFields } from "@/components/resume/ResumeItemDateFields";
 import { findResumeItemDateIssue, normalizeResumeItemDates, resolveResumeItemKind } from "@/domain/resume-documents/itemDatePolicy";
 import { calculateAge } from "@/domain/resume-documents/identityLayout";
 import { normalizeTagGroups, parseTagKeywordDraft, serializeTagGroups, type NormalizedTagGroup } from "@/domain/resume-documents/contentPresentation";
+import { toast } from "@/stores/toastStore";
 
 const roleModes: Record<SectionMode, string> = { inherit: "공통 정보 사용", override: "이 직군용 재작성", hidden: "이 직군에서 숨김" };
 const sectionKindGuidance: Record<SectionKind, string> = {
@@ -157,6 +158,7 @@ const currentLocalMonth = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 };
+const formatSavedTime = (value: number) => new Date(value).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const isCareerTimelineSectionId = (sectionId: string) => sectionId === "experience" || sectionId === "projects";
 const defaultItemKind = (sectionId: string) => resolveResumeItemKind({}, sectionId);
 const detailTypeLabels = { project: "프로젝트", responsibility: "상시 책임", improvement: "개선", troubleshooting: "문제 해결" } as const;
@@ -170,7 +172,7 @@ const sectionTemplateLabel = (section: ResumeSection) => {
 };
 
 export function ResumeDocumentBuilder() {
-  const { state, setState, hydrated, storageStatus, loadServerCopy, overwriteServerCopy } = useResumeDocumentPersistence();
+  const { state, setState, hydrated, storageStatus, lastSavedAt, loadServerCopy, overwriteServerCopy } = useResumeDocumentPersistence();
   const [view, setView] = useState<"resume" | "shared">("resume");
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [itemEditor, setItemEditor] = useState<ItemEditorState | null>(null);
@@ -188,7 +190,50 @@ export function ResumeDocumentBuilder() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [reorderAnnouncement, setReorderAnnouncement] = useState("");
   const [pdfSnapshot, setPdfSnapshot] = useState<ResumePdfSnapshot | null>(null);
+  const pendingAiSaveRef = useRef<(ResumeAiEditApplySummary & { savingStarted: boolean }) | null>(null);
   const experienceSyncUndoRef = useRef<ResumeDocumentState | null>(null);
+  const applyAiEdit = useCallback((nextState: ResumeDocumentState, summary: ResumeAiEditApplySummary) => {
+    pendingAiSaveRef.current = { ...summary, savingStarted: storageStatus === "saving" };
+    setState(nextState);
+    if (storageStatus === "offline" || storageStatus === "conflict" || storageStatus === "error") {
+      toast.error(
+        storageStatus === "offline"
+          ? "변경은 브라우저에 유지되지만 서버 저장은 아직 완료되지 않았습니다."
+          : storageStatus === "conflict"
+            ? "다른 기기의 변경과 충돌해 AI 편집 내용을 서버에 저장하지 못했습니다."
+            : "AI 편집 내용을 서버에 저장하지 못했습니다.",
+        "AI 섹션 서버 저장 미완료",
+      );
+      pendingAiSaveRef.current = null;
+    }
+  }, [setState, storageStatus]);
+  useEffect(() => {
+    const pendingAiSave = pendingAiSaveRef.current;
+    if (!pendingAiSave) return;
+    if (storageStatus === "saving") {
+      pendingAiSave.savingStarted = true;
+      return;
+    }
+    if (storageStatus === "saved" && pendingAiSave.savingStarted) {
+      toast.success(
+        `${pendingAiSave.sectionCount}개 섹션의 변경 ${pendingAiSave.changeCount}개가 서버에 저장됐습니다.`,
+        "AI 섹션 서버 저장 완료",
+      );
+      pendingAiSaveRef.current = null;
+      return;
+    }
+    if (storageStatus === "offline" || storageStatus === "conflict" || storageStatus === "error") {
+      toast.error(
+        storageStatus === "offline"
+          ? "변경은 브라우저에 유지되지만 서버 저장은 아직 완료되지 않았습니다."
+          : storageStatus === "conflict"
+            ? "다른 기기의 변경과 충돌해 AI 편집 내용을 서버에 저장하지 못했습니다."
+            : "AI 편집 내용을 서버에 저장하지 못했습니다.",
+        "AI 섹션 서버 저장 미완료",
+      );
+      pendingAiSaveRef.current = null;
+    }
+  }, [storageStatus]);
   useEffect(() => {
     if (!draft && !insertAfterId && !experienceDialogOpen && !importPanelOpen && !aiEditOpen && !readinessOpen && !sharedSectionDialogOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setDraft(null); setInsertAfterId(null); setExperienceDialogOpen(false); setImportPanelOpen(false); setAiEditOpen(false); setAiEditSection(null); setReadinessOpen(false); setSharedSectionDialogOpen(false); } };
@@ -414,7 +459,7 @@ export function ResumeDocumentBuilder() {
                 </> : <NewSupportVersion compact onAdd={(name, company) => setState((current) => createSupportVariant(current, activeProfile.id, { name, company }))} />}
               </div>
             <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-extrabold">{active ? "지원 버전" : "직군 이력서"} 전용 섹션</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">원하는 섹션 아래의 추가 버튼을 누르세요.</p></div>
-            <p aria-live="polite" className={cx("mt-6 flex items-start gap-1.5 border-t border-border pt-4 text-[11px] leading-5", storageStatus === "error" || storageStatus === "conflict" ? "text-red-600" : storageStatus === "offline" ? "text-amber-700" : "text-muted-foreground")}><Check className={cx("mt-0.5 h-3.5 w-3.5 shrink-0", storageStatus === "error" || storageStatus === "conflict" ? "text-red-600" : "text-primary")} /> {storageStatus === "error" ? "자동 저장에 실패했습니다. 브라우저 임시본은 유지됩니다." : storageStatus === "conflict" ? "다른 기기에서 변경된 문서와 충돌했습니다. 이 브라우저의 편집 내용은 보존되어 있습니다." : storageStatus === "offline" ? "서버에 연결할 수 없어 브라우저에 임시 저장했습니다. 연결되면 다시 저장합니다." : storageStatus === "saved" ? "모든 변경 내용이 서버에 저장됐습니다." : storageStatus === "saving" ? "변경 내용을 서버에 저장하는 중입니다." : "저장 내용을 불러오는 중입니다."}</p>
+            <p aria-live="polite" className={cx("mt-6 flex items-start gap-1.5 border-t border-border pt-4 text-[11px] leading-5", storageStatus === "error" || storageStatus === "conflict" ? "text-red-600" : storageStatus === "offline" ? "text-amber-700" : "text-muted-foreground")}>{storageStatus === "saving" || storageStatus === "loading" ? <LoaderCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" /> : storageStatus === "error" || storageStatus === "conflict" || storageStatus === "offline" ? <X className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />} {storageStatus === "error" ? "자동 저장에 실패했습니다. 브라우저 임시본은 유지됩니다." : storageStatus === "conflict" ? "다른 기기에서 변경된 문서와 충돌했습니다. 이 브라우저의 편집 내용은 보존되어 있습니다." : storageStatus === "offline" ? "서버에 연결할 수 없어 브라우저에 임시 저장했습니다. 연결되면 다시 저장합니다." : storageStatus === "saved" ? `서버 저장 완료${lastSavedAt ? ` · ${formatSavedTime(lastSavedAt)}` : ""}` : storageStatus === "saving" ? "변경 내용을 서버에 저장하는 중입니다." : "저장 내용을 불러오는 중입니다."}</p>
             {storageStatus === "conflict" && <div className="mt-2 grid grid-cols-2 gap-2"><button className="h-9 border border-border bg-background px-2 text-[10px] font-bold" onClick={() => { void loadServerCopy(); }} type="button">서버 문서 불러오기</button><button className="h-9 border border-red-300 bg-background px-2 text-[10px] font-bold text-red-700" onClick={overwriteServerCopy} type="button">이 편집본으로 저장</button></div>}
           </aside>
           <div className="resume-preview-shell min-w-0"><div className="resume-builder-chrome mb-3 flex flex-wrap items-center justify-between gap-2 border border-primary/25 bg-primary/5 px-4 py-3 text-xs"><span className="font-bold text-primary"><span className="hidden md:inline">편집 화면은 A4 너비를 기준으로 표시됩니다.</span><span className="md:hidden">모바일 편집 보기 · PDF는 A4로 저장됩니다.</span></span><span className="font-extrabold">실제 페이지 구분은 PDF 미리보기에서 확인하세요.</span></div><article className="resume-paper mx-auto w-full max-w-[210mm] bg-white text-slate-950 shadow-xl" style={RESUME_DOCUMENT_CSS_VARIABLES}><div className="resume-paper-inner min-h-[297mm] px-[18mm] py-[16mm]"><ResumeEditorHeader company={active?.company || activeProfile.name} role={resolveDocumentRole(activeProfile, active)} /><p className="resume-reorder-help mb-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><GripVertical className="h-3.5 w-3.5" /> 섹션을 선택하면 편집 도구가 표시됩니다. 핸들을 끌거나 포커스 후 위·아래 화살표 키로 순서를 바꿀 수 있습니다.</p><p aria-live="polite" className="sr-only" id="resume-reorder-announcement">{reorderAnnouncement}</p><Reorder.Group axis="y" className="resume-print-sections grid" onReorder={commitSectionOrder} values={orderedSections.map((section) => section.id)}>{orderedSections.map((section) => {
@@ -445,7 +490,7 @@ export function ResumeDocumentBuilder() {
       {itemEditor && <ItemTailoringDialog state={state} profileId={activeProfile.id} variantId={itemEditor.scope === "document" ? active?.id : undefined} scope={itemEditor.scope} section={itemEditor.section} workItems={resolvedWorkItems} onSave={setState} onClose={() => setItemEditor(null)} onEditParent={() => { const parentContent = itemEditor.scope === "role" ? itemEditor.section.content : resolveSection(itemEditor.section, activeProfile).content; setItemEditor(null); openEditor(itemEditor.scope === "role" ? "shared" : "role", itemEditor.section, parentContent); }} onEditCurrent={() => { const content = resolveSection(itemEditor.section, activeProfile, itemEditor.scope === "document" ? active : undefined).content; setItemEditor(null); openEditor(itemEditor.scope === "document" ? "variant" : "role", itemEditor.section, content); }} />}
       {experienceDialogOpen && <ExperienceBrickSyncDialog state={state} onClose={() => setExperienceDialogOpen(false)} onSync={syncExperienceBricks} onUndo={undoExperienceBrickSync} />}
       {importPanelOpen && <ResumeDocumentImportPanel commonSections={state.sharedSections} sections={orderedSections} workItems={resolvedWorkItems} onApply={applyApprovedImport} onClose={() => setImportPanelOpen(false)} />}
-      {aiEditOpen && <ResumeAiJsonEditDialog context={aiEditContext} contextLabel={aiEditContextLabel} sectionId={aiEditSection?.id} sectionLabel={aiEditSection?.label} state={state} onApply={setState} onClose={closeAiEdit} />}
+      {aiEditOpen && <ResumeAiJsonEditDialog context={aiEditContext} contextLabel={aiEditContextLabel} sectionId={aiEditSection?.id} sectionLabel={aiEditSection?.label} state={state} onApply={applyAiEdit} onClose={closeAiEdit} />}
       {readinessOpen && <ReadinessDialog issues={readinessIssues} onClose={() => setReadinessOpen(false)} onIssue={focusReadinessIssue} />}
       {pdfSnapshot && <ResumePdfPreviewDialog onClose={() => setPdfSnapshot(null)} onPageBreakBeforeChange={setPdfSectionPageBreak} snapshot={pdfSnapshot} />}
     </div>

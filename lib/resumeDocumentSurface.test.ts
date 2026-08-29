@@ -118,8 +118,9 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /수정 후/);
   assert.match(dialog, /기존 항목 수정/);
   assert.match(dialog, /assertResumeAiEditTargets/);
-  assert.match(dialog, /섹션 편집 적용 완료/);
-  assert.match(dialog, /자동 저장을 시작합니다/);
+  assert.match(builder, /AI 섹션 서버 저장 완료/);
+  assert.match(builder, /AI 섹션 서버 저장 미완료/);
+  assert.match(builder, /pendingAiSaveRef/);
   assert.match(dialog, /전체 선택/);
   assert.match(dialog, /선택 해제/);
   assert.match(contract, /baseFingerprint/);
@@ -195,7 +196,8 @@ test("server-backed resume copy does not claim durable edits or photos only live
   assert.doesNotMatch(source, /사진은 크기를 줄여 이 브라우저에 저장/);
   assert.doesNotMatch(source, /변경 사항은 이 브라우저의 로컬 저장소에 자동 저장/);
   assert.match(source, /문서에 저장합니다/);
-  assert.match(source, /모든 변경 내용이 서버에 저장됐습니다/);
+  assert.match(source, /서버 저장 완료/);
+  assert.match(source, /formatSavedTime/);
 });
 
 test("resume PDF uses server geometry while the editor and modal retain screen-only styles", async () => {
@@ -403,6 +405,8 @@ test("resume editing stays local-first while durable persistence is server-backe
   assert.match(persistence, /localStorage\.setItem/);
   assert.match(persistence, /fetch\("\/api\/resume\/documents"/);
   assert.match(persistence, /expectedRevision/);
+  assert.match(persistence, /lastSavedAt/);
+  assert.match(persistence, /lastSavedStateRef\.current = serialized/);
   assert.match(source, /서버 문서 불러오기/);
   assert.match(source, /이 편집본으로 저장/);
   assert.doesNotMatch(editor, /localStorage|RESUME_DOCUMENT_STORAGE_KEY|fetch\(/);
