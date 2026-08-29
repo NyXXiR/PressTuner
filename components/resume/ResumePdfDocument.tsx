@@ -386,7 +386,7 @@ export function ResumePdfDocument({
     <Page size="A4" style={styles.page} wrap>
       <Header snapshot={snapshot} />
       {snapshot.sections.filter((section) => !section.hidden).map((section) => <Fragment key={section.id}>
-        <View minPresenceAhead={SECTION_OPENING_PRESENCE_POINTS} />
+        {!section.pageBreakBefore ? <View minPresenceAhead={SECTION_OPENING_PRESENCE_POINTS} /> : null}
         <PdfSection
           currentMonth={snapshot.currentMonth}
           relatedWorkItems={relatedWorkItems}

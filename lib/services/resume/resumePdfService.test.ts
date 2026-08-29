@@ -486,6 +486,50 @@ test("a manual section page break starts that section on the next PDF page", { t
   }
 });
 
+test("a manual section page break does not leave an empty page when the preceding page is nearly full", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.relatedWorkItems = [];
+  snapshot.sections = [
+    {
+      id: "summary",
+      title: "앞선 내용",
+      kind: "narrative",
+      layout: "standard",
+      content: {
+        body: Array.from({ length: 36 }, (_, index) =>
+          `앞페이지-${String(index + 1).padStart(2, "0")} 다음 섹션 직전까지 내용을 채웁니다.`,
+        ).join("\n"),
+      },
+    },
+    {
+      id: "cover-letter",
+      title: "자기소개서",
+      kind: "narrative",
+      layout: "standard",
+      pageBreakBefore: true,
+      content: { body: "강제 페이지 나누기 이후 자기소개서 내용" },
+    },
+  ];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const pageTexts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pageTexts.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+    }
+
+    assert.equal(pageTexts.length, 2);
+    assert.ok(pageTexts[0]?.includes("앞페이지-01"));
+    assert.ok(pageTexts[1]?.includes("자기소개서"));
+    assert.ok(pageTexts.every((text) => text.trim().length > 0), "manual page breaks must not create an empty intermediate page");
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("section openings use the same protection when the current page remainder is too small", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   const filler = Array.from({ length: 36 }, (_, index) =>
