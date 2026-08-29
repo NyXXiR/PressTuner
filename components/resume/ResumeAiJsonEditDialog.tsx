@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { RESUME_DOCUMENT_CSS_VARIABLES, ResumeEditorSection } from "@/components/resume/ResumeEditorDocument";
 import {
   assertResumeAiEditTargets,
+  diffResumeItemBodyLines,
   parseResumeAiEditResult,
   prepareResumeAiEdit,
   selectResumeAiEditSections,
@@ -17,7 +18,7 @@ import {
 } from "@/domain/resume-documents/aiEdit";
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
 
-const DEFAULT_AI_EDIT_PROMPT = "아래 BriefFlow 이력서 자료를 채용 담당자가 빠르게 이해할 수 있도록 다듬어줘. 사실·수치·기간·경력은 새로 만들지 말고 중복 표현을 줄여줘. 각 경험은 행동과 결과가 드러나게 작성하고, 입력된 편집 범위와 규칙을 지켜 지정된 JSON 형식으로만 반환해줘.";
+const DEFAULT_AI_EDIT_PROMPT = "아래 BriefFlow 이력서 자료를 채용 담당자가 빠르게 이해할 수 있도록 다듬어줘. 사실·수치·기간·경력은 새로 만들지 말고 중복 표현을 줄여줘. 기존 항목의 body를 바꿀 때는 기존 내용과 병합하지 말고 최종 전체 본문을 보내줘. 각 경험은 행동과 결과가 드러나게 작성하고, 입력된 편집 범위와 규칙을 지켜 지정된 JSON 형식으로만 반환해줘.";
 
 const operationLabels: Record<ResumeAiEditChange["operationType"], string> = {
   UPDATE_SECTION_TITLE: "섹션 이름 수정",
@@ -128,10 +129,23 @@ export function ResumeAiJsonEditDialog({
   };
   const apply = () => {
     if (!parsedResult) return;
+    const selectedGroups = sectionGroups.filter((group) => selectedSectionIds.includes(group.sectionId));
+    const bodyReplacementCount = selectedGroups.flatMap((group) => group.changes)
+      .filter((change) => change.itemEdit?.bodyReplaced).length;
+    const message = bodyReplacementCount > 0
+      ? `선택한 ${selectedGroups.length}개 섹션에서 기존 항목 본문 ${bodyReplacementCount}개를 전체 교체합니다.\n기존 본문은 유지하거나 병합하지 않습니다. 적용할까요?`
+      : `선택한 ${selectedGroups.length}개 섹션의 변경을 적용할까요?`;
+    if (!window.confirm(message)) return;
     applyResult(selectResumeAiEditSections(parsedResult, selectedSectionIds));
   };
   const applyAll = () => {
-    if (!parsedResult || !window.confirm(`검토한 ${sectionGroups.length}개 섹션의 변경을 모두 반영할까요?`)) return;
+    if (!parsedResult) return;
+    const bodyReplacementCount = sectionGroups.flatMap((group) => group.changes)
+      .filter((change) => change.itemEdit?.bodyReplaced).length;
+    const message = bodyReplacementCount > 0
+      ? `검토한 ${sectionGroups.length}개 섹션에서 기존 항목 본문 ${bodyReplacementCount}개를 전체 교체합니다.\n기존 본문은 유지하거나 병합하지 않습니다. 모두 반영할까요?`
+      : `검토한 ${sectionGroups.length}개 섹션의 변경을 모두 반영할까요?`;
+    if (!window.confirm(message)) return;
     applyResult(parsedResult);
   };
 
@@ -253,7 +267,7 @@ export function ResumeAiJsonEditDialog({
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-primary">PREVIEW</p>
                   <h3 className="mt-1 text-lg font-extrabold">섹션별 검토 · 변경 {prepared.changes.length}개</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">모든 섹션이 기본 선택됩니다. 반영하지 않을 섹션만 체크 해제하세요.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">모든 섹션이 기본 선택됩니다. 항목 본문 수정은 기존 본문과 병합하지 않고 수정 후 본문으로 교체됩니다.</p>
                 </div>
               </div>
 
@@ -288,8 +302,11 @@ export function ResumeAiJsonEditDialog({
                       </div>
                       <details className="border-t border-border" open={groupIndex === 0}>
                         <summary className="cursor-pointer px-4 py-3 text-xs font-bold">수정 내역 {group.changes.length}개</summary>
-                        <ul className="grid gap-1 border-t border-border px-4 py-3 text-xs text-muted-foreground">
-                          {group.changes.map((change, index) => <li key={`${change.operationType}-${index}`}>{index + 1}. {operationLabels[change.operationType]}</li>)}
+                        <ul className="grid gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+                          {group.changes.map((change, index) => <li key={`${change.operationType}-${change.itemEdit?.itemId ?? index}`}>
+                            <p>{index + 1}. {operationLabels[change.operationType]}{change.itemEdit ? ` · ${change.itemEdit.itemTitle}` : ""}{change.itemEdit?.bodyReplaced ? " · 본문 전체 교체" : ""}</p>
+                            {change.itemEdit?.bodyReplaced && <BodyReplacementDiff change={change} />}
+                          </li>)}
                         </ul>
                       </details>
                     </div>
@@ -313,6 +330,22 @@ export function ResumeAiJsonEditDialog({
       </section>
     </div>
   );
+}
+
+function BodyReplacementDiff({ change }: { change: ResumeAiEditChange }) {
+  if (!change.itemEdit?.bodyReplaced) return null;
+  const diff = diffResumeItemBodyLines(change.itemEdit.beforeBody, change.itemEdit.afterBody);
+  if (!diff.removed.length && !diff.added.length) return <p className="mt-2 text-[11px]">본문의 줄 순서 또는 서식이 변경됩니다.</p>;
+  return <div className="mt-2 grid gap-2 md:grid-cols-2">
+    <div className="border border-red-200 bg-red-50 p-2 text-red-800">
+      <p className="mb-1 font-extrabold">삭제 {diff.removed.length}줄</p>
+      {diff.removed.length ? <ul className="grid gap-1">{diff.removed.map((line, index) => <li className="break-words" key={`removed-${index}`}>− {line}</li>)}</ul> : <p className="text-red-700/70">삭제되는 문장 없음</p>}
+    </div>
+    <div className="border border-emerald-200 bg-emerald-50 p-2 text-emerald-800">
+      <p className="mb-1 font-extrabold">추가 {diff.added.length}줄</p>
+      {diff.added.length ? <ul className="grid gap-1">{diff.added.map((line, index) => <li className="break-words" key={`added-${index}`}>+ {line}</li>)}</ul> : <p className="text-emerald-700/70">추가되는 문장 없음</p>}
+    </div>
+  </div>;
 }
 
 function SectionDocumentPreview({ label, relatedWorkItems, section, tone }: {

@@ -117,6 +117,10 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /수정 전/);
   assert.match(dialog, /수정 후/);
   assert.match(dialog, /기존 항목 수정/);
+  assert.match(dialog, /기존 본문은 유지하거나 병합하지 않습니다/);
+  assert.match(dialog, /본문 전체 교체/);
+  assert.match(dialog, /삭제 \{diff\.removed\.length\}줄/);
+  assert.match(dialog, /추가 \{diff\.added\.length\}줄/);
   assert.match(dialog, /assertResumeAiEditTargets/);
   assert.match(builder, /AI 섹션 서버 저장 완료/);
   assert.match(builder, /AI 섹션 서버 저장 미완료/);
@@ -128,6 +132,8 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(contract, /RESUME_AI_EDIT_SECTION_OUT_OF_SCOPE/);
   assert.match(contract, /RESUME_AI_EDIT_CONTEXT_CHANGED/);
   assert.match(contract, /UPDATE_NARRATIVE/);
+  assert.match(contract, /updateItemBodyReplacesExistingBody/);
+  assert.match(contract, /complete replacement body; never append or merge/);
   assert.doesNotMatch(dialog, /prisma/i);
 });
 

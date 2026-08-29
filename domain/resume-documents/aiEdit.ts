@@ -178,6 +178,13 @@ export type ResumeAiEditChange = {
   sectionTitle: string;
   before: string;
   after: string;
+  itemEdit?: {
+    itemId: string;
+    itemTitle: string;
+    bodyReplaced: boolean;
+    beforeBody: string;
+    afterBody: string;
+  };
   beforeSection: ResumeSection;
   afterSection: ResumeSection;
   beforeRelatedWorkItems: ItemContent[];
@@ -507,6 +514,30 @@ function sectionSummary(section: ResumeSection, content: SectionContent) {
   return JSON.stringify(simplifiedContent(section, content), null, 2);
 }
 
+function meaningfulBodyLines(body: string) {
+  return body.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+}
+
+function subtractLineOccurrences(source: readonly string[], comparison: readonly string[]) {
+  const remaining = new Map<string, number>();
+  for (const line of comparison) remaining.set(line, (remaining.get(line) ?? 0) + 1);
+  return source.filter((line) => {
+    const count = remaining.get(line) ?? 0;
+    if (count === 0) return true;
+    remaining.set(line, count - 1);
+    return false;
+  });
+}
+
+export function diffResumeItemBodyLines(beforeBody: string, afterBody: string) {
+  const before = meaningfulBodyLines(beforeBody);
+  const after = meaningfulBodyLines(afterBody);
+  return {
+    removed: subtractLineOccurrences(before, after),
+    added: subtractLineOccurrences(after, before),
+  };
+}
+
 function previewSection(
   state: ResumeDocumentState,
   context: ResumeAiEditContext,
@@ -575,6 +606,7 @@ export function createResumeAiEditBundle(
       doNotAddOrDeleteSections: true,
       editOnlyListedSectionIds: true,
       returnJsonOnly: true,
+      updateItemBodyReplacesExistingBody: true,
       allowedOperations: [
         "UPDATE_SECTION_TITLE",
         "UPDATE_NARRATIVE",
@@ -600,7 +632,7 @@ export function createResumeAiEditBundle(
       UPDATE_NARRATIVE: { type: "UPDATE_NARRATIVE", sectionId: "existing narrative section id", body: "complete revised body" },
       UPDATE_IDENTITY: { type: "UPDATE_IDENTITY", sectionId: "existing identity section id", patch: { name: "only fields that change", email: "optional", phone: "optional", location: "optional", gender: "optional", birthDate: "optional", links: ["optional"] } },
       UPDATE_ELIGIBILITY: { type: "UPDATE_ELIGIBILITY", sectionId: "existing eligibility section id", patch: { militaryStatus: "only fields that change", veteranStatus: "optional", disabilityStatus: "optional", employmentProtectionStatus: "optional" } },
-      UPDATE_ITEM: { type: "UPDATE_ITEM", sectionId: "existing items section id", itemId: "existing item id", patch: { title: "only fields that change", subtitle: "optional", body: "optional", meta: "optional", startMonth: "YYYY-MM optional", endMonth: "YYYY-MM optional", isCurrent: false } },
+      UPDATE_ITEM: { type: "UPDATE_ITEM", sectionId: "existing items section id", itemId: "existing item id", patch: { title: "only fields that change", subtitle: "optional", body: "optional complete replacement body; never append or merge with the existing body", meta: "optional", startMonth: "YYYY-MM optional", endMonth: "YYYY-MM optional", isCurrent: false } },
       ADD_ITEM: { type: "ADD_ITEM", sectionId: "existing items section id", item: { title: "required", body: "required", subtitle: "optional", meta: "optional", startMonth: "YYYY-MM optional", endMonth: "YYYY-MM optional", isCurrent: false } },
       UPDATE_TAGS: { type: "UPDATE_TAGS", sectionId: "existing tags section id", add: ["new tag"], remove: ["existing tag"] },
       RESET_SECTION_TO_PARENT: { type: "RESET_SECTION_TO_PARENT", sectionId: "an inherited section id" },
@@ -698,6 +730,16 @@ export function prepareResumeAiEdit(
       sectionTitle: afterTitle,
       before: operation.type === "UPDATE_SECTION_TITLE" ? beforeTitle : sectionSummary(section, beforeContent),
       after: operation.type === "UPDATE_SECTION_TITLE" ? afterTitle : sectionSummary(section, afterContent),
+      ...(operation.type === "UPDATE_ITEM" ? {
+        itemEdit: {
+          itemId: operation.itemId,
+          itemTitle: ((afterContent as ItemsContent).items.find((item) => item.id === operation.itemId)
+            ?? (beforeContent as ItemsContent).items.find((item) => item.id === operation.itemId))?.title ?? operation.itemId,
+          bodyReplaced: operation.patch.body !== undefined,
+          beforeBody: (beforeContent as ItemsContent).items.find((item) => item.id === operation.itemId)?.body ?? "",
+          afterBody: (afterContent as ItemsContent).items.find((item) => item.id === operation.itemId)?.body ?? "",
+        },
+      } : {}),
       beforeSection,
       afterSection: previewSection(updated, expectedContext, operation.sectionId),
       beforeRelatedWorkItems,

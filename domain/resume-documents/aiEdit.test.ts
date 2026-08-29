@@ -6,6 +6,7 @@ import {
   RESUME_AI_EDIT_RESULT_PROTOCOL,
   ResumeAiEditError,
   createResumeAiEditBundle,
+  diffResumeItemBodyLines,
   parseResumeAiEditResult,
   prepareResumeAiEdit,
   selectResumeAiEditSections,
@@ -51,6 +52,8 @@ test("AI edit bundles preserve the selected inheritance context and resolved sou
   assert.equal(summary?.resolution.source, "shared");
   assert.equal(summary?.resolution.mode, "inherit");
   assert.equal("photo" in (bundle.sections.find((section) => section.id === "profile")?.content ?? {}), false);
+  assert.equal(bundle.rules.updateItemBodyReplacesExistingBody, true);
+  assert.match(bundle.operationContracts.UPDATE_ITEM.patch.body, /complete replacement body/);
 });
 
 test("AI edit bundles can be restricted to one section", () => {
@@ -163,6 +166,60 @@ test("updating an item body clears stale rich-text blocks", () => {
 
   assert.equal(updated.body, "AI가 고친 본문");
   assert.equal(updated.bodyBlocks, undefined);
+});
+
+test("moving a result line between projects replaces both complete bodies without retaining the source line", () => {
+  const state = createResumeDocumentSeed();
+  const section = state.sharedSections.find((item) => item.id === "projects")!;
+  (section.content as { items: ItemContent[] }).items = [
+    {
+      id: "energy-project",
+      itemKind: "career-detail",
+      meta: "",
+      title: "친환경에너지 기상지원 플랫폼",
+      subtitle: "",
+      body: "기상 데이터 기능 개발\n통계 조회를 15~20초에서 약 1초로 단축\n장애 복구 흐름 구현",
+    },
+    {
+      id: "road-project",
+      itemKind: "career-detail",
+      meta: "",
+      title: "도로기상정보시스템",
+      subtitle: "",
+      body: "도로기상 집계 로직 개발\n웹 시스템 구현",
+    },
+  ];
+  const context: ResumeAiEditContext = { scope: "role", roleProfileId: state.activeRoleProfileId };
+  const prepared = prepareResumeAiEdit(state, context, result(state, context, [
+    {
+      type: "UPDATE_ITEM",
+      sectionId: section.id,
+      itemId: "energy-project",
+      patch: { body: "기상 데이터 기능 개발\n장애 복구 흐름 구현" },
+    },
+    {
+      type: "UPDATE_ITEM",
+      sectionId: section.id,
+      itemId: "road-project",
+      patch: { body: "도로기상 집계 로직 개발\n통계 조회를 15~20초에서 약 1초로 단축\n웹 시스템 구현" },
+    },
+  ]));
+  const resolved = resolveSection(section, prepared.state.roleProfiles[0]);
+  const items = (resolved.content as { items: ItemContent[] }).items;
+  const source = items.find((item) => item.id === "energy-project")!;
+  const target = items.find((item) => item.id === "road-project")!;
+
+  assert.doesNotMatch(source.body, /15~20초/);
+  assert.match(target.body, /15~20초/);
+  assert.equal(prepared.changes.length, 2);
+  assert.equal(prepared.changes[0].itemEdit?.bodyReplaced, true);
+});
+
+test("item body line diff exposes removed and added lines before replacement", () => {
+  assert.deepEqual(
+    diffResumeItemBodyLines("유지 문장\n원본에서 삭제", "유지 문장\n대상에 추가"),
+    { removed: ["원본에서 삭제"], added: ["대상에 추가"] },
+  );
 });
 
 test("an item edit matching its parent clears the item override", () => {
