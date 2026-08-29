@@ -26,16 +26,18 @@ routes remain available only as compatibility redirects.
 
 ## Entry policy
 
-The root landing resolves an authenticated user's destination in this order:
+The root landing uses one browser-local recent-product preference:
 
-1. An explicit login or OAuth `next` path, which bypasses root routing.
-2. The most recently visited `/press/**` or `/resume/**` track.
-3. A product-specific `PRESS` or `CAREER` plan category.
-4. No redirect. Users without a reliable signal stay on the product chooser.
+1. Visiting `/press` or any `/press/**` route stores `press`.
+2. Visiting `/resume` or any `/resume/**` route stores `resume`.
+3. Entering `/` routes to `/press` or `/resume` from that stored value.
+4. Missing, invalid, or unavailable storage leaves the user on the product chooser.
 
-Track preference is stored per browser and, when known, per user. Storage failure
-must never block navigation. A `product_entry_routed` event records the chosen
-track, destination, and decision reason.
+The root does not inspect authentication or plan category. Each product root owns
+its authenticated redirect to its dashboard, while an explicit login or OAuth
+`next` path bypasses root routing. Storage failure must never block navigation. A
+`product_entry_routed` event records the chosen track, product root, and decision
+reason.
 
 ## Compatibility redirects
 
@@ -53,7 +55,7 @@ use canonical routes so redirects serve bookmarks and old external links only.
 
 ## Follow-up
 
-Browser-local preference is the first rollout because it does not require a user
-schema or scheduler change. If cross-device continuity becomes important, add an
-account-level product preference and keep the browser value as an anonymous and
-offline fallback.
+The preference intentionally stays browser-local and is shared by users of that
+browser. If account isolation or cross-device continuity becomes important, add
+an account-level product preference and keep the browser value as an anonymous
+and offline fallback.

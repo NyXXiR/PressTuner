@@ -1,5 +1,5 @@
 import { MarketingFooter } from "@/components/layout/MarketingFooter";
-import { AuthRedirectIfAuthed } from "@/components/marketing/AuthRedirectIfAuthed";
+import { RecentProductRedirect } from "@/components/routing/RecentProductRedirect";
 import { TrackedMarketingLink } from "@/components/marketing/TrackedMarketingLink";
 import { ArrowRight, Briefcase, Newspaper, PlayCircle } from "lucide-react";
 
@@ -41,7 +41,7 @@ const TRACKS = [
 export function BriefFlowLandingPage() {
   return (
     <>
-      <AuthRedirectIfAuthed usePreferredProductEntry />
+      <RecentProductRedirect />
       <MarketingHome />
     </>
   );

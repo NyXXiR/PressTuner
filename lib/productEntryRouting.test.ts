@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  preferredProductTrackStorageKey,
-  productEntryPath,
+  PRODUCT_TRACK_STORAGE_KEY,
+  productRootPath,
   productTrackFromPathname,
   readPreferredProductTrack,
   rememberPreferredProductTrack,
-  resolvePreferredProductEntry,
-  resolvePreferredProductEntryDecision,
 } from "./productEntryRouting";
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -30,49 +28,23 @@ test("product routes map to symmetric press and resume tracks", () => {
   assert.equal(productTrackFromPathname("/resume/applications/one"), "resume");
   assert.equal(productTrackFromPathname("/"), null);
   assert.equal(productTrackFromPathname("/my"), null);
-  assert.equal(productEntryPath("press"), "/press/dashboard");
-  assert.equal(productEntryPath("resume"), "/resume/dashboard");
+  assert.equal(productRootPath("press"), "/press");
+  assert.equal(productRootPath("resume"), "/resume");
 });
 
-test("a stored track wins, then a product-specific plan, with no press-biased fallback", () => {
-  assert.equal(
-    resolvePreferredProductEntry({ storedTrack: "resume", planCategory: "PRESS" }),
-    "/resume/dashboard",
-  );
-  assert.equal(
-    resolvePreferredProductEntry({ planCategory: "CAREER" }),
-    "/resume/dashboard",
-  );
-  assert.equal(
-    resolvePreferredProductEntry({ planCategory: "PRESS" }),
-    "/press/dashboard",
-  );
-  assert.equal(resolvePreferredProductEntry({ planCategory: "STANDARD" }), null);
-  assert.equal(resolvePreferredProductEntry({}), null);
-  assert.deepEqual(
-    resolvePreferredProductEntryDecision({ storedTrack: "resume" }),
-    {
-      path: "/resume/dashboard",
-      track: "resume",
-      reason: "recent-track",
-    },
-  );
-});
-
-test("track preference is browser-aware and user-specific", () => {
+test("track preference uses one browser-local value", () => {
   const storage = memoryStorage();
-  rememberPreferredProductTrack(storage, "resume", "user-1");
+  rememberPreferredProductTrack(storage, "resume");
 
-  assert.equal(readPreferredProductTrack(storage, "user-1"), "resume");
   assert.equal(readPreferredProductTrack(storage), "resume");
 
-  storage.setItem(preferredProductTrackStorageKey("user-2"), "press");
-  assert.equal(readPreferredProductTrack(storage, "user-2"), "press");
+  rememberPreferredProductTrack(storage, "press");
+  assert.equal(readPreferredProductTrack(storage), "press");
 });
 
 test("invalid or unavailable storage does not force a product", () => {
   const invalid = memoryStorage({
-    [preferredProductTrackStorageKey()]: "unknown",
+    [PRODUCT_TRACK_STORAGE_KEY]: "unknown",
   });
   assert.equal(readPreferredProductTrack(invalid), null);
 

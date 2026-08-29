@@ -45,12 +45,18 @@ test("legacy press-owned paths permanently redirect to the press namespace", () 
   }
 });
 
-test("product landings route authenticated users within their selected namespace", () => {
+test("root follows the recent product while product roots own authenticated routing", () => {
   const rootLanding = read("components/marketing/BriefFlowLandingPage.tsx");
+  const recentProductRedirect = read(
+    "components/routing/RecentProductRedirect.tsx",
+  );
   const pressLanding = read("components/marketing/PressLandingPage.tsx");
   const resumeLanding = read("app/resume/ResumeHomeClient.tsx");
 
-  assert.match(rootLanding, /AuthRedirectIfAuthed usePreferredProductEntry/);
+  assert.match(rootLanding, /<RecentProductRedirect \/>/);
+  assert.match(recentProductRedirect, /readPreferredProductTrack\(window\.localStorage\)/);
+  assert.match(recentProductRedirect, /productRootPath\(track\)/);
+  assert.doesNotMatch(recentProductRedirect, /authStatus|usagePlanCategory/);
   assert.match(pressLanding, /redirectTo="\/press\/dashboard"/);
   assert.match(resumeLanding, /router\.replace\("\/resume\/dashboard"\)/);
 });
