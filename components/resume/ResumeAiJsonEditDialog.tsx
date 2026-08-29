@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ClipboardPaste, Copy, Sparkles, X } from "lucide-react";
+import { Braces, Check, ClipboardPaste, Copy, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { RESUME_DOCUMENT_CSS_VARIABLES, ResumeEditorSection } from "@/components/resume/ResumeEditorDocument";
@@ -93,7 +93,7 @@ export function ResumeAiJsonEditDialog({
       setParsedResult(result);
       setSelectedSectionIds([...new Set(nextPrepared.changes.map((change) => change.sectionId))]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "외부 AI의 편집 결과를 확인하지 못했습니다.");
+      setError(cause instanceof Error ? cause.message : "섹션 편집 결과를 확인하지 못했습니다.");
     }
   };
 
@@ -106,7 +106,7 @@ export function ResumeAiJsonEditDialog({
       onClose();
       toast.success(
         `${appliedSectionCount}개 섹션의 변경 ${applied.changes.length}개를 반영했습니다. 자동 저장을 시작합니다.`,
-        "외부 AI 편집 적용 완료",
+        "섹션 편집 적용 완료",
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.");
@@ -157,11 +157,11 @@ export function ResumeAiJsonEditDialog({
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5">
           <div>
             <p className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-primary">
-              <Sparkles className="h-4 w-4" /> EXTERNAL AI EDIT
+              <Braces className="h-4 w-4" /> JSON EDIT WORKFLOW
             </p>
-            <h2 className="mt-1 text-xl font-extrabold" id="resume-external-ai-title">외부 AI로 이력서 다듬기</h2>
+            <h2 className="mt-1 text-xl font-extrabold" id="resume-external-ai-title">외부 AI 섹션 편집</h2>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              편집 범위: <strong className="text-foreground">{contextLabel}</strong>. 복사한 자료를 ChatGPT·Claude 등의 AI에서 다듬은 뒤 결과를 가져올 수 있습니다.
+              편집 범위: <strong className="text-foreground">{contextLabel}</strong>. 섹션 자료를 ChatGPT·Claude 등에 전달하거나 JSON을 직접 수정한 뒤 결과를 검토해 반영할 수 있습니다.
             </p>
             {sectionId && <p className="mt-1 text-xs font-bold text-primary">개별 섹션: {sectionLabel ?? sectionId}</p>}
           </div>
@@ -176,7 +176,7 @@ export function ResumeAiJsonEditDialog({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-primary">STEP 1</p>
-                  <h3 className="mt-1 font-extrabold">외부 AI에 전달할 편집 자료 복사</h3>
+                  <h3 className="mt-1 font-extrabold">AI용 섹션 자료 복사</h3>
                 </div>
                 <button className="inline-flex h-10 shrink-0 items-center gap-2 border border-primary px-3 text-xs font-bold text-primary" onClick={() => { void copyBundle(); }} type="button">
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -184,7 +184,7 @@ export function ResumeAiJsonEditDialog({
                 </button>
               </div>
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                복사한 자료를 외부 AI에 붙여넣고 원하는 수정 방향을 설명하세요. 제공되지 않은 경력·수치·자격은 만들지 말라고 함께 요청하는 것이 좋습니다.
+                복사한 JSON을 외부 AI에 붙여넣고 원하는 수정 방향을 설명하세요. JSON을 이해한다면 아래 내용을 직접 수정해도 됩니다.
               </p>
               <textarea
                 aria-label="외부 AI에 전달할 이력서 편집 자료"
@@ -197,13 +197,13 @@ export function ResumeAiJsonEditDialog({
             <section className="border border-border bg-card p-4">
               <div>
                 <p className="text-[10px] font-bold tracking-widest text-primary">STEP 2</p>
-                <h3 className="mt-1 font-extrabold">외부 AI가 만든 편집 결과 붙여넣기</h3>
+                <h3 className="mt-1 font-extrabold">작성·수정 결과 붙여넣기</h3>
               </div>
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                외부 AI가 반환한 결과 전체를 한 번에 붙여넣으세요. JSON이나 Markdown 코드 블록 형식을 모두 인식합니다.
+                외부 AI가 반환했거나 직접 수정한 결과 전체를 붙여넣으세요. JSON이나 Markdown 코드 블록 형식을 모두 인식합니다.
               </p>
               <textarea
-                aria-label="외부 AI가 반환한 이력서 편집 결과"
+                aria-label="이력서 섹션 작성 및 수정 결과"
                 className="mt-4 h-80 w-full resize-y border border-border bg-background p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary"
                 onChange={(event) => {
                   setInput(event.target.value);
