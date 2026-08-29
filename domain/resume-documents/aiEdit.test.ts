@@ -7,6 +7,7 @@ import {
   createResumeAiEditBundle,
   parseResumeAiEditResult,
   prepareResumeAiEdit,
+  selectResumeAiEditSections,
   type ResumeAiEditContext,
   type ResumeAiEditResult,
 } from "./aiEdit";
@@ -211,6 +212,27 @@ test("stale or cross-scope AI results are rejected before mutation", () => {
   assert.throws(
     () => prepareResumeAiEdit(state, { scope: "role", roleProfileId: state.activeRoleProfileId }, edit),
     (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_CONTEXT_CHANGED",
+  );
+});
+
+test("section selection applies only operations belonging to approved sections", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const edit = result(state, context, [
+    { type: "UPDATE_NARRATIVE", sectionId: "summary", body: "선택한 소개" },
+    { type: "UPDATE_IDENTITY", sectionId: "profile", patch: { name: "선택하지 않은 이름" } },
+  ]);
+  const selected = selectResumeAiEditSections(edit, ["summary"]);
+  const prepared = prepareResumeAiEdit(state, context, selected);
+  const summary = prepared.state.sharedSections.find((section) => section.id === "summary")!;
+  const profile = prepared.state.sharedSections.find((section) => section.id === "profile")!;
+
+  assert.equal((summary.content as { body: string }).body, "선택한 소개");
+  assert.notEqual((profile.content as { name: string }).name, "선택하지 않은 이름");
+  assert.equal(prepared.changes.length, 1);
+  assert.throws(
+    () => selectResumeAiEditSections(edit, []),
+    (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_SELECTION_REQUIRED",
   );
 });
 

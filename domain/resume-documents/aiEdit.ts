@@ -596,6 +596,18 @@ export function parseResumeAiEditResult(raw: string): ResumeAiEditResult {
   return parsed.data;
 }
 
+export function selectResumeAiEditSections(
+  result: ResumeAiEditResult,
+  sectionIds: Iterable<string>,
+): ResumeAiEditResult {
+  const selected = new Set(sectionIds);
+  const operations = result.operations.filter((operation) => selected.has(operation.sectionId));
+  if (!operations.length) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_SELECTION_REQUIRED", "반영할 섹션을 하나 이상 선택해 주세요.");
+  }
+  return { ...result, operations };
+}
+
 export function prepareResumeAiEdit(
   state: ResumeDocumentState,
   expectedContext: ResumeAiEditContext,

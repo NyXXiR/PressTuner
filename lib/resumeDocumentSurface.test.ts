@@ -98,7 +98,10 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /GPT에 전달할 JSON 복사/);
   assert.match(dialog, /GPT의 결과 JSON 붙여넣기/);
   assert.match(dialog, /변경 내용 확인/);
-  assert.match(dialog, /이 변경 적용/);
+  assert.match(dialog, /섹션별 검토/);
+  assert.match(dialog, /선택한 섹션/);
+  assert.match(dialog, /전체 선택/);
+  assert.match(dialog, /선택 해제/);
   assert.match(contract, /baseFingerprint/);
   assert.match(contract, /RESUME_AI_EDIT_CONTEXT_CHANGED/);
   assert.match(contract, /UPDATE_NARRATIVE/);

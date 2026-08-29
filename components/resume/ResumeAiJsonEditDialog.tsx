@@ -6,9 +6,11 @@ import { useMemo, useState } from "react";
 import {
   parseResumeAiEditResult,
   prepareResumeAiEdit,
+  selectResumeAiEditSections,
   serializeResumeAiEditBundle,
   type PreparedResumeAiEdit,
   type ResumeAiEditContext,
+  type ResumeAiEditResult,
 } from "@/domain/resume-documents/aiEdit";
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
 
@@ -35,6 +37,8 @@ export function ResumeAiJsonEditDialog({
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [prepared, setPrepared] = useState<PreparedResumeAiEdit | null>(null);
+  const [parsedResult, setParsedResult] = useState<ResumeAiEditResult | null>(null);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
 
   const copyBundle = async () => {
     setError("");
@@ -50,18 +54,44 @@ export function ResumeAiJsonEditDialog({
   const inspect = () => {
     setError("");
     setPrepared(null);
+    setParsedResult(null);
+    setSelectedSectionIds([]);
     try {
-      setPrepared(prepareResumeAiEdit(state, context, parseResumeAiEditResult(input)));
+      const result = parseResumeAiEditResult(input);
+      setPrepared(prepareResumeAiEdit(state, context, result));
+      setParsedResult(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "AI 편집 결과를 확인하지 못했습니다.");
     }
   };
 
   const apply = () => {
-    if (!prepared) return;
-    onApply(prepared.state);
-    onClose();
+    if (!parsedResult) return;
+    setError("");
+    try {
+      const selected = selectResumeAiEditSections(parsedResult, selectedSectionIds);
+      onApply(prepareResumeAiEdit(state, context, selected).state);
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.");
+    }
   };
+
+  const sectionGroups = prepared ? Array.from(
+    prepared.changes.reduce((groups, change) => {
+      const group = groups.get(change.sectionId);
+      if (group) group.changes.push(change);
+      else groups.set(change.sectionId, {
+        sectionId: change.sectionId,
+        sectionTitle: change.sectionTitle,
+        changes: [change],
+      });
+      return groups;
+    }, new Map<string, { sectionId: string; sectionTitle: string; changes: PreparedResumeAiEdit["changes"] }>()),
+  ).map(([, group]) => group) : [];
+  const selectedChangeCount = sectionGroups
+    .filter((group) => selectedSectionIds.includes(group.sectionId))
+    .reduce((total, group) => total + group.changes.length, 0);
 
   return (
     <div className="resume-editor-backdrop fixed inset-0 z-[110] grid place-items-center overflow-y-auto bg-black/60 p-4">
@@ -124,6 +154,8 @@ export function ResumeAiJsonEditDialog({
                 onChange={(event) => {
                   setInput(event.target.value);
                   setPrepared(null);
+                  setParsedResult(null);
+                  setSelectedSectionIds([]);
                   setError("");
                 }}
                 placeholder={'{"protocol":"briefflow.resume.edit-result", ...}'}
@@ -142,11 +174,20 @@ export function ResumeAiJsonEditDialog({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-primary">PREVIEW</p>
-                  <h3 className="mt-1 text-lg font-extrabold">적용할 변경 {prepared.changes.length}개</h3>
+                  <h3 className="mt-1 text-lg font-extrabold">섹션별 검토 · 변경 {prepared.changes.length}개</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">반영할 섹션을 직접 선택하세요. 선택하지 않은 섹션은 이력서에 들어가지 않습니다.</p>
                 </div>
-                <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground" onClick={apply} type="button">
-                  <Check className="h-4 w-4" /> 이 변경 적용
+                <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button">
+                  <Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용
                 </button>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-border bg-background px-3 py-2">
+                <p className="text-xs font-bold">선택 {selectedSectionIds.length}/{sectionGroups.length}개 섹션 · 변경 {selectedChangeCount}개</p>
+                <div className="flex gap-2">
+                  <button className="h-8 border border-border px-3 text-[11px] font-bold" onClick={() => setSelectedSectionIds(sectionGroups.map((group) => group.sectionId))} type="button">전체 선택</button>
+                  <button className="h-8 border border-border px-3 text-[11px] font-bold" onClick={() => setSelectedSectionIds([])} type="button">선택 해제</button>
+                </div>
               </div>
 
               {(prepared.assumptions.length > 0 || prepared.warnings.length > 0) && (
@@ -157,23 +198,31 @@ export function ResumeAiJsonEditDialog({
               )}
 
               <div className="mt-4 grid gap-3">
-                {prepared.changes.map((change, index) => (
-                  <details className="border border-border bg-background" key={`${change.sectionId}-${change.operationType}-${index}`} open={index === 0}>
-                    <summary className="cursor-pointer px-4 py-3 text-sm font-extrabold">
-                      {change.sectionTitle} · {change.operationType}
-                    </summary>
-                    <div className="grid gap-px border-t border-border bg-border md:grid-cols-2">
-                      <div className="min-w-0 bg-background p-3">
-                        <p className="mb-2 text-[10px] font-bold tracking-widest text-red-600">BEFORE</p>
-                        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">{change.before || "(비어 있음)"}</pre>
-                      </div>
-                      <div className="min-w-0 bg-background p-3">
-                        <p className="mb-2 text-[10px] font-bold tracking-widest text-primary">AFTER</p>
-                        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5">{change.after || "(비어 있음)"}</pre>
-                      </div>
+                {sectionGroups.map((group, groupIndex) => {
+                  const selected = selectedSectionIds.includes(group.sectionId);
+                  return <section className={`border bg-background ${selected ? "border-primary" : "border-border"}`} key={group.sectionId}>
+                    <label className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3">
+                      <input checked={selected} onChange={(event) => setSelectedSectionIds((current) => event.target.checked ? [...current, group.sectionId] : current.filter((id) => id !== group.sectionId))} type="checkbox" />
+                      <span className="font-extrabold">{group.sectionTitle}</span>
+                      <span className="ml-auto text-[10px] font-bold text-muted-foreground">변경 {group.changes.length}개</span>
+                    </label>
+                    <div className={selected ? "" : "opacity-55"}>
+                      {group.changes.map((change, index) => <details className="border-t border-border first:border-t-0" key={`${change.operationType}-${index}`} open={groupIndex === 0 && index === 0}>
+                        <summary className="cursor-pointer px-4 py-3 text-xs font-bold">{change.operationType}</summary>
+                        <div className="grid gap-px border-t border-border bg-border md:grid-cols-2">
+                          <div className="min-w-0 bg-background p-3">
+                            <p className="mb-2 text-[10px] font-bold tracking-widest text-red-600">BEFORE</p>
+                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">{change.before || "(비어 있음)"}</pre>
+                          </div>
+                          <div className="min-w-0 bg-background p-3">
+                            <p className="mb-2 text-[10px] font-bold tracking-widest text-primary">AFTER</p>
+                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5">{change.after || "(비어 있음)"}</pre>
+                          </div>
+                        </div>
+                      </details>)}
                     </div>
-                  </details>
-                ))}
+                  </section>;
+                })}
               </div>
             </section>
           )}
