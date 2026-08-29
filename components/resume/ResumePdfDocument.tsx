@@ -220,7 +220,7 @@ function itemBodyUnits(item: ItemContent) {
 
 function RichItemBody({ item, variant = "item" }: { item: ItemContent; variant?: "item" | "highlight" }) {
   const plainStyle = variant === "highlight" ? styles.highlightBody : styles.itemBody;
-  if (!item.bodyBlocks?.length) return item.body ? <Text style={plainStyle}>{item.body}</Text> : variant === "item" ? <EmptyCopy /> : null;
+  if (!item.bodyBlocks?.length) return item.body ? <Text style={plainStyle}>{item.body}</Text> : null;
   return <View style={variant === "highlight" ? styles.highlightBody : styles.itemRichBody}>{item.bodyBlocks.map((block) => {
     const heading = variant === "item" && block.type !== "p";
     const fontSize = variant === "highlight" ? RESUME_DOCUMENT_LAYOUT.highlightBodyFontSizePt : heading ? Math.min(RESUME_NARRATIVE_FONT_SIZES_PT[block.type], 13) : RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt;

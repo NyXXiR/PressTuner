@@ -109,6 +109,40 @@ test("PDF labels an explicitly filtered duration as relevant career experience",
   }
 });
 
+test("PDF omits item-level empty copy when a credential has no optional description", { timeout: 30_000 }, async () => {
+  const snapshot = structuredClone(resumePdfFixture);
+  snapshot.relatedWorkItems = [];
+  snapshot.sections = [{
+    id: "credentials",
+    title: "자격 · 수상",
+    kind: "items",
+    layout: "compact",
+    content: {
+      items: [{
+        id: "credential-without-description",
+        itemKind: "credential",
+        meta: "2026-06",
+        startMonth: "2026-06",
+        title: "데이터분석 준전문가",
+        subtitle: "한국데이터산업진흥원",
+        body: "",
+      }],
+    },
+  }];
+
+  const generated = await generateResumePdf(snapshot);
+  const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+  try {
+    const extracted = await extractText(pdf, { mergePages: true });
+    const text = Array.isArray(extracted.text) ? extracted.text.join("\n") : extracted.text;
+    assert.ok(text.includes("데이터분석 준전문가"));
+    assert.ok(text.includes("한국데이터산업진흥원"));
+    assert.ok(!text.includes("입력된 정보가 없습니다."));
+  } finally {
+    await pdf.destroy();
+  }
+});
+
 test("identity facts rule keeps a safe vertical gap below the name", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   snapshot.sections = snapshot.sections.filter((section) => section.id === "profile");
