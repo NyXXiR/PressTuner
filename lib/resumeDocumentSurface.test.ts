@@ -561,6 +561,8 @@ test("keyword dragging uses stable ids and appears only in explicit order mode",
   assert.match(builder, /useReorderAutoScroll/);
   assert.match(builder, /requestAnimationFrame\(tick\)/);
   assert.match(builder, /pointercancel/);
+  assert.match(builder, /dragScrollCompensation\.set\(dragScrollCompensation\.get\(\) \+ delta\)/);
+  assert.match(builder, /<motion\.div style=\{\{ y: dragScrollCompensation \}\}>/);
   assert.match(builder, /layoutScroll onReorder=\{reorderKeywords\}/);
   assert.match(builder, /keywordOrderMode \? "순서 편집 완료" : "순서 편집"/);
 });

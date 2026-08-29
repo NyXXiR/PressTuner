@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Braces, Check, ChevronDown, ClipboardCheck, Copy, Edit3, Eye, EyeOff, FileText, FileUp, GripVertical, LayoutTemplate, LoaderCircle, MoreHorizontal, Plus, Printer, RotateCcw, Settings2, Trash2, X } from "lucide-react";
-import { Reorder, useDragControls, type DragControls, type PanInfo } from "framer-motion";
+import { motion, Reorder, useDragControls, useMotionValue, type DragControls, type PanInfo } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -828,7 +828,7 @@ function verticalScrollAncestors(element: HTMLElement | null) {
   return containers;
 }
 
-function createReorderAutoScroller() {
+function createReorderAutoScroller(onScroll: (delta: number) => void, onStop: () => void) {
   let containers: HTMLElement[] = [];
   let pointerY: number | null = null;
   let frame: number | null = null;
@@ -841,6 +841,7 @@ function createReorderAutoScroller() {
     window.removeEventListener("pointerup", stop);
     window.removeEventListener("pointercancel", stop);
     window.removeEventListener("blur", stop);
+    onStop();
   }
 
   function tick() {
@@ -854,7 +855,9 @@ function createReorderAutoScroller() {
       const maximum = container.scrollHeight - container.clientHeight;
       const next = nextReorderScrollTop(container.scrollTop, velocity, maximum);
       if (next === container.scrollTop) continue;
+      const delta = next - container.scrollTop;
       container.scrollTo({ top: next });
+      onScroll(delta);
       break;
     }
     frame = window.requestAnimationFrame(tick);
@@ -874,7 +877,11 @@ function createReorderAutoScroller() {
 }
 
 function useReorderAutoScroll() {
-  const [autoScroller] = useState(createReorderAutoScroller);
+  const dragScrollCompensation = useMotionValue(0);
+  const [autoScroller] = useState(() => createReorderAutoScroller(
+    (delta) => dragScrollCompensation.set(dragScrollCompensation.get() + delta),
+    () => dragScrollCompensation.set(0),
+  ));
   const onDrag = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const element = event.currentTarget instanceof HTMLElement
       ? event.currentTarget
@@ -882,7 +889,7 @@ function useReorderAutoScroll() {
     autoScroller.update(element, dragClientY(event, info));
   }, [autoScroller]);
   useEffect(() => autoScroller.stop, [autoScroller]);
-  return [onDrag, autoScroller.stop] as const;
+  return [onDrag, autoScroller.stop, dragScrollCompensation] as const;
 }
 
 function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequired, showBody = true, collapsible = false, tone = "default", dragControls, headerExtra, headerNote, canMoveUp, canMoveDown, onChange, onDelete, onMoveUp, onMoveDown }: {
@@ -957,9 +964,9 @@ function ItemEditorCard({ index, item, sectionId, workItems, bodyLabel, bodyRequ
 
 function SortableItemEditorCard(props: React.ComponentProps<typeof ItemEditorCard>) {
   const dragControls = useDragControls();
-  const [onDrag, stopAutoScroll] = useReorderAutoScroll();
+  const [onDrag, stopAutoScroll, dragScrollCompensation] = useReorderAutoScroll();
   return <Reorder.Item className="list-none" dragControls={dragControls} dragListener={false} layout="position" onDrag={onDrag} onDragEnd={stopAutoScroll} transition={{ layout: { duration: .18, ease: "easeOut" } }} value={props.item.id} whileDrag={{ opacity: .86, scale: 1.005, zIndex: 30 }}>
-    <ItemEditorCard {...props} dragControls={dragControls} />
+    <motion.div style={{ y: dragScrollCompensation }}><ItemEditorCard {...props} dragControls={dragControls} /></motion.div>
   </Reorder.Item>;
 }
 
@@ -1144,21 +1151,21 @@ function newTagEditorId(prefix: string) {
 
 function SortableTagCategory({ active, group, orderMode, onSelect }: { active: boolean; group: NormalizedTagGroup; orderMode: boolean; onSelect: () => void }) {
   const dragControls = useDragControls();
-  const [onDrag, stopAutoScroll] = useReorderAutoScroll();
-  return <Reorder.Item className={cx("border bg-background", active ? "border-primary ring-1 ring-primary/30" : "border-border")} dragControls={dragControls} dragListener={false} onDrag={onDrag} onDragEnd={stopAutoScroll} value={group.id}>
-    <div className="flex min-w-0 items-center gap-2 p-3">
+  const [onDrag, stopAutoScroll, dragScrollCompensation] = useReorderAutoScroll();
+  return <Reorder.Item className="list-none" dragControls={dragControls} dragListener={false} onDrag={onDrag} onDragEnd={stopAutoScroll} value={group.id}>
+    <motion.div className={cx("flex min-w-0 items-center gap-2 border bg-background p-3", active ? "border-primary ring-1 ring-primary/30" : "border-border")} style={{ y: dragScrollCompensation }}>
       {orderMode && <button aria-label={`${group.title || "이름 없는 카테고리"} 순서 끌어 이동`} className="grid h-9 w-9 shrink-0 touch-none cursor-grab place-items-center border border-primary/40 bg-primary/5 text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button>}
       <button aria-pressed={active} className="min-w-0 flex-1 text-left" onClick={onSelect} type="button"><span className="flex items-center gap-2"><strong className="truncate text-sm">{group.title || "이름 없는 카테고리"}</strong><span className="shrink-0 text-[10px] font-extrabold text-muted-foreground">{group.keywords.length}개</span></span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{group.keywords.slice(0, 4).map((keyword) => keyword.label).join(" · ") || "아직 키워드가 없습니다."}</span></button>
       <ChevronDown className={cx("h-4 w-4 shrink-0 -rotate-90 text-muted-foreground", active && "text-primary")} />
-    </div>
+    </motion.div>
   </Reorder.Item>;
 }
 
 function SortableTagKeyword({ keyword, groupTitle, onDelete }: { keyword: TagKeyword; groupTitle: string; onDelete: () => void }) {
   const dragControls = useDragControls();
-  const [onDrag, stopAutoScroll] = useReorderAutoScroll();
-  return <Reorder.Item className="flex min-w-0 items-center gap-2 border border-border bg-background p-2" dragControls={dragControls} dragListener={false} onDrag={onDrag} onDragEnd={stopAutoScroll} value={keyword.id}>
-    <button aria-label={`${keyword.label} 순서 끌어 이동`} className="grid h-8 w-8 shrink-0 touch-none cursor-grab place-items-center border border-border text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button><span className="min-w-0 flex-1 truncate text-sm font-bold">{keyword.label}</span><button aria-label={`${groupTitle}의 ${keyword.label} 삭제`} className="grid h-8 w-8 shrink-0 place-items-center border border-red-200 text-red-600" onClick={onDelete} type="button"><X className="h-3.5 w-3.5" /></button>
+  const [onDrag, stopAutoScroll, dragScrollCompensation] = useReorderAutoScroll();
+  return <Reorder.Item className="list-none" dragControls={dragControls} dragListener={false} onDrag={onDrag} onDragEnd={stopAutoScroll} value={keyword.id}>
+    <motion.div className="flex min-w-0 items-center gap-2 border border-border bg-background p-2" style={{ y: dragScrollCompensation }}><button aria-label={`${keyword.label} 순서 끌어 이동`} className="grid h-8 w-8 shrink-0 touch-none cursor-grab place-items-center border border-border text-primary" onPointerDown={(event) => dragControls.start(event)} type="button"><GripVertical className="h-4 w-4" /></button><span className="min-w-0 flex-1 truncate text-sm font-bold">{keyword.label}</span><button aria-label={`${groupTitle}의 ${keyword.label} 삭제`} className="grid h-8 w-8 shrink-0 place-items-center border border-red-200 text-red-600" onClick={onDelete} type="button"><X className="h-3.5 w-3.5" /></button></motion.div>
   </Reorder.Item>;
 }
 
