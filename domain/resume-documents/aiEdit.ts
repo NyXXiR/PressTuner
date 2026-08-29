@@ -537,9 +537,17 @@ function previewRelatedWorkItems(
 export function createResumeAiEditBundle(
   state: ResumeDocumentState,
   context: ResumeAiEditContext,
+  options: { sectionIds?: Iterable<string> } = {},
 ) {
   const resolved = resolveContext(state, context);
-  const sections = resolved.sections.map((section) => {
+  const requestedSectionIds = options.sectionIds ? new Set(options.sectionIds) : null;
+  const selectedSections = requestedSectionIds
+    ? resolved.sections.filter((section) => requestedSectionIds.has(section.id))
+    : resolved.sections;
+  if (!selectedSections.length || (requestedSectionIds && selectedSections.length !== requestedSectionIds.size)) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_SECTION_NOT_FOUND", "JSON으로 편집할 섹션을 현재 범위에서 찾을 수 없습니다.");
+  }
+  const sections = selectedSections.map((section) => {
     const result = resolveSection(section, resolved.profile, resolved.variant);
     return {
       id: section.id,
@@ -558,12 +566,14 @@ export function createResumeAiEditBundle(
     version: 1,
     baseFingerprint: resumeDocumentFingerprint(JSON.stringify(state)),
     editContext: context,
+    editableSectionIds: selectedSections.map((section) => section.id),
     rules: {
       language: "ko-KR",
       useOnlyProvidedFacts: true,
       preserveSectionIdsAndItemIds: true,
       doNotInventMetricsDatesOrganizationsOrCredentials: true,
       doNotAddOrDeleteSections: true,
+      editOnlyListedSectionIds: true,
       returnJsonOnly: true,
       allowedOperations: [
         "UPDATE_SECTION_TITLE",
@@ -602,8 +612,9 @@ export function createResumeAiEditBundle(
 export function serializeResumeAiEditBundle(
   state: ResumeDocumentState,
   context: ResumeAiEditContext,
+  options: { sectionIds?: Iterable<string> } = {},
 ) {
-  return JSON.stringify(createResumeAiEditBundle(state, context), null, 2);
+  return JSON.stringify(createResumeAiEditBundle(state, context, options), null, 2);
 }
 
 export function parseResumeAiEditResult(raw: string): ResumeAiEditResult {
@@ -637,6 +648,21 @@ export function selectResumeAiEditSections(
     throw new ResumeAiEditError("RESUME_AI_EDIT_SELECTION_REQUIRED", "반영할 섹션을 하나 이상 선택해 주세요.");
   }
   return { ...result, operations };
+}
+
+export function assertResumeAiEditTargets(
+  result: ResumeAiEditResult,
+  allowedSectionIds: Iterable<string>,
+): ResumeAiEditResult {
+  const allowed = new Set(allowedSectionIds);
+  const unexpected = result.operations.find((operation) => !allowed.has(operation.sectionId));
+  if (unexpected) {
+    throw new ResumeAiEditError(
+      "RESUME_AI_EDIT_SECTION_OUT_OF_SCOPE",
+      `이 JSON 편집에서 허용되지 않은 섹션을 수정하려고 합니다: ${unexpected.sectionId}`,
+    );
+  }
+  return result;
 }
 
 export function prepareResumeAiEdit(

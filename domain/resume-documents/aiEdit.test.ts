@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertResumeAiEditTargets,
   RESUME_AI_EDIT_RESULT_PROTOCOL,
   ResumeAiEditError,
   createResumeAiEditBundle,
@@ -50,6 +51,18 @@ test("AI edit bundles preserve the selected inheritance context and resolved sou
   assert.equal(summary?.resolution.source, "shared");
   assert.equal(summary?.resolution.mode, "inherit");
   assert.equal("photo" in (bundle.sections.find((section) => section.id === "profile")?.content ?? {}), false);
+});
+
+test("AI edit bundles can be restricted to one section", () => {
+  const state = createResumeDocumentSeed();
+  const bundle = createResumeAiEditBundle(state, { scope: "shared" }, { sectionIds: ["summary"] });
+
+  assert.deepEqual(bundle.editableSectionIds, ["summary"]);
+  assert.deepEqual(bundle.sections.map((section) => section.id), ["summary"]);
+  assert.throws(
+    () => createResumeAiEditBundle(state, { scope: "shared" }, { sectionIds: ["unknown"] }),
+    (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_SECTION_NOT_FOUND",
+  );
 });
 
 test("role edits create an override without mutating shared content", () => {
@@ -233,6 +246,20 @@ test("section selection applies only operations belonging to approved sections",
   assert.throws(
     () => selectResumeAiEditSections(edit, []),
     (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_SELECTION_REQUIRED",
+  );
+});
+
+test("single-section JSON edits reject operations targeting another section", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const edit = result(state, context, [
+    { type: "UPDATE_NARRATIVE", sectionId: "summary", body: "허용된 소개" },
+    { type: "UPDATE_IDENTITY", sectionId: "profile", patch: { name: "범위 밖 이름" } },
+  ]);
+
+  assert.throws(
+    () => assertResumeAiEditTargets(edit, ["summary"]),
+    (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_SECTION_OUT_OF_SCOPE",
   );
 });
 

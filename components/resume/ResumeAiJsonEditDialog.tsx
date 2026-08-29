@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { RESUME_DOCUMENT_CSS_VARIABLES, ResumeEditorSection } from "@/components/resume/ResumeEditorDocument";
 import {
+  assertResumeAiEditTargets,
   parseResumeAiEditResult,
   prepareResumeAiEdit,
   selectResumeAiEditSections,
@@ -15,6 +16,7 @@ import {
   type ResumeAiEditResult,
 } from "@/domain/resume-documents/aiEdit";
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
+import { toast } from "@/stores/toastStore";
 
 const operationLabels: Record<ResumeAiEditChange["operationType"], string> = {
   UPDATE_SECTION_TITLE: "섹션 이름 수정",
@@ -40,6 +42,8 @@ type SectionPreviewGroup = {
 type ResumeAiJsonEditDialogProps = {
   context: ResumeAiEditContext;
   contextLabel: string;
+  sectionId?: string;
+  sectionLabel?: string;
   state: ResumeDocumentState;
   onApply: (state: ResumeDocumentState) => void;
   onClose: () => void;
@@ -48,13 +52,15 @@ type ResumeAiJsonEditDialogProps = {
 export function ResumeAiJsonEditDialog({
   context,
   contextLabel,
+  sectionId,
+  sectionLabel,
   state,
   onApply,
   onClose,
 }: ResumeAiJsonEditDialogProps) {
   const exportJson = useMemo(
-    () => serializeResumeAiEditBundle(state, context),
-    [context, state],
+    () => serializeResumeAiEditBundle(state, context, sectionId ? { sectionIds: [sectionId] } : {}),
+    [context, sectionId, state],
   );
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
@@ -80,7 +86,8 @@ export function ResumeAiJsonEditDialog({
     setParsedResult(null);
     setSelectedSectionIds([]);
     try {
-      const result = parseResumeAiEditResult(input);
+      const parsed = parseResumeAiEditResult(input);
+      const result = sectionId ? assertResumeAiEditTargets(parsed, [sectionId]) : parsed;
       const nextPrepared = prepareResumeAiEdit(state, context, result);
       setPrepared(nextPrepared);
       setParsedResult(result);
@@ -93,8 +100,14 @@ export function ResumeAiJsonEditDialog({
   const applyResult = (result: ResumeAiEditResult) => {
     setError("");
     try {
-      onApply(prepareResumeAiEdit(state, context, result).state);
+      const applied = prepareResumeAiEdit(state, context, result);
+      const appliedSectionCount = new Set(applied.changes.map((change) => change.sectionId)).size;
+      onApply(applied.state);
       onClose();
+      toast.success(
+        `${appliedSectionCount}개 섹션의 변경 ${applied.changes.length}개를 반영했습니다. 자동 저장을 시작합니다.`,
+        "AI 편집 적용 완료",
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.");
     }
@@ -150,6 +163,7 @@ export function ResumeAiJsonEditDialog({
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
               편집 범위: <strong className="text-foreground">{contextLabel}</strong>. 이 범위는 JSON을 가져올 때 다시 확인합니다.
             </p>
+            {sectionId && <p className="mt-1 text-xs font-bold text-primary">개별 섹션: {sectionLabel ?? sectionId}</p>}
           </div>
           <button aria-label="AI JSON 편집 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onClose} type="button">
             <X className="h-4 w-4" />

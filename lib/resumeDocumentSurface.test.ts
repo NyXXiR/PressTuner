@@ -95,6 +95,8 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
 
   assert.match(builder, /ResumeAiJsonEditDialog/);
   assert.match(builder, /AI JSON 편집/);
+  assert.match(builder, /섹션 AI JSON 편집/);
+  assert.match(builder, /onAiEdit/);
   assert.match(dialog, /GPT에 전달할 JSON 복사/);
   assert.match(dialog, /GPT의 결과 JSON 붙여넣기/);
   assert.match(dialog, /변경 내용 확인/);
@@ -107,9 +109,14 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /수정 전/);
   assert.match(dialog, /수정 후/);
   assert.match(dialog, /기존 항목 수정/);
+  assert.match(dialog, /assertResumeAiEditTargets/);
+  assert.match(dialog, /AI 편집 적용 완료/);
+  assert.match(dialog, /자동 저장을 시작합니다/);
   assert.match(dialog, /전체 선택/);
   assert.match(dialog, /선택 해제/);
   assert.match(contract, /baseFingerprint/);
+  assert.match(contract, /editableSectionIds/);
+  assert.match(contract, /RESUME_AI_EDIT_SECTION_OUT_OF_SCOPE/);
   assert.match(contract, /RESUME_AI_EDIT_CONTEXT_CHANGED/);
   assert.match(contract, /UPDATE_NARRATIVE/);
   assert.doesNotMatch(dialog, /prisma/i);
