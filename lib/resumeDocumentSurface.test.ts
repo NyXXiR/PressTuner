@@ -116,6 +116,8 @@ test("resume documents exchange scoped AI edits as one validated JSON bundle", a
   assert.match(dialog, /확인이 필요한 작업/);
   assert.match(dialog, /나머지 변경은 선택해 그대로 적용/);
   assert.match(dialog, /최신 편집 자료 복사/);
+  assert.match(dialog, /이 이력서에만 적용/);
+  assert.match(dialog, /reviewResumeAiEditSectionForCurrentVariant/);
   assert.match(dialog, /최신 이력서 기준으로 변경 내용을 다시 비교/);
   assert.match(dialog, /적용 위치/);
   assert.match(dialog, /상위 범위 적용/);

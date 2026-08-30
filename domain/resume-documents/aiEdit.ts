@@ -813,6 +813,34 @@ export function retargetResumeAiEditResult(
   };
 }
 
+export function reviewResumeAiEditSectionForCurrentVariant(
+  state: ResumeDocumentState,
+  expectedContext: ResumeAiEditContext,
+  result: ResumeAiEditResult,
+  sectionId: string,
+): ReviewedResumeAiEdit {
+  if (expectedContext.scope !== "variant") {
+    throw new ResumeAiEditError(
+      "RESUME_AI_EDIT_VARIANT_OVERRIDE_REQUIRED",
+      "충돌한 변경은 현재 지원 이력서에서만 별도로 승인할 수 있습니다.",
+    );
+  }
+  if (!contextEquals(result.editContext, expectedContext)) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_CONTEXT_CHANGED", "AI 결과의 편집 범위가 현재 지원 이력서와 다릅니다.");
+  }
+  const operations = result.operations.filter((operation) => operation.sectionId === sectionId);
+  if (!operations.length) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_SECTION_NOT_FOUND", "이 섹션에 적용할 AI 작업을 찾지 못했습니다.");
+  }
+  const currentFingerprint = resumeDocumentFingerprint(JSON.stringify(state));
+  const currentSectionFingerprint = resumeAiEditSectionFingerprint(state, expectedContext, sectionId);
+  if (result.baseFingerprint === currentFingerprint || result.baseSectionFingerprints?.[sectionId] === currentSectionFingerprint) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_SECTION_NOT_CHANGED", "이 섹션은 충돌 상태가 아닙니다.");
+  }
+  const targeted = retargetResumeAiEditResult(state, result, expectedContext, operations);
+  return reviewResumeAiEdit(state, expectedContext, targeted);
+}
+
 export function prepareTargetedResumeAiEdit(
   state: ResumeDocumentState,
   result: ResumeAiEditResult,
@@ -1009,7 +1037,7 @@ function describeResumeAiEditIssue(
           : error.code === "RESUME_AI_EDIT_OPERATION_NO_CHANGE"
             ? `${target}은 이미 같은 내용이라 건너뜁니다.`
             : error.code === "RESUME_AI_EDIT_SECTION_CHANGED"
-              ? `${target}은 AI 요청 이후 내용이 바뀌어 자동 적용에서 제외했습니다.`
+              ? `${target}은 AI 요청 이후 직접 수정된 내용이 있어 우선 제외했습니다.`
             : `${target}: ${error.message}`;
   const recovery = error.code === "RESUME_AI_EDIT_ITEM_NOT_FOUND" || error.code === "RESUME_AI_EDIT_SECTION_NOT_FOUND"
     ? "최신 편집 자료를 다시 복사해 AI에 요청하면 항목 연결을 복구할 수 있습니다."
@@ -1018,7 +1046,7 @@ function describeResumeAiEditIssue(
       : error.code === "RESUME_AI_EDIT_DUPLICATE_ITEM" || error.code === "RESUME_AI_EDIT_OPERATION_NO_CHANGE"
         ? "이미 반영된 내용이므로 별도 조치가 필요하지 않습니다."
         : error.code === "RESUME_AI_EDIT_SECTION_CHANGED"
-          ? "최신 편집 자료로 이 섹션만 다시 요청하거나 이번 변경에서 제외해 주세요."
+          ? "현재 내용을 유지하거나, 현재 지원 이력서에만 AI 변경을 적용할 수 있습니다."
         : "이 작업만 건너뛰고 나머지 변경을 먼저 적용할 수 있습니다.";
   return {
     operationIndex,

@@ -13,6 +13,7 @@ import {
   resumeAiEditTargetOptions,
   retargetResumeAiEditResult,
   reviewResumeAiEdit,
+  reviewResumeAiEditSectionForCurrentVariant,
   selectResumeAiEditSections,
   type ResumeAiEditContext,
   type ResumeAiEditResult,
@@ -501,6 +502,33 @@ test("AI edit review isolates only stale operations whose target section changed
   assert.equal(reviewed.acceptedOperations.length, 1);
   assert.equal(reviewed.acceptedOperations[0].sectionId, "profile");
   assert.equal(reviewed.issues[0].code, "RESUME_AI_EDIT_SECTION_CHANGED");
+});
+
+test("a stale section can be explicitly reviewed only for the current support resume", () => {
+  const seed = createResumeDocumentSeed();
+  const roleId = seed.activeRoleProfileId;
+  const state = createSupportVariant(seed, roleId, { name: "A사 지원", company: "A사" });
+  const variantId = state.variants[0].id;
+  const context: ResumeAiEditContext = { scope: "variant", roleProfileId: roleId, variantId };
+  const stale = result(state, context, [{ type: "UPDATE_NARRATIVE", sectionId: "summary", body: "AI가 제안한 소개" }]);
+  const current = structuredClone(state);
+  current.variants[0].settings.summary = {
+    mode: "override",
+    layout: "standard",
+    content: { body: "사용자가 직접 고친 소개" },
+  };
+
+  const reviewed = reviewResumeAiEdit(current, context, stale);
+  assert.equal(reviewed.changes.length, 0);
+  assert.equal(reviewed.issues[0].code, "RESUME_AI_EDIT_SECTION_CHANGED");
+
+  const override = reviewResumeAiEditSectionForCurrentVariant(current, context, stale, "summary");
+  assert.equal(override.changes.length, 1);
+  assert.equal((override.state.variants[0].settings.summary.content as { body: string }).body, "AI가 제안한 소개");
+  assert.throws(
+    () => reviewResumeAiEditSectionForCurrentVariant(current, { scope: "role", roleProfileId: roleId }, { ...stale, editContext: { scope: "role", roleProfileId: roleId } }, "summary"),
+    (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_VARIANT_OVERRIDE_REQUIRED",
+  );
 });
 
 test("section selection applies only operations belonging to approved sections", () => {

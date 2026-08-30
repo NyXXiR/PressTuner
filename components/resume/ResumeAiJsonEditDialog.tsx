@@ -14,6 +14,7 @@ import {
   resumeAiEditTargetOptions,
   retargetResumeAiEditResult,
   reviewResumeAiEdit,
+  reviewResumeAiEditSectionForCurrentVariant,
   selectResumeAiEditSections,
   serializeResumeAiEditBundle,
   type ResumeAiEditChange,
@@ -88,6 +89,7 @@ export function ResumeAiJsonEditDialog({
   const [promptCopied, setPromptCopied] = useState(false);
   const [prepared, setPrepared] = useState<ReviewedResumeAiEdit | null>(null);
   const [parsedResult, setParsedResult] = useState<ResumeAiEditResult | null>(null);
+  const [sourceResult, setSourceResult] = useState<ResumeAiEditResult | null>(null);
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
   const [sectionTargetScopes, setSectionTargetScopes] = useState<Record<string, ResumeAiEditContext["scope"]>>({});
 
@@ -118,6 +120,7 @@ export function ResumeAiJsonEditDialog({
     setError(null);
     setPrepared(null);
     setParsedResult(null);
+    setSourceResult(null);
     setSelectedSectionIds([]);
     setSectionTargetScopes({});
     onEditAll?.();
@@ -127,6 +130,7 @@ export function ResumeAiJsonEditDialog({
     setError(null);
     setPrepared(null);
     setParsedResult(null);
+    setSourceResult(null);
     setSelectedSectionIds([]);
     setSectionTargetScopes({});
     try {
@@ -134,6 +138,7 @@ export function ResumeAiJsonEditDialog({
       const result = sectionId ? assertResumeAiEditTargets(parsed, [sectionId]) : parsed;
       const nextPrepared = reviewResumeAiEdit(state, context, result);
       setPrepared(nextPrepared);
+      setSourceResult(result);
       setParsedResult({
         protocol: RESUME_AI_EDIT_RESULT_PROTOCOL,
         version: 1,
@@ -148,6 +153,46 @@ export function ResumeAiJsonEditDialog({
     } catch (cause) {
       setError({
         message: cause instanceof Error ? cause.message : "섹션 편집 결과를 확인하지 못했습니다.",
+        ...(cause instanceof ResumeAiEditError ? { code: cause.code } : {}),
+      });
+    }
+  };
+  const includeConflictedSectionInCurrentVariant = (conflictedSectionId: string) => {
+    if (!sourceResult || context.scope !== "variant") return;
+    setError(null);
+    try {
+      const overrideReview = reviewResumeAiEditSectionForCurrentVariant(state, context, sourceResult, conflictedSectionId);
+      if (!overrideReview.changes.length) {
+        throw new ResumeAiEditError("RESUME_AI_EDIT_NO_CHANGES", "현재 이력서에 새로 반영할 변경이 없습니다.");
+      }
+      setPrepared((current) => current ? {
+        ...current,
+        changes: [
+          ...current.changes.filter((change) => change.sectionId !== conflictedSectionId),
+          ...overrideReview.changes,
+        ],
+        acceptedOperations: [
+          ...current.acceptedOperations.filter((operation) => operation.sectionId !== conflictedSectionId),
+          ...overrideReview.acceptedOperations,
+        ],
+        issues: [
+          ...current.issues.filter((issue) => !(issue.sectionId === conflictedSectionId && issue.code === "RESUME_AI_EDIT_SECTION_CHANGED")),
+          ...overrideReview.issues,
+        ],
+        conflictedSectionIds: current.conflictedSectionIds.filter((id) => id !== conflictedSectionId),
+      } : current);
+      setParsedResult((current) => current ? {
+        ...current,
+        operations: [
+          ...current.operations.filter((operation) => operation.sectionId !== conflictedSectionId),
+          ...overrideReview.acceptedOperations,
+        ],
+      } : current);
+      setSelectedSectionIds((current) => [...new Set([...current, conflictedSectionId])]);
+      setSectionTargetScopes((current) => ({ ...current, [conflictedSectionId]: "variant" }));
+    } catch (cause) {
+      setError({
+        message: cause instanceof Error ? cause.message : "현재 이력서에 적용할 변경을 검토하지 못했습니다.",
         ...(cause instanceof ResumeAiEditError ? { code: cause.code } : {}),
       });
     }
@@ -327,6 +372,7 @@ export function ResumeAiJsonEditDialog({
                   setInput(event.target.value);
                   setPrepared(null);
                   setParsedResult(null);
+                  setSourceResult(null);
                   setSelectedSectionIds([]);
                   setSectionTargetScopes({});
                   setError(null);
@@ -382,12 +428,19 @@ export function ResumeAiJsonEditDialog({
 
               {prepared.issues.length > 0 && <div className="mt-4 border border-amber-300 bg-amber-50 p-4 text-amber-950">
                 <p className="text-sm font-extrabold">확인이 필요한 작업 {prepared.issues.length}개</p>
-                <p className="mt-1 text-xs leading-5">아래 작업은 건너뛰었습니다. 나머지 변경은 선택해 그대로 적용할 수 있습니다.</p>
+                <p className="mt-1 text-xs leading-5">아래 작업은 우선 거부 상태입니다. 나머지 변경은 선택해 그대로 적용할 수 있습니다.</p>
                 <ul className="mt-3 grid gap-3">
                   {prepared.issues.map((issue) => <li className="border border-amber-200 bg-white/70 p-3 text-xs leading-5" key={`${issue.operationIndex}-${issue.code}`}>
                     <p className="font-extrabold">{issue.operationIndex + 1}번 작업 · {operationLabels[issue.operationType]}</p>
                     <p className="mt-1">{issue.message}</p>
                     <p className="mt-1 text-amber-800">해결 방법: {issue.recovery}</p>
+                    {issue.code === "RESUME_AI_EDIT_SECTION_CHANGED" && context.scope === "variant" && <button
+                      className="mt-2 h-8 border border-amber-500 bg-white px-3 text-[11px] font-extrabold text-amber-950"
+                      onClick={() => includeConflictedSectionInCurrentVariant(issue.sectionId)}
+                      type="button"
+                    >
+                      이 이력서에만 적용
+                    </button>}
                   </li>)}
                 </ul>
                 {prepared.issues.some((issue) => issue.code === "RESUME_AI_EDIT_ITEM_NOT_FOUND" || issue.code === "RESUME_AI_EDIT_SECTION_NOT_FOUND" || issue.code === "RESUME_AI_EDIT_SECTION_CHANGED") && <button className="mt-3 h-8 border border-amber-400 bg-white px-3 text-[11px] font-extrabold" onClick={() => { void copyBundle(); }} type="button">
