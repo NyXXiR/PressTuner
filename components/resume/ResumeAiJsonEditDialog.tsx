@@ -8,13 +8,19 @@ import {
   assertResumeAiEditTargets,
   diffResumeItemBodyLines,
   parseResumeAiEditResult,
-  prepareResumeAiEdit,
+  prepareTargetedResumeAiEdit,
+  RESUME_AI_EDIT_RESULT_PROTOCOL,
+  ResumeAiEditError,
+  resumeAiEditTargetOptions,
+  retargetResumeAiEditResult,
+  reviewResumeAiEdit,
   selectResumeAiEditSections,
   serializeResumeAiEditBundle,
-  type PreparedResumeAiEdit,
   type ResumeAiEditChange,
   type ResumeAiEditContext,
   type ResumeAiEditResult,
+  type ResumeAiEditContext as ResumeAiEditTargetContext,
+  type ReviewedResumeAiEdit,
 } from "@/domain/resume-documents/aiEdit";
 import type { ResumeDocumentState } from "@/domain/resume-documents/model";
 
@@ -57,6 +63,11 @@ export type ResumeAiEditApplySummary = {
   changeCount: number;
 };
 
+type ResumeAiEditDialogError = {
+  message: string;
+  code?: string;
+};
+
 export function ResumeAiJsonEditDialog({
   context,
   contextLabel,
@@ -72,70 +83,120 @@ export function ResumeAiJsonEditDialog({
     [context, sectionId, state],
   );
   const [input, setInput] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<ResumeAiEditDialogError | null>(null);
   const [copied, setCopied] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
-  const [prepared, setPrepared] = useState<PreparedResumeAiEdit | null>(null);
+  const [prepared, setPrepared] = useState<ReviewedResumeAiEdit | null>(null);
   const [parsedResult, setParsedResult] = useState<ResumeAiEditResult | null>(null);
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
+  const [sectionTargetScopes, setSectionTargetScopes] = useState<Record<string, ResumeAiEditContext["scope"]>>({});
 
   const copyBundle = async () => {
-    setError("");
+    setError(null);
     try {
       await navigator.clipboard.writeText(exportJson);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2_000);
     } catch {
-      setError("클립보드에 복사하지 못했습니다. 아래 편집 자료를 직접 선택해 복사해 주세요.");
+      setError({ message: "클립보드에 복사하지 못했습니다. 아래 편집 자료를 직접 선택해 복사해 주세요." });
     }
   };
 
   const copyPrompt = async () => {
-    setError("");
+    setError(null);
     try {
       await navigator.clipboard.writeText(DEFAULT_AI_EDIT_PROMPT);
       setPromptCopied(true);
       window.setTimeout(() => setPromptCopied(false), 2_000);
     } catch {
-      setError("프롬프트를 복사하지 못했습니다. 예시 문장을 직접 선택해 복사해 주세요.");
+      setError({ message: "프롬프트를 복사하지 못했습니다. 예시 문장을 직접 선택해 복사해 주세요." });
     }
   };
 
   const editAll = () => {
     setInput("");
-    setError("");
+    setError(null);
     setPrepared(null);
     setParsedResult(null);
     setSelectedSectionIds([]);
+    setSectionTargetScopes({});
     onEditAll?.();
   };
 
   const inspect = () => {
-    setError("");
+    setError(null);
     setPrepared(null);
     setParsedResult(null);
     setSelectedSectionIds([]);
+    setSectionTargetScopes({});
     try {
       const parsed = parseResumeAiEditResult(input);
       const result = sectionId ? assertResumeAiEditTargets(parsed, [sectionId]) : parsed;
-      const nextPrepared = prepareResumeAiEdit(state, context, result);
+      const nextPrepared = reviewResumeAiEdit(state, context, result);
       setPrepared(nextPrepared);
-      setParsedResult(result);
+      setParsedResult({
+        protocol: RESUME_AI_EDIT_RESULT_PROTOCOL,
+        version: 1,
+        baseFingerprint: nextPrepared.reviewedAgainstFingerprint,
+        editContext: result.editContext,
+        operations: nextPrepared.acceptedOperations,
+        assumptions: result.assumptions,
+        warnings: result.warnings,
+      });
       setSelectedSectionIds([...new Set(nextPrepared.changes.map((change) => change.sectionId))]);
+      setSectionTargetScopes(Object.fromEntries(nextPrepared.changes.map((change) => [change.sectionId, context.scope])));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "섹션 편집 결과를 확인하지 못했습니다.");
+      setError({
+        message: cause instanceof Error ? cause.message : "섹션 편집 결과를 확인하지 못했습니다.",
+        ...(cause instanceof ResumeAiEditError ? { code: cause.code } : {}),
+      });
     }
   };
 
-  const applyResult = (result: ResumeAiEditResult) => {
-    setError("");
+  const targetContextFor = (sectionId: string): ResumeAiEditTargetContext => {
+    const options = resumeAiEditTargetOptions(state, context, sectionId);
+    return options.find((option) => option.id === sectionTargetScopes[sectionId])?.context ?? context;
+  };
+  const changeSectionTarget = (sectionId: string, targetContext: ResumeAiEditTargetContext) => {
+    if (!parsedResult) return;
+    setError(null);
     try {
-      const applied = prepareResumeAiEdit(state, context, result);
+      const operations = parsedResult.operations.filter((operation) => operation.sectionId === sectionId);
+      const targeted = retargetResumeAiEditResult(state, parsedResult, targetContext, operations);
+      const targetReview = reviewResumeAiEdit(state, targetContext, targeted);
+      if (!targetReview.changes.length) {
+        throw new ResumeAiEditError("RESUME_AI_EDIT_NO_CHANGES", "선택한 적용 위치에는 새로 반영할 변경이 없습니다.");
+      }
+      setPrepared((current) => current ? {
+        ...current,
+        changes: [
+          ...current.changes.filter((change) => change.sectionId !== sectionId),
+          ...targetReview.changes,
+        ],
+      } : current);
+      setSectionTargetScopes((current) => ({ ...current, [sectionId]: targetContext.scope }));
+    } catch (cause) {
+      setError({
+        message: cause instanceof Error ? cause.message : "선택한 적용 위치에서 변경 내용을 검토하지 못했습니다.",
+        ...(cause instanceof ResumeAiEditError ? { code: cause.code } : {}),
+      });
+    }
+  };
+  const applyResult = (result: ResumeAiEditResult, groups: SectionPreviewGroup[]) => {
+    setError(null);
+    try {
+      const applied = prepareTargetedResumeAiEdit(state, result, groups.map((group) => ({
+        sectionId: group.sectionId,
+        context: targetContextFor(group.sectionId),
+      })));
       const appliedSectionCount = new Set(applied.changes.map((change) => change.sectionId)).size;
       onApply(applied.state, { sectionCount: appliedSectionCount, changeCount: applied.changes.length });
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.");
+      setError({
+        message: cause instanceof Error ? cause.message : "선택한 변경을 적용하지 못했습니다.",
+        ...(cause instanceof ResumeAiEditError ? { code: cause.code } : {}),
+      });
     }
   };
   const apply = () => {
@@ -143,21 +204,25 @@ export function ResumeAiJsonEditDialog({
     const selectedGroups = sectionGroups.filter((group) => selectedSectionIds.includes(group.sectionId));
     const bodyReplacementCount = selectedGroups.flatMap((group) => group.changes)
       .filter((change) => change.itemEdit?.bodyReplaced).length;
+    const propagationCount = selectedGroups.filter((group) => targetContextFor(group.sectionId).scope !== context.scope).length;
+    const propagationNotice = propagationCount > 0 ? `\n${propagationCount}개 섹션은 현재 이력서보다 상위 범위에 저장되어 다른 이력서에도 반영될 수 있습니다.` : "";
     const message = bodyReplacementCount > 0
-      ? `선택한 ${selectedGroups.length}개 섹션에서 기존 항목 본문 ${bodyReplacementCount}개를 전체 교체합니다.\n기존 본문은 유지하거나 병합하지 않습니다. 적용할까요?`
-      : `선택한 ${selectedGroups.length}개 섹션의 변경을 적용할까요?`;
+      ? `선택한 ${selectedGroups.length}개 섹션에서 기존 항목 본문 ${bodyReplacementCount}개를 전체 교체합니다.\n기존 본문은 유지하거나 병합하지 않습니다.${propagationNotice}\n적용할까요?`
+      : `선택한 ${selectedGroups.length}개 섹션의 변경을 적용할까요?${propagationNotice}`;
     if (!window.confirm(message)) return;
-    applyResult(selectResumeAiEditSections(parsedResult, selectedSectionIds));
+    applyResult(selectResumeAiEditSections(parsedResult, selectedSectionIds), selectedGroups);
   };
   const applyAll = () => {
     if (!parsedResult) return;
     const bodyReplacementCount = sectionGroups.flatMap((group) => group.changes)
       .filter((change) => change.itemEdit?.bodyReplaced).length;
+    const propagationCount = sectionGroups.filter((group) => targetContextFor(group.sectionId).scope !== context.scope).length;
+    const propagationNotice = propagationCount > 0 ? `\n${propagationCount}개 섹션은 현재 이력서보다 상위 범위에 저장되어 다른 이력서에도 반영될 수 있습니다.` : "";
     const message = bodyReplacementCount > 0
-      ? `검토한 ${sectionGroups.length}개 섹션에서 기존 항목 본문 ${bodyReplacementCount}개를 전체 교체합니다.\n기존 본문은 유지하거나 병합하지 않습니다. 모두 반영할까요?`
-      : `검토한 ${sectionGroups.length}개 섹션의 변경을 모두 반영할까요?`;
+      ? `검토한 ${sectionGroups.length}개 섹션에서 기존 항목 본문 ${bodyReplacementCount}개를 전체 교체합니다.\n기존 본문은 유지하거나 병합하지 않습니다.${propagationNotice}\n모두 반영할까요?`
+      : `검토한 ${sectionGroups.length}개 섹션의 변경을 모두 반영할까요?${propagationNotice}`;
     if (!window.confirm(message)) return;
-    applyResult(parsedResult);
+    applyResult(parsedResult, sectionGroups);
   };
 
   const sectionGroups = prepared ? Array.from(
@@ -263,7 +328,8 @@ export function ResumeAiJsonEditDialog({
                   setPrepared(null);
                   setParsedResult(null);
                   setSelectedSectionIds([]);
-                  setError("");
+                  setSectionTargetScopes({});
+                  setError(null);
                 }}
                 placeholder={'{"protocol":"briefflow.resume.edit-result", ...}'}
                 value={input}
@@ -274,15 +340,23 @@ export function ResumeAiJsonEditDialog({
             </section>
           </div>
 
-          {error && <p aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p>}
+          {error && <div aria-live="assertive" className="mt-5 border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <p className="font-bold">{error.message}</p>
+            {(error.code === "RESUME_AI_EDIT_DOCUMENT_CHANGED" || error.code === "RESUME_AI_EDIT_CONTEXT_CHANGED") && <div className="mt-3 flex flex-wrap items-center gap-3">
+              <p className="text-xs leading-5">현재 편집 범위의 최신 자료로 다시 요청하면 기존 작업을 안전하게 이어갈 수 있습니다.</p>
+              <button className="h-8 border border-red-300 bg-white px-3 text-[11px] font-extrabold text-red-800" onClick={() => { void copyBundle(); }} type="button">
+                최신 편집 자료 복사
+              </button>
+            </div>}
+          </div>}
 
           {prepared && (
             <section className="mt-6 border border-primary/30 bg-primary/5 p-5">
               <div>
                 <div>
                   <p className="text-[10px] font-bold tracking-widest text-primary">PREVIEW</p>
-                  <h3 className="mt-1 text-lg font-extrabold">섹션별 검토 · 변경 {prepared.changes.length}개</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">모든 섹션이 기본 선택됩니다. 항목 본문 수정은 기존 본문과 병합하지 않고 수정 후 본문으로 교체됩니다.</p>
+                  <h3 className="mt-1 text-lg font-extrabold">섹션별 검토 · 적용 가능 {prepared.changes.length}개</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">적용 가능한 섹션은 기본 선택되고 현재 편집 위치에 저장됩니다. 필요한 섹션만 적용 위치를 바꿀 수 있습니다.</p>
                 </div>
               </div>
 
@@ -301,15 +375,67 @@ export function ResumeAiJsonEditDialog({
                 </div>
               )}
 
+              {prepared.rebased && <div className="mt-4 border border-sky-300 bg-sky-50 p-3 text-xs leading-5 text-sky-950">
+                <p className="font-extrabold">최신 이력서 기준으로 변경 내용을 다시 비교했습니다.</p>
+                <p className="mt-1">AI 요청 이후 달라진 내용이 있어 현재 문서를 기준으로 미리보기를 만들었습니다. 수정 전·후 내용을 확인한 뒤 적용해 주세요.</p>
+              </div>}
+
+              {prepared.issues.length > 0 && <div className="mt-4 border border-amber-300 bg-amber-50 p-4 text-amber-950">
+                <p className="text-sm font-extrabold">확인이 필요한 작업 {prepared.issues.length}개</p>
+                <p className="mt-1 text-xs leading-5">아래 작업은 건너뛰었습니다. 나머지 변경은 선택해 그대로 적용할 수 있습니다.</p>
+                <ul className="mt-3 grid gap-3">
+                  {prepared.issues.map((issue) => <li className="border border-amber-200 bg-white/70 p-3 text-xs leading-5" key={`${issue.operationIndex}-${issue.code}`}>
+                    <p className="font-extrabold">{issue.operationIndex + 1}번 작업 · {operationLabels[issue.operationType]}</p>
+                    <p className="mt-1">{issue.message}</p>
+                    <p className="mt-1 text-amber-800">해결 방법: {issue.recovery}</p>
+                  </li>)}
+                </ul>
+                {prepared.issues.some((issue) => issue.code === "RESUME_AI_EDIT_ITEM_NOT_FOUND" || issue.code === "RESUME_AI_EDIT_SECTION_NOT_FOUND" || issue.code === "RESUME_AI_EDIT_SECTION_CHANGED") && <button className="mt-3 h-8 border border-amber-400 bg-white px-3 text-[11px] font-extrabold" onClick={() => { void copyBundle(); }} type="button">
+                  최신 편집 자료 복사
+                </button>}
+              </div>}
+
+              {prepared.changes.length === 0 && <p className="mt-4 border border-border bg-background p-4 text-sm font-bold">새로 적용할 변경은 없습니다. 위 안내를 확인하거나 최신 편집 자료로 다시 요청해 주세요.</p>}
+
               <div className="mt-4 grid gap-3">
                 {sectionGroups.map((group, groupIndex) => {
                   const selected = selectedSectionIds.includes(group.sectionId);
                   return <section className={`border bg-background ${selected ? "border-primary" : "border-border"}`} key={group.sectionId}>
-                    <label className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
                       <input checked={selected} onChange={(event) => setSelectedSectionIds((current) => event.target.checked ? [...current, group.sectionId] : current.filter((id) => id !== group.sectionId))} type="checkbox" />
                       <span className="font-extrabold">{group.sectionTitle}</span>
+                      <span className={`px-1.5 py-0.5 text-[9px] font-extrabold ${selected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{selected ? "반영" : "제외"}</span>
                       <span className="ml-auto text-[10px] font-bold text-muted-foreground">변경 {group.changes.length}개</span>
-                    </label>
+                      </label>
+                      {(() => {
+                        const options = resumeAiEditTargetOptions(state, context, group.sectionId);
+                        const selectedScope = sectionTargetScopes[group.sectionId] ?? context.scope;
+                        const selectedTarget = options.find((option) => option.id === selectedScope) ?? options[0];
+                        return <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-muted-foreground">적용 위치</span>
+                          {options.length > 1 ? <select
+                            aria-label={`${group.sectionTitle} 적용 위치`}
+                            className="h-8 max-w-56 border border-border bg-background px-2 text-[11px] font-extrabold text-primary"
+                            onChange={(event) => {
+                              const target = options.find((option) => option.id === event.target.value);
+                              if (target) changeSectionTarget(group.sectionId, target.context);
+                            }}
+                            value={selectedTarget?.id ?? context.scope}
+                          >
+                            {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                          </select> : <span className="border border-border bg-muted/20 px-2 py-1 text-[10px] font-extrabold text-muted-foreground">{selectedTarget?.label}</span>}
+                        </div>;
+                      })()}
+                    </div>
+                    {(() => {
+                      const options = resumeAiEditTargetOptions(state, context, group.sectionId);
+                      const selectedScope = sectionTargetScopes[group.sectionId] ?? context.scope;
+                      const selectedTarget = options.find((option) => option.id === selectedScope);
+                      return selectedTarget && selectedTarget.id !== context.scope
+                        ? <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-bold leading-5 text-amber-900">상위 범위 적용: {selectedTarget.propagation}</p>
+                        : null;
+                    })()}
                     <div className={selected ? "" : "opacity-55"}>
                       <div className="grid gap-px bg-border md:grid-cols-2">
                         <SectionDocumentPreview label="수정 전" relatedWorkItems={group.beforeRelatedWorkItems} section={group.beforeSection} tone="before" />
@@ -336,7 +462,7 @@ export function ResumeAiJsonEditDialog({
           {prepared ? <p className="text-xs font-bold">선택 {selectedSectionIds.length}/{sectionGroups.length}개 섹션 · 변경 {selectedChangeCount}개</p> : <span />}
           <div className="flex flex-wrap justify-end gap-2">
             <button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onClose} type="button">닫기</button>
-            {prepared && <>
+            {prepared && prepared.changes.length > 0 && <>
               <button className="inline-flex h-10 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={applyAll} type="button"><Check className="h-4 w-4" /> 전체 승인·반영</button>
               <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button"><Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용</button>
             </>}

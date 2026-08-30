@@ -8,12 +8,17 @@ import {
   createResumeAiEditBundle,
   diffResumeItemBodyLines,
   parseResumeAiEditResult,
+  prepareTargetedResumeAiEdit,
   prepareResumeAiEdit,
+  resumeAiEditTargetOptions,
+  retargetResumeAiEditResult,
+  reviewResumeAiEdit,
   selectResumeAiEditSections,
   type ResumeAiEditContext,
   type ResumeAiEditResult,
 } from "./aiEdit";
 import {
+  addRoleCustomSection,
   createResumeDocumentSeed,
   createSupportVariant,
   parseResumeDocumentState,
@@ -31,10 +36,12 @@ function result(
   context: ResumeAiEditContext,
   operations: ResumeAiEditResult["operations"],
 ): ResumeAiEditResult {
+  const bundle = createResumeAiEditBundle(state, context);
   return {
     protocol: RESUME_AI_EDIT_RESULT_PROTOCOL,
     version: 1,
     baseFingerprint: resumeDocumentFingerprint(JSON.stringify(state)),
+    baseSectionFingerprints: bundle.baseSectionFingerprints,
     editContext: context,
     operations,
     assumptions: [],
@@ -53,6 +60,7 @@ test("AI edit bundles preserve the selected inheritance context and resolved sou
 
   assert.deepEqual(bundle.editContext, context);
   assert.equal(bundle.baseFingerprint, resumeDocumentFingerprint(JSON.stringify(state)));
+  assert.equal(Object.keys(bundle.baseSectionFingerprints).length, bundle.sections.length);
   assert.equal(summary?.resolution.source, "shared");
   assert.equal(summary?.resolution.mode, "inherit");
   assert.equal("photo" in (bundle.sections.find((section) => section.id === "profile")?.content ?? {}), false);
@@ -328,6 +336,48 @@ test("variant item replacement stays authoritative across role and variant overr
   assert.equal(variant.settings.projects.itemSettings?.[item.id]?.content?.body, replacementBody);
 });
 
+test("variant AI edits can update items in a role-owned custom section", () => {
+  const seed = createResumeDocumentSeed();
+  const roleId = seed.activeRoleProfileId;
+  const withCustom = addRoleCustomSection(seed, roleId, {
+    title: "핵심 역량",
+    kind: "items",
+    layout: "highlight-grid",
+    content: {
+      items: [{
+        id: "highlight-1",
+        meta: "",
+        title: "문제 정의",
+        subtitle: "업무 맥락을 이해합니다.",
+        body: "기존 핵심 역량",
+      }],
+    },
+  }).state;
+  const withVariant = createSupportVariant(withCustom, roleId, { name: "A사 지원", company: "A사" });
+  const variantId = withVariant.variants[0].id;
+  const context: ResumeAiEditContext = { scope: "variant", roleProfileId: roleId, variantId };
+  const prepared = prepareResumeAiEdit(withVariant, context, result(withVariant, context, [{
+    type: "UPDATE_ITEM",
+    sectionId: withCustom.roleProfiles[0].customSections.at(-1)!.id,
+    itemId: "highlight-1",
+    patch: {
+      title: "제품 문제 정의와 실행",
+      body: "지원 회사에 맞춘 핵심 역량",
+    },
+  }]));
+  const reparsed = parseResumeDocumentState(JSON.stringify(prepared.state))!;
+  const profile = reparsed.roleProfiles.find((candidate) => candidate.id === roleId)!;
+  const variant = reparsed.variants.find((candidate) => candidate.id === variantId)!;
+  const section = profile.customSections.at(-1)!;
+  const resolved = resolveSection(section, profile, variant);
+  const updated = (resolved.content as { items: ItemContent[] }).items[0];
+
+  assert.equal(updated.title, "제품 문제 정의와 실행");
+  assert.equal(updated.body, "지원 회사에 맞춘 핵심 역량");
+  assert.equal((section.content as { items: ItemContent[] }).items[0].body, "기존 핵심 역량");
+  assert.equal(variant.settings[section.id].itemSettings?.[updated.id]?.content?.body, "지원 회사에 맞춘 핵심 역량");
+});
+
 test("the last explicit replacement of one item wins within a single AI edit result", () => {
   const state = createResumeDocumentSeed();
   const section = state.sharedSections.find((item) => item.id === "projects")!;
@@ -414,6 +464,45 @@ test("stale or cross-scope AI results are rejected before mutation", () => {
   );
 });
 
+test("AI edit review rebases a stale result onto the current document for explicit preview", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const stale = result(state, context, [{
+    type: "UPDATE_NARRATIVE",
+    sectionId: "summary",
+    body: "최신 문서에서 다시 검토할 소개",
+  }]);
+  const current = {
+    ...state,
+    importLedger: [{ candidateKey: "newer-change", payloadHash: "hash", targetSectionId: "summary", appliedAt: "now" }],
+  };
+  const reviewed = reviewResumeAiEdit(current, context, stale);
+
+  assert.equal(reviewed.rebased, true);
+  assert.equal(reviewed.reviewedAgainstFingerprint, resumeDocumentFingerprint(JSON.stringify(current)));
+  assert.equal(reviewed.changes.length, 1);
+  assert.equal(reviewed.acceptedOperations.length, 1);
+  assert.deepEqual(reviewed.conflictedSectionIds, []);
+});
+
+test("AI edit review isolates only stale operations whose target section changed", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const stale = result(state, context, [
+    { type: "UPDATE_NARRATIVE", sectionId: "summary", body: "AI가 제안한 소개" },
+    { type: "UPDATE_IDENTITY", sectionId: "profile", patch: { name: "AI가 제안한 이름" } },
+  ]);
+  const current = structuredClone(state);
+  const summary = current.sharedSections.find((section) => section.id === "summary")!;
+  summary.content = { body: "사용자가 중간에 수정한 소개" };
+  const reviewed = reviewResumeAiEdit(current, context, stale);
+
+  assert.deepEqual(reviewed.conflictedSectionIds, ["summary"]);
+  assert.equal(reviewed.acceptedOperations.length, 1);
+  assert.equal(reviewed.acceptedOperations[0].sectionId, "profile");
+  assert.equal(reviewed.issues[0].code, "RESUME_AI_EDIT_SECTION_CHANGED");
+});
+
 test("section selection applies only operations belonging to approved sections", () => {
   const state = createResumeDocumentSeed();
   const context: ResumeAiEditContext = { scope: "shared" };
@@ -433,6 +522,82 @@ test("section selection applies only operations belonging to approved sections",
     () => selectResumeAiEditSections(edit, []),
     (error: unknown) => error instanceof ResumeAiEditError && error.code === "RESUME_AI_EDIT_SELECTION_REQUIRED",
   );
+});
+
+test("AI edit review keeps valid operations when another operation targets a missing item", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const reviewed = reviewResumeAiEdit(state, context, result(state, context, [
+    { type: "UPDATE_NARRATIVE", sectionId: "summary", body: "적용 가능한 소개" },
+    { type: "UPDATE_ITEM", sectionId: "experience", itemId: "removed-item", patch: { body: "찾을 수 없는 경력" } },
+  ]));
+
+  assert.equal(reviewed.changes.length, 1);
+  assert.equal(reviewed.acceptedOperations.length, 1);
+  assert.equal(reviewed.acceptedOperations[0].sectionId, "summary");
+  assert.equal(reviewed.issues.length, 1);
+  assert.equal(reviewed.issues[0].code, "RESUME_AI_EDIT_ITEM_NOT_FOUND");
+  assert.match(reviewed.issues[0].message, /경력/);
+  assert.doesNotMatch(reviewed.issues[0].message, /removed-item/);
+});
+
+test("AI edit review reports unchanged operations without blocking useful changes", () => {
+  const state = createResumeDocumentSeed();
+  const context: ResumeAiEditContext = { scope: "shared" };
+  const currentSummary = (state.sharedSections.find((section) => section.id === "summary")!.content as { body: string }).body;
+  const reviewed = reviewResumeAiEdit(state, context, result(state, context, [
+    { type: "UPDATE_NARRATIVE", sectionId: "summary", body: currentSummary },
+    { type: "UPDATE_IDENTITY", sectionId: "profile", patch: { name: "새 이름" } },
+  ]));
+
+  assert.equal(reviewed.changes.length, 1);
+  assert.equal(reviewed.acceptedOperations.length, 1);
+  assert.equal(reviewed.issues[0].code, "RESUME_AI_EDIT_OPERATION_NO_CHANGE");
+  assert.match(reviewed.issues[0].recovery, /별도 조치가 필요하지 않습니다/);
+});
+
+test("AI edit target options expose only scopes that already own or inherit a section", () => {
+  const seed = createResumeDocumentSeed();
+  const roleId = seed.activeRoleProfileId;
+  const withCustom = addRoleCustomSection(seed, roleId, {
+    title: "직군 핵심 역량",
+    kind: "items",
+    content: { items: [{ id: "role-highlight", meta: "", title: "역량", subtitle: "", body: "내용" }] },
+  }).state;
+  const state = createSupportVariant(withCustom, roleId, { name: "A사 지원", company: "A사" });
+  const variant = state.variants[0];
+  const context: ResumeAiEditContext = { scope: "variant", roleProfileId: roleId, variantId: variant.id };
+  const roleCustomId = state.roleProfiles[0].customSections.at(-1)!.id;
+
+  assert.deepEqual(resumeAiEditTargetOptions(state, context, "summary").map((option) => option.id), ["variant", "role", "shared"]);
+  assert.deepEqual(resumeAiEditTargetOptions(state, context, roleCustomId).map((option) => option.id), ["variant", "role"]);
+});
+
+test("targeted AI edits can keep one section in a support version and propagate another to its role", () => {
+  const seed = createResumeDocumentSeed();
+  const roleId = seed.activeRoleProfileId;
+  const state = createSupportVariant(seed, roleId, { name: "A사 지원", company: "A사" });
+  const variantId = state.variants[0].id;
+  const sourceContext: ResumeAiEditContext = { scope: "variant", roleProfileId: roleId, variantId };
+  const source = result(state, sourceContext, [
+    { type: "UPDATE_NARRATIVE", sectionId: "summary", body: "A사에만 적용할 소개" },
+    { type: "UPDATE_ITEM", sectionId: "experience", itemId: (state.sharedSections.find((section) => section.id === "experience")!.content as { items: ItemContent[] }).items[0].id, patch: { body: "직군에 적용할 경력" } },
+  ]);
+  const reviewed = reviewResumeAiEdit(state, sourceContext, source);
+  const accepted = { ...source, operations: reviewed.acceptedOperations };
+  const prepared = prepareTargetedResumeAiEdit(state, accepted, [
+    { sectionId: "summary", context: sourceContext },
+    { sectionId: "experience", context: { scope: "role", roleProfileId: roleId } },
+  ]);
+  const profile = prepared.state.roleProfiles[0];
+  const variant = prepared.state.variants[0];
+  const summary = prepared.state.sharedSections.find((section) => section.id === "summary")!;
+  const experience = prepared.state.sharedSections.find((section) => section.id === "experience")!;
+
+  assert.equal((resolveSection(summary, profile, variant).content as { body: string }).body, "A사에만 적용할 소개");
+  assert.equal((resolveSection(summary, profile).content as { body: string }).body.includes("A사에만"), false);
+  assert.equal((resolveSection(experience, profile).content as { items: ItemContent[] }).items[0].body, "직군에 적용할 경력");
+  assert.equal(retargetResumeAiEditResult(state, source, { scope: "role", roleProfileId: roleId }, [source.operations[1]]).editContext.scope, "role");
 });
 
 test("single-section JSON edits reject operations targeting another section", () => {

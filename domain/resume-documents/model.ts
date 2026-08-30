@@ -314,14 +314,17 @@ function roleBase(section: ResumeSection, profile?: ResumeRoleProfile) {
 
 export function resolveSection(section: ResumeSection, profile?: ResumeRoleProfile, variant?: ResumeVariant) {
   if (section.custom) {
-    const documentSetting = variant?.settings[section.id];
+    const documentSetting = variant?.settings[section.id] ?? defaultSetting();
     if (documentSetting?.mode === "hidden") return { mode: "hidden" as const, layout: documentSetting.layout ?? section.layout ?? "standard", pageBreakBefore: documentSetting.pageBreakBefore ?? section.pageBreakBefore ?? false, source: "document" as const, content: section.content };
+    const documentOverrides = documentSetting.mode === "override";
+    const content = documentOverrides ? documentSetting.content ?? section.content : section.content;
+    const documentChangesItems = Boolean(Object.keys(documentSetting.itemSettings ?? {}).length || documentSetting.itemOrder?.length);
     return {
       mode: "override" as const,
       layout: documentSetting?.layout ?? section.layout ?? "standard",
       pageBreakBefore: documentSetting?.pageBreakBefore ?? section.pageBreakBefore ?? false,
-      source: documentSetting?.mode === "override" ? "document" as const : profile?.customSections.some((item) => item.id === section.id) ? "role" as const : "document" as const,
-      content: documentSetting?.mode === "override" ? documentSetting.content ?? section.content : section.content,
+      source: documentOverrides || documentChangesItems ? "document" as const : profile?.customSections.some((item) => item.id === section.id) ? "role" as const : "document" as const,
+      content: applyLayeredItemSettings(content, undefined, documentSetting),
     };
   }
   const role = roleBase(section, profile);

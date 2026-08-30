@@ -158,6 +158,7 @@ export const ResumeAiEditResultSchema = z.object({
   protocol: z.literal(RESUME_AI_EDIT_RESULT_PROTOCOL),
   version: z.literal(1),
   baseFingerprint: z.string().regex(/^[0-9a-f]{8}$/),
+  baseSectionFingerprints: z.record(z.string(), z.string().regex(/^[0-9a-f]{8}$/)).optional(),
   editContext: ResumeAiEditContextSchema,
   operations: z.array(ResumeAiEditOperationSchema).min(1).max(50),
   assumptions: z.array(z.string().max(1_000)).max(20).default([]),
@@ -196,6 +197,37 @@ export type PreparedResumeAiEdit = {
   changes: ResumeAiEditChange[];
   assumptions: string[];
   warnings: string[];
+};
+
+export type ResumeAiEditReviewIssue = {
+  operationIndex: number;
+  operationType: ResumeAiEditOperation["type"];
+  sectionId: string;
+  sectionTitle: string;
+  itemTitle?: string;
+  code: string;
+  message: string;
+  recovery: string;
+};
+
+export type ReviewedResumeAiEdit = PreparedResumeAiEdit & {
+  acceptedOperations: ResumeAiEditOperation[];
+  issues: ResumeAiEditReviewIssue[];
+  reviewedAgainstFingerprint: string;
+  rebased: boolean;
+  conflictedSectionIds: string[];
+};
+
+export type ResumeAiEditTargetOption = {
+  id: ResumeAiEditContext["scope"];
+  context: ResumeAiEditContext;
+  label: string;
+  propagation: string;
+};
+
+export type ResumeAiEditSectionTarget = {
+  sectionId: string;
+  context: ResumeAiEditContext;
 };
 
 export class ResumeAiEditError extends Error {
@@ -533,6 +565,21 @@ function sectionSummary(section: ResumeSection, content: SectionContent) {
   return JSON.stringify(simplifiedContent(section, content), null, 2);
 }
 
+function resumeAiEditSectionFingerprint(
+  state: ResumeDocumentState,
+  context: ResumeAiEditContext,
+  sectionId: string,
+) {
+  const { section } = sectionInContext(state, context, sectionId);
+  const content = effectiveContent(state, context, section.id);
+  return resumeDocumentFingerprint(JSON.stringify({
+    id: section.id,
+    title: effectiveTitle(state, context, section.id),
+    kind: section.kind,
+    content: section.kind === "identity" ? simplifiedContent(section, content) : content,
+  }));
+}
+
 function meaningfulBodyLines(body: string) {
   return body.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
 }
@@ -615,6 +662,10 @@ export function createResumeAiEditBundle(
     protocol: RESUME_AI_EDIT_PROTOCOL,
     version: 1,
     baseFingerprint: resumeDocumentFingerprint(JSON.stringify(state)),
+    baseSectionFingerprints: Object.fromEntries(selectedSections.map((section) => [
+      section.id,
+      resumeAiEditSectionFingerprint(state, context, section.id),
+    ])),
     editContext: context,
     editableSectionIds: selectedSections.map((section) => section.id),
     rules: {
@@ -646,6 +697,7 @@ export function createResumeAiEditBundle(
       protocol: RESUME_AI_EDIT_RESULT_PROTOCOL,
       version: 1,
       baseFingerprint: "Copy the input baseFingerprint exactly",
+      baseSectionFingerprints: "Copy the input baseSectionFingerprints exactly",
       editContext: "Copy the input editContext exactly",
       operations: "Return only the operations needed for changed content",
       assumptions: "List any assumptions; use an empty array when there are none",
@@ -706,6 +758,82 @@ export function selectResumeAiEditSections(
   return { ...result, operations };
 }
 
+export function resumeAiEditTargetOptions(
+  state: ResumeDocumentState,
+  sourceContext: ResumeAiEditContext,
+  sectionId: string,
+): ResumeAiEditTargetOption[] {
+  const { profile, variant, section } = sectionInContext(state, sourceContext, sectionId);
+  if (sourceContext.scope === "shared") {
+    return [{ id: "shared", context: { scope: "shared" }, label: "공통 정보", propagation: "모든 직군과 지원 이력서에 반영됩니다." }];
+  }
+  if (!profile) return [];
+  const roleOption: ResumeAiEditTargetOption = {
+    id: "role",
+    context: { scope: "role", roleProfileId: profile.id },
+    label: `${profile.name} 직군`,
+    propagation: "이 직군을 사용하는 지원 이력서에 반영될 수 있습니다.",
+  };
+  const roleOwnsSection = profile.customSections.some((candidate) => candidate.id === section.id);
+  if (sourceContext.scope === "role") {
+    return roleOwnsSection
+      ? [roleOption]
+      : [roleOption, { id: "shared", context: { scope: "shared" }, label: "공통 정보", propagation: "모든 직군과 지원 이력서에 반영됩니다." }];
+  }
+  if (!variant) return [];
+  const variantOption: ResumeAiEditTargetOption = {
+    id: "variant",
+    context: { scope: "variant", roleProfileId: profile.id, variantId: variant.id },
+    label: `${variant.name}에만`,
+    propagation: "현재 지원 이력서에만 반영됩니다.",
+  };
+  if (variant.customSections.some((candidate) => candidate.id === section.id)) return [variantOption];
+  if (roleOwnsSection) return [variantOption, roleOption];
+  return [
+    variantOption,
+    roleOption,
+    { id: "shared", context: { scope: "shared" }, label: "공통 정보", propagation: "모든 직군과 지원 이력서에 반영됩니다." },
+  ];
+}
+
+export function retargetResumeAiEditResult(
+  state: ResumeDocumentState,
+  result: ResumeAiEditResult,
+  context: ResumeAiEditContext,
+  operations: ResumeAiEditOperation[] = result.operations,
+): ResumeAiEditResult {
+  const sectionIds = [...new Set(operations.map((operation) => operation.sectionId))];
+  const bundle = createResumeAiEditBundle(state, context, { sectionIds });
+  return {
+    ...result,
+    baseFingerprint: bundle.baseFingerprint,
+    baseSectionFingerprints: bundle.baseSectionFingerprints,
+    editContext: context,
+    operations,
+  };
+}
+
+export function prepareTargetedResumeAiEdit(
+  state: ResumeDocumentState,
+  result: ResumeAiEditResult,
+  targets: ResumeAiEditSectionTarget[],
+): PreparedResumeAiEdit {
+  let next = state;
+  const changes: ResumeAiEditChange[] = [];
+  for (const target of targets) {
+    const operations = result.operations.filter((operation) => operation.sectionId === target.sectionId);
+    if (!operations.length) continue;
+    const targeted = retargetResumeAiEditResult(next, result, target.context, operations);
+    const prepared = prepareResumeAiEdit(next, target.context, targeted);
+    next = prepared.state;
+    changes.push(...prepared.changes);
+  }
+  if (!changes.length) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_NO_CHANGES", "현재 이력서와 달라지는 내용이 없습니다.");
+  }
+  return { state: next, changes, assumptions: result.assumptions, warnings: result.warnings };
+}
+
 export function assertResumeAiEditTargets(
   result: ResumeAiEditResult,
   allowedSectionIds: Iterable<string>,
@@ -727,58 +855,179 @@ export function prepareResumeAiEdit(
   result: ResumeAiEditResult,
   options: { idFactory?: () => string } = {},
 ): PreparedResumeAiEdit {
+  const reviewed = prepareResumeAiEditOperations(state, expectedContext, result, options, false);
+  if (!reviewed.changes.length) {
+    throw new ResumeAiEditError("RESUME_AI_EDIT_NO_CHANGES", "현재 이력서와 달라지는 내용이 없습니다.");
+  }
+  return reviewed;
+}
+
+export function reviewResumeAiEdit(
+  state: ResumeDocumentState,
+  expectedContext: ResumeAiEditContext,
+  result: ResumeAiEditResult,
+  options: { idFactory?: () => string } = {},
+): ReviewedResumeAiEdit {
+  return prepareResumeAiEditOperations(state, expectedContext, result, options, true);
+}
+
+function prepareResumeAiEditOperations(
+  state: ResumeDocumentState,
+  expectedContext: ResumeAiEditContext,
+  result: ResumeAiEditResult,
+  options: { idFactory?: () => string },
+  continueOnOperationError: boolean,
+): ReviewedResumeAiEdit {
   const currentFingerprint = resumeDocumentFingerprint(JSON.stringify(state));
-  if (result.baseFingerprint !== currentFingerprint) {
+  const rebased = result.baseFingerprint !== currentFingerprint;
+  if (rebased && !continueOnOperationError) {
     throw new ResumeAiEditError("RESUME_AI_EDIT_DOCUMENT_CHANGED", "JSON을 복사한 뒤 이력서가 변경됐습니다. 최신 내용을 다시 복사해 GPT에 요청해 주세요.");
   }
   if (!contextEquals(result.editContext, expectedContext)) {
     throw new ResumeAiEditError("RESUME_AI_EDIT_CONTEXT_CHANGED", "GPT 결과의 편집 범위가 현재 선택한 공통·직군·지원 버전과 다릅니다.");
   }
   resolveContext(state, expectedContext);
+  const conflictedSectionIds = rebased && continueOnOperationError
+    ? [...new Set(result.operations.map((operation) => operation.sectionId))].filter((sectionId) => {
+      try {
+        return result.baseSectionFingerprints?.[sectionId] !== resumeAiEditSectionFingerprint(state, expectedContext, sectionId);
+      } catch {
+        return true;
+      }
+    })
+    : [];
+  const conflictedSections = new Set(conflictedSectionIds);
   let next = clone(state);
   const changes: ResumeAiEditChange[] = [];
+  const acceptedOperations: ResumeAiEditOperation[] = [];
+  const issues: ResumeAiEditReviewIssue[] = [];
+  const reportedConflictSections = new Set<string>();
   const idFactory = options.idFactory ?? defaultItemId;
-  for (const operation of result.operations) {
-    const beforeContent = effectiveContent(next, expectedContext, operation.sectionId);
-    const beforeTitle = effectiveTitle(next, expectedContext, operation.sectionId);
-    const section = sectionInContext(next, expectedContext, operation.sectionId).section;
-    const beforeSection = previewSection(next, expectedContext, operation.sectionId);
-    const beforeRelatedWorkItems = previewRelatedWorkItems(next, expectedContext);
-    const updated = applyOperation(next, expectedContext, operation, idFactory);
-    const afterContent = effectiveContent(updated, expectedContext, operation.sectionId);
-    const afterTitle = effectiveTitle(updated, expectedContext, operation.sectionId);
-    assertItemBodyReplacementApplied(operation, afterContent);
-    if (same(beforeContent, afterContent) && beforeTitle === afterTitle) continue;
-    changes.push({
-      operationType: operation.type,
-      sectionId: section.id,
-      sectionTitle: afterTitle,
-      before: operation.type === "UPDATE_SECTION_TITLE" ? beforeTitle : sectionSummary(section, beforeContent),
-      after: operation.type === "UPDATE_SECTION_TITLE" ? afterTitle : sectionSummary(section, afterContent),
-      ...(operation.type === "UPDATE_ITEM" ? {
-        itemEdit: {
-          itemId: operation.itemId,
-          itemTitle: ((afterContent as ItemsContent).items.find((item) => item.id === operation.itemId)
-            ?? (beforeContent as ItemsContent).items.find((item) => item.id === operation.itemId))?.title ?? operation.itemId,
-          bodyReplaced: operation.patch.body !== undefined,
-          beforeBody: (beforeContent as ItemsContent).items.find((item) => item.id === operation.itemId)?.body ?? "",
-          afterBody: (afterContent as ItemsContent).items.find((item) => item.id === operation.itemId)?.body ?? "",
-        },
-      } : {}),
-      beforeSection,
-      afterSection: previewSection(updated, expectedContext, operation.sectionId),
-      beforeRelatedWorkItems,
-      afterRelatedWorkItems: previewRelatedWorkItems(updated, expectedContext),
-    });
-    next = updated;
-  }
-  if (!changes.length) {
-    throw new ResumeAiEditError("RESUME_AI_EDIT_NO_CHANGES", "현재 이력서와 달라지는 내용이 없습니다.");
+  for (const [operationIndex, operation] of result.operations.entries()) {
+    if (conflictedSections.has(operation.sectionId)) {
+      if (!reportedConflictSections.has(operation.sectionId)) {
+        issues.push(describeResumeAiEditIssue(
+          next,
+          expectedContext,
+          operation,
+          operationIndex,
+          new ResumeAiEditError("RESUME_AI_EDIT_SECTION_CHANGED", "AI 요청 이후 이 섹션의 내용이 변경됐습니다."),
+        ));
+        reportedConflictSections.add(operation.sectionId);
+      }
+      continue;
+    }
+    try {
+      const beforeContent = effectiveContent(next, expectedContext, operation.sectionId);
+      const beforeTitle = effectiveTitle(next, expectedContext, operation.sectionId);
+      const section = sectionInContext(next, expectedContext, operation.sectionId).section;
+      const beforeSection = previewSection(next, expectedContext, operation.sectionId);
+      const beforeRelatedWorkItems = previewRelatedWorkItems(next, expectedContext);
+      const updated = applyOperation(next, expectedContext, operation, idFactory);
+      const afterContent = effectiveContent(updated, expectedContext, operation.sectionId);
+      const afterTitle = effectiveTitle(updated, expectedContext, operation.sectionId);
+      assertItemBodyReplacementApplied(operation, afterContent);
+      if (same(beforeContent, afterContent) && beforeTitle === afterTitle) {
+        if (continueOnOperationError) issues.push(describeResumeAiEditIssue(
+          next,
+          expectedContext,
+          operation,
+          operationIndex,
+          new ResumeAiEditError("RESUME_AI_EDIT_OPERATION_NO_CHANGE", "이미 현재 이력서와 같은 내용입니다."),
+        ));
+        continue;
+      }
+      changes.push({
+        operationType: operation.type,
+        sectionId: section.id,
+        sectionTitle: afterTitle,
+        before: operation.type === "UPDATE_SECTION_TITLE" ? beforeTitle : sectionSummary(section, beforeContent),
+        after: operation.type === "UPDATE_SECTION_TITLE" ? afterTitle : sectionSummary(section, afterContent),
+        ...(operation.type === "UPDATE_ITEM" ? {
+          itemEdit: {
+            itemId: operation.itemId,
+            itemTitle: ((afterContent as ItemsContent).items.find((item) => item.id === operation.itemId)
+              ?? (beforeContent as ItemsContent).items.find((item) => item.id === operation.itemId))?.title ?? operation.itemId,
+            bodyReplaced: operation.patch.body !== undefined,
+            beforeBody: (beforeContent as ItemsContent).items.find((item) => item.id === operation.itemId)?.body ?? "",
+            afterBody: (afterContent as ItemsContent).items.find((item) => item.id === operation.itemId)?.body ?? "",
+          },
+        } : {}),
+        beforeSection,
+        afterSection: previewSection(updated, expectedContext, operation.sectionId),
+        beforeRelatedWorkItems,
+        afterRelatedWorkItems: previewRelatedWorkItems(updated, expectedContext),
+      });
+      acceptedOperations.push(operation);
+      next = updated;
+    } catch (cause) {
+      if (!continueOnOperationError || !(cause instanceof ResumeAiEditError)) throw cause;
+      issues.push(describeResumeAiEditIssue(next, expectedContext, operation, operationIndex, cause));
+    }
   }
   return {
     state: next,
     changes,
     assumptions: result.assumptions,
     warnings: result.warnings,
+    acceptedOperations,
+    issues,
+    reviewedAgainstFingerprint: currentFingerprint,
+    rebased,
+    conflictedSectionIds,
+  };
+}
+
+function describeResumeAiEditIssue(
+  state: ResumeDocumentState,
+  context: ResumeAiEditContext,
+  operation: ResumeAiEditOperation,
+  operationIndex: number,
+  error: ResumeAiEditError,
+): ResumeAiEditReviewIssue {
+  let sectionTitle = "알 수 없는 섹션";
+  let itemTitle: string | undefined;
+  try {
+    const { section } = sectionInContext(state, context, operation.sectionId);
+    sectionTitle = effectiveTitle(state, context, section.id);
+    if (operation.type === "UPDATE_ITEM" && section.kind === "items") {
+      itemTitle = (effectiveContent(state, context, section.id) as ItemsContent).items
+        .find((item) => item.id === operation.itemId)?.title;
+    }
+  } catch {
+    // The issue below already explains that the target can no longer be resolved.
+  }
+  const target = itemTitle ? `“${sectionTitle} · ${itemTitle}”` : `“${sectionTitle}”`;
+  const message = error.code === "RESUME_AI_EDIT_ITEM_NOT_FOUND"
+    ? `${target}에서 AI가 지정한 항목을 찾지 못했습니다.`
+    : error.code === "RESUME_AI_EDIT_SECTION_NOT_FOUND"
+      ? "AI가 지정한 섹션을 현재 편집 범위에서 찾지 못했습니다."
+      : error.code === "RESUME_AI_EDIT_ITEM_REPLACEMENT_FAILED"
+        ? `${target} 변경을 안전하게 반영하지 못했습니다.`
+        : error.code === "RESUME_AI_EDIT_DUPLICATE_ITEM"
+          ? `${target}에 같은 내용의 항목이 이미 있습니다.`
+          : error.code === "RESUME_AI_EDIT_OPERATION_NO_CHANGE"
+            ? `${target}은 이미 같은 내용이라 건너뜁니다.`
+            : error.code === "RESUME_AI_EDIT_SECTION_CHANGED"
+              ? `${target}은 AI 요청 이후 내용이 바뀌어 자동 적용에서 제외했습니다.`
+            : `${target}: ${error.message}`;
+  const recovery = error.code === "RESUME_AI_EDIT_ITEM_NOT_FOUND" || error.code === "RESUME_AI_EDIT_SECTION_NOT_FOUND"
+    ? "최신 편집 자료를 다시 복사해 AI에 요청하면 항목 연결을 복구할 수 있습니다."
+    : error.code === "RESUME_AI_EDIT_ITEM_DATE_INVALID"
+      ? "시작·종료 연월을 확인한 뒤 해당 작업만 다시 요청해 주세요."
+      : error.code === "RESUME_AI_EDIT_DUPLICATE_ITEM" || error.code === "RESUME_AI_EDIT_OPERATION_NO_CHANGE"
+        ? "이미 반영된 내용이므로 별도 조치가 필요하지 않습니다."
+        : error.code === "RESUME_AI_EDIT_SECTION_CHANGED"
+          ? "최신 편집 자료로 이 섹션만 다시 요청하거나 이번 변경에서 제외해 주세요."
+        : "이 작업만 건너뛰고 나머지 변경을 먼저 적용할 수 있습니다.";
+  return {
+    operationIndex,
+    operationType: operation.type,
+    sectionId: operation.sectionId,
+    sectionTitle,
+    itemTitle,
+    code: error.code,
+    message,
+    recovery,
   };
 }
