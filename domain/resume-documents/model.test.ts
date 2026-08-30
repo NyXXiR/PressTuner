@@ -331,9 +331,21 @@ test("custom highlight sections retain their two-column layout and clone seeded 
 
   const section = added.state.roleProfiles[0].customSections.find((item) => item.id === added.section.id)!;
   assert.equal(section.layout, "highlight-grid");
+  assert.equal(resolveSection(section, added.state.roleProfiles[0]).layout, "highlight-grid");
   assert.equal((section.content as ItemsContent).items[0].title, "문제 구조화");
-  const parsed = parseResumeDocumentState(JSON.stringify(added.state))!;
-  assert.equal(parsed.roleProfiles[0].customSections.find((item) => item.id === section.id)?.layout, "highlight-grid");
+  const withSupport = createSupportVariant(added.state, profile.id, { name: "A사", company: "A사" });
+  const tailored = updateSectionSetting(withSupport, withSupport.variants[0].id, section.id, {
+    mode: "override",
+    content: { items: (section.content as ItemsContent).items.map((item) => ({ ...item, body: `${item.body} 맞춤` })) },
+  });
+  assert.equal(resolveSection(section, tailored.roleProfiles[0], tailored.variants[0]).layout, "highlight-grid");
+
+  // Previously persisted content-only settings contain this implicit default.
+  tailored.variants[0].settings[section.id].layout = "standard";
+  const parsed = parseResumeDocumentState(JSON.stringify(tailored))!;
+  const parsedSection = parsed.roleProfiles[0].customSections.find((item) => item.id === section.id)!;
+  assert.equal(parsedSection.layout, "highlight-grid");
+  assert.equal(resolveSection(parsedSection, parsed.roleProfiles[0], parsed.variants[0]).layout, "highlight-grid");
 });
 
 test("role and support versions keep independent section order", () => {

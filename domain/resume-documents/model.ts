@@ -72,7 +72,7 @@ export type ResumeSection = {
 export type ItemSetting = { mode: ItemMode; content?: ItemContent };
 export type SectionSetting = {
   mode: SectionMode;
-  layout: SectionLayout;
+  layout?: SectionLayout;
   pageBreakBefore?: boolean;
   title?: string;
   content?: SectionContent;
@@ -161,7 +161,7 @@ export const RESUME_DOCUMENT_STORAGE_KEY = "presstuner:resume-documents:v1";
 const newId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const newItemId = () => newId("item");
 const clone = <T,>(value: T): T => structuredClone(value);
-const defaultSetting = (): SectionSetting => ({ mode: "inherit", layout: "standard" });
+const defaultSetting = (): SectionSetting => ({ mode: "inherit" });
 
 const roleCoverLetterSection = (profileId: string): ResumeSection => ({
   id: `role-cover-letter-${profileId}`,
@@ -312,32 +312,42 @@ function roleBase(section: ResumeSection, profile?: ResumeRoleProfile) {
   return { mode: "inherit" as const, content: section.content, source: changedItems ? "role" as const : "shared" as const, setting };
 }
 
+function resolvedSettingLayout(setting: SectionSetting | undefined, inherited: SectionLayout): SectionLayout {
+  if (!setting?.layout) return inherited;
+  // Older settings wrote `standard` even when only content, visibility, or item
+  // state changed. That default must not erase an inherited specialized layout.
+  if (setting.layout === "standard" && inherited !== "standard") return inherited;
+  return setting.layout;
+}
+
 export function resolveSection(section: ResumeSection, profile?: ResumeRoleProfile, variant?: ResumeVariant) {
   if (section.custom) {
-    const documentSetting = variant?.settings[section.id] ?? defaultSetting();
-    if (documentSetting?.mode === "hidden") return { mode: "hidden" as const, layout: documentSetting.layout ?? section.layout ?? "standard", pageBreakBefore: documentSetting.pageBreakBefore ?? section.pageBreakBefore ?? false, source: "document" as const, content: section.content };
-    const documentOverrides = documentSetting.mode === "override";
-    const content = documentOverrides ? documentSetting.content ?? section.content : section.content;
-    const documentChangesItems = Boolean(Object.keys(documentSetting.itemSettings ?? {}).length || documentSetting.itemOrder?.length);
+    const documentSetting = variant?.settings[section.id];
+    const layout = resolvedSettingLayout(documentSetting, section.layout ?? "standard");
+    if (documentSetting?.mode === "hidden") return { mode: "hidden" as const, layout, pageBreakBefore: documentSetting.pageBreakBefore ?? section.pageBreakBefore ?? false, source: "document" as const, content: section.content };
+    const documentOverrides = documentSetting?.mode === "override";
+    const content = documentOverrides ? documentSetting?.content ?? section.content : section.content;
+    const documentChangesItems = Boolean(Object.keys(documentSetting?.itemSettings ?? {}).length || documentSetting?.itemOrder?.length);
     return {
       mode: "override" as const,
-      layout: documentSetting?.layout ?? section.layout ?? "standard",
+      layout,
       pageBreakBefore: documentSetting?.pageBreakBefore ?? section.pageBreakBefore ?? false,
       source: documentOverrides || documentChangesItems ? "document" as const : profile?.customSections.some((item) => item.id === section.id) ? "role" as const : "document" as const,
       content: applyLayeredItemSettings(content, undefined, documentSetting),
     };
   }
   const role = roleBase(section, profile);
-  const documentSetting = variant?.settings[section.id] ?? defaultSetting();
-  const documentOverrides = documentSetting.mode === "override";
-  const mode = documentSetting.mode === "hidden" ? "hidden" : documentOverrides ? "override" : role.mode;
-  const content = documentOverrides ? documentSetting.content ?? role.content : role.content;
-  const documentChangesItems = Boolean(Object.keys(documentSetting.itemSettings ?? {}).length || documentSetting.itemOrder?.length);
-  const source = documentOverrides || documentSetting.mode === "hidden" || documentChangesItems ? "document" as const : role.source;
+  const documentSetting = variant?.settings[section.id];
+  const documentOverrides = documentSetting?.mode === "override";
+  const mode = documentSetting?.mode === "hidden" ? "hidden" : documentOverrides ? "override" : role.mode;
+  const content = documentOverrides ? documentSetting?.content ?? role.content : role.content;
+  const documentChangesItems = Boolean(Object.keys(documentSetting?.itemSettings ?? {}).length || documentSetting?.itemOrder?.length);
+  const source = documentOverrides || documentSetting?.mode === "hidden" || documentChangesItems ? "document" as const : role.source;
+  const roleLayout = resolvedSettingLayout(role.setting, section.layout ?? "standard");
   return {
     mode,
-    layout: documentSetting.layout ?? role.setting.layout ?? "standard",
-    pageBreakBefore: documentSetting.pageBreakBefore ?? role.setting.pageBreakBefore ?? section.pageBreakBefore ?? false,
+    layout: resolvedSettingLayout(documentSetting, roleLayout),
+    pageBreakBefore: documentSetting?.pageBreakBefore ?? role.setting.pageBreakBefore ?? section.pageBreakBefore ?? false,
     source,
     // Layer contract: shared < role section < role item < document section < document item.
     // A full document-section override already owns its item snapshot, so parent
