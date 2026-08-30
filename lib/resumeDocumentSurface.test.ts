@@ -523,6 +523,9 @@ test("section editors preserve the resolved common, role, or support source by d
   const source = await readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8");
   assert.match(source, /resolved\.source === "shared" \? openEditor\("shared"/);
   assert.match(source, /resolved\.source === "role" \? openEditor\(active \? "variant" : "role", section, resolved\.content, active \? "parent" : "current"\)/);
+  assert.match(source, /roleCustom \? openEditor\(active \? "variant" : "role-custom", section, resolved\.content, active && resolved\.source === "role" \? "parent" : "current"\)/);
+  assert.match(source, /onHide=\{!section\.custom \|\| \(roleCustom && active\)/);
+  assert.match(source, /savedDraft\.scope === "variant" && savedDraft\.saveTarget === "parent" && active && activeProfile\.customSections\.some/);
   assert.match(source, /공통 정보에 저장·전파/);
 });
 

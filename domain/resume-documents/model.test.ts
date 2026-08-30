@@ -289,6 +289,37 @@ test("role custom sections belong to the role resume and are inherited by suppor
   assert.equal(deleteRoleCustomSection(withVersion, role.id, added.section.id).roleProfiles[0].customSections.length, 1);
 });
 
+test("sibling support versions can independently override, hide, and reset a role custom section", () => {
+  const { state, profile } = roleContext();
+  const added = addRoleCustomSection(state, profile.id, {
+    title: "직군 핵심 역량",
+    kind: "narrative",
+    content: { body: "직군 원본" },
+  });
+  const withFirst = createSupportVariant(added.state, profile.id, { name: "A사", company: "A사" });
+  const firstId = withFirst.variants[0].id;
+  const withSecond = createSupportVariant(withFirst, profile.id, { name: "B사", company: "B사" });
+  const secondId = withSecond.variants[1].id;
+  const firstTailored = updateSectionSetting(withSecond, firstId, added.section.id, {
+    mode: "override",
+    content: { body: "A사 전용" },
+  });
+
+  const section = firstTailored.roleProfiles[0].customSections.find((item) => item.id === added.section.id)!;
+  assert.deepEqual(resolveSection(section, firstTailored.roleProfiles[0], firstTailored.variants[0]).content, { body: "A사 전용" });
+  assert.deepEqual(resolveSection(section, firstTailored.roleProfiles[0], firstTailored.variants[1]).content, { body: "직군 원본" });
+
+  const secondHidden = updateSectionSetting(firstTailored, secondId, added.section.id, { mode: "hidden" });
+  assert.equal(resolveSection(section, secondHidden.roleProfiles[0], secondHidden.variants[1]).mode, "hidden");
+  const secondReset = resetSupportVariantSectionToRole(secondHidden, secondId, added.section.id);
+  assert.deepEqual(resolveSection(section, secondReset.roleProfiles[0], secondReset.variants[1]).content, { body: "직군 원본" });
+
+  const roleUpdated = updateRoleCustomSection(secondReset, profile.id, added.section.id, { content: { body: "수정된 직군 원본" } });
+  const updatedSection = roleUpdated.roleProfiles[0].customSections.find((item) => item.id === added.section.id)!;
+  assert.deepEqual(resolveSection(updatedSection, roleUpdated.roleProfiles[0], roleUpdated.variants[0]).content, { body: "A사 전용" });
+  assert.deepEqual(resolveSection(updatedSection, roleUpdated.roleProfiles[0], roleUpdated.variants[1]).content, { body: "수정된 직군 원본" });
+});
+
 test("custom highlight sections retain their two-column layout and clone seeded cards", () => {
   const { state, profile } = roleContext();
   const content: ItemsContent = { items: [
