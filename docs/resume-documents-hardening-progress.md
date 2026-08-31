@@ -38,18 +38,13 @@ short note about any remaining follow-up.
 | 3 | Starter and built-in-section invariants (F4/F6/F7) | Complete | 125 targeted tests + ESLint + `tsc --noEmit` |
 | 4 | Dirty-close and cascading-delete disclosure (F3/F12) | Complete | 126 targeted tests + ESLint + `tsc --noEmit` |
 | 5 | Mobile/common-tab/focus UX (F9/F10/accessibility) | Complete | 127 targeted tests + ESLint + `tsc --noEmit` |
-| 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | In progress | Pending |
-| 7 | Full regression verification | Pending | Pending |
+| 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Complete | 130 targeted tests + ESLint + `tsc --noEmit` |
+| 7 | Full regression verification | In progress | Pending |
 
 ## Current resume point
 
-Start Unit 6 with privacy controls and misleading-copy cleanup. In particular:
-
-1. Users need a visible way to delete an import and its retained source bytes.
-2. Zero-candidate quick fill needs attempt-specific guidance and quota disclosure.
-3. Destructive list replacement labels must state the full replacement scope.
-4. Fix metadata duplication, seed hydration instability, empty-company fallback,
-   dead surface code, and the fixed rejection-reason mismatch where low risk.
+Run the full repository test and production-build checks for Unit 7. If they
+pass, record the exact commands and finish the branch handoff.
 
 ## Validation log
 
@@ -67,6 +62,8 @@ Start Unit 6 with privacy controls and misleading-copy cleanup. In particular:
 - Unit 4: targeted ESLint and `npx tsc --noEmit` — passed.
 - Unit 5: domain/service/surface suite — 127 passed, 0 failed.
 - Unit 5: targeted ESLint and `npx tsc --noEmit` — passed.
+- Unit 6: domain/service/surface suite — 130 passed, 0 failed.
+- Unit 6: targeted ESLint and `npx tsc --noEmit` — passed.
 
 ## Unit 1 implementation notes
 
@@ -130,3 +127,24 @@ Start Unit 6 with privacy controls and misleading-copy cleanup. In particular:
   toolbars while keeping their action group reachable.
 - A shared focus-trap hook now gives the import and external-AI dialogs initial
   focus, contains Tab/Shift+Tab, and restores the launching control on close.
+
+## Unit 6 implementation notes
+
+- Import history now has a visible destructive action backed by authenticated
+  `DELETE /api/resume/documents/imports/:importId`. It purges retained source
+  bytes and chunks through the existing privacy transaction, hides every import
+  sharing that deleted source, and discloses downstream memory re-review.
+- Import list/detail queries exclude deleted sources. A database integration
+  test verifies byte nulling, chunk deletion, shared-source hiding, and 404
+  detail behavior.
+- Zero-candidate text attempts now have distinct recovery guidance and disclose
+  quota consumption both before submission and in the empty result.
+- Replace-mode labels explicitly say when the whole link, tag, or narrative
+  collection will be replaced.
+- Removed the duplicated metadata suffix, made starter item IDs deterministic
+  across SSR/CSR, stopped substituting the role name into an empty company line,
+  and removed the unused legacy `RoleProfileManager` surface.
+- The fixed rejection reason remains an audit event category. Collecting
+  free-form rejection feedback is deferred until a product decision defines how
+  it will be used; adding an unused mandatory field would add friction without
+  improving recovery or data safety.

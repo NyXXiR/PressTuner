@@ -5,7 +5,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { serviceError } from "@/lib/services/serviceError";
-import { createCareerSource } from "./careerSourceService";
+import { createCareerSource, deleteCareerSource } from "./careerSourceService";
 import { enqueueResumeDocumentImport } from "./careerSchedulerClient";
 
 const importInclude = {
@@ -104,7 +104,7 @@ export async function createResumeDocumentImport(input: {
 
 export async function listResumeDocumentImports(userId: string) {
   return prisma.resumeDocumentImport.findMany({
-    where: { userId },
+    where: { userId, source: { deletedAt: null } },
     include: importInclude,
     orderBy: { createdAt: "desc" },
   });
@@ -112,11 +112,20 @@ export async function listResumeDocumentImports(userId: string) {
 
 export async function getResumeDocumentImport(input: { importId: string; userId: string }) {
   const item = await prisma.resumeDocumentImport.findFirst({
-    where: { id: input.importId, userId: input.userId },
+    where: { id: input.importId, userId: input.userId, source: { deletedAt: null } },
     include: importInclude,
   });
   if (!item) throw serviceError(404, "RESUME_DOCUMENT_IMPORT_NOT_FOUND", "Resume document import not found");
   return item;
+}
+
+export async function deleteResumeDocumentImport(input: { importId: string; userId: string }) {
+  const item = await prisma.resumeDocumentImport.findFirst({
+    where: { id: input.importId, userId: input.userId, source: { deletedAt: null } },
+    select: { sourceId: true },
+  });
+  if (!item) throw serviceError(404, "RESUME_DOCUMENT_IMPORT_NOT_FOUND", "Resume document import not found");
+  return deleteCareerSource({ sourceId: item.sourceId, userId: input.userId });
 }
 
 export async function retryResumeDocumentImport(input: { importId: string; userId: string }) {

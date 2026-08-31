@@ -707,6 +707,21 @@ test("PDF import review supports one-click bulk approval and rejection", async (
   assert.match(panel, /bulkReview/);
 });
 
+test("resume import history can purge stored source data and explains destructive outcomes", async () => {
+  const [panel, route, service] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/resume/documents/imports/[importId]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/services/resume/resumeDocumentImportService.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(panel, /기록과 저장된 원문 삭제/);
+  assert.match(panel, /AI 사용량은 요청을 시작할 때 차감/);
+  assert.match(panel, /붙여넣은 글에서 근거가 되는 제안을 찾지 못했습니다/);
+  assert.match(panel, /기존 링크 목록 전체 교체/);
+  assert.match(route, /export async function DELETE/);
+  assert.match(service, /deleteCareerSource/);
+  assert.match(service, /source: \{ deletedAt: null \}/);
+});
+
 test("PDF import review groups candidates by section and isolates possible duplicates from bulk approval", async () => {
   const panel = await readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8");
   assert.match(panel, /섹션별 검토/);

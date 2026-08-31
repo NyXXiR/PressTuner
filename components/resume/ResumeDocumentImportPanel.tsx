@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -149,6 +150,7 @@ export function ResumeDocumentImportPanel({
   const [sourceText, setSourceText] = useState("");
   const [instruction, setInstruction] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [targetSectionIds, setTargetSectionIds] = useState<string[]>(() => {
     const preferred = commonSections.find((section) => section.id === "projects");
     return preferred ? [preferred.id] : commonSections[0] ? [commonSections[0].id] : [];
@@ -398,6 +400,25 @@ export function ResumeDocumentImportPanel({
     }
   };
 
+  const deleteImport = async (item: ResumeImport) => {
+    if (!window.confirm("이 가져오기 기록과 저장된 원문을 삭제할까요? 같은 원문을 사용한 기록도 목록에서 사라지며, 이 자료를 근거로 만든 경력 기억은 재검토 상태가 될 수 있습니다.")) return;
+    setDeletingId(item.id);
+    setError("");
+    try {
+      await jsonRequest(`/api/resume/documents/imports/${item.id}`, { method: "DELETE" });
+      const remaining = imports.filter((current) => current.source.id !== item.source.id);
+      setImports(remaining);
+      if (selected?.source.id === item.source.id) {
+        setSelectedId(remaining[0]?.id ?? null);
+        setCandidates([]);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "가져오기 기록을 삭제하지 못했습니다.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const failed =
     selected?.status === "FAILED" || selected?.source.status === "FAILED";
   return (
@@ -446,21 +467,20 @@ export function ResumeDocumentImportPanel({
                 <p className="text-xs text-muted-foreground">불러오는 중…</p>
               )}
               {imports.map((item) => (
-                <button
-                  className={`border p-3 text-left ${selectedId === item.id ? "border-primary bg-primary/5" : "border-border bg-background"}`}
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                >
-                  <span className="block truncate text-xs font-extrabold">
-                    {item.source.mimeType === "text/plain" ? "줄글로 공통 정보 채우기" : item.source.originalName}
-                  </span>
-                  <span className="mt-1 block text-[10px] text-muted-foreground">
-                    {item.source.status === "FAILED"
-                      ? "원문 분석 실패"
-                      : statusLabel[item.status]}{" "}
-                    · 후보 {item.candidateCount}개
-                  </span>
-                </button>
+                <div className={`flex border ${selectedId === item.id ? "border-primary bg-primary/5" : "border-border bg-background"}`} key={item.id}>
+                  <button className="min-w-0 flex-1 p-3 text-left" onClick={() => setSelectedId(item.id)} type="button">
+                    <span className="block truncate text-xs font-extrabold">
+                      {item.source.mimeType === "text/plain" ? "줄글로 공통 정보 채우기" : item.source.originalName}
+                    </span>
+                    <span className="mt-1 block text-[10px] text-muted-foreground">
+                      {item.source.status === "FAILED" ? "원문 분석 실패" : statusLabel[item.status]}{" "}
+                      · 후보 {item.candidateCount}개
+                    </span>
+                  </button>
+                  <button aria-label={`${item.source.originalName} 가져오기 기록과 원문 삭제`} className="grid w-10 shrink-0 place-items-center border-l border-border text-muted-foreground hover:text-red-700 disabled:opacity-40" disabled={deletingId !== null} onClick={() => void deleteImport(item)} title="기록과 저장된 원문 삭제" type="button">
+                    {deletingId === item.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </button>
+                </div>
               ))}
             </div>
           </aside>
@@ -477,7 +497,7 @@ export function ResumeDocumentImportPanel({
                 <label className="grid min-w-0 gap-2"><span className="text-xs font-extrabold">정리할 줄글</span><textarea className="wg-field block min-h-40 w-full min-w-0 resize-y p-3 text-sm font-normal leading-6" maxLength={20_000} placeholder="기존 이력서나 메모에서 내용을 대충 붙여넣으세요. AI는 여기에 명시된 사실만 제안으로 만듭니다." value={sourceText} onChange={(event) => setSourceText(event.target.value)} /></label>
                 <label className="grid min-w-0 gap-2"><span className="text-xs font-extrabold">AI에게 추가로 요청 <span className="font-normal text-muted-foreground">(선택)</span></span><textarea className="wg-field block min-h-24 w-full min-w-0 resize-y p-3 text-sm font-normal leading-6" maxLength={1_000} placeholder="예: 프로젝트별 문제·행동·성과가 드러나게 경력 상세로 나눠줘" value={instruction} onChange={(event) => setInstruction(event.target.value)} /></label>
                 <fieldset className="min-w-0"><legend className="text-xs font-extrabold">채울 공통 정보 섹션</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{commonSections.map((section) => <label className="flex min-w-0 cursor-pointer items-center gap-2 border border-border px-3 py-2.5 text-xs font-bold" key={section.id}><input checked={targetSectionIds.includes(section.id)} type="checkbox" onChange={(event) => setTargetSectionIds((current) => event.target.checked ? [...current, section.id] : current.filter((id) => id !== section.id))} /><span className="min-w-0 truncate">{section.title}</span><span className="ml-auto shrink-0 text-[9px] font-normal text-muted-foreground">{section.kind}</span></label>)}</div></fieldset>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><p className="text-[11px] leading-5 text-muted-foreground">AI가 바로 문서를 수정하지 않습니다. 생성된 각 제안을 승인하거나 거부해 주세요.</p><button className="inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-primary px-4 text-xs font-extrabold text-primary-foreground disabled:opacity-40" disabled={generating || sourceText.trim().length < 20 || targetSectionIds.length === 0} onClick={() => void createFromText()} type="button">{generating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "제안 만드는 중…" : "검토할 제안 만들기"}</button></div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><p className="text-[11px] leading-5 text-muted-foreground">AI가 바로 문서를 수정하지 않습니다. 생성된 각 제안을 승인하거나 거부해 주세요.<br />AI 사용량은 요청을 시작할 때 차감되며, 제안이 0건이어도 반영됩니다.</p><button className="inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-primary px-4 text-xs font-extrabold text-primary-foreground disabled:opacity-40" disabled={generating || sourceText.trim().length < 20 || targetSectionIds.length === 0} onClick={() => void createFromText()} type="button">{generating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "제안 만드는 중…" : "검토할 제안 만들기"}</button></div>
               </div> : <label className="m-4 flex min-h-44 cursor-pointer flex-col items-center justify-center border border-dashed border-primary/50 bg-muted/10 p-5 text-center sm:m-5">
                 <input
                   accept="application/pdf,.pdf"
@@ -540,6 +560,7 @@ export function ResumeDocumentImportPanel({
             ) : (
               <ReviewList
                 candidates={candidates}
+                emptyResult={selected.candidateCount === 0 && selected.source.mimeType === "text/plain"}
                 sections={sections}
                 workItems={workItems}
                 onApply={onApply}
@@ -633,12 +654,14 @@ async function rejectCandidate(candidate: Candidate) {
 
 function ReviewList({
   candidates,
+  emptyResult,
   sections,
   workItems: currentWorkItems,
   onApply,
   onRefresh,
 }: {
   candidates: Candidate[];
+  emptyResult: boolean;
   sections: ResumeSection[];
   workItems: ItemContent[];
   onApply: (candidateId: string) => Promise<void>;
@@ -743,9 +766,9 @@ function ReviewList({
     return (
       <div className="border border-primary/30 bg-primary/5 p-6 text-center">
         <Check className="mx-auto h-8 w-8 text-primary" />
-        <p className="mt-3 font-extrabold">검토할 문서 후보가 없습니다.</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          모든 후보를 처리했거나 문서에서 근거가 있는 항목을 찾지 못했습니다.
+        <p className="mt-3 font-extrabold">{emptyResult ? "붙여넣은 글에서 근거가 되는 제안을 찾지 못했습니다." : "검토할 문서 후보가 없습니다."}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {emptyResult ? <>회사·기간·역할·결과가 드러나도록 내용을 조금 더 구체적으로 적어 다시 시도해 주세요.<br />AI 사용량은 이번 요청에도 반영되었습니다.</> : "모든 후보를 처리했습니다."}
         </p>
       </div>
     );
@@ -1062,13 +1085,18 @@ function applyModeOptions(
   if (payload.type === "tags")
     return [
       { value: "MERGE", label: "기존 태그와 병합" },
-      { value: "REPLACE", label: "기존 태그 교체" },
+      { value: "REPLACE", label: "기존 태그 목록 전체 교체" },
     ];
   if (payload.type === "narrative")
     return [
       { value: "FILL_EMPTY", label: "비어 있을 때만 채우기" },
       { value: "MERGE", label: "기존 글 뒤에 추가" },
-      { value: "REPLACE", label: "기존 글 교체" },
+      { value: "REPLACE", label: "기존 글 전체 교체" },
+    ];
+  if (payload.type === "identity-field" && payload.field === "link")
+    return [
+      { value: "FILL_EMPTY", label: "링크가 비어 있을 때만 채우기" },
+      { value: "REPLACE", label: "기존 링크 목록 전체 교체" },
     ];
   return [
     { value: "FILL_EMPTY", label: "비어 있을 때만 채우기" },

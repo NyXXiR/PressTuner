@@ -62,6 +62,18 @@ test("the default flow has a directly editable role resume and no support versio
   assert.equal(resolveDocumentRole(profile), "서비스 기획자");
 });
 
+test("starter item ids are stable across server and client seed creation", () => {
+  const itemIds = (state: ReturnType<typeof createResumeDocumentSeed>) => state.sharedSections.flatMap((section) => section.kind === "items" ? (section.content as ItemsContent).items.map((item) => item.id) : []);
+  assert.deepEqual(itemIds(createResumeDocumentSeed()), itemIds(createResumeDocumentSeed()));
+  assert.deepEqual(itemIds(createResumeDocumentSeed()), [
+    "starter-work-current",
+    "starter-work-previous",
+    "starter-career-detail",
+    "starter-education",
+    "starter-credential",
+  ]);
+});
+
 test("every starter role resume includes its own editable self-introduction section", () => {
   const state = createResumeDocumentSeed();
   assert.equal(state.templateRevision, 4);
