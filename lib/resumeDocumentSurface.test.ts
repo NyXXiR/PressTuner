@@ -366,7 +366,7 @@ test("confirmed experience bricks require a selective review before sync and sup
   for (const phrase of ["변경 내용을 불러오는 중", "검토할 확정 경험이 없습니다", "다시 시도", "확정 경험 검토·가져오기", "신규만 선택", "기존 내용 갱신", "이번 반영 되돌리기"]) {
     assert.match(source, new RegExp(phrase));
   }
-  assert.match(source, /공통 정보 관리 도구/);
+  assert.doesNotMatch(source, /<summary[^>]*>공통 정보 관리 도구/);
   assert.match(source, /inspectExperienceBrickSync/);
   assert.match(source, /onSync\(selected\)/);
   assert.doesNotMatch(source, /onSync\(items\)/);
@@ -374,6 +374,26 @@ test("confirmed experience bricks require a selective review before sync and sup
   assert.match(source, /현재 (?:직군|지원) 이력서에서 제외/);
   assert.doesNotMatch(source, /로컬 경험 참조 추가/);
   assert.doesNotMatch(source, /태그\(쉼표 구분\)/);
+});
+
+test("common information and mobile layouts keep import, readiness, save state, and section controls reachable", async () => {
+  const [builder, styles, focusTrap, importPanel, aiDialog] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/ui/useDialogFocusTrap.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeAiJsonEditDialog.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(builder, /resume-import-action/);
+  assert.match(builder, /resume-readiness-action/);
+  assert.match(builder, /resume-mobile-save-status/);
+  assert.match(builder, /자료 가져오기/);
+  assert.match(styles, /grid-template-columns:\s*repeat\(4/);
+  assert.match(styles, /\.resume-preview-shell[\s\S]*?overflow-x:\s*clip/);
+  assert.match(styles, /\.resume-editable-section \.resume-section-toolbar[\s\S]*?flex-wrap:\s*wrap/);
+  assert.match(focusTrap, /event\.key !== "Tab"/);
+  assert.match(importPanel, /ref=\{dialogRef\}/);
+  assert.match(aiDialog, /ref=\{dialogRef\}/);
 });
 
 test("the bulk API route stays authenticated and delegates projection to the service", async () => {

@@ -4,6 +4,7 @@ import { Braces, Check, ClipboardPaste, Copy, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { RESUME_DOCUMENT_CSS_VARIABLES, ResumeEditorSection } from "@/components/resume/ResumeEditorDocument";
+import { useDialogFocusTrap } from "@/components/ui/useDialogFocusTrap";
 import {
   assertResumeAiEditTargets,
   diffResumeItemBodyLines,
@@ -79,6 +80,7 @@ export function ResumeAiJsonEditDialog({
   onClose,
   onEditAll,
 }: ResumeAiJsonEditDialogProps) {
+  const dialogRef = useDialogFocusTrap<HTMLElement>();
   const exportJson = useMemo(
     () => serializeResumeAiEditBundle(state, context, sectionId ? { sectionIds: [sectionId] } : {}),
     [context, sectionId, state],
@@ -314,6 +316,7 @@ export function ResumeAiJsonEditDialog({
         aria-labelledby="resume-external-ai-title"
         aria-modal="true"
         className="my-auto flex max-h-[94vh] w-full max-w-5xl flex-col border border-border bg-background shadow-2xl"
+        ref={dialogRef}
         role="dialog"
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5">

@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DateInput } from "@/components/ui/DateInput";
+import { useDialogFocusTrap } from "@/components/ui/useDialogFocusTrap";
 import { ResumeItemDateFields, type ResumeItemDatePatch } from "@/components/resume/ResumeItemDateFields";
 import {
   inspectResumeImportOverlap,
@@ -138,6 +139,7 @@ export function ResumeDocumentImportPanel({
   onApply: (candidateId: string) => Promise<void>;
   onClose: () => void;
 }) {
+  const dialogRef = useDialogFocusTrap<HTMLElement>();
   const [imports, setImports] = useState<ResumeImport[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -404,6 +406,7 @@ export function ResumeDocumentImportPanel({
         aria-labelledby="resume-import-title"
         aria-modal="true"
         className="my-auto flex max-h-[92vh] w-full max-w-5xl flex-col border border-border bg-background shadow-2xl"
+        ref={dialogRef}
         role="dialog"
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-5">

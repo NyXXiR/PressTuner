@@ -749,6 +749,12 @@ html {
     display: none;
   }
 
+  .resume-builder-actions button:is(.resume-import-action, .resume-readiness-action) {
+    display: inline-flex;
+  }
+
+  .resume-document-builder { padding-bottom: 112px; }
+
   .resume-mobile-actions {
     position: fixed;
     z-index: 70;
@@ -756,7 +762,7 @@ html {
     bottom: 12px;
     left: 12px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     max-width: 520px;
     margin-inline: auto;
     border: 1px solid hsl(var(--border));
@@ -786,8 +792,24 @@ html {
     color: hsl(var(--primary-foreground));
   }
 
+  .resume-mobile-save-status {
+    grid-column: 1 / -1;
+    min-height: 28px;
+    padding: 6px 10px;
+    border-bottom: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .resume-mobile-save-status.is-warning { color: #b45309; }
+  .resume-mobile-save-status.is-saved { color: hsl(var(--primary)); }
+
   .resume-preview-shell {
     min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   .resume-paper {
@@ -824,6 +846,16 @@ html {
     display: flex;
     margin-bottom: 12px;
     transform: none;
+    flex-wrap: wrap;
+  }
+
+  .resume-editable-section .resume-section-toolbar > span:first-child {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+
+  .resume-editable-section .resume-section-toolbar > div:last-child {
+    margin-left: auto;
   }
 
   .resume-editable-section .resume-section-insert {

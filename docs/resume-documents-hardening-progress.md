@@ -37,20 +37,19 @@ short note about any remaining follow-up.
 | 2 | Browser/server persistence and conflict visibility (F2/F5) | Complete | 50 targeted tests + ESLint + `tsc --noEmit` |
 | 3 | Starter and built-in-section invariants (F4/F6/F7) | Complete | 125 targeted tests + ESLint + `tsc --noEmit` |
 | 4 | Dirty-close and cascading-delete disclosure (F3/F12) | Complete | 126 targeted tests + ESLint + `tsc --noEmit` |
-| 5 | Mobile/common-tab/focus UX (F9/F10/accessibility) | In progress | Pending |
-| 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Pending | Pending |
+| 5 | Mobile/common-tab/focus UX (F9/F10/accessibility) | Complete | 127 targeted tests + ESLint + `tsc --noEmit` |
+| 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | In progress | Pending |
 | 7 | Full regression verification | Pending | Pending |
 
 ## Current resume point
 
-Start Unit 5 by repairing viewport-independent access to core actions and
-dialog interaction. In particular:
+Start Unit 6 with privacy controls and misleading-copy cleanup. In particular:
 
-1. Import and readiness actions should remain reachable from common information.
-2. The mobile document should not overflow the body, and section controls must
-   remain reachable within a deliberate scroll/wrap region.
-3. Mobile actions should expose save status and the import entry point.
-4. High-use dialogs need reliable initial focus and keyboard containment.
+1. Users need a visible way to delete an import and its retained source bytes.
+2. Zero-candidate quick fill needs attempt-specific guidance and quota disclosure.
+3. Destructive list replacement labels must state the full replacement scope.
+4. Fix metadata duplication, seed hydration instability, empty-company fallback,
+   dead surface code, and the fixed rejection-reason mismatch where low risk.
 
 ## Validation log
 
@@ -66,6 +65,8 @@ dialog interaction. In particular:
 - Unit 3: targeted ESLint and `npx tsc --noEmit` — passed.
 - Unit 4: domain/service/surface suite — 126 passed, 0 failed.
 - Unit 4: targeted ESLint and `npx tsc --noEmit` — passed.
+- Unit 5: domain/service/surface suite — 127 passed, 0 failed.
+- Unit 5: targeted ESLint and `npx tsc --noEmit` — passed.
 
 ## Unit 1 implementation notes
 
@@ -118,3 +119,14 @@ dialog interaction. In particular:
   one simple top-level surface according to visual priority.
 - Role-resume deletion now lists the count and names of all dependent support
   versions before executing the existing cascading domain command.
+
+## Unit 5 implementation notes
+
+- Import and readiness actions render in both tabs; confirmed-experience import
+  is no longer hidden in a collapsed management disclosure.
+- The mobile action bar now includes import plus an always-visible server-save
+  status row, with additional bottom clearance for content.
+- Mobile preview containment clips accidental body overflow and wraps section
+  toolbars while keeping their action group reachable.
+- A shared focus-trap hook now gives the import and external-AI dialogs initial
+  focus, contains Tab/Shift+Tab, and restores the launching control on close.
