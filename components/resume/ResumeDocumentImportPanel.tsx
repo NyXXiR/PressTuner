@@ -23,7 +23,6 @@ import {
   type ResumeImportOverlap,
   type ResumeDocumentApplyMode,
   type ResumeDocumentCandidatePayload,
-  type ResumeDocumentImportCommand,
 } from "@/domain/resume-documents/importCandidate";
 import type {
   ItemContent,
@@ -136,7 +135,7 @@ export function ResumeDocumentImportPanel({
   sections: ResumeSection[];
   commonSections: ResumeSection[];
   workItems: ItemContent[];
-  onApply: (command: ResumeDocumentImportCommand) => void;
+  onApply: (candidateId: string) => Promise<void>;
   onClose: () => void;
 }) {
   const [imports, setImports] = useState<ResumeImport[]>([]);
@@ -599,33 +598,13 @@ function suggestCareerDetailRelationship(draft: CandidateDraft, workItems: reado
     : draft;
 }
 
-async function applyAndAcknowledgeCandidate(
-  candidate: Candidate,
-  command: ResumeDocumentImportCommand,
-  onApply: (command: ResumeDocumentImportCommand) => void,
-) {
-  onApply(command);
-  await jsonRequest(`/api/resume/documents/candidates/${candidate.id}/applied`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ payloadHash: command.payloadHash, documentVersion: 5 }),
-  });
-}
-
 async function approveCandidate(
   candidate: Candidate,
   draft: CandidateDraft,
-  onApply: (command: ResumeDocumentImportCommand) => void,
+  onApply: (candidateId: string) => Promise<void>,
 ) {
   if (candidate.status === "APPROVED" && !candidate.appliedAt) {
-    return applyAndAcknowledgeCandidate(candidate, {
-      candidateKey: `document:${candidate.id}`,
-      payloadHash: candidate.payloadHash,
-      targetSectionId: candidate.targetSectionId,
-      applyMode: candidate.applyMode,
-      payload: candidate.payload,
-      appliedAt: candidate.decidedAt ?? new Date().toISOString(),
-    }, onApply);
+    return onApply(candidate.id);
   }
   await jsonRequest(`/api/resume/documents/candidates/${candidate.id}`, {
     method: "PATCH",
@@ -635,16 +614,7 @@ async function approveCandidate(
       expectedUpdatedAt: candidate.updatedAt,
     }),
   });
-  const decision = await jsonRequest<{ command: ResumeDocumentImportCommand }>(
-    `/api/resume/documents/candidates/${candidate.id}/decision`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decision: "APPROVE" }),
-    },
-  );
-  if (!decision.command) throw new Error("승인 명령을 받지 못했습니다.");
-  await applyAndAcknowledgeCandidate(candidate, decision.command, onApply);
+  await onApply(candidate.id);
 }
 
 async function rejectCandidate(candidate: Candidate) {
@@ -668,7 +638,7 @@ function ReviewList({
   candidates: Candidate[];
   sections: ResumeSection[];
   workItems: ItemContent[];
-  onApply: (command: ResumeDocumentImportCommand) => void;
+  onApply: (candidateId: string) => Promise<void>;
   onRefresh: () => void;
 }) {
   const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
@@ -716,7 +686,7 @@ function ReviewList({
     result.set(key, group);
     return result;
   }, new Map<string, typeof reviewItems>()).entries()];
-  const baseSafeToBulkApprove = reviewItems.filter((item) => item.overlap.level !== "possible" && !item.relationshipUnresolved);
+  const baseSafeToBulkApprove = reviewItems.filter((item) => item.section && item.overlap.level !== "possible" && !item.relationshipUnresolved);
   const existingWorkIds = new Set(existingWorkItems.map((item) => item.id));
   const safeFutureWorkIds = new Set(baseSafeToBulkApprove.flatMap(({ candidate, draft, overlap }) => draft.payload.type === "item" && draft.payload.itemKind === "work" && overlap.level === "none"
     ? [importedResumeItemId(`document:${candidate.id}`)]
@@ -747,8 +717,11 @@ function ReviewList({
       }
     }
     setBulkBusy(null);
-    if (failed > 0) setBulkError(`${failed}개 항목을 처리하지 못했습니다. 남은 항목을 확인한 뒤 다시 시도해 주세요.`);
-    onRefresh();
+    if (failed > 0) {
+      setBulkError(`${failed}개 항목을 처리하지 못했습니다. 실패한 후보가 사라지지 않도록 목록을 유지했습니다. 다시 시도해 주세요.`);
+    } else {
+      onRefresh();
+    }
   };
   const bulkReview = async (decision: "approve" | "reject") => {
     const targets = decision === "approve"
@@ -790,7 +763,7 @@ function ReviewList({
       <div className="grid gap-4">
         {groups.map(([sectionId, items]) => {
           const sectionTitle = items[0]?.section?.title ?? "알 수 없는 섹션";
-          const safeItems = items.filter((item) => item.overlap.level !== "possible" && !item.relationshipUnresolved && (item.draft.payload.type !== "item" || item.draft.payload.itemKind !== "career-detail" || !item.draft.payload.relatedWorkItemId || existingWorkIds.has(item.draft.payload.relatedWorkItemId)));
+          const safeItems = items.filter((item) => item.section && item.overlap.level !== "possible" && !item.relationshipUnresolved && (item.draft.payload.type !== "item" || item.draft.payload.itemKind !== "career-detail" || !item.draft.payload.relatedWorkItemId || existingWorkIds.has(item.draft.payload.relatedWorkItemId)));
           const pendingItems = items.filter(({ candidate }) => candidate.status === "PENDING");
           return <section className="border-2 border-border bg-muted/10 p-3 sm:p-4" key={sectionId}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -834,7 +807,7 @@ function CandidateCard({
   draft: CandidateDraft;
   sections: ResumeSection[];
   workItems: ItemContent[];
-  onApply: (command: ResumeDocumentImportCommand) => void;
+  onApply: (candidateId: string) => Promise<void>;
   onDraftChange: (draft: CandidateDraft) => void;
   onRefresh: () => void;
   overlap: ResumeImportOverlap;
@@ -852,6 +825,7 @@ function CandidateCard({
   const currentSection = sections.find(
     (section) => section.id === targetSectionId,
   );
+  const targetAvailable = compatible.some((section) => section.id === targetSectionId);
   const approvedUnapplied =
     candidate.status === "APPROVED" && !candidate.appliedAt;
   const relationshipUnresolved = isUnresolvedCareerDetail(payload, workItems);
@@ -868,7 +842,6 @@ function CandidateCard({
           ? cause.message
           : "승인 결과를 반영하지 못했습니다.",
       );
-      onRefresh();
     } finally {
       setBusy(false);
     }
@@ -905,6 +878,7 @@ function CandidateCard({
       </div>
       {overlap.message && <p className={`mt-3 border p-3 text-[11px] font-bold leading-5 ${overlap.level === "possible" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>{overlap.message}</p>}
       {relationshipUnresolved && <p className="mt-3 border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-900">연결 확인 필요 · 연결 경력을 선택하거나 독립 프로젝트로 변경해 주세요.</p>}
+      {!targetAvailable && <p className="mt-3 border border-red-200 bg-red-50 p-3 text-[11px] font-bold text-red-700">반영 대상 섹션이 없거나 삭제되었습니다. 같은 형식의 섹션을 직접 선택한 뒤 다시 반영해 주세요.</p>}
       {candidate.warnings.length > 0 && (
         <ul className="mt-3 border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900">
           {candidate.warnings.map((warning) => (
@@ -918,9 +892,10 @@ function CandidateCard({
           <select
             className="h-10 border border-border bg-background px-3 text-sm font-normal text-foreground"
             disabled={approvedUnapplied}
-            value={targetSectionId}
+            value={targetAvailable ? targetSectionId : ""}
             onChange={(event) => onDraftChange({ ...draft, targetSectionId: event.target.value })}
           >
+            {!targetAvailable && <option value="">대상 섹션 없음</option>}
             {compatible.map((section) => (
               <option key={section.id} value={section.id}>
                 {section.title}
@@ -1000,7 +975,7 @@ function CandidateCard({
         )}
         <button
           className="h-10 bg-primary px-4 text-xs font-bold text-primary-foreground disabled:opacity-50"
-          disabled={busy || relationshipUnresolved}
+          disabled={busy || relationshipUnresolved || !targetAvailable}
           onClick={() => void approve()}
         >
           {busy

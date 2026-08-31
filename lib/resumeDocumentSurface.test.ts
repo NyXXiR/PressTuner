@@ -436,6 +436,12 @@ test("resume editing stays local-first while durable persistence is server-backe
   assert.match(persistence, /expectedRevision/);
   assert.match(persistence, /lastSavedAt/);
   assert.match(persistence, /lastSavedStateRef\.current = serialized/);
+  assert.match(persistence, /localBackupStatus/);
+  assert.doesNotMatch(persistence, /catch \{\s*setLocalBackupStatus\("error"\);\s*return;/);
+  assert.match(persistence, /setLocalBackupStatus\("error"\);\s*}\s*if \(saveBlockedRef\.current\) return;/);
+  assert.match(source, /브라우저 임시 저장을 사용할 수 없습니다\. 서버 자동 저장은 계속/);
+  assert.match(source, /sticky top-2 z-30/);
+  assert.match(source, /계속 편집하기 전에 사용할 문서를 선택/);
   assert.match(source, /서버 문서 불러오기/);
   assert.match(source, /이 편집본으로 저장/);
   assert.doesNotMatch(editor, /localStorage|RESUME_DOCUMENT_STORAGE_KEY|fetch\(/);
@@ -503,10 +509,25 @@ test("edit dialogs disclose scope and use explicit draft save semantics", async 
   assert.match(builder, /편집 범위/);
   assert.match(builder, /저장 범위 변경/);
   assert.match(builder, /저장하지 않은 변경 사항을 버릴까요/);
+  assert.match(builder, /const \[initialDraft\]/);
+  assert.match(builder, /deleteActiveProfile/);
+  assert.match(builder, /지원처별 버전.*장도 함께 삭제됩니다/);
   assert.match(builder, /draftState/);
   assert.match(builder, /상위 정보 작성하기/);
   assert.match(builder, /이 이력서에 직접 작성/);
   assert.doesNotMatch(builder, /변경 사항은 문서에 바로 반영/);
+});
+
+test("AI edit drafts confirm before close and Escape closes one active surface", async () => {
+  const [builder, aiDialog] = await Promise.all([
+    readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/resume/ResumeAiJsonEditDialog.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(aiDialog, /저장하지 않은 AI 편집 결과를 버릴까요/);
+  assert.match(aiDialog, /onClick=\{requestClose\}/);
+  assert.match(aiDialog, /event\.key === "Escape"/);
+  assert.doesNotMatch(builder, /setDraft\(null\); setInsertAfterId\(null\);/);
+  assert.match(builder, /if \(pdfSnapshot\)[\s\S]*else if \(readinessOpen\)/);
 });
 
 test("section save actions name their destination and explain propagation inline", async () => {
@@ -607,17 +628,18 @@ test("PDF import lifecycle polling is selected-detail-only, abortable, and visib
   assert.doesNotMatch(pollingEffect, /"\/api\/resume\/documents\/imports"/);
 });
 
-test("PDF imports stay review-first and recover approved but unapplied candidates", async () => {
-  const [builder, persistence, panel, decisionRoute, appliedRoute] = await Promise.all([
+test("PDF imports stay review-first and apply candidates with the durable document", async () => {
+  const [builder, persistence, panel, decisionRoute, appliedRoute, applyRoute] = await Promise.all([
     readFile(new URL("../components/resume/ResumeDocumentBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/useResumeDocumentPersistence.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/resume/ResumeDocumentImportPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/decision/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/applied/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/resume/documents/candidates/[candidateId]/apply/route.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(builder, /자료로 공통 정보 채우기/);
-  assert.match(builder, /applyResumeImportCommand/);
+  assert.match(builder, /applyImportCandidate/);
   assert.match(persistence, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
   assert.match(panel, /AI가 섹션별 후보만 만듭니다/);
   assert.match(panel, /확인하고 반영/);
@@ -628,6 +650,8 @@ test("PDF imports stay review-first and recover approved but unapplied candidate
   assert.match(builder, /sections=\{orderedSections\}/);
   assert.match(decisionRoute, /decideResumeDocumentCandidate/);
   assert.match(appliedRoute, /acknowledgeResumeDocumentCandidateApplied/);
+  assert.match(applyRoute, /applyResumeDocumentCandidate/);
+  assert.match(panel, /대상 섹션 없음/);
 });
 
 test("pasted notes create grounded common-section suggestions behind explicit approval", async () => {

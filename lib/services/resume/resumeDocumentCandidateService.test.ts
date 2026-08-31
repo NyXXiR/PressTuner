@@ -9,14 +9,23 @@ import {
   ResumeDocumentImportStatus,
 } from "@prisma/client";
 
-import type { ResumeDocumentCandidatePayload } from "@/domain/resume-documents/importCandidate";
+import {
+  applyResumeImportCommand,
+  type ResumeDocumentCandidatePayload,
+} from "@/domain/resume-documents/importCandidate";
+import {
+  createResumeDocumentSeed,
+  updateSharedSectionTitle,
+} from "@/domain/resume-documents/model";
 import { prisma } from "@/lib/prisma";
 import {
   acknowledgeResumeDocumentCandidateApplied,
+  applyResumeDocumentCandidate,
   decideResumeDocumentCandidate,
   resumeDocumentPayloadHash,
   updateResumeDocumentCandidate,
 } from "./resumeDocumentCandidateService";
+import { saveResumeDocument } from "./resumeDocumentPersistenceService";
 
 async function fixture(label: string) {
   const suffix = randomUUID();
@@ -75,11 +84,21 @@ test("document candidates are editable only while pending and approval stays una
       acknowledgeResumeDocumentCandidateApplied({ candidateId: candidate.id, userId: user.id, payloadHash: "wrong", documentVersion: 5 }),
       (error: unknown) => (error as { code?: string }).code === "RESUME_DOCUMENT_CANDIDATE_HASH_CONFLICT",
     );
+    await assert.rejects(
+      acknowledgeResumeDocumentCandidateApplied({ candidateId: candidate.id, userId: user.id, payloadHash: updated.payloadHash, documentVersion: 1 }),
+      (error: unknown) => (error as { code?: string }).code === "RESUME_DOCUMENT_NOT_DURABLY_APPLIED",
+    );
+    assert.ok(first.command);
+    const saved = await saveResumeDocument({
+      userId: user.id,
+      state: applyResumeImportCommand(createResumeDocumentSeed(), first.command),
+      expectedRevision: 0,
+    });
     const applied = await acknowledgeResumeDocumentCandidateApplied({
       candidateId: candidate.id,
       userId: user.id,
       payloadHash: updated.payloadHash,
-      documentVersion: 5,
+      documentVersion: saved.revision,
     });
     assert.ok(applied.appliedAt);
     assert.equal((await prisma.resumeDocumentImport.findUniqueOrThrow({ where: { id: importTask.id } })).status, ResumeDocumentImportStatus.COMPLETE);
@@ -89,6 +108,86 @@ test("document candidates are editable only while pending and approval stays una
     );
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("candidate application saves the document and approval at the same persisted revision", async () => {
+  const { user, importTask, candidate } = await fixture("atomic-apply");
+  try {
+    await prisma.resumeDocumentCandidate.update({
+      where: { id: candidate.id },
+      data: { applyMode: ResumeDocumentApplyMode.REPLACE },
+    });
+    const applied = await applyResumeDocumentCandidate({
+      candidateId: candidate.id,
+      userId: user.id,
+      state: createResumeDocumentSeed(),
+      expectedRevision: 0,
+    });
+    const profile = applied.document.state.sharedSections.find((section) => section.id === "profile");
+    assert.equal((profile?.content as { name?: string }).name, "홍길동");
+    assert.equal(applied.document.revision, 1);
+    assert.equal(applied.candidate.status, CareerCandidateStatus.APPROVED);
+    assert.equal(applied.candidate.appliedDocumentVersion, applied.document.revision);
+    assert.ok(applied.candidate.appliedAt);
+    assert.equal((await prisma.resumeDocumentImport.findUniqueOrThrow({ where: { id: importTask.id } })).status, ResumeDocumentImportStatus.COMPLETE);
+
+    const retry = await applyResumeDocumentCandidate({
+      candidateId: candidate.id,
+      userId: user.id,
+      state: createResumeDocumentSeed(),
+      expectedRevision: 0,
+    });
+    assert.equal(retry.idempotent, true);
+    assert.equal(retry.document.revision, applied.document.revision);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("missing targets and stale document revisions leave candidates pending and documents unchanged", async () => {
+  const missing = await fixture("missing-target");
+  try {
+    await prisma.resumeDocumentCandidate.update({
+      where: { id: missing.candidate.id },
+      data: { targetSectionId: "removed-custom-identity" },
+    });
+    await assert.rejects(
+      applyResumeDocumentCandidate({
+        candidateId: missing.candidate.id,
+        userId: missing.user.id,
+        state: createResumeDocumentSeed(),
+        expectedRevision: 0,
+      }),
+      (error: unknown) => (error as { code?: string }).code === "RESUME_IMPORT_SECTION_NOT_FOUND",
+    );
+    assert.equal((await prisma.resumeDocumentCandidate.findUniqueOrThrow({ where: { id: missing.candidate.id } })).status, CareerCandidateStatus.PENDING);
+    assert.equal(await prisma.resumeDocument.findUnique({ where: { userId: missing.user.id } }), null);
+  } finally {
+    await prisma.user.delete({ where: { id: missing.user.id } });
+  }
+
+  const conflict = await fixture("atomic-conflict");
+  try {
+    const first = await saveResumeDocument({ userId: conflict.user.id, state: createResumeDocumentSeed(), expectedRevision: 0 });
+    await saveResumeDocument({
+      userId: conflict.user.id,
+      state: updateSharedSectionTitle(first.state, "summary", "다른 기기에서 저장한 소개"),
+      expectedRevision: first.revision,
+    });
+    await assert.rejects(
+      applyResumeDocumentCandidate({
+        candidateId: conflict.candidate.id,
+        userId: conflict.user.id,
+        state: first.state,
+        expectedRevision: first.revision,
+      }),
+      (error: unknown) => (error as { code?: string }).code === "RESUME_DOCUMENT_CONFLICT",
+    );
+    assert.equal((await prisma.resumeDocumentCandidate.findUniqueOrThrow({ where: { id: conflict.candidate.id } })).status, CareerCandidateStatus.PENDING);
+    assert.equal((await prisma.resumeDocument.findUniqueOrThrow({ where: { userId: conflict.user.id } })).revision, 2);
+  } finally {
+    await prisma.user.delete({ where: { id: conflict.user.id } });
   }
 });
 

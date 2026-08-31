@@ -8,12 +8,20 @@ import {
 
 import {
   ResumeDocumentCandidatePayloadSchema,
+  applyResumeImportCommand,
   canonicalResumeDocumentTargetSectionId,
   isResumeDocumentApplyModeAllowed,
   resumeDocumentPayloadSectionKind,
+  type ResumeDocumentImportCommand,
   type ResumeDocumentCandidatePayload,
 } from "@/domain/resume-documents/importCandidate";
+import type { ResumeDocumentState } from "@/domain/resume-documents/model";
 import { prisma } from "@/lib/prisma";
+import {
+  persistedResumeDocumentResult,
+  saveResumeDocumentWithClient,
+  validatedResumeDocumentState,
+} from "@/lib/services/resume/resumeDocumentPersistenceService";
 import { serviceError } from "@/lib/services/serviceError";
 
 const candidateInclude = {
@@ -141,6 +149,109 @@ function applicationCommand(candidate: {
   };
 }
 
+function importApplicationError(error: unknown): never {
+  const code = error instanceof Error ? error.message : "RESUME_IMPORT_APPLY_FAILED";
+  const known = new Set([
+    "RESUME_IMPORT_SECTION_NOT_FOUND",
+    "RESUME_IMPORT_SECTION_AMBIGUOUS",
+    "RESUME_IMPORT_SECTION_KIND_MISMATCH",
+    "RESUME_IMPORT_APPLY_MODE_INVALID",
+    "RESUME_IMPORT_COMMAND_HASH_CONFLICT",
+    "RESUME_IMPORT_COMMAND_INVALID",
+  ]);
+  throw serviceError(
+    409,
+    known.has(code) ? code : "RESUME_IMPORT_APPLY_FAILED",
+    known.has(code) ? code : "Resume import could not be applied",
+  );
+}
+
+export async function applyResumeDocumentCandidate(input: {
+  candidateId: string;
+  userId: string;
+  state: unknown;
+  expectedRevision: number;
+}) {
+  const requestedState = validatedResumeDocumentState(input.state);
+  const result = await prisma.$transaction(async (tx) => {
+    const current = await tx.resumeDocumentCandidate.findFirst({
+      where: { id: input.candidateId, userId: input.userId },
+      include: candidateInclude,
+    });
+    if (!current) throw serviceError(404, "RESUME_DOCUMENT_CANDIDATE_NOT_FOUND", "Resume document candidate not found");
+    if (current.status === CareerCandidateStatus.REJECTED) {
+      throw serviceError(409, "RESUME_DOCUMENT_CANDIDATE_DECIDED", "Rejected candidate cannot be applied");
+    }
+    if (current.appliedAt) {
+      const saved = await tx.resumeDocument.findUnique({ where: { userId: input.userId } });
+      if (!saved) throw serviceError(409, "RESUME_DOCUMENT_APPLIED_STATE_MISSING", "Applied resume document is missing");
+      return {
+        candidate: current,
+        document: persistedResumeDocumentResult(saved),
+        idempotent: true,
+      };
+    }
+
+    const payload = ResumeDocumentCandidatePayloadSchema.parse(current.payload);
+    if (!isResumeDocumentApplyModeAllowed(payload, current.applyMode)) {
+      throw serviceError(400, "RESUME_DOCUMENT_APPLY_MODE_INVALID", "Apply mode is not compatible with the candidate payload");
+    }
+    assertBuiltInTargetCompatibility(payload, current.targetSectionId);
+    assertCareerRelationshipReviewed(payload);
+
+    const decidedAt = current.decidedAt ?? new Date();
+    const command = applicationCommand({ ...current, decidedAt }) as ResumeDocumentImportCommand;
+    let nextState: ResumeDocumentState;
+    try {
+      nextState = applyResumeImportCommand(requestedState, command);
+    } catch (error) {
+      importApplicationError(error);
+    }
+    const document = await saveResumeDocumentWithClient(tx, {
+      userId: input.userId,
+      state: nextState,
+      expectedRevision: input.expectedRevision,
+    });
+    const appliedAt = new Date();
+    const claimed = await tx.resumeDocumentCandidate.updateMany({
+      where: {
+        id: current.id,
+        userId: input.userId,
+        status: { in: [CareerCandidateStatus.PENDING, CareerCandidateStatus.APPROVED] },
+        appliedAt: null,
+      },
+      data: {
+        status: CareerCandidateStatus.APPROVED,
+        reviewedByUserId: input.userId,
+        decidedAt,
+        appliedAt,
+        appliedPayloadHash: current.payloadHash,
+        appliedDocumentVersion: document.revision,
+      },
+    });
+    if (claimed.count !== 1) {
+      throw serviceError(409, "RESUME_DOCUMENT_CANDIDATE_UPDATE_CONFLICT", "Candidate changed while applying");
+    }
+
+    const [pending, unapplied] = await Promise.all([
+      tx.resumeDocumentCandidate.count({ where: { importId: current.importId, status: CareerCandidateStatus.PENDING } }),
+      tx.resumeDocumentCandidate.count({ where: { importId: current.importId, status: CareerCandidateStatus.APPROVED, appliedAt: null } }),
+    ]);
+    if (pending === 0 && unapplied === 0) {
+      await tx.resumeDocumentImport.updateMany({
+        where: { id: current.importId, status: ResumeDocumentImportStatus.REVIEW_REQUIRED },
+        data: { status: ResumeDocumentImportStatus.COMPLETE, completedAt: appliedAt },
+      });
+    }
+    return {
+      candidate: await tx.resumeDocumentCandidate.findUniqueOrThrow({ where: { id: current.id }, include: candidateInclude }),
+      document,
+      idempotent: false,
+    };
+  });
+  return result;
+}
+
 async function updateImportCompletion(importId: string) {
   const [pending, unapplied] = await Promise.all([
     prisma.resumeDocumentCandidate.count({ where: { importId, status: CareerCandidateStatus.PENDING } }),
@@ -229,6 +340,12 @@ export async function acknowledgeResumeDocumentCandidateApplied(input: {
   }
   if (!Number.isSafeInteger(input.documentVersion) || input.documentVersion < 1) {
     throw serviceError(400, "RESUME_DOCUMENT_VERSION_INVALID", "Document version is invalid");
+  }
+  const document = await prisma.resumeDocument.findUnique({ where: { userId: input.userId } });
+  const documentState = document ? validatedResumeDocumentState(document.payload) : null;
+  const ledgerEntry = documentState?.importLedger.find((entry) => entry.candidateKey === `document:${candidate.id}`);
+  if (!document || document.revision !== input.documentVersion || ledgerEntry?.payloadHash !== input.payloadHash) {
+    throw serviceError(409, "RESUME_DOCUMENT_NOT_DURABLY_APPLIED", "Resume document must be durably saved before acknowledgement");
   }
   if (!candidate.appliedAt) {
     await prisma.resumeDocumentCandidate.updateMany({

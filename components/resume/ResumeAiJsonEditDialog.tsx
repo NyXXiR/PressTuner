@@ -1,7 +1,7 @@
 "use client";
 
 import { Braces, Check, ClipboardPaste, Copy, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { RESUME_DOCUMENT_CSS_VARIABLES, ResumeEditorSection } from "@/components/resume/ResumeEditorDocument";
 import {
@@ -92,6 +92,18 @@ export function ResumeAiJsonEditDialog({
   const [sourceResult, setSourceResult] = useState<ResumeAiEditResult | null>(null);
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
   const [sectionTargetScopes, setSectionTargetScopes] = useState<Record<string, ResumeAiEditContext["scope"]>>({});
+  const dirty = Boolean(input.trim() || prepared || selectedSectionIds.length);
+  const requestClose = useCallback(() => {
+    if (dirty && !window.confirm("저장하지 않은 AI 편집 결과를 버릴까요?")) return;
+    onClose();
+  }, [dirty, onClose]);
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") requestClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [requestClose]);
 
   const copyBundle = async () => {
     setError(null);
@@ -116,6 +128,7 @@ export function ResumeAiJsonEditDialog({
   };
 
   const editAll = () => {
+    if (dirty && !window.confirm("현재 AI 편집 결과를 버리고 전체 이력서 편집으로 전환할까요?")) return;
     setInput("");
     setError(null);
     setPrepared(null);
@@ -317,7 +330,7 @@ export function ResumeAiJsonEditDialog({
               {onEditAll && <button className="h-8 border border-primary px-2.5 text-[11px] font-extrabold text-primary" onClick={editAll} type="button">전체 이력서 편집으로 전환</button>}
             </div> : <p className="mt-1 text-xs font-bold text-primary">현재 자료에는 편집 가능한 전체 섹션이 포함됩니다.</p>}
           </div>
-          <button aria-label="외부 AI 편집 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={onClose} type="button">
+          <button aria-label="외부 AI 편집 닫기" className="grid h-10 w-10 shrink-0 place-items-center border border-border" onClick={requestClose} type="button">
             <X className="h-4 w-4" />
           </button>
         </header>
@@ -514,7 +527,7 @@ export function ResumeAiJsonEditDialog({
         <footer className="flex shrink-0 flex-col gap-3 border-t border-border bg-background p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] sm:flex-row sm:items-center sm:justify-between" data-ai-review-actions>
           {prepared ? <p className="text-xs font-bold">선택 {selectedSectionIds.length}/{sectionGroups.length}개 섹션 · 변경 {selectedChangeCount}개</p> : <span />}
           <div className="flex flex-wrap justify-end gap-2">
-            <button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={onClose} type="button">닫기</button>
+            <button className="h-10 border border-border bg-background px-4 text-sm font-bold" onClick={requestClose} type="button">닫기</button>
             {prepared && prepared.changes.length > 0 && <>
               <button className="inline-flex h-10 items-center gap-2 border border-primary bg-background px-4 text-sm font-bold text-primary" onClick={applyAll} type="button"><Check className="h-4 w-4" /> 전체 승인·반영</button>
               <button className="inline-flex h-10 items-center gap-2 bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={selectedSectionIds.length === 0} onClick={apply} type="button"><Check className="h-4 w-4" /> 선택한 섹션 {selectedSectionIds.length}개 적용</button>

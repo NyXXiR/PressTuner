@@ -739,6 +739,18 @@ test("readiness inspection reports advisory identity, company, content, and peri
   assert.ok(codes.includes("reversed-period"));
 });
 
+test("readiness inspection rejects an untouched starter document", () => {
+  const { state, profile } = roleContext();
+  const issues = inspectResumeReadiness(state, profile.id);
+  const codes = issues.map((issue) => issue.code);
+  assert.ok(codes.includes("missing-name"));
+  assert.ok(codes.includes("missing-email"));
+  assert.ok(codes.includes("placeholder-link"));
+  assert.ok(codes.includes("empty-section"));
+  assert.ok(codes.includes("missing-item-title"));
+  assert.ok(codes.includes("missing-item-body"));
+});
+
 test("a role override can be explicitly reset so later common edits flow through", () => {
   const { state, profile } = roleContext();
   const tailored = updateRoleProfileSectionSetting(state, profile.id, "profile", { mode: "override", title: "지원자", content: { name: "직군 이름", email: "role@example.com", links: [] } });
@@ -813,18 +825,26 @@ test("a support-only custom section can move into common information while retai
 
 test("deleting a shared section removes dependent role and support settings and order references", () => {
   const { state, profile } = roleContext();
-  const withVariant = createSupportVariant(state, profile.id, { name: "A사", company: "A사" });
-  const roleTailored = updateRoleProfileSectionSetting(withVariant, profile.id, "summary", { mode: "override" });
-  const documentTailored = updateSectionSetting(roleTailored, withVariant.variants[0].id, "summary", { mode: "override" });
-  documentTailored.roleProfiles[0].sectionOrder = ["profile", "summary"];
-  documentTailored.variants[0].sectionOrder = ["summary", "profile"];
+  const added = addSharedSection(state, { title: "삭제할 공통 섹션", kind: "narrative", afterSectionId: "summary" });
+  const sectionId = added.section.id;
+  const withVariant = createSupportVariant(added.state, profile.id, { name: "A사", company: "A사" });
+  const roleTailored = updateRoleProfileSectionSetting(withVariant, profile.id, sectionId, { mode: "override" });
+  const documentTailored = updateSectionSetting(roleTailored, withVariant.variants[0].id, sectionId, { mode: "override" });
+  documentTailored.roleProfiles[0].sectionOrder = ["profile", sectionId];
+  documentTailored.variants[0].sectionOrder = [sectionId, "profile"];
 
-  const deleted = deleteSharedSection(documentTailored, "summary");
-  assert.equal(deleted.sharedSections.some((section) => section.id === "summary"), false);
-  assert.equal(deleted.roleProfiles[0].settings.summary, undefined);
-  assert.equal(deleted.variants[0].settings.summary, undefined);
-  assert.equal(deleted.roleProfiles[0].sectionOrder?.includes("summary"), false);
-  assert.equal(deleted.variants[0].sectionOrder?.includes("summary"), false);
+  const deleted = deleteSharedSection(documentTailored, sectionId);
+  assert.equal(deleted.sharedSections.some((section) => section.id === sectionId), false);
+  assert.equal(deleted.roleProfiles[0].settings[sectionId], undefined);
+  assert.equal(deleted.variants[0].settings[sectionId], undefined);
+  assert.equal(deleted.roleProfiles[0].sectionOrder?.includes(sectionId), false);
+  assert.equal(deleted.variants[0].sectionOrder?.includes(sectionId), false);
+});
+
+test("built-in shared sections cannot be deleted through the domain command", () => {
+  const state = createResumeDocumentSeed();
+  assert.equal(deleteSharedSection(state, "summary"), state);
+  assert.equal(deleteSharedSection(state, "eligibility"), state);
 });
 
 test("a support override reset removes content and title so the role resume becomes authoritative again", () => {
@@ -991,11 +1011,14 @@ test("V1, V2, and V3 storage all finish the migration chain at V5", () => {
   }
 });
 
-test("parsing V5 does not recreate an intentionally deleted eligibility section", () => {
-  const state = deleteSharedSection(createResumeDocumentSeed(), "eligibility");
+test("parsing V5 restores a missing built-in section as an empty stable import target", () => {
+  const state = createResumeDocumentSeed();
+  state.sharedSections = state.sharedSections.filter((section) => section.id !== "eligibility");
   const parsed = parseResumeDocumentState(JSON.stringify(state))!;
   assert.equal(parsed.version, 5);
-  assert.equal(parsed.sharedSections.some((section) => section.id === "eligibility"), false);
+  const restored = parsed.sharedSections.find((section) => section.id === "eligibility");
+  assert.ok(restored);
+  assert.deepEqual(restored.content, { militaryStatus: "", veteranStatus: "", disabilityStatus: "", employmentProtectionStatus: "" });
 });
 
 test("fresh roles and support versions keep custom sections before the eligibility footer", () => {

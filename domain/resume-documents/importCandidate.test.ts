@@ -215,6 +215,35 @@ test("FILL_EMPTY treats starter placeholders as empty but never overwrites real 
   assert.equal(second.importLedger.length, 2);
 });
 
+test("item append removes only untouched starter items and preserves user edits with starter titles", () => {
+  const seed = createResumeDocumentSeed();
+  const experience = seed.sharedSections.find((section) => section.id === "experience")!;
+  const content = experience.content as ItemsContent;
+  content.items[0] = {
+    ...content.items[0],
+    subtitle: "플랫폼팀 · 리드",
+    body: "사용자가 직접 작성한 경력 설명",
+  };
+  const applied = applyResumeImportCommand(seed, command({
+    candidateKey: "document:work-preserve",
+    payloadHash: "work-preserve",
+    targetSectionId: "experience",
+    applyMode: "APPEND",
+    payload: {
+      type: "item",
+      itemKind: "work",
+      title: "새 회사",
+      subtitle: "제품팀",
+      body: "신규 경력",
+      isCurrent: false,
+      tags: [],
+    },
+  }));
+  const items = (applied.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent).items;
+  assert.deepEqual(items.map((item) => item.title), ["회사명", "새 회사"]);
+  assert.equal(items[0].body, "사용자가 직접 작성한 경력 설명");
+});
+
 test("the same approved command is idempotent and a changed hash is rejected", () => {
   const once = applyResumeImportCommand(createResumeDocumentSeed(), command());
   const twice = applyResumeImportCommand(once, command());

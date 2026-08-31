@@ -19,6 +19,7 @@ import {
 const AUTOSAVE_DELAY_MS = 800;
 
 export type ResumeDocumentStorageStatus = "loading" | "saving" | "saved" | "offline" | "conflict" | "error";
+export type ResumeDocumentLocalBackupStatus = "available" | "error";
 
 function parseDocumentRecord(value: unknown): ResumeDocumentRecord | null {
   if (!value || typeof value !== "object") return null;
@@ -41,6 +42,7 @@ export function useResumeDocumentPersistence() {
   const [state, setState] = useState<ResumeDocumentState>(() => createResumeDocumentSeed());
   const [hydrated, setHydrated] = useState(false);
   const [storageStatus, setStorageStatus] = useState<ResumeDocumentStorageStatus>("loading");
+  const [localBackupStatus, setLocalBackupStatus] = useState<ResumeDocumentLocalBackupStatus>("available");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const stateRef = useRef(state);
   const serverRevisionRef = useRef(0);
@@ -48,13 +50,35 @@ export function useResumeDocumentPersistence() {
   const saveInFlightRef = useRef(false);
   const saveQueuedRef = useRef(false);
   const saveBlockedRef = useRef(false);
+  const candidateApplyInFlightRef = useRef(false);
+
+  const acceptServerDocument = useCallback((document: ResumeDocumentRecord) => {
+    const serialized = JSON.stringify(document.state);
+    serverRevisionRef.current = document.revision;
+    lastSavedStateRef.current = serialized;
+    saveBlockedRef.current = false;
+    stateRef.current = document.state;
+    try {
+      localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, serialized);
+      localStorage.setItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY, JSON.stringify({
+        revision: document.revision,
+        fingerprint: resumeDocumentFingerprint(serialized),
+      }));
+      setLocalBackupStatus("available");
+    } catch {
+      setLocalBackupStatus("error");
+    }
+    setState(document.state);
+    setLastSavedAt(Date.parse(document.updatedAt));
+    setStorageStatus("saved");
+  }, []);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   const persistLatestState = useCallback(async () => {
-    if (!hydrated || saveBlockedRef.current) return;
+    if (!hydrated || saveBlockedRef.current || candidateApplyInFlightRef.current) return;
     if (saveInFlightRef.current) {
       saveQueuedRef.current = true;
       return;
@@ -115,8 +139,7 @@ export function useResumeDocumentPersistence() {
             fingerprint: resumeDocumentFingerprint(serialized),
           }));
         } catch {
-          setStorageStatus("error");
-          return;
+          setLocalBackupStatus("error");
         }
         setLastSavedAt(Date.now());
         if (JSON.stringify(stateRef.current) === serialized) setStorageStatus("saved");
@@ -136,7 +159,7 @@ export function useResumeDocumentPersistence() {
         localState = parseResumeDocumentState(localStorage.getItem(RESUME_DOCUMENT_STORAGE_KEY));
         localMetadata = parseResumeDocumentSyncMetadata(localStorage.getItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY));
       } catch {
-        setStorageStatus("error");
+        setLocalBackupStatus("error");
       }
       try {
         const serverDocument = await responseDocument(await fetch("/api/resume/documents", { cache: "no-store" }));
@@ -149,12 +172,17 @@ export function useResumeDocumentPersistence() {
         stateRef.current = resolved.state;
         setState(resolved.state);
         setLastSavedAt(serverDocument ? Date.parse(serverDocument.updatedAt) : null);
-        localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, serialized);
-        if (!resolved.needsSave && !resolved.conflict) {
-          localStorage.setItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY, JSON.stringify({
-            revision: resolved.revision,
-            fingerprint: resumeDocumentFingerprint(serialized),
-          }));
+        try {
+          localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, serialized);
+          if (!resolved.needsSave && !resolved.conflict) {
+            localStorage.setItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY, JSON.stringify({
+              revision: resolved.revision,
+              fingerprint: resumeDocumentFingerprint(serialized),
+            }));
+          }
+          setLocalBackupStatus("available");
+        } catch {
+          setLocalBackupStatus("error");
         }
         setHydrated(true);
         setStorageStatus(resolved.conflict ? "conflict" : resolved.needsSave ? "saving" : "saved");
@@ -176,9 +204,9 @@ export function useResumeDocumentPersistence() {
     if (!hydrated) return;
     try {
       localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, JSON.stringify(state));
+      setLocalBackupStatus("available");
     } catch {
-      setStorageStatus("error");
-      return;
+      setLocalBackupStatus("error");
     }
     if (saveBlockedRef.current) return;
     const timeout = window.setTimeout(() => { void persistLatestState(); }, AUTOSAVE_DELAY_MS);
@@ -197,23 +225,11 @@ export function useResumeDocumentPersistence() {
     try {
       const document = await responseDocument(await fetch("/api/resume/documents", { cache: "no-store" }));
       if (!document) throw new Error("RESUME_DOCUMENT_NOT_FOUND");
-      const serialized = JSON.stringify(document.state);
-      serverRevisionRef.current = document.revision;
-      lastSavedStateRef.current = serialized;
-      saveBlockedRef.current = false;
-      stateRef.current = document.state;
-      localStorage.setItem(RESUME_DOCUMENT_STORAGE_KEY, serialized);
-      localStorage.setItem(RESUME_DOCUMENT_SYNC_STORAGE_KEY, JSON.stringify({
-        revision: document.revision,
-        fingerprint: resumeDocumentFingerprint(serialized),
-      }));
-      setState(document.state);
-      setLastSavedAt(Date.parse(document.updatedAt));
-      setStorageStatus("saved");
+      acceptServerDocument(document);
     } catch {
       setStorageStatus("error");
     }
-  }, []);
+  }, [acceptServerDocument]);
 
   const overwriteServerCopy = useCallback(() => {
     saveBlockedRef.current = false;
@@ -222,5 +238,54 @@ export function useResumeDocumentPersistence() {
     void persistLatestState();
   }, [persistLatestState]);
 
-  return { state, setState, hydrated, storageStatus, lastSavedAt, loadServerCopy, overwriteServerCopy };
+  const applyImportCandidate = useCallback(async (candidateId: string) => {
+    if (saveBlockedRef.current) {
+      throw new Error("다른 기기의 변경과 충돌했습니다. 먼저 서버 문서 또는 이 편집본 중 하나를 선택해 주세요.");
+    }
+    candidateApplyInFlightRef.current = true;
+    let failedStatus: ResumeDocumentStorageStatus = "offline";
+    try {
+      while (saveInFlightRef.current) {
+        await new Promise((resolve) => window.setTimeout(resolve, 20));
+      }
+      if (saveBlockedRef.current) {
+        throw new Error("다른 기기의 변경과 충돌했습니다. 먼저 서버 문서 또는 이 편집본 중 하나를 선택해 주세요.");
+      }
+      setStorageStatus("saving");
+      const response = await fetch(`/api/resume/documents/candidates/${candidateId}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          state: stateRef.current,
+          expectedRevision: serverRevisionRef.current,
+        }),
+      });
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { code?: unknown; details?: { currentRevision?: unknown }; message?: unknown } | null;
+        if (response.status === 409 && failure?.code === "RESUME_DOCUMENT_CONFLICT") {
+          if (Number.isInteger(failure.details?.currentRevision)) {
+            serverRevisionRef.current = failure.details!.currentRevision as number;
+          }
+          saveBlockedRef.current = true;
+          setStorageStatus("conflict");
+        } else {
+          failedStatus = response.status >= 500 ? "offline" : "error";
+        }
+        throw new Error(typeof failure?.message === "string" ? failure.message : "후보를 문서에 반영하지 못했습니다.");
+      }
+      const document = await responseDocument(response);
+      if (!document) throw new Error("RESUME_DOCUMENT_RESPONSE_INVALID");
+      acceptServerDocument(document);
+    } catch (error) {
+      if (!saveBlockedRef.current) setStorageStatus(failedStatus);
+      throw error;
+    } finally {
+      candidateApplyInFlightRef.current = false;
+      if (!saveBlockedRef.current && JSON.stringify(stateRef.current) !== lastSavedStateRef.current) {
+        void persistLatestState();
+      }
+    }
+  }, [acceptServerDocument, persistLatestState]);
+
+  return { state, setState, hydrated, storageStatus, localBackupStatus, lastSavedAt, loadServerCopy, overwriteServerCopy, applyImportCandidate };
 }

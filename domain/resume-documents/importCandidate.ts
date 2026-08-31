@@ -11,6 +11,11 @@ import type {
   SectionKind,
   TagsContent,
 } from "./model";
+import {
+  isResumeStarterValue,
+  isUntouchedResumeStarterItem,
+  isUntouchedResumeStarterTags,
+} from "./model";
 import { createTagKeyword, normalizeTagGroups, serializeTagGroups } from "./contentPresentation";
 import { findResumeItemDateIssue, normalizeResumeItemDates } from "./itemDatePolicy";
 
@@ -177,13 +182,7 @@ export function expectedBuiltInResumeSectionId(payload: ResumeDocumentCandidateP
   return "credentials";
 }
 
-const STARTER_PLACEHOLDERS = new Set([
-  "이름",
-  "email@example.com",
-  "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요.",
-]);
-
-const isEmptyValue = (value: string | undefined) => !value?.trim() || STARTER_PLACEHOLDERS.has(value.trim());
+const isEmptyValue = (value: string | undefined) => !value?.trim() || isResumeStarterValue(value);
 const normalizeKey = (value: string | undefined) => value?.trim().toLocaleLowerCase("ko-KR").replace(/\s+/g, " ") ?? "";
 
 const identityEntries = (payload: Extract<ResumeDocumentCandidatePayload, { type: "identity" | "identity-field" }>) =>
@@ -354,8 +353,7 @@ function applyPayloadToSection(
       throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
     }
     const content = current.content as TagsContent;
-    const starterTags = ["문제 해결", "협업", "제품 개발"];
-    const existingItems = content.items.length === starterTags.length && content.items.every((item, index) => item === starterTags[index])
+    const existingItems = isUntouchedResumeStarterTags(content.items)
       ? []
       : content.items;
     const values = command.applyMode === "REPLACE" ? payload.values : [...existingItems, ...payload.values];
@@ -381,17 +379,7 @@ function applyPayloadToSection(
   if (command.applyMode !== "APPEND") throw new Error("RESUME_IMPORT_APPLY_MODE_INVALID");
   const content = current.content as ItemsContent;
   const nextItem = commandItem(payload, command.candidateKey);
-  const starterTitles = new Set([
-    "회사명",
-    "이전 회사명",
-    "프로젝트명",
-    "경력기술 제목",
-    "프로젝트 또는 업무명",
-    "이전 프로젝트 또는 업무명",
-    "학교 · 과정",
-    "자격 또는 수상명",
-  ]);
-  const existingItems = content.items.filter((item) => !starterTitles.has(item.title));
+  const existingItems = content.items.filter((item) => !isUntouchedResumeStarterItem(item));
   const duplicate = existingItems.some((item) => itemKey(item) === itemKey(nextItem));
   return duplicate && existingItems.length === content.items.length
     ? current

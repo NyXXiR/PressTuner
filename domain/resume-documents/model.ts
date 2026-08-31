@@ -114,7 +114,7 @@ export type ResumeDocumentState = {
   importLedger: ResumeImportLedgerEntry[];
 };
 
-export type ResumeReadinessIssueCode = "missing-name" | "missing-email" | "invalid-email" | "invalid-link" | "missing-role" | "missing-company" | "empty-section" | "missing-item-title" | "missing-item-body" | "reversed-period";
+export type ResumeReadinessIssueCode = "missing-name" | "missing-email" | "invalid-email" | "invalid-link" | "placeholder-link" | "missing-role" | "missing-company" | "empty-section" | "missing-item-title" | "missing-item-body" | "reversed-period";
 export type ResumeReadinessIssue = { code: ResumeReadinessIssueCode; message: string; sectionId?: string; itemId?: string };
 
 type LegacySection = { id: string; title: string; kind: SectionKind; content: string };
@@ -171,8 +171,45 @@ const roleCoverLetterSection = (profileId: string): ResumeSection => ({
   custom: true,
 });
 
-const builtInSectionIds = ["profile", "summary", "experience", "projects", "skills", "education", "credentials"];
-const defaultRoleSectionOrder = (profileId: string) => [...builtInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
+export const BUILT_IN_RESUME_SECTION_IDS = ["profile", "summary", "experience", "projects", "skills", "education", "credentials", "eligibility"] as const;
+const primaryBuiltInSectionIds = BUILT_IN_RESUME_SECTION_IDS.filter((id) => id !== "eligibility");
+const defaultRoleSectionOrder = (profileId: string) => [...primaryBuiltInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
+
+export function isBuiltInResumeSectionId(sectionId: string) {
+  return (BUILT_IN_RESUME_SECTION_IDS as readonly string[]).includes(sectionId);
+}
+
+const STARTER_TEXT_VALUES = new Set([
+  "이름",
+  "email@example.com",
+  "https://portfolio.example.com",
+  "나를 가장 잘 설명하는 강점과 일하는 방식을 간결하게 적어주세요.",
+  "이 직군 이력서에 맞춘 지원 동기와 강점, 일하는 방식을 작성해 주세요.",
+]);
+
+export function isResumeStarterValue(value: string | undefined) {
+  return Boolean(value?.trim() && STARTER_TEXT_VALUES.has(value.trim()));
+}
+
+const starterItemSignatures: Array<Omit<ItemContent, "id">> = [
+  { itemKind: "work", meta: "2024.01 — 현재", title: "회사명", subtitle: "부서 · 직책", body: "재직 기간의 역할과 핵심 책임을 간결하게 적어주세요." },
+  { itemKind: "work", meta: "2022.01 — 2023.12", title: "이전 회사명", subtitle: "부서 · 직책", body: "이전 직장의 역할과 핵심 책임을 간결하게 적어주세요." },
+  { itemKind: "career-detail", detailType: "project", meta: "2024.01 — 현재", title: "프로젝트 또는 업무명", subtitle: "역할 · 사용 기술", body: "해결한 문제, 맡은 역할, 실행 내용과 결과를 적어주세요." },
+  { meta: "졸업 연도", title: "학교 · 과정", subtitle: "전공", body: "추가 내용" },
+  { meta: "취득 연도", title: "자격 또는 수상명", subtitle: "발급 · 주관", body: "" },
+];
+
+export function isUntouchedResumeStarterItem(item: ItemContent) {
+  return starterItemSignatures.some((starter) => Object.entries(starter).every(([key, value]) => item[key as keyof ItemContent] === value)
+    && item.startMonth === undefined
+    && item.endMonth === undefined
+    && item.isCurrent === undefined);
+}
+
+export function isUntouchedResumeStarterTags(items: readonly string[]) {
+  const starter = ["문제 해결", "협업", "제품 개발"];
+  return items.length === starter.length && items.every((item, index) => item === starter[index]);
+}
 
 const starterRoleProfiles = (): ResumeRoleProfile[] => [
   { id: "role-service-planning", name: "서비스기획", roleTitle: "서비스 기획자", settings: {}, sectionOrder: defaultRoleSectionOrder("role-service-planning"), customSections: [roleCoverLetterSection("role-service-planning")] },
@@ -223,6 +260,52 @@ export function createResumeDocumentSeed(): ResumeDocumentState {
     activeVariantId: null,
     activeRoleProfileId: roleProfiles[0].id,
     importLedger: [],
+  };
+}
+
+function emptyBuiltInResumeSection(sectionId: typeof BUILT_IN_RESUME_SECTION_IDS[number]): ResumeSection {
+  if (sectionId === "profile") return { id: sectionId, title: "인적사항", kind: "identity", content: emptySectionContent("identity") };
+  if (sectionId === "summary") return { id: sectionId, title: "소개", kind: "narrative", content: emptySectionContent("narrative") };
+  if (sectionId === "experience") return { id: sectionId, title: "경력", kind: "items", content: { sortDirection: "latest-first", items: [] } };
+  if (sectionId === "projects") return { id: sectionId, title: "경력 상세", kind: "items", content: { sortDirection: "latest-first", items: [] } };
+  if (sectionId === "skills") return { id: sectionId, title: "핵심 역량", kind: "tags", content: emptySectionContent("tags") };
+  if (sectionId === "education") return { id: sectionId, title: "학력", kind: "items", content: emptySectionContent("items") };
+  if (sectionId === "credentials") return { id: sectionId, title: "자격 · 수상", kind: "items", content: emptySectionContent("items") };
+  return { id: sectionId, title: "병역 · 보훈 · 장애 · 취업보호", kind: "eligibility", content: emptySectionContent("eligibility") };
+}
+
+function restoreSectionOrder(order: string[] | undefined, sharedSections: ResumeSection[]) {
+  if (!order) return order;
+  const next = [...order];
+  for (const section of sharedSections) {
+    if (!isBuiltInResumeSectionId(section.id) || next.includes(section.id)) continue;
+    const preceding = sharedSections.slice(0, sharedSections.indexOf(section)).reverse().find((candidate) => next.includes(candidate.id));
+    const precedingIndex = preceding ? next.indexOf(preceding.id) : -1;
+    next.splice(precedingIndex + 1, 0, section.id);
+  }
+  return next;
+}
+
+export function restoreMissingBuiltInResumeSections(state: ResumeDocumentState): ResumeDocumentState {
+  const sharedSections = [...state.sharedSections];
+  let changed = false;
+  for (const sectionId of BUILT_IN_RESUME_SECTION_IDS) {
+    if (sharedSections.some((section) => section.id === sectionId)) continue;
+    changed = true;
+    const fallback = emptyBuiltInResumeSection(sectionId);
+    const canonicalIndex = BUILT_IN_RESUME_SECTION_IDS.indexOf(sectionId);
+    const previousId = BUILT_IN_RESUME_SECTION_IDS[canonicalIndex - 1];
+    const previousIndex = previousId ? sharedSections.findIndex((section) => section.id === previousId) : -1;
+    const nextId = BUILT_IN_RESUME_SECTION_IDS.slice(canonicalIndex + 1).find((id) => sharedSections.some((section) => section.id === id));
+    const nextIndex = nextId ? sharedSections.findIndex((section) => section.id === nextId) : -1;
+    sharedSections.splice(previousIndex >= 0 ? previousIndex + 1 : nextIndex >= 0 ? nextIndex : sharedSections.length, 0, fallback);
+  }
+  if (!changed) return state;
+  return {
+    ...state,
+    sharedSections,
+    roleProfiles: state.roleProfiles.map((profile) => ({ ...profile, sectionOrder: restoreSectionOrder(profile.sectionOrder, sharedSections) })),
+    variants: state.variants.map((variant) => ({ ...variant, sectionOrder: restoreSectionOrder(variant.sectionOrder, sharedSections) })),
   };
 }
 
@@ -508,6 +591,7 @@ export function addSharedSection(state: ResumeDocumentState, input: { title: str
 }
 
 export function deleteSharedSection(state: ResumeDocumentState, sectionId: string) {
+  if (isBuiltInResumeSectionId(sectionId)) return state;
   if (!state.sharedSections.some((section) => section.id === sectionId)) return state;
   return {
     ...state,
@@ -893,10 +977,14 @@ export function inspectResumeReadiness(state: ResumeDocumentState, profileId: st
     const content = resolved.content;
     if (section.kind === "identity") {
       const identity = content as IdentityContent;
-      if (!identity.name.trim()) add({ code: "missing-name", sectionId: section.id, message: `${title}: 이름을 입력해 주세요.` });
-      if (!identity.email.trim()) add({ code: "missing-email", sectionId: section.id, message: `${title}: 이메일을 입력해 주세요.` });
+      if (!identity.name.trim() || isResumeStarterValue(identity.name)) add({ code: "missing-name", sectionId: section.id, message: `${title}: 이름을 입력해 주세요.` });
+      if (!identity.email.trim() || isResumeStarterValue(identity.email)) add({ code: "missing-email", sectionId: section.id, message: `${title}: 이메일을 입력해 주세요.` });
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity.email.trim())) add({ code: "invalid-email", sectionId: section.id, message: `${title}: 이메일 형식을 확인해 주세요.` });
       identity.links.filter((link) => link.trim()).forEach((link) => {
+        if (isResumeStarterValue(link)) {
+          add({ code: "placeholder-link", sectionId: section.id, message: `${title}: 예시 포트폴리오 링크를 실제 링크로 바꾸거나 삭제해 주세요.` });
+          return;
+        }
         try {
           const url = new URL(link);
           if (!new Set(["http:", "https:"]).has(url.protocol)) throw new Error("unsupported protocol");
@@ -908,19 +996,21 @@ export function inspectResumeReadiness(state: ResumeDocumentState, profileId: st
     }
     if (section.kind === "eligibility") continue;
     if (section.kind === "narrative") {
-      if (!narrativePlainText(content as NarrativeContent).trim()) add({ code: "empty-section", sectionId: section.id, message: `${title}: 내용이 비어 있습니다.` });
+      const narrative = narrativePlainText(content as NarrativeContent);
+      if (!narrative.trim() || isResumeStarterValue(narrative)) add({ code: "empty-section", sectionId: section.id, message: `${title}: 내용을 작성해 주세요.` });
       continue;
     }
     if (section.kind === "tags") {
-      if (!(content as TagsContent).items.some((item) => item.trim())) add({ code: "empty-section", sectionId: section.id, message: `${title}: 표시할 항목이 없습니다.` });
+      const tags = (content as TagsContent).items;
+      if (!tags.some((item) => item.trim()) || isUntouchedResumeStarterTags(tags)) add({ code: "empty-section", sectionId: section.id, message: `${title}: 실제 역량 항목을 작성해 주세요.` });
       continue;
     }
     const items = (content as ItemsContent).items;
     if (!items.length) add({ code: "empty-section", sectionId: section.id, message: `${title}: 표시할 항목이 없습니다.` });
     items.forEach((item, index) => {
       const itemLabel = item.title.trim() || `${index + 1}번째 항목`;
-      if (!item.title.trim()) add({ code: "missing-item-title", sectionId: section.id, itemId: item.id, message: `${title}: ${index + 1}번째 항목의 제목이 비어 있습니다.` });
-      if (section.id === "experience" && !item.body.trim()) add({ code: "missing-item-body", sectionId: section.id, itemId: item.id, message: `${title}: ${itemLabel}의 설명이 비어 있습니다.` });
+      if (!item.title.trim() || isUntouchedResumeStarterItem(item)) add({ code: "missing-item-title", sectionId: section.id, itemId: item.id, message: `${title}: ${index + 1}번째 항목을 실제 내용으로 바꿔 주세요.` });
+      if (section.id === "experience" && (!item.body.trim() || isUntouchedResumeStarterItem(item))) add({ code: "missing-item-body", sectionId: section.id, itemId: item.id, message: `${title}: ${itemLabel}의 설명을 실제 내용으로 바꿔 주세요.` });
       if (findResumeItemDateIssue(item, section.id)) add({ code: "reversed-period", sectionId: section.id, itemId: item.id, message: `${title}: ${itemLabel}의 종료 연월이 시작 연월보다 빠릅니다.` });
     });
   }
@@ -1492,17 +1582,17 @@ export function parseResumeDocumentState(raw: string | null): ResumeDocumentStat
         const content = setting.content !== undefined && section ? migrateLegacyContent({ ...section, content: setting.content }).content : undefined;
         return [sectionId, { ...setting, content }];
       })) })), activeVariantId: legacy.activeVariantId }, identityRole));
-      return versionFour ? migrateVersionFour(upgradeGenericRole(versionFour)) : null;
+      return versionFour ? restoreMissingBuiltInResumeSections(migrateVersionFour(upgradeGenericRole(versionFour))) : null;
     }
     if (value.version === 2) {
       const oldIdentity = (value.sharedSections as VersionTwoState["sharedSections"]).find((section) => section.kind === "identity")?.content as (IdentityContent & { role?: string }) | undefined;
       const versionFour = migrateVersionThree(migrateVersionTwo(value as VersionTwoState, oldIdentity?.role ?? ""));
-      return versionFour ? migrateVersionFour(upgradeGenericRole(versionFour)) : null;
+      return versionFour ? restoreMissingBuiltInResumeSections(migrateVersionFour(upgradeGenericRole(versionFour))) : null;
     }
     if (value.version === 3) {
       if (!Array.isArray(value.roleProfiles) || typeof value.activeRoleProfileId !== "string" || typeof value.activeVariantId !== "string") return null;
       const versionFour = migrateVersionThree(value as VersionThreeState);
-      return versionFour ? migrateVersionFour(upgradeGenericRole(versionFour)) : null;
+      return versionFour ? restoreMissingBuiltInResumeSections(migrateVersionFour(upgradeGenericRole(versionFour))) : null;
     }
     if ((value.version !== 4 && value.version !== 5) || !Array.isArray(value.roleProfiles) || typeof value.activeRoleProfileId !== "string" || (value.activeVariantId !== null && typeof value.activeVariantId !== "string")) return null;
     const state = value as unknown as MigratableState;
@@ -1513,8 +1603,8 @@ export function parseResumeDocumentState(raw: string | null): ResumeDocumentStat
       roleProfiles: state.roleProfiles.map((profile) => ({ ...profile, settings: isRecord(profile.settings) ? profile.settings : {}, customSections: Array.isArray(profile.customSections) ? profile.customSections : [] })),
       variants: state.variants.map((variant) => ({ ...variant, roleProfileId: state.roleProfiles.some((profile) => profile.id === variant.roleProfileId) ? variant.roleProfileId : state.roleProfiles[0].id, customSections: Array.isArray(variant.customSections) ? variant.customSections : [], settings: isRecord(variant.settings) ? variant.settings : {} })),
     } as MigratableState));
-    if (normalized.version === 4) return migrateVersionFour(normalized);
-    return {
+    if (normalized.version === 4) return restoreMissingBuiltInResumeSections(migrateVersionFour(normalized));
+    return restoreMissingBuiltInResumeSections({
       ...normalized,
       importLedger: Array.isArray(normalized.importLedger)
         ? normalized.importLedger.filter((entry): entry is ResumeImportLedgerEntry =>
@@ -1524,7 +1614,7 @@ export function parseResumeDocumentState(raw: string | null): ResumeDocumentStat
           && typeof entry.targetSectionId === "string"
           && typeof entry.appliedAt === "string")
         : [],
-    };
+    });
   } catch {
     return null;
   }
