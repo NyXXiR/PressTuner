@@ -40,14 +40,13 @@ short note about any remaining follow-up.
 | 5 | Mobile/common-tab/focus UX (F9/F10/accessibility) | Complete | 127 targeted tests + ESLint + `tsc --noEmit` |
 | 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Complete | 130 targeted tests + ESLint + `tsc --noEmit` |
 | 7 | Full regression verification | Complete with baseline blockers | Full ESLint passed with existing warnings; full test/build blockers documented below |
-| 8 | Hermes handoff concurrency and recovery review | In progress | 146 targeted tests + ESLint + `tsc --noEmit` |
+| 8 | Hermes handoff concurrency and recovery review | Complete | 146 targeted tests, 319-file full suite, lint, TypeScript, production build, Chromium QA |
 
 ## Current resume point
 
-Hermes review fixes have been recovered and manually reviewed. Resume Unit 8
-at the full 319-file test sweep, production build, upstream integration, and
-focused browser QA. The pre-continuation tracked diff is recoverable from
-`refs/backup/resume-documents-hermes-handoff`.
+Implementation and verification are complete. The branch is ready to
+fast-forward `master` and push. The pre-continuation tracked diff remains
+recoverable from `refs/backup/resume-documents-hermes-handoff`.
 
 ## Validation log
 
@@ -78,6 +77,14 @@ focused browser QA. The pre-continuation tracked diff is recoverable from
   `PressApiPlaygroundClient → processRegistry → aiQuota → qaAuthService → node:crypto`.
 - Unit 8: resume domain/service/surface suite — 146 passed, 0 failed.
 - Unit 8: targeted ESLint and `npx tsc --noEmit` — passed.
+- Unit 8: isolated full sweep — 319 test files, 0 failures.
+- Unit 8: full ESLint — 0 errors / 76 existing warnings; TypeScript passed.
+- Unit 8: Next 16 Turbopack production build — passed, including all 151
+  static pages. Temporary root/dist settings were restored afterward.
+- Unit 8: headless Chromium QA — 5/5 flows passed on `presstuner_test`;
+  disposable user, team, session, source, import, and document data removed.
+- Unit 8: fetched `origin/master`; it remained `da2ef11`, so integration was a
+  no-op and the verified branch is a six-commit fast-forward.
 
 ## Unit 1 implementation notes
 
@@ -189,3 +196,6 @@ focused browser QA. The pre-continuation tracked diff is recoverable from
 - Concurrent import retries converge on one scheduler enqueue; callers that
   observe an already waiting/queued/extracting retry receive its current state,
   while enqueue failure is restored to `FAILED` and reported as 503.
+- Chromium verified the starter readiness count and title metadata, dirty
+  Escape/cancel protection, source byte/chunk purge, 390px overflow/mobile
+  actions, and continued server saving when `localStorage` throws.
