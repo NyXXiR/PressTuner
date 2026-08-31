@@ -39,12 +39,13 @@ short note about any remaining follow-up.
 | 4 | Dirty-close and cascading-delete disclosure (F3/F12) | Complete | 126 targeted tests + ESLint + `tsc --noEmit` |
 | 5 | Mobile/common-tab/focus UX (F9/F10/accessibility) | Complete | 127 targeted tests + ESLint + `tsc --noEmit` |
 | 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Complete | 130 targeted tests + ESLint + `tsc --noEmit` |
-| 7 | Full regression verification | In progress | Pending |
+| 7 | Full regression verification | Complete with baseline blockers | Full ESLint passed with existing warnings; full test/build blockers documented below |
 
 ## Current resume point
 
-Run the full repository test and production-build checks for Unit 7. If they
-pass, record the exact commands and finish the branch handoff.
+Implementation and scoped verification are complete. Resume from this branch
+only for browser QA, review feedback, or the two unrelated baseline repairs
+listed in the Unit 7 notes.
 
 ## Validation log
 
@@ -64,6 +65,15 @@ pass, record the exact commands and finish the branch handoff.
 - Unit 5: targeted ESLint and `npx tsc --noEmit` — passed.
 - Unit 6: domain/service/surface suite — 130 passed, 0 failed.
 - Unit 6: targeted ESLint and `npx tsc --noEmit` — passed.
+- Unit 7: `npm run lint` — passed with 0 errors and 76 pre-existing warnings.
+- Unit 7: `npm test` — stopped at the pre-existing
+  `domain/ai-process-console/v2/fixtureRegistry.test.ts` expectation mismatch:
+  base `da2ef11` registers `success-v2-3-1` but the base test omits it.
+- Unit 7: Turbopack build — environment-blocked because the isolated worktree
+  reuses `node_modules` through an out-of-root symlink.
+- Unit 7: webpack production build — reached compilation, then stopped at the
+  pre-existing client import chain
+  `PressApiPlaygroundClient → processRegistry → aiQuota → qaAuthService → node:crypto`.
 
 ## Unit 1 implementation notes
 
@@ -148,3 +158,13 @@ pass, record the exact commands and finish the branch handoff.
   free-form rejection feedback is deferred until a product decision defines how
   it will be used; adding an unused mandatory field would add friction without
   improving recovery or data safety.
+
+## Unit 7 verification notes
+
+- Scoped domain, persistence, database-service, and UI-surface coverage passed
+  130 tests with no failures; targeted ESLint and TypeScript also passed.
+- The two full-repository blockers were confirmed directly in base commit
+  `da2ef11` and were not changed because they are outside `/resume/documents`.
+- No new Playwright browser session was run in this worktree. The responsive,
+  conflict, import deletion, and dirty-close changes still need a final manual
+  Chromium pass before deployment.
