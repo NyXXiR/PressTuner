@@ -660,6 +660,10 @@ test("PDF imports stay review-first and apply candidates with the durable docume
 
   assert.match(builder, /자료로 공통 정보 채우기/);
   assert.match(builder, /applyImportCandidate/);
+  assert.match(persistence, /candidateApplyInFlightRef/);
+  assert.match(persistence, /if \(candidateApplyInFlightRef\.current\)/);
+  assert.match(persistence, /resolveResumeDocumentCandidateApplication/);
+  assert.match(persistence, /requestedState/);
   assert.match(persistence, /localStorage\.setItem\(RESUME_DOCUMENT_STORAGE_KEY/);
   assert.match(panel, /AI가 섹션별 후보만 만듭니다/);
   assert.match(panel, /확인하고 반영/);

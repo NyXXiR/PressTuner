@@ -145,6 +145,110 @@ test("candidate application saves the document and approval at the same persiste
   }
 });
 
+test("concurrent applications of the same candidate are serialized and idempotent", async () => {
+  const { user, candidate } = await fixture("concurrent-apply");
+  try {
+    await prisma.resumeDocumentCandidate.update({
+      where: { id: candidate.id },
+      data: { applyMode: ResumeDocumentApplyMode.REPLACE },
+    });
+    const input = {
+      candidateId: candidate.id,
+      userId: user.id,
+      state: createResumeDocumentSeed(),
+      expectedRevision: 0,
+    };
+
+    const results = await Promise.all([
+      applyResumeDocumentCandidate(input),
+      applyResumeDocumentCandidate(input),
+    ]);
+
+    assert.deepEqual(results.map((result) => result.idempotent).sort(), [false, true]);
+    assert.deepEqual(results.map((result) => result.document.revision), [1, 1]);
+    assert.ok(results.every((result) => result.command.candidateKey === `document:${candidate.id}`));
+    assert.equal(await prisma.resumeDocument.count({ where: { userId: user.id } }), 1);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("retrying an applied candidate cannot return and overwrite a document changed afterward", async () => {
+  const { user, candidate } = await fixture("applied-retry-after-edit");
+  try {
+    await prisma.resumeDocumentCandidate.update({
+      where: { id: candidate.id },
+      data: { applyMode: ResumeDocumentApplyMode.REPLACE },
+    });
+    const requestedState = createResumeDocumentSeed();
+    const applied = await applyResumeDocumentCandidate({
+      candidateId: candidate.id,
+      userId: user.id,
+      state: requestedState,
+      expectedRevision: 0,
+    });
+    await saveResumeDocument({
+      userId: user.id,
+      state: updateSharedSectionTitle(applied.document.state, "summary", "후속 서버 편집"),
+      expectedRevision: applied.document.revision,
+    });
+
+    await assert.rejects(
+      applyResumeDocumentCandidate({
+        candidateId: candidate.id,
+        userId: user.id,
+        state: requestedState,
+        expectedRevision: 0,
+      }),
+      (error: unknown) => {
+        const value = error as { code?: string; details?: { currentRevision?: number } };
+        return value.code === "RESUME_DOCUMENT_CONFLICT" && value.details?.currentRevision === 2;
+      },
+    );
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("different candidates for one document cannot create competing first revisions", async () => {
+  const { user, importTask, candidate } = await fixture("concurrent-document");
+  try {
+    await prisma.resumeDocumentCandidate.update({
+      where: { id: candidate.id },
+      data: { applyMode: ResumeDocumentApplyMode.REPLACE },
+    });
+    const emailPayload: ResumeDocumentCandidatePayload = { type: "identity-field", field: "email", value: "candidate@example.com" };
+    const second = await prisma.resumeDocumentCandidate.create({
+      data: {
+        importId: importTask.id,
+        userId: user.id,
+        kind: ResumeDocumentCandidateKind.IDENTITY_FIELD,
+        recommendedSectionId: "profile",
+        targetSectionId: "profile",
+        targetSectionKind: "identity",
+        applyMode: ResumeDocumentApplyMode.REPLACE,
+        payload: emailPayload,
+        payloadHash: resumeDocumentPayloadHash(emailPayload),
+        status: CareerCandidateStatus.PENDING,
+      },
+    });
+    const baseInput = { userId: user.id, state: createResumeDocumentSeed(), expectedRevision: 0 };
+
+    const results = await Promise.allSettled([
+      applyResumeDocumentCandidate({ ...baseInput, candidateId: candidate.id }),
+      applyResumeDocumentCandidate({ ...baseInput, candidateId: second.id }),
+    ]);
+
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+    const rejection = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    assert.equal((rejection?.reason as { code?: string }).code, "RESUME_DOCUMENT_CONFLICT");
+    assert.equal(await prisma.resumeDocument.count({ where: { userId: user.id } }), 1);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("missing targets and stale document revisions leave candidates pending and documents unchanged", async () => {
   const missing = await fixture("missing-target");
   try {

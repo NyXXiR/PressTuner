@@ -48,7 +48,7 @@ async function queueImport(input: {
       errorMessage: null,
     },
   });
-  if (claimed.count !== 1) return;
+  if (claimed.count !== 1) return false;
   try {
     await enqueueResumeDocumentImport({
       importId: input.id,
@@ -56,6 +56,7 @@ async function queueImport(input: {
       userId: input.userId,
       processingVersion: input.processingVersion,
     });
+    return true;
   } catch (error) {
     await prisma.resumeDocumentImport.updateMany({
       where: {
@@ -72,6 +73,7 @@ async function queueImport(input: {
         errorMessage: error instanceof Error ? error.message.slice(0, 2_000) : "Queue unavailable",
       },
     });
+    return false;
   }
 }
 
@@ -134,14 +136,26 @@ export async function retryResumeDocumentImport(input: { importId: string; userI
     include: { source: { select: { status: true, deletedAt: true } } },
   });
   if (!current) throw serviceError(404, "RESUME_DOCUMENT_IMPORT_NOT_FOUND", "Resume document import not found");
+  if (
+    current.status === ResumeDocumentImportStatus.WAITING_SOURCE
+    || current.status === ResumeDocumentImportStatus.QUEUED
+    || current.status === ResumeDocumentImportStatus.EXTRACTING
+  ) {
+    return getResumeDocumentImport(input);
+  }
   if (current.status !== ResumeDocumentImportStatus.FAILED) {
     throw serviceError(409, "RESUME_DOCUMENT_IMPORT_NOT_RETRYABLE", "Import is not retryable");
   }
   if (current.source.deletedAt || current.source.status !== CareerSourceStatus.READY) {
     throw serviceError(409, "RESUME_DOCUMENT_SOURCE_NOT_READY", "PDF source must be ready before retry");
   }
-  const reset = await prisma.resumeDocumentImport.update({
-    where: { id: current.id },
+  const changed = await prisma.resumeDocumentImport.updateMany({
+    where: {
+      id: current.id,
+      userId: input.userId,
+      status: ResumeDocumentImportStatus.FAILED,
+      processingVersion: current.processingVersion,
+    },
     data: {
       status: ResumeDocumentImportStatus.WAITING_SOURCE,
       processingVersion: { increment: 1 },
@@ -149,8 +163,36 @@ export async function retryResumeDocumentImport(input: { importId: string; userI
       errorMessage: null,
       failedAt: null,
     },
+  });
+  if (changed.count !== 1) {
+    const latest = await getResumeDocumentImport(input);
+    if (
+      latest.status === ResumeDocumentImportStatus.WAITING_SOURCE
+      || latest.status === ResumeDocumentImportStatus.QUEUED
+      || latest.status === ResumeDocumentImportStatus.EXTRACTING
+    ) {
+      return latest;
+    }
+    throw serviceError(409, "RESUME_DOCUMENT_IMPORT_NOT_RETRYABLE", "Import is not retryable");
+  }
+  const reset = await prisma.resumeDocumentImport.findUniqueOrThrow({
+    where: { id: current.id },
     select: { id: true, sourceId: true, userId: true, processingVersion: true },
   });
-  await queueImport(reset);
+  const queued = await queueImport(reset);
+  if (!queued) {
+    const latest = await getResumeDocumentImport(input);
+    if (
+      latest.status === ResumeDocumentImportStatus.QUEUED
+      || latest.status === ResumeDocumentImportStatus.EXTRACTING
+    ) {
+      return latest;
+    }
+    throw serviceError(
+      503,
+      "RESUME_DOCUMENT_IMPORT_QUEUE_UNAVAILABLE",
+      "Resume document import could not be queued",
+    );
+  }
   return getResumeDocumentImport(input);
 }

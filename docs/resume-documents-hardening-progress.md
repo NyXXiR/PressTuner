@@ -40,12 +40,14 @@ short note about any remaining follow-up.
 | 5 | Mobile/common-tab/focus UX (F9/F10/accessibility) | Complete | 127 targeted tests + ESLint + `tsc --noEmit` |
 | 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Complete | 130 targeted tests + ESLint + `tsc --noEmit` |
 | 7 | Full regression verification | Complete with baseline blockers | Full ESLint passed with existing warnings; full test/build blockers documented below |
+| 8 | Hermes handoff concurrency and recovery review | In progress | 146 targeted tests + ESLint + `tsc --noEmit` |
 
 ## Current resume point
 
-Implementation and scoped verification are complete. Resume from this branch
-only for browser QA, review feedback, or the two unrelated baseline repairs
-listed in the Unit 7 notes.
+Hermes review fixes have been recovered and manually reviewed. Resume Unit 8
+at the full 319-file test sweep, production build, upstream integration, and
+focused browser QA. The pre-continuation tracked diff is recoverable from
+`refs/backup/resume-documents-hermes-handoff`.
 
 ## Validation log
 
@@ -74,6 +76,8 @@ listed in the Unit 7 notes.
 - Unit 7: webpack production build — reached compilation, then stopped at the
   pre-existing client import chain
   `PressApiPlaygroundClient → processRegistry → aiQuota → qaAuthService → node:crypto`.
+- Unit 8: resume domain/service/surface suite — 146 passed, 0 failed.
+- Unit 8: targeted ESLint and `npx tsc --noEmit` — passed.
 
 ## Unit 1 implementation notes
 
@@ -168,3 +172,20 @@ listed in the Unit 7 notes.
 - No new Playwright browser session was run in this worktree. The responsive,
   conflict, import deletion, and dirty-close changes still need a final manual
   Chromium pass before deployment.
+
+## Unit 8 implementation notes
+
+- Initial hydration and late candidate responses preserve edits made while a
+  request is in flight; unresolved conflicts survive reload.
+- Candidate response reconciliation now covers the complete document tree,
+  including role/support custom sections. ID-addressable arrays merge per item,
+  so an imported item and a concurrent edit to an existing item both survive.
+- Candidate application is serialized per candidate and per user document.
+  Stale candidate claims fail closed, duplicate concurrent application is
+  idempotent, and a retry cannot return a document changed after the original
+  candidate revision.
+- Import/source deletion removes retained bytes, chunks, derived imports,
+  candidates, and evidence transactionally.
+- Concurrent import retries converge on one scheduler enqueue; callers that
+  observe an already waiting/queued/extracting retry receive its current state,
+  while enqueue failure is restored to `FAILED` and reported as 503.

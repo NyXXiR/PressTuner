@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import type { Prisma } from "@prisma/client";
 import {
   CareerCandidateStatus,
   ResumeDocumentApplyMode,
@@ -92,6 +93,7 @@ export async function updateResumeDocumentCandidate(input: {
   expectedUpdatedAt?: Date;
 }) {
   return prisma.$transaction(async (tx) => {
+    await lockResumeDocumentCandidate(tx, input.candidateId);
     const current = await tx.resumeDocumentCandidate.findFirst({
       where: { id: input.candidateId, userId: input.userId },
     });
@@ -166,6 +168,24 @@ function importApplicationError(error: unknown): never {
   );
 }
 
+async function lockResumeDocumentCandidate(
+  client: Prisma.TransactionClient,
+  candidateId: string,
+) {
+  await client.$executeRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(${`resume-document-candidate:${candidateId}`}, 0))
+  `;
+}
+
+async function lockResumeDocumentUser(
+  client: Prisma.TransactionClient,
+  userId: string,
+) {
+  await client.$executeRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(${`resume-document-user:${userId}`}, 0))
+  `;
+}
+
 export async function applyResumeDocumentCandidate(input: {
   candidateId: string;
   userId: string;
@@ -174,6 +194,8 @@ export async function applyResumeDocumentCandidate(input: {
 }) {
   const requestedState = validatedResumeDocumentState(input.state);
   const result = await prisma.$transaction(async (tx) => {
+    await lockResumeDocumentCandidate(tx, input.candidateId);
+    await lockResumeDocumentUser(tx, input.userId);
     const current = await tx.resumeDocumentCandidate.findFirst({
       where: { id: input.candidateId, userId: input.userId },
       include: candidateInclude,
@@ -185,9 +207,13 @@ export async function applyResumeDocumentCandidate(input: {
     if (current.appliedAt) {
       const saved = await tx.resumeDocument.findUnique({ where: { userId: input.userId } });
       if (!saved) throw serviceError(409, "RESUME_DOCUMENT_APPLIED_STATE_MISSING", "Applied resume document is missing");
+      if (saved.revision !== current.appliedDocumentVersion) {
+        throw serviceError(409, "RESUME_DOCUMENT_CONFLICT", "Resume document changed after this candidate was applied", { currentRevision: saved.revision });
+      }
       return {
         candidate: current,
         document: persistedResumeDocumentResult(saved),
+        command: applicationCommand({ ...current, decidedAt: current.decidedAt ?? current.appliedAt! }),
         idempotent: true,
       };
     }
@@ -219,6 +245,8 @@ export async function applyResumeDocumentCandidate(input: {
         userId: input.userId,
         status: { in: [CareerCandidateStatus.PENDING, CareerCandidateStatus.APPROVED] },
         appliedAt: null,
+        payloadHash: current.payloadHash,
+        updatedAt: current.updatedAt,
       },
       data: {
         status: CareerCandidateStatus.APPROVED,
@@ -246,6 +274,7 @@ export async function applyResumeDocumentCandidate(input: {
     return {
       candidate: await tx.resumeDocumentCandidate.findUniqueOrThrow({ where: { id: current.id }, include: candidateInclude }),
       document,
+      command,
       idempotent: false,
     };
   });

@@ -94,7 +94,7 @@ async function requestSourceProcessing(source: {
   userId: string;
   teamId: string | null;
   processingVersion: number;
-}) {
+}, options: { reportQueueFailure?: boolean } = {}) {
   const queuedAt = new Date();
   const claimed = await prisma.careerSource.updateMany({
     where: {
@@ -149,6 +149,9 @@ async function requestSourceProcessing(source: {
         errorMessage: error instanceof Error ? error.message : "Queue unavailable",
       },
     });
+    if (options.reportQueueFailure) {
+      throw serviceError(503, "CAREER_QUEUE_UNAVAILABLE", "Career source could not be queued");
+    }
     return prisma.careerSource.findUniqueOrThrow({
       where: { id: source.id },
       select: sourcePublicSelect,
@@ -245,7 +248,7 @@ export async function retryCareerSource(input: {
       },
     });
   });
-  return requestSourceProcessing(source);
+  return requestSourceProcessing(source, { reportQueueFailure: true });
 }
 
 export async function deleteCareerSource(input: {
@@ -294,6 +297,7 @@ export async function deleteCareerSource(input: {
       });
     }
 
+    await tx.resumeDocumentImport.deleteMany({ where: { sourceId: source.id } });
     await tx.careerSourceChunk.deleteMany({ where: { sourceId: source.id } });
     await tx.careerSource.update({
       where: { id: source.id },
