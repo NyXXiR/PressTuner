@@ -5,6 +5,7 @@ import {
   addSharedSection,
   addRoleCustomSection,
   assignRoleProfile,
+  builtInResumeSectionKind,
   clearDocumentItemSetting,
   createResumeDocumentSeed,
   createRoleProfile,
@@ -60,6 +61,14 @@ test("the default flow has a directly editable role resume and no support versio
   assert.equal(state.variants.length, 0);
   assert.equal(state.activeVariantId, null);
   assert.equal(resolveDocumentRole(profile), "서비스 기획자");
+});
+
+test("built-in section kind lookup agrees with every seeded built-in section", () => {
+  const state = createResumeDocumentSeed();
+  for (const section of state.sharedSections) {
+    assert.equal(builtInResumeSectionKind(section.id), section.kind);
+  }
+  assert.equal(builtInResumeSectionKind("shared-custom"), undefined);
 });
 
 test("starter item ids are stable across server and client seed creation", () => {

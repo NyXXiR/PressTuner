@@ -673,7 +673,12 @@ test("PDF imports stay review-first and apply candidates with the durable docume
   assert.match(panel, /승인 전에는 내용과 대상 섹션을 바꿀 수 있습니다/);
   assert.match(builder, /sections=\{orderedSections\}/);
   assert.match(decisionRoute, /decideResumeDocumentCandidate/);
+  assert.match(decisionRoute, /decision === "APPROVE"/);
+  assert.match(decisionRoute, /Deprecation", "@\d+"/);
+  assert.match(decisionRoute, /successor-version/);
   assert.match(appliedRoute, /acknowledgeResumeDocumentCandidateApplied/);
+  assert.match(appliedRoute, /Deprecation", "@\d+"/);
+  assert.match(appliedRoute, /successor-version/);
   assert.match(applyRoute, /applyResumeDocumentCandidate/);
   assert.match(panel, /대상 섹션 없음/);
 });

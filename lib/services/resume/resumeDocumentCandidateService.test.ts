@@ -315,6 +315,35 @@ test("rejection requires a reason and never produces an application command", as
   }
 });
 
+test("rejection remains an exit path when a stored candidate no longer matches the current payload schema", async () => {
+  const { user, importTask, candidate } = await fixture("reject-invalid-payload");
+  try {
+    await prisma.resumeDocumentCandidate.update({
+      where: { id: candidate.id },
+      data: {
+        payload: { legacyType: "no-longer-supported", value: null },
+        payloadHash: "legacy-invalid-payload",
+      },
+    });
+
+    const rejected = await decideResumeDocumentCandidate({
+      candidateId: candidate.id,
+      userId: user.id,
+      decision: "REJECT",
+      rejectionReason: "현재 규칙으로 검토할 수 없는 후보",
+    });
+
+    assert.equal(rejected.command, null);
+    assert.equal(rejected.candidate.status, CareerCandidateStatus.REJECTED);
+    assert.equal(
+      (await prisma.resumeDocumentImport.findUniqueOrThrow({ where: { id: importTask.id } })).status,
+      ResumeDocumentImportStatus.COMPLETE,
+    );
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("pending attributed career details require a reviewed stable relationship before approval", async () => {
   const { user, candidate } = await fixture("relationship-review");
   try {

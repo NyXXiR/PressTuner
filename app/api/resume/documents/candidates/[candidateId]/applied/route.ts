@@ -20,10 +20,15 @@ export async function POST(
     const { candidateId } = await params;
     const parsed = validateBody(AppliedBody, await request.json());
     if (!parsed.ok) return NextResponse.json(parsed.body, { status: parsed.status });
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       candidate: await acknowledgeResumeDocumentCandidateApplied({ candidateId, userId: user.id, ...parsed.data }),
     });
+    // Compatibility-only: new clients persist and acknowledge atomically via
+    // POST /candidates/:candidateId/apply.
+    response.headers.set("Deprecation", "@1788134400");
+    response.headers.set("Link", `</api/resume/documents/candidates/${candidateId}/apply>; rel="successor-version"`);
+    return response;
   } catch (error) {
     return resumeDocumentApiError(error);
   }

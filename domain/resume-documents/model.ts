@@ -98,6 +98,7 @@ export type ResumeVariant = {
   customSections: ResumeSection[];
 };
 export type ResumeImportLedgerEntry = {
+  /** Records that the candidate was durably applied; later user edits may replace its materialized content. */
   candidateKey: string;
   payloadHash: string;
   targetSectionId: string;
@@ -172,11 +173,27 @@ const roleCoverLetterSection = (profileId: string): ResumeSection => ({
 });
 
 export const BUILT_IN_RESUME_SECTION_IDS = ["profile", "summary", "experience", "projects", "skills", "education", "credentials", "eligibility"] as const;
+const BUILT_IN_RESUME_SECTION_KINDS: Record<(typeof BUILT_IN_RESUME_SECTION_IDS)[number], SectionKind> = {
+  profile: "identity",
+  summary: "narrative",
+  experience: "items",
+  projects: "items",
+  skills: "tags",
+  education: "items",
+  credentials: "items",
+  eligibility: "eligibility",
+};
 const primaryBuiltInSectionIds = BUILT_IN_RESUME_SECTION_IDS.filter((id) => id !== "eligibility");
 const defaultRoleSectionOrder = (profileId: string) => [...primaryBuiltInSectionIds, `role-cover-letter-${profileId}`, "eligibility"];
 
 export function isBuiltInResumeSectionId(sectionId: string) {
   return (BUILT_IN_RESUME_SECTION_IDS as readonly string[]).includes(sectionId);
+}
+
+export function builtInResumeSectionKind(sectionId: string): SectionKind | undefined {
+  return isBuiltInResumeSectionId(sectionId)
+    ? BUILT_IN_RESUME_SECTION_KINDS[sectionId as (typeof BUILT_IN_RESUME_SECTION_IDS)[number]]
+    : undefined;
 }
 
 const STARTER_TEXT_VALUES = new Set([

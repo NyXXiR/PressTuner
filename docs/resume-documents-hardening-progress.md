@@ -27,6 +27,11 @@ short note about any remaining follow-up.
   item must never make the other user-authored fields disposable.
 - Browser backup and server persistence are independent channels and must be
   reported independently when either one fails.
+- Rejection is an unconditional exit from candidate review once a reason is
+  present; approval-only payload and target rules must not block rejection.
+- The import ledger records a durable application event. A later explicit user
+  edit may replace the materialized candidate content without rewriting that
+  history.
 
 ## Work units
 
@@ -41,13 +46,14 @@ short note about any remaining follow-up.
 | 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Complete | 130 targeted tests + ESLint + `tsc --noEmit` |
 | 7 | Full regression verification | Complete with baseline blockers | Full ESLint passed with existing warnings; full test/build blockers documented below |
 | 8 | Hermes handoff concurrency and recovery review | Complete | 146 targeted tests, 319-file full suite, lint, TypeScript, production build, Chromium QA |
+| 9 | Domain exit paths and contract simplification | Complete | 221 focused regression tests + ESLint + `tsc --noEmit` |
 
 ## Current resume point
 
-Implementation and verification are complete and the verified fast-forward was
-promoted to `origin/master`. The separately checked-out local `master` was left
-untouched because its worktree contains unrelated user changes. The
-pre-continuation tracked diff remains recoverable from
+Units 0–8 were promoted to `origin/master`. Unit 9 is implemented and verified
+on the feature branch but has not been promoted to `origin/master`. The
+separately checked-out local `master` remains untouched because its worktree
+contains unrelated user changes. The pre-continuation tracked diff remains recoverable from
 `refs/backup/resume-documents-hermes-handoff`.
 
 ## Validation log
@@ -89,6 +95,12 @@ pre-continuation tracked diff remains recoverable from
   no-op and the verified branch is a six-commit fast-forward.
 - Unit 8: pushed the verified history to `origin/master` without force and
   confirmed the remote ref matched the source branch HEAD.
+- Unit 9: resume domain/service/surface regression selection — 221 passed, 0
+  failed, including database coverage for rejecting an obsolete payload.
+- Unit 9: targeted ESLint, `npx tsc --noEmit`, and `git diff --check` — passed.
+- Unit 9: the first direct database-test invocation had no `DATABASE_URL`; it
+  made no database connection. The guarded repository runner was then used,
+  confirmed `presstuner_test`, and passed all selected database tests.
 
 ## Unit 1 implementation notes
 
@@ -203,3 +215,41 @@ pre-continuation tracked diff remains recoverable from
 - Chromium verified the starter readiness count and title metadata, dirty
   Escape/cancel protection, source byte/chunk purge, 390px overflow/mobile
   actions, and continued server saving when `localStorage` throws.
+
+## Unit 9 plan — domain exit paths and contract simplification
+
+- Keep rejection as an unconditional exit from review: rejection must not
+  depend on whether a stored candidate still satisfies the current payload or
+  apply-mode schema.
+- Remove the duplicated built-in section ID-to-kind table from the candidate
+  service and expose the mapping from the document domain as one typed rule.
+- Preserve the existing late-response merge policy: an edit made after a
+  candidate request is the user's newer intent. Document that the import
+  ledger records an application event rather than immutable current content,
+  and remove the unused command parameter from reconciliation.
+- Do not remove the legacy approve/acknowledge endpoints in this unit. Mark
+  them as compatibility-only so an already-open older client and stored
+  `APPROVED`/unapplied candidates retain a recovery path through atomic apply.
+- Verify each invariant with focused tests before repository-wide static
+  checks. No new candidate status or user-facing conflict state is planned.
+
+## Unit 9 implementation checkpoints
+
+- Checkpoint 1 complete: rejection now validates only the rejection reason and
+  candidate transition. Payload, apply-mode, section, and relationship rules
+  run only for approval. A database regression test stores a deliberately
+  obsolete payload and verifies that rejection still completes the import.
+- Checkpoint 2 complete: the document model now owns the typed built-in
+  section-kind lookup. Candidate validation consumes that function instead of
+  maintaining a second ID-kind table, and a model test checks every seeded
+  built-in section against the lookup.
+- Checkpoint 3 complete: late candidate response reconciliation keeps its
+  last-user-edit-wins policy without introducing another conflict state. The
+  ledger type now states that it records a durable application event, the
+  reconciliation code states the overlapping-edit rule, and its unused command
+  parameter was removed. The new client also no longer requires the legacy
+  command echo in an otherwise valid atomic-apply response.
+- Checkpoint 4 complete: legacy APPROVE decision and acknowledgement routes
+  remain operational for old clients but advertise atomic apply with standard
+  deprecation and successor link headers. REJECT is not marked deprecated, and
+  stored approved/unapplied candidates remain accepted by atomic apply.

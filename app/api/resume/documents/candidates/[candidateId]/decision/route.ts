@@ -20,10 +20,17 @@ export async function POST(
     const { candidateId } = await params;
     const parsed = validateBody(DecisionBody, await request.json());
     if (!parsed.ok) return NextResponse.json(parsed.body, { status: parsed.status });
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       ...(await decideResumeDocumentCandidate({ candidateId, userId: user.id, ...parsed.data })),
     });
+    // APPROVE is compatibility-only for clients opened before atomic apply was
+    // introduced. REJECT remains the active decision contract.
+    if (parsed.data.decision === "APPROVE") {
+      response.headers.set("Deprecation", "@1788134400");
+      response.headers.set("Link", `</api/resume/documents/candidates/${candidateId}/apply>; rel="successor-version"`);
+    }
+    return response;
   } catch (error) {
     return resumeDocumentApiError(error);
   }

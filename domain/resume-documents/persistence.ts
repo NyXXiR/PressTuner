@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import type { ResumeDocumentImportCommand } from "./importCandidate";
 import type { ResumeDocumentState } from "./model";
 
 export const RESUME_DOCUMENT_SYNC_STORAGE_KEY = "presstuner:resume-documents:sync:v1";
@@ -135,7 +134,6 @@ export function resolveResumeDocumentCandidateApplication(input: {
   currentState: ResumeDocumentState;
   requestedState: ResumeDocumentState;
   serverState: ResumeDocumentState;
-  command: ResumeDocumentImportCommand;
 }) {
   if (sameResumeDocumentState(input.currentState, input.requestedState)) {
     return {
@@ -145,6 +143,9 @@ export function resolveResumeDocumentCandidateApplication(input: {
     };
   }
 
+  // The server result represents the durable application event. Edits made
+  // after the request are newer user intent, so a true leaf-level overlap
+  // keeps the current value while retaining the server's import-ledger entry.
   const state = mergeConcurrentValue(
     input.requestedState,
     input.currentState,

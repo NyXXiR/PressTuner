@@ -16,7 +16,10 @@ import {
   type ResumeDocumentImportCommand,
   type ResumeDocumentCandidatePayload,
 } from "@/domain/resume-documents/importCandidate";
-import type { ResumeDocumentState } from "@/domain/resume-documents/model";
+import {
+  builtInResumeSectionKind,
+  type ResumeDocumentState,
+} from "@/domain/resume-documents/model";
 import { prisma } from "@/lib/prisma";
 import {
   persistedResumeDocumentResult,
@@ -37,20 +40,9 @@ export function resumeDocumentPayloadHash(payload: ResumeDocumentCandidatePayloa
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
-const builtInSectionKinds = new Map<string, ReturnType<typeof resumeDocumentPayloadSectionKind>>([
-  ["profile", "identity"],
-  ["summary", "narrative"],
-  ["experience", "items"],
-  ["projects", "items"],
-  ["skills", "tags"],
-  ["education", "items"],
-  ["credentials", "items"],
-  ["eligibility", "eligibility"],
-]);
-
 function assertBuiltInTargetCompatibility(payload: ResumeDocumentCandidatePayload, targetSectionId: string) {
   const canonicalTarget = canonicalResumeDocumentTargetSectionId(targetSectionId);
-  const targetKind = builtInSectionKinds.get(canonicalTarget);
+  const targetKind = builtInResumeSectionKind(canonicalTarget);
   if (targetKind && resumeDocumentPayloadSectionKind(payload) !== targetKind) {
     throw serviceError(400, "RESUME_DOCUMENT_SECTION_KIND_MISMATCH", "Built-in section is not compatible with the candidate payload");
   }
@@ -321,11 +313,11 @@ export async function decideResumeDocumentCandidate(input: {
     if (wanted === CareerCandidateStatus.REJECTED && !reason) {
       throw serviceError(400, "RESUME_DOCUMENT_REJECTION_REASON_REQUIRED", "Rejection reason is required");
     }
-    const approvedPayload = ResumeDocumentCandidatePayloadSchema.parse(current.payload);
-    if (!isResumeDocumentApplyModeAllowed(approvedPayload, current.applyMode)) {
-      throw serviceError(400, "RESUME_DOCUMENT_APPLY_MODE_INVALID", "Apply mode is not compatible with the candidate payload");
-    }
     if (wanted === CareerCandidateStatus.APPROVED) {
+      const approvedPayload = ResumeDocumentCandidatePayloadSchema.parse(current.payload);
+      if (!isResumeDocumentApplyModeAllowed(approvedPayload, current.applyMode)) {
+        throw serviceError(400, "RESUME_DOCUMENT_APPLY_MODE_INVALID", "Apply mode is not compatible with the candidate payload");
+      }
       assertBuiltInTargetCompatibility(approvedPayload, current.targetSectionId);
       assertCareerRelationshipReviewed(approvedPayload);
     }
@@ -351,6 +343,10 @@ export async function decideResumeDocumentCandidate(input: {
   return result;
 }
 
+/**
+ * Compatibility path for clients that saved the document before acknowledging
+ * application. New clients must use applyResumeDocumentCandidate atomically.
+ */
 export async function acknowledgeResumeDocumentCandidateApplied(input: {
   candidateId: string;
   userId: string;

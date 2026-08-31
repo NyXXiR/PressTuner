@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ResumeDocumentImportCommand } from "@/domain/resume-documents/importCandidate";
 import {
   RESUME_DOCUMENT_STORAGE_KEY,
   createResumeDocumentSeed,
@@ -43,15 +42,13 @@ async function responseDocument(response: Response) {
 }
 
 async function responseCandidateDocument(response: Response) {
-  const body = await response.json() as { document?: unknown; command?: unknown };
+  const body = await response.json() as { document?: unknown };
   if (!response.ok || !body.document || typeof body.document !== "object") {
     throw new Error(`RESUME_DOCUMENT_REQUEST_FAILED:${response.status}`);
   }
   const document = parseDocumentRecord(body.document);
-  if (!document || !body.command || typeof body.command !== "object") {
-    throw new Error("RESUME_DOCUMENT_RESPONSE_INVALID");
-  }
-  return { ...document, command: body.command as ResumeDocumentImportCommand };
+  if (!document) throw new Error("RESUME_DOCUMENT_RESPONSE_INVALID");
+  return document;
 }
 
 export function useResumeDocumentPersistence() {
@@ -305,7 +302,6 @@ export function useResumeDocumentPersistence() {
         currentState: stateRef.current,
         requestedState,
         serverState: document.state,
-        command: document.command,
       });
       const serialized = JSON.stringify(resolved.state);
       const serverSerialized = JSON.stringify(document.state);

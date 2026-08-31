@@ -77,7 +77,6 @@ test("a late candidate response preserves edits made after the application reque
     requestedState,
     currentState: editedState,
     serverState,
-    command,
   });
 
   assert.equal(resolved.needsSave, true);
@@ -103,7 +102,7 @@ test("a late candidate response keeps a newer edit to the same field", () => {
   };
   const serverState = applyResumeImportCommand(requestedState, command);
 
-  const resolved = resolveResumeDocumentCandidateApplication({ requestedState, currentState: editedState, serverState, command });
+  const resolved = resolveResumeDocumentCandidateApplication({ requestedState, currentState: editedState, serverState });
 
   const summary = resolved.state.sharedSections.find((section) => section.id === "summary");
   assert.equal((summary?.content as { body?: string }).body, "요청 후 사용자가 직접 쓴 소개");
@@ -130,7 +129,7 @@ test("a late candidate response merges role custom sections instead of losing th
   };
   const serverState = applyResumeImportCommand(requestedState, command);
 
-  const resolved = resolveResumeDocumentCandidateApplication({ requestedState, currentState, serverState, command });
+  const resolved = resolveResumeDocumentCandidateApplication({ requestedState, currentState, serverState });
   const section = resolved.state.roleProfiles.find((profile) => profile.id === profileId)?.customSections.find((item) => item.id === added.section.id);
   assert.equal(section?.title, "요청 후 바꾼 제목");
   assert.equal((section?.content as { body?: string }).body, "가져온 직군 소개");
@@ -155,7 +154,7 @@ test("an appended item and a concurrent edit to an existing starter item both su
   };
   const serverState = applyResumeImportCommand(requestedState, command);
 
-  const resolved = resolveResumeDocumentCandidateApplication({ requestedState, currentState, serverState, command });
+  const resolved = resolveResumeDocumentCandidateApplication({ requestedState, currentState, serverState });
   const items = resolved.state.sharedSections.find((section) => section.id === "experience")!.content as ItemsContent;
   assert.equal(items.items.find((item) => item.id === "starter-work-current")?.body, "요청 후 사용자가 수정한 경력");
   assert.ok(items.items.some((item) => item.title === "새 회사"));
