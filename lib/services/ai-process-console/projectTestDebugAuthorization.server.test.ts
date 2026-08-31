@@ -20,7 +20,7 @@ test("project TEST-debug authorization denies missing, unknown, expired, deleted
 test("authorization returns the stable DB user ID and ignores submitted identity fields", async () => {
   const input = { ...request, operatorSubject: "spoofed", email: "spoofed@example.com" };
   assert.deepEqual(await authorizeProjectTestDebugSession(input, { loadSession: async () => active, superAdmin: () => true }), { schemaVersion: "2.0", authorized: false });
-  const result = await authorizeProjectTestDebugSession(request, { loadSession: async (credential) => { assert.equal(credential, "opaque-sid"); return active; }, superAdmin: (email) => email === active.user.email });
+  const result = await authorizeProjectTestDebugSession(request, { loadSession: async (credential) => { assert.equal(credential, "opaque-sid"); return active; }, now: () => new Date("2026-08-25T08:00:00.000Z"), superAdmin: (email) => email === active.user.email });
   assert.deepEqual(result, { schemaVersion: "2.0", authorized: true, operatorSubject: "db-user-1", decisionCode: "OPERATOR_AUTHORIZED" });
   assert.notEqual((result as { operatorSubject?: string }).operatorSubject, active.user.email);
 });

@@ -21,14 +21,17 @@ import {
 
 const secret = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG";
 
-test("rolling quota accepts exactly six starts and calculates retry after", () => {
+test("rolling quota accepts the configured number of starts and calculates retry after", () => {
   let session = createPressRagSession();
-  for (let index = 0; index < 6; index += 1) session = acceptPressRagStart(session, index * 1000);
-  assert.deepEqual(pressRagQuota(session, 5_000), { remainingStarts: 0, retryAfterSeconds: 595 });
-  assert.throws(() => acceptPressRagStart(session, 5_000), (error: unknown) => error instanceof PressRagSecurityError && error.status === 429 && error.details.retryAfterSeconds === 595);
-  const pruned = acceptPressRagStart(session, 600_001);
-  assert.equal(pruned.starts.length, 6);
-  assert.equal(pressRagQuota(pruned, 600_001).remainingStarts, 0);
+  const latestStart = (PUBLIC_PRESS_RAG_LIMITS.starts - 1) * 1000;
+  const retryAfterSeconds = PUBLIC_PRESS_RAG_LIMITS.windowSeconds - (PUBLIC_PRESS_RAG_LIMITS.starts - 1);
+  for (let index = 0; index < PUBLIC_PRESS_RAG_LIMITS.starts; index += 1) session = acceptPressRagStart(session, index * 1000);
+  assert.deepEqual(pressRagQuota(session, latestStart), { remainingStarts: 0, retryAfterSeconds });
+  assert.throws(() => acceptPressRagStart(session, latestStart), (error: unknown) => error instanceof PressRagSecurityError && error.status === 429 && error.details.retryAfterSeconds === retryAfterSeconds);
+  const afterWindow = PUBLIC_PRESS_RAG_LIMITS.windowSeconds * 1000 + 1;
+  const pruned = acceptPressRagStart(session, afterWindow);
+  assert.equal(pruned.starts.length, PUBLIC_PRESS_RAG_LIMITS.starts);
+  assert.equal(pressRagQuota(pruned, afterWindow).remainingStarts, 0);
 });
 
 test("starting again after the rolling window prunes the oldest run record", () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PUBLIC_PRESS_RAG_EVIDENCE } from "@/domain/demo/pressRagScenarioContract";
+import { PUBLIC_PRESS_RAG_EVIDENCE, PUBLIC_PRESS_RAG_LIMITS } from "@/domain/demo/pressRagScenarioContract";
 import { writePressRagSession } from "./pressRagScenarioSecurity";
 import { commandPublicPressRagScenario, startPublicPressRagScenario, type PressRagCompletionKind } from "./pressRagScenarioService";
 
@@ -34,7 +34,7 @@ test("service stores exact business input/output and keeps model completion inje
   assert.equal(calls[0].kind, "normalization");
   assert.equal((calls[0].input as { rawText: string }).rawText, memo);
   assert.equal(result.scenario.attempt.status, "BLOCKED");
-  assert.equal(result.scenario.commandsRemaining, 17);
+  assert.equal(result.scenario.commandsRemaining, PUBLIC_PRESS_RAG_LIMITS.commandBudget - 3);
 });
 
 test("provider failure consumes a command and returns a recoverable capability", async () => {

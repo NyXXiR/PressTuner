@@ -7,7 +7,7 @@ import {
 } from "@/lib/services/article/generationUseCases";
 import { getUsageSummaryUseCase } from "@/lib/services/article/usageUseCases";
 import { getUsageSummaryForTeam } from "@/lib/services/usageService";
-import { consumeAiQuota } from "@/domain/quota/aiQuota";
+
 import { finalizeVerifiedArticle } from "@/lib/services/article/articleFinalizationService";
 import { type ArticleType } from "@prisma/client";
 import { serviceError } from "@/lib/services/serviceError";
@@ -214,16 +214,6 @@ export async function generateArticleFromBrief(input: {
       usage: currentUsage,
     });
   }
-
-  await prisma.$transaction(async (tx) => {
-    await consumeAiQuota({
-      teamId: input.teamId,
-      userId: input.userId,
-      targetId: input.articleId,
-      action: "press_draft_generate",
-      client: tx,
-    });
-  });
 
   const result = await generateFromBriefUseCase({
     teamId: input.teamId,

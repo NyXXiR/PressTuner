@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 
+import { PressDomainError } from "@/domain/press/pressProcess";
 import { prisma } from "@/lib/prisma";
 import { finalizeVerifiedArticle } from "./articleFinalizationService";
 import { verifyArticle } from "./articleVerificationService";
@@ -11,7 +12,7 @@ async function fixture() {
   const user = await prisma.user.create({ data: { loginId: `efc-verification-${suffix}`, label: "EFC verification" } });
   const team = await prisma.team.create({ data: { slug: `efc-verification-${suffix}`, name: "EFC verification" } });
   const article = await prisma.article.create({ data: {
-    teamId: team.id, userId: user.id, status: "DRAFT", title: "Bridge 실적",
+    teamId: team.id, userId: user.id, status: "IN_PROGRESS", title: "Bridge 실적",
     bodyJson: { paragraphs: [{ text: "Bridge는 2026년 매출 360억원을 기록했습니다." }] },
   } });
   const document = await prisma.knowledgeDocument.create({ data: {
@@ -45,7 +46,10 @@ test("automatic contradiction blocks, corrected verification passes, and final c
     assert.equal(blocked.findings[0]?.claim, "DRAFT_CONFLICT");
     assert.ok(acceptedIds[0]?.some((id) => id.startsWith("efc:")));
     assert.ok(blocked.findings[0]?.evidenceFactIds.every((id) => !id.startsWith("efc:")));
-    await assert.rejects(finalizeVerifiedArticle({ articleId: article.id, teamId: team.id }), /ARTICLE_VERIFICATION_BLOCKED/);
+    await assert.rejects(
+      finalizeVerifiedArticle({ articleId: article.id, teamId: team.id }),
+      (error: unknown) => error instanceof PressDomainError && error.code === "ARTICLE_VERIFICATION_BLOCKED",
+    );
 
     await prisma.article.update({ where: { id: article.id }, data: {
       bodyJson: { paragraphs: [{ text: "Bridge는 2026년 매출 20,000,000,000원을 기록했습니다." }] },
@@ -63,6 +67,9 @@ test("automatic contradiction blocks, corrected verification passes, and final c
       excerpt: "Bridge는 2026년 매출 200억원을 기록했다.",
     }]);
   } finally {
+    await prisma.articleFinalCitation.deleteMany({ where: { articleId: article.id } });
+    await prisma.articleDraftEvidence.deleteMany({ where: { articleId: article.id } });
+    await prisma.article.deleteMany({ where: { id: article.id } });
     await prisma.team.deleteMany({ where: { id: team.id } });
     await prisma.user.deleteMany({ where: { id: user.id } });
   }
