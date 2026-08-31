@@ -50,9 +50,8 @@ short note about any remaining follow-up.
 
 ## Current resume point
 
-Units 0–8 were promoted to `origin/master`. Unit 9 is implemented and fully
-verified on the feature branch and is ready for fast-forward promotion. The
-separately checked-out local `master` remains untouched because its worktree
+Units 0–9 were fully verified and promoted to `origin/master` by fast-forward.
+The separately checked-out local `master` remains untouched because its worktree
 contains unrelated user changes. The pre-continuation tracked diff remains recoverable from
 `refs/backup/resume-documents-hermes-handoff`.
 
@@ -109,6 +108,9 @@ contains unrelated user changes. The pre-continuation tracked diff remains recov
   temporary `/home/nyxxir` Turbopack root; `next.config.ts` and `tsconfig.json`
   were restored byte-for-byte, and `.next-unit9-review` was moved to
   `/tmp/presstuner-next-unit9-review-20260831-e7fbd99`.
+- Unit 9 promotion: fetched an unchanged `origin/master` at `5aabff2`, pushed
+  the verified commits without force, and confirmed the remote ref matched the
+  promoted feature branch.
 
 ## Unit 1 implementation notes
 
