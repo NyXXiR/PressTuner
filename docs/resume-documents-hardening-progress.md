@@ -46,12 +46,12 @@ short note about any remaining follow-up.
 | 6 | Retention, copy, metadata, hydration cleanup (F11/F13/F14) | Complete | 130 targeted tests + ESLint + `tsc --noEmit` |
 | 7 | Full regression verification | Complete with baseline blockers | Full ESLint passed with existing warnings; full test/build blockers documented below |
 | 8 | Hermes handoff concurrency and recovery review | Complete | 146 targeted tests, 319-file full suite, lint, TypeScript, production build, Chromium QA |
-| 9 | Domain exit paths and contract simplification | Complete | 221 focused regression tests + ESLint + `tsc --noEmit` |
+| 9 | Domain exit paths and contract simplification | Complete | 221 focused tests, 319-file full suite, lint, TypeScript, production build |
 
 ## Current resume point
 
-Units 0–8 were promoted to `origin/master`. Unit 9 is implemented and verified
-on the feature branch but has not been promoted to `origin/master`. The
+Units 0–8 were promoted to `origin/master`. Unit 9 is implemented and fully
+verified on the feature branch and is ready for fast-forward promotion. The
 separately checked-out local `master` remains untouched because its worktree
 contains unrelated user changes. The pre-continuation tracked diff remains recoverable from
 `refs/backup/resume-documents-hermes-handoff`.
@@ -101,6 +101,14 @@ contains unrelated user changes. The pre-continuation tracked diff remains recov
 - Unit 9: the first direct database-test invocation had no `DATABASE_URL`; it
   made no database connection. The guarded repository runner was then used,
   confirmed `presstuner_test`, and passed all selected database tests.
+- Unit 9 final gate: full repository suite — 319 test files, 0 failures.
+- Unit 9 final gate: full ESLint — 0 errors / 76 existing warnings; clean
+  `npx tsc --noEmit` passed.
+- Unit 9 final gate: Next 16 Turbopack production build passed, including all
+  151 static pages. The isolated worktree required the previously verified
+  temporary `/home/nyxxir` Turbopack root; `next.config.ts` and `tsconfig.json`
+  were restored byte-for-byte, and `.next-unit9-review` was moved to
+  `/tmp/presstuner-next-unit9-review-20260831-e7fbd99`.
 
 ## Unit 1 implementation notes
 
