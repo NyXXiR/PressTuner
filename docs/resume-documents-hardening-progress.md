@@ -44,9 +44,11 @@ short note about any remaining follow-up.
 
 ## Current resume point
 
-Implementation and verification are complete. The branch is ready to
-fast-forward `master` and push. The pre-continuation tracked diff remains
-recoverable from `refs/backup/resume-documents-hermes-handoff`.
+Implementation and verification are complete and the verified fast-forward was
+promoted to `origin/master`. The separately checked-out local `master` was left
+untouched because its worktree contains unrelated user changes. The
+pre-continuation tracked diff remains recoverable from
+`refs/backup/resume-documents-hermes-handoff`.
 
 ## Validation log
 
@@ -85,6 +87,8 @@ recoverable from `refs/backup/resume-documents-hermes-handoff`.
   disposable user, team, session, source, import, and document data removed.
 - Unit 8: fetched `origin/master`; it remained `da2ef11`, so integration was a
   no-op and the verified branch is a six-commit fast-forward.
+- Unit 8: pushed the verified history to `origin/master` without force and
+  confirmed the remote ref matched the source branch HEAD.
 
 ## Unit 1 implementation notes
 
