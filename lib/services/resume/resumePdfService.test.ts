@@ -354,6 +354,53 @@ test("service renders blank and legacy item month strings without mutating the s
   }
 });
 
+test("project details wrap at the available width and preserve authored line breaks", { timeout: 30_000 }, async () => {
+  const body = [
+    "검색과 답변의 근거를 확인할 수 있도록 지식 검색 기능을 구현했습니다. 사용자의 질문과 문서의 내용을 연결하고 검색 과정을 기록했습니다. 검색 로그도 기록했습니다.",
+    "팀 사용자 범위로 분리된 지식에서 관련 자료를 검색하고 답변에 필요한 근거를 찾아 출처와 함께 제공했습니다.",
+    "운영 중 수집한 질문을 바탕으로 검색 품질과 응답 속도를 개선했습니다.",
+  ].join("\n");
+
+  for (const layout of ["standard", "compact", "cards"] as const) {
+    const snapshot = structuredClone(resumePdfFixture);
+    snapshot.relatedWorkItems = [];
+    snapshot.sections = [{
+      id: "projects",
+      title: "주요 프로젝트 및 성과",
+      kind: "items",
+      layout,
+      content: {
+        items: [{ id: "knowledge-search", itemKind: "career-detail", meta: "2025", title: "지식 검색 기능 개발", subtitle: "", body }],
+      },
+    }];
+
+    const generated = await generateResumePdf(snapshot);
+    const pdf = await getDocumentProxy(new Uint8Array(generated.bytes), { disableWorker: true } as never);
+    try {
+      assert.equal(pdf.numPages, 1);
+      const content = await (await pdf.getPage(1)).getTextContent();
+      const lines = new Map<number, string>();
+      for (const item of content.items) {
+        if (!("str" in item)) continue;
+        const baseline = item.transform[5];
+        lines.set(baseline, (lines.get(baseline) ?? "") + item.str);
+      }
+      const renderedLines = [...lines.values()];
+      const sentenceLine = renderedLines.find((line) => line.startsWith("팀 사용자 범위로"));
+      assert.ok(
+        sentenceLine?.includes("팀 사용자 범위로 분리된 지식에서 관련 자료를 검색하고"),
+        `${layout}: project text must fill the line instead of breaking after an arbitrary character count: ${sentenceLine}`,
+      );
+      assert.ok(renderedLines.some((line) => line.startsWith("운영 중 수집한 질문")), "authored newlines must be preserved");
+      const bodyStart = renderedLines.findIndex((line) => line.startsWith("검색과 답변의 근거"));
+      assert.ok(bodyStart >= 0);
+      assert.equal(renderedLines.slice(bodyStart).join("").replace(/\s/gu, ""), body.replace(/\s/gu, ""));
+    } finally {
+      await pdf.destroy();
+    }
+  }
+});
+
 test("long career items move their opening together and still split when they exceed a page", { timeout: 30_000 }, async () => {
   const snapshot = structuredClone(resumePdfFixture);
   const filler = Array.from({ length: 32 }, (_, index) =>

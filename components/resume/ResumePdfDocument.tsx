@@ -32,8 +32,11 @@ const mm = (value: number) => value * 72 / 25.4;
 const EMPTY_COPY = "입력된 정보가 없습니다.";
 const SECTION_OPENING_PRESENCE_POINTS = 72;
 const ITEM_UNBREAKABLE_BODY_UNITS = 220;
-const ITEM_OPENING_BODY_UNITS = 180;
 const ITEM_BODY_WIDOWS = 3;
+// Bodies shorter than twice the widow/orphan count cannot split, so reserve
+// enough room for those bodies too (up to five lines with a count of three).
+const ITEM_BODY_OPENING_POINTS = mm(RESUME_DOCUMENT_LAYOUT.itemBodyTopGapMm)
+  + (2 * ITEM_BODY_WIDOWS - 1) * RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt * RESUME_DOCUMENT_LAYOUT.itemBodyLineHeight;
 const TAG_ROW_WIDTH_SAFETY_POINTS = 2;
 const UNINTERRUPTED_TEXT = /\S{24,}/gu;
 const FULL_WIDTH_GLYPH_EM = 0.94;
@@ -91,6 +94,7 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   company: { color: "#64748b", fontSize: RESUME_DOCUMENT_LAYOUT.companyFontSizePt, fontWeight: 700, letterSpacing: 1.2 },
   role: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.roleTopGapMm), fontSize: RESUME_DOCUMENT_LAYOUT.roleFontSizePt, fontWeight: 800 },
   section: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.sectionGapMm) },
+  documentEnd: { marginBottom: 0 },
   sectionHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingGapMm), marginBottom: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingBottomGapMm), paddingBottom: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingBottomPaddingMm), borderBottomWidth: mm(RESUME_DOCUMENT_LAYOUT.sectionHeadingBorderWidthMm), borderBottomColor: "#0f172a" },
   sectionTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.sectionTitleFontSizePt, fontWeight: 800 },
   duration: { color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.durationFontSizePt, fontWeight: 700 },
@@ -105,17 +109,16 @@ function createStyles(StyleSheet: ReactPdfRenderer["StyleSheet"]) {
   facts: { flexDirection: "row", flexWrap: "wrap", gap: mm(3), marginTop: mm(RESUME_IDENTITY_LAYOUT.factsTopGapMm), paddingTop: mm(RESUME_IDENTITY_LAYOUT.factsTopPaddingMm), borderTopWidth: mm(0.2), borderTopColor: "#e2e8f0", color: "#64748b", fontSize: RESUME_IDENTITY_LAYOUT.factsFontSizePt },
   photo: { width: mm(RESUME_IDENTITY_LAYOUT.photoWidthMm), height: mm(RESUME_IDENTITY_LAYOUT.photoHeightMm), objectFit: "cover", borderWidth: mm(0.3), borderColor: "#cbd5e1" },
   empty: { color: "#94a3b8", fontSize: RESUME_DOCUMENT_LAYOUT.emptyFontSizePt },
-  item: { flexDirection: "row", gap: mm(RESUME_DOCUMENT_LAYOUT.itemColumnGapMm), marginBottom: mm(RESUME_DOCUMENT_LAYOUT.itemGapMm) },
-  itemFlow: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.itemGapMm) },
+  item: { flexDirection: "row", gap: mm(RESUME_DOCUMENT_LAYOUT.itemColumnGapMm) },
+  itemSpacing: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.itemGapMm) },
   itemRow: { flexDirection: "row", gap: mm(RESUME_DOCUMENT_LAYOUT.itemColumnGapMm) },
   itemPeriod: { width: mm(RESUME_DOCUMENT_LAYOUT.itemPeriodWidthMm), flexShrink: 0, color: "#64748b", fontSize: RESUME_DOCUMENT_LAYOUT.itemPeriodFontSizePt, fontWeight: 700 },
-  itemPeriodSpacer: { width: mm(RESUME_DOCUMENT_LAYOUT.itemPeriodWidthMm), flexShrink: 0 },
   itemCopy: { flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
   detailType: { color: "#ea580c", fontSize: RESUME_DOCUMENT_LAYOUT.detailTypeFontSizePt, fontWeight: 800 },
   itemTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.itemTitleFontSizePt, fontWeight: 800 },
   itemSubtitle: { color: "#ea580c", fontSize: RESUME_DOCUMENT_LAYOUT.itemSubtitleFontSizePt, fontWeight: 700 },
   itemBody: { marginTop: mm(RESUME_DOCUMENT_LAYOUT.itemBodyTopGapMm), color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt, lineHeight: RESUME_DOCUMENT_LAYOUT.itemBodyLineHeight },
-  itemBodyContinuation: { color: "#475569", fontSize: RESUME_DOCUMENT_LAYOUT.itemBodyFontSizePt, lineHeight: RESUME_DOCUMENT_LAYOUT.itemBodyLineHeight },
+  flowingItemBody: { marginLeft: mm(RESUME_DOCUMENT_LAYOUT.itemPeriodWidthMm + RESUME_DOCUMENT_LAYOUT.itemColumnGapMm) },
   group: { paddingLeft: mm(RESUME_DOCUMENT_LAYOUT.groupLeftPaddingMm), borderLeftWidth: mm(RESUME_DOCUMENT_LAYOUT.groupBorderWidthMm), borderLeftColor: "#cbd5e1", marginBottom: mm(RESUME_DOCUMENT_LAYOUT.groupGapMm) },
   groupHeading: { marginBottom: mm(RESUME_DOCUMENT_LAYOUT.groupHeadingBottomGapMm) },
   groupTitle: { fontSize: RESUME_DOCUMENT_LAYOUT.groupTitleFontSizePt, fontWeight: 800 },
@@ -193,22 +196,6 @@ function EligibilitySection({ section }: { section: Extract<ResumePdfSection, { 
     : <EmptyCopy>선택한 정보가 없습니다.</EmptyCopy>}</View>;
 }
 
-function splitItemBodyOpening(body: string): [opening: string, continuation: string] {
-  let units = 0;
-  let index = 0;
-  let nearbyBoundary = 0;
-  for (const character of body) {
-    index += character.length;
-    units += /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Extended_Pictographic}]/u.test(character) ? 2 : 1;
-    if (units >= ITEM_OPENING_BODY_UNITS * 0.9 && /[\s.,;:!?\u2026\u00b7•。！？、]/u.test(character)) nearbyBoundary = index;
-    if (units >= ITEM_OPENING_BODY_UNITS) {
-      const splitAt = nearbyBoundary || index;
-      return [body.slice(0, splitAt), body.slice(splitAt)];
-    }
-  }
-  return [body, ""];
-}
-
 function itemBodyUnits(item: ItemContent) {
   const text = item.bodyBlocks?.length
     ? item.bodyBlocks.flatMap((block) => block.runs.map((run) => run.text)).join("\n")
@@ -228,28 +215,25 @@ function RichItemBody({ item, variant = "item" }: { item: ItemContent; variant?:
   })}</View>;
 }
 
-function ResumeItem({ item, detailLabel, grouped = false }: { item: ItemContent; detailLabel?: string; grouped?: boolean }) {
+function ResumeItem({ item, detailLabel, grouped = false, spaceBefore = false }: { item: ItemContent; detailLabel?: string; grouped?: boolean; spaceBefore?: boolean }) {
   const compact = itemBodyUnits(item) <= ITEM_UNBREAKABLE_BODY_UNITS;
   const subtitle = careerDetailSubtitle(item, grouped);
   if (!compact && !item.bodyBlocks?.length) {
-    const [openingBody, continuationBody] = splitItemBodyOpening(item.body);
-    return <View style={styles.itemFlow} wrap>
-      <View style={styles.itemRow} wrap={false}>
+    // Keep headings and body as direct siblings so presence uses the measured
+    // heading height. Spacing before items cannot spill onto a blank final page.
+    return <>
+      <View minPresenceAhead={ITEM_BODY_OPENING_POINTS} style={[styles.itemRow, spaceBefore ? styles.itemSpacing : undefined]} wrap={false}>
         <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
         <View style={styles.itemCopy}>
           {detailLabel ? <Text style={styles.detailType}>{detailLabel}</Text> : null}
           <Text style={styles.itemTitle}>{item.title || "제목 미입력"}</Text>
           {subtitle ? <Text style={styles.itemSubtitle}>{subtitle}</Text> : null}
-          <Text style={styles.itemBody}>{openingBody}</Text>
         </View>
       </View>
-      {continuationBody ? <View style={styles.itemRow}>
-        <View style={styles.itemPeriodSpacer} />
-        <Text orphans={ITEM_BODY_WIDOWS} style={[styles.itemCopy, styles.itemBodyContinuation]} widows={ITEM_BODY_WIDOWS}>{continuationBody}</Text>
-      </View> : null}
-    </View>;
+      <Text orphans={ITEM_BODY_WIDOWS} style={[styles.itemBody, styles.flowingItemBody]} widows={ITEM_BODY_WIDOWS}>{item.body}</Text>
+    </>;
   }
-  return <View style={styles.item} wrap={Boolean(item.bodyBlocks?.length && !compact)}>
+  return <View style={[styles.item, spaceBefore ? styles.itemSpacing : undefined]} wrap={Boolean(item.bodyBlocks?.length && !compact)}>
     <Text style={styles.itemPeriod}>{formatItemPeriod(item)}</Text>
     <View style={styles.itemCopy}>
       <View wrap={false}>
@@ -322,7 +306,7 @@ function TagsSection({ section }: { section: Extract<ResumePdfSection, { kind: "
     : <EmptyCopy />}</>;
 }
 
-function GroupedCareerSection({ relatedWorkItems, section }: { relatedWorkItems: ItemContent[]; section: Extract<ResumePdfSection, { kind: "items" }> }) {
+function GroupedCareerSection({ relatedWorkItems, section, lastSection }: { relatedWorkItems: ItemContent[]; section: Extract<ResumePdfSection, { kind: "items" }>; lastSection: boolean }) {
   const grouped = groupCareerDetails(relatedWorkItems, section.content.items, { detailSortDirection: section.content.sortDirection });
   const independentGroupTitle = resolveIndependentCareerDetailGroupTitle(section.content);
   const unorderedGroups = [
@@ -333,20 +317,20 @@ function GroupedCareerSection({ relatedWorkItems, section }: { relatedWorkItems:
   const groups = section.content.sortDirection
     ? unorderedGroups
     : orderCareerDetailDisplayGroups(unorderedGroups, grouped.detailGroupOrder);
-  return <><SectionHeading section={section} />{groups.length ? groups.map((group) => <View key={group.id} style={styles.group}>
+  return <><SectionHeading section={section} />{groups.length ? groups.map((group, index) => <View key={group.id} style={[styles.group, lastSection && index === groups.length - 1 ? styles.documentEnd : undefined]}>
     <View minPresenceAhead={42} style={styles.groupHeading} wrap={false}>
       <Text style={[styles.groupTitle, group.warning ? styles.warning : {}]}>{group.title}</Text>
       {group.meta ? <Text style={styles.groupMeta}>{group.meta}</Text> : null}
     </View>
-    {group.items.map((item) => <ResumeItem detailLabel={careerDetailLabel(item)} grouped item={item} key={item.id} />)}
+    {group.items.map((item, index) => <ResumeItem detailLabel={careerDetailLabel(item)} grouped item={item} key={item.id} spaceBefore={index > 0} />)}
   </View>) : <EmptyCopy />}</>;
 }
 
-function ItemsSection({ currentMonth, relatedWorkItems, section }: { currentMonth?: string; relatedWorkItems: ItemContent[]; section: Extract<ResumePdfSection, { kind: "items" }> }) {
+function ItemsSection({ currentMonth, relatedWorkItems, section, lastSection }: { currentMonth?: string; relatedWorkItems: ItemContent[]; section: Extract<ResumePdfSection, { kind: "items" }>; lastSection: boolean }) {
   if (section.layout === "highlight-grid") return <><SectionHeading section={section} />{section.content.items.length
     ? <View style={styles.highlightGrid}>{section.content.items.map((item, index) => <View key={item.id} style={styles.highlightCard} wrap={false}><Text style={styles.highlightIndex}>{String(index + 1).padStart(2, "0")}</Text><Text style={styles.highlightTitle}>{item.title || "강점 제목"}</Text>{item.subtitle ? <Text style={styles.highlightSubtitle}>{item.subtitle}</Text> : null}<RichItemBody item={item} variant="highlight" /></View>)}</View>
     : <EmptyCopy />}</>;
-  if (section.id === "projects") return <GroupedCareerSection relatedWorkItems={relatedWorkItems} section={section} />;
+  if (section.id === "projects") return <GroupedCareerSection lastSection={lastSection} relatedWorkItems={relatedWorkItems} section={section} />;
   const items = section.id === "experience"
     ? sortExperienceItems(section.content.items, section.content.sortDirection)
     : section.content.items;
@@ -357,18 +341,18 @@ function ItemsSection({ currentMonth, relatedWorkItems, section }: { currentMont
     )
     : null;
   return <><SectionHeading duration={duration} section={section} />{items.length
-    ? items.map((item) => <ResumeItem item={item} key={item.id} />)
+    ? items.map((item, index) => <ResumeItem item={item} key={item.id} spaceBefore={index > 0} />)
     : <EmptyCopy />}</>;
 }
 
-function PdfSection({ currentMonth, relatedWorkItems, section }: { currentMonth?: string; relatedWorkItems: ItemContent[]; section: ResumePdfSection }) {
+function PdfSection({ currentMonth, relatedWorkItems, section, lastSection }: { currentMonth?: string; relatedWorkItems: ItemContent[]; section: ResumePdfSection; lastSection: boolean }) {
   const layoutStyle = section.layout === "cards" ? styles.cards : section.layout === "compact" ? styles.compact : undefined;
-  return <View break={section.pageBreakBefore} style={[styles.section, layoutStyle]}>
+  return <View break={section.pageBreakBefore} style={[styles.section, layoutStyle, lastSection ? styles.documentEnd : undefined]}>
     {section.kind === "identity" ? <IdentitySection section={section} /> : null}
     {section.kind === "eligibility" ? <EligibilitySection section={section} /> : null}
     {section.kind === "narrative" ? <NarrativeSection section={section} /> : null}
     {section.kind === "tags" ? <TagsSection section={section} /> : null}
-    {section.kind === "items" ? <ItemsSection currentMonth={currentMonth} relatedWorkItems={relatedWorkItems} section={section} /> : null}
+    {section.kind === "items" ? <ItemsSection currentMonth={currentMonth} lastSection={lastSection} relatedWorkItems={relatedWorkItems} section={section} /> : null}
   </View>;
 }
 
@@ -382,13 +366,15 @@ export function ResumePdfDocument({
   ({ Document, Image, Page, Text, View } = renderer);
   styles ??= createStyles(renderer.StyleSheet);
   const relatedWorkItems = snapshot.relatedWorkItems as ItemContent[];
+  const visibleSections = snapshot.sections.filter((section) => !section.hidden);
   return <Document title={snapshot.documentName} author={snapshot.company}>
     <Page size="A4" style={styles.page} wrap>
       <Header snapshot={snapshot} />
-      {snapshot.sections.filter((section) => !section.hidden).map((section) => <Fragment key={section.id}>
+      {visibleSections.map((section, index) => <Fragment key={section.id}>
         {!section.pageBreakBefore ? <View minPresenceAhead={SECTION_OPENING_PRESENCE_POINTS} /> : null}
         <PdfSection
           currentMonth={snapshot.currentMonth}
+          lastSection={index === visibleSections.length - 1}
           relatedWorkItems={relatedWorkItems}
           section={section}
         />
