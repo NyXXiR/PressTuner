@@ -19,7 +19,12 @@ test("Press Agent execution is server-owned and persists resumable SDK state", (
   assert.match(runtime, /RunState\.fromString/);
   assert.match(runtime, /prisma\.agentRun\.update/);
   assert.match(runtime, /withTrace/);
-  assert.match(runtime, /generateCanonicalTraceId/);
+  assert.match(runtime, /const traceId = generateCanonicalTraceId\(\)/);
+  assert.match(
+    runtime,
+    /const traceId = runRecord\.traceId \?\? generateCanonicalTraceId\(\)/,
+  );
+  assert.equal(runtime.match(/\n\s+traceId,\n\s+groupId:/g)?.length, 2);
   assert.match(runtime, /traceLangSmithOperation/);
   assert.match(runtime, /estimatedCostMicros/);
   assert.match(runtime, /kind:\s*"MODEL"/);
