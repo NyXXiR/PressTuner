@@ -22,6 +22,12 @@ Start here when working in `PressTuner`.
 - Zustand stores: `stores/`
 - Existing design/product notes: `docs/`
 
+## Headless press workflow
+
+- For prompt customization, draft guardrails, or headless workflow work, start with `docs/ai/press-workflow/README.md`. It records the goal, current evidence, next action, and folder boundaries for another AI.
+- Keep this slice in `domain/press-workflow/`, `lib/services/press-workflow/`, `scripts/press-workflow/`, and `evals/press-workflow/`; reuse the production article generator. The handoff lists the limited shared-file exceptions.
+- Use `npm run test:press-workflow`, `npm run typecheck:press-workflow`, and `npm run workflow:press` for fast checks without Next.js, a database, or an API key. Mock success does not establish model quality or authorize finalization.
+
 ## Change Order
 
 - Billing or quota change:

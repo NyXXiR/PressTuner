@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeUsedFactIds } from "./articleGenerator";
+import { generateArticleWithLLM, normalizeUsedFactIds } from "./articleGenerator";
 import {
   PRESS_RELEASE_SYSTEM_PROMPT,
   PRESS_RELEASE_USER_PROMPT,
@@ -24,4 +24,26 @@ test("generation normalizes used fact IDs and prompts isolate style examples", (
   assert.match(PRESS_RELEASE_USER_PROMPT, /acceptedFactsSection/);
   assert.match(PRESS_RELEASE_USER_PROMPT, /stylePolicySection/);
   assert.match(PRESS_RELEASE_USER_PROMPT, /styleExamplesSection/);
+});
+
+test("literal input is not treated as replacement syntax or recursively expanded template content", async () => {
+  let prompt = "";
+  await generateArticleWithLLM({
+    announceType: "출시", serviceName: "$& {{toneDesc}}", points: [], tone: "friendly",
+  }, { dependencies: { completeJson: async (request) => {
+    prompt = request.messages[1].content;
+    return '{}';
+  } } });
+  assert.ok(prompt.includes("서비스/제품 이름: $& {{toneDesc}}"));
+});
+
+test("injected time governs tense when the publication date is absent", async () => {
+  let prompt = "";
+  await generateArticleWithLLM({
+    announceType: "출시", points: [], tone: "formal", eventAt: "2040-01-01T00:00:00Z",
+  }, { dependencies: {
+    now: () => new Date("2050-01-01T00:00:00Z"),
+    completeJson: async (request) => { prompt = request.messages[1].content; return '{}'; },
+  } });
+  assert.match(prompt, /사건은 이미 일어났다/);
 });

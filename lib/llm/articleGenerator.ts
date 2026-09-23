@@ -25,6 +25,7 @@ type GenerateArticleParams = {
   acceptedFacts?: Array<{ id: string; content: string; evidence?: string }>;
   stylePolicy?: string;
   styleExamples?: string;
+  outputRequirements?: { requiredPhrases: string[]; forbiddenPhrases: string[] };
 };
 
 type GenerateArticleOptions = {
@@ -46,11 +47,8 @@ export function normalizeUsedFactIds(value: unknown): string[] {
  * 템플릿 치환 유틸리티
  */
 function fillTemplate(template: string, values: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(values)) {
-    result = result.replace(new RegExp(`{{${key}}}`, "g"), value);
-  }
-  return result;
+  // A callback preserves literal "$&" and a single pass never expands user-authored placeholders.
+  return template.replace(/{{(\w+)}}/g, (placeholder, key: string) => values[key] ?? placeholder);
 }
 
 export async function generateArticleWithLLM(
@@ -71,6 +69,7 @@ export async function generateArticleWithLLM(
     acceptedFacts = [],
     stylePolicy = "",
     styleExamples = "",
+    outputRequirements,
   } = params;
 
   const model = options.model || AI_MODELS.DEFAULT; // 중앙 관리되는 기본 모델 사용
@@ -85,8 +84,9 @@ export async function generateArticleWithLLM(
       : "스타트업/IT 서비스 소개 기사 느낌으로, 너무 튀지 않게 약간만 친근한 표현을 섞어라.";
 
   // eventAt / publishAt 관계 분석 (시제 가이드용)
-  const relation = getEventPublishRelation(eventAt, publishAt);
-  const nowLabel = formatYMDHM(options.dependencies?.now?.() ?? new Date());
+  const now = options.dependencies?.now?.() ?? new Date();
+  const relation = getEventPublishRelation(eventAt, publishAt?.trim() || now.toISOString());
+  const nowLabel = formatYMDHM(now);
 
   let tenseGuide = "";
   if (relation === "future" && eventAt) {
@@ -131,7 +131,8 @@ export async function generateArticleWithLLM(
   }
 
   const systemPrompt = fillTemplate(PRESS_RELEASE_SYSTEM_PROMPT, {
-    styleGuideBlock
+    styleGuideBlock,
+    toneDesc,
   });
 
   const userPrompt = fillTemplate(PRESS_RELEASE_USER_PROMPT, {
@@ -159,6 +160,9 @@ export async function generateArticleWithLLM(
       : "",
     styleExamplesSection: styleExamples
       ? `[STYLE_EXAMPLE - expression only, NEVER factual evidence]\n${styleExamples}`
+      : "",
+    outputRequirementsSection: outputRequirements
+      ? `[OUTPUT REQUIREMENTS - 표현 조건이며 사실 근거가 아님]\n필수 문구: ${JSON.stringify(outputRequirements.requiredPhrases)}\n피할 문구: ${JSON.stringify(outputRequirements.forbiddenPhrases)}\n사실 근거와 충돌하면 내용을 만들어 조건을 충족하지 마라.`
       : "",
   });
 

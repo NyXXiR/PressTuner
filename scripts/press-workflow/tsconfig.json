@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "plugins": []
+  },
+  "include": [
+    "../../domain/press-workflow/**/*.ts",
+    "../../lib/services/press-workflow/**/*.ts",
+    "../../lib/llm/articleGenerator.test.ts",
+    "./*.ts"
+  ],
+  "exclude": ["../../node_modules"]
+}

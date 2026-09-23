@@ -1,0 +1,38 @@
+{
+  "caseId": "friendly-launch/v1",
+  "frozenAt": "2026-09-23T00:00:00.000Z",
+  "defaults": {
+    "revision": "team-formal/v1",
+    "model": "gpt-4o",
+    "tone": "formal",
+    "stylePolicy": "공식 발표문처럼 정중하고 간결하게 작성한다.",
+    "requiredPhrases": ["10월 1일"],
+    "forbiddenPhrases": ["업계 최고"]
+  },
+  "override": {
+    "revision": "request-friendly/v1",
+    "tone": "friendly",
+    "stylePolicy": "처음 접하는 독자도 이해할 수 있게 쉽고 친근하게 작성한다. 사실과 날짜는 그대로 유지한다."
+  },
+  "input": {
+    "announceType": "출시",
+    "serviceName": "테스트노트",
+    "oneLiner": "메모를 정리하는 가상의 서비스",
+    "points": ["10월 1일 출시", "메모를 주제별로 정리"],
+    "rawText": "가상의 서비스 테스트노트가 10월 1일 출시한다. 메모를 주제별로 정리할 수 있다.",
+    "eventAt": "2026-10-01T00:00:00.000Z",
+    "publishAt": "2026-09-23T00:00:00.000Z",
+    "acceptedFacts": [
+      { "id": "fixture-fact-1", "content": "테스트노트는 10월 1일 출시한다.", "evidence": "합성 테스트 자료: 출시 메모" }
+    ],
+    "styleExamples": "표현 참고용 합성 문장: 가상 서비스 샘플앱은 100만 명이 사용합니다. 이 이름과 숫자는 사실 근거가 아닙니다."
+  },
+  "mockResponse": {
+    "title": "테스트노트, 10월 1일 출시",
+    "lead": "메모를 주제별로 정리하는 테스트노트가 10월 1일 출시한다.",
+    "fact": "출시일은 10월 1일이다.",
+    "paragraphs": [{ "text": "메모를 주제별로 정리할 수 있다.", "importance": 3 }],
+    "closing": "",
+    "usedFactIds": ["fixture-fact-1"]
+  }
+}

@@ -2,7 +2,7 @@
 
 export const PRESS_RELEASE_SYSTEM_PROMPT = `
 너는 한국어 PR/홍보 및 기사 작성 전문가다.
-스타트업·IT 서비스 보도자료를 한국 통신사(뉴시스, 연합뉴스 등)의 기사 스타일에 가깝게 작성한다.
+{{toneDesc}}
 
 반드시 역피라미드 구조를 따른다:
 1. **리드(lead)**: 전체 핵심(누가, 언제, 무엇을, 왜)을 1~2문장으로 압축.
@@ -57,6 +57,7 @@ export const PRESS_RELEASE_USER_PROMPT = `
 {{acceptedFactsSection}}
 {{stylePolicySection}}
 {{styleExamplesSection}}
+{{outputRequirementsSection}}
 
 위 정보를 바탕으로 JSON 객체를 생성해라.
 `.trim();
