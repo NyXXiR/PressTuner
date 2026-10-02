@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Interview Lab archive project v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version",
+    "id",
+    "name",
+    "kind",
+    "description"
+  ],
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "not": {"pattern": "[\u0000-\u001f\u007f]"},
+      "pattern": "\\S"
+    },
+    "kind": {
+      "enum": [
+        "side",
+        "work"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "repository": {
+      "type": "string",
+      "maxLength": 2000,
+      "pattern": "^$|^https://[^\\s]+$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "work"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "repository"
+          ]
+        }
+      }
+    }
+  ]
+}

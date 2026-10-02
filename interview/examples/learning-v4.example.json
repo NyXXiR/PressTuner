@@ -1,0 +1,39 @@
+{
+  "id": "5df1d1b7-104d-4f81-af14-aa3b0544eeae",
+  "title": "중복 요청을 한 번만 처리하기 — 작성 예시",
+  "worked_on": null,
+  "source": {
+    "label": "사용한 AI 또는 작성자 이름",
+    "kind": "mixed",
+    "reference": "선택한 커밋·PR·작업 문서의 식별자 (없으면 빈 문자열)"
+  },
+  "learning": {
+    "summary": "형식 설명용 예시입니다. 실제 수행 내용으로 교체한 뒤 업로드하세요.",
+    "scope": "기존 구현, AI가 제안한 부분, 내가 변경·확인한 범위를 구분합니다.",
+    "decision": "중복 요청 문제와 선택한 방식, 다른 대안을 쓰지 않은 이유를 설명합니다.",
+    "verification": "실제로 실행한 검사와 조건·결과만 기록합니다. 미실행이면 미실행이라고 씁니다.",
+    "limitations": "아직 검증하지 못한 조건과 본인 기여 확인이 필요한 부분을 적습니다.",
+    "questions": [
+      {
+        "id": "why-idempotency",
+        "prompt": "재시도에서 같은 작업이 두 번 실행되지 않게 하려면?",
+        "guide": "요청 식별자와 저장 시점, 동시에 들어온 요청의 처리 방식, 실패 후 재시도 근거를 실제 구현에 맞게 설명합니다."
+      }
+    ],
+    "concepts": [
+      {
+        "title": "트랜잭션",
+        "body": "이 개념을 어디에 적용했는지와 실제 보장 범위를 기록합니다.",
+        "url": "https://www.sqlite.org/lang_transaction.html",
+        "source": "SQLite 공식 문서",
+        "definition": "관련 변경을 하나의 단위로 처리하는 경계입니다. 적용 보장 범위는 시스템별로 확인합니다."
+      }
+    ]
+  },
+  "evidence": "실행 명령·결과·환경을 필요한 부분만 작성하세요. 대화 전체와 인증 정보는 제외합니다.",
+  "format_version": 4,
+  "project_ids": [
+    "2a7e70a7-3b6e-4c2d-8929-cda80973c349"
+  ],
+  "publication": "draft"
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Interview Lab archive manifest v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version"
+  ],
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 3
+    },
+    "project_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 1000,
+      "description": "Other sources own these projects. The collector verifies they are published; do not copy their metadata here.",
+      "items": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      }
+    }
+  }
+}

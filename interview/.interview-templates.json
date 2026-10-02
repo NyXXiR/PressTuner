@@ -1,0 +1,34 @@
+{
+  "files": {
+    "AGENTS.md": {
+      "sha256": "55406c50f56cfd6a0d2bf9fa62b2d1b60ed106da616a5c5fadcd1b77c764ba4f",
+      "version": 4
+    },
+    "AI-WRITING.md": {
+      "sha256": "48cbbbb896942577568ecea49e0d44c790b60d7f695d660d99a19f7b738f551e",
+      "version": 4
+    },
+    "examples/learning-v4.example.json": {
+      "sha256": "ffdcf74567078f16ec1c17fd645cca9128e591651783a56ede252ef88afb9302",
+      "version": 4
+    },
+    "schemas/archive-v3.schema.json": {
+      "sha256": "241b36b7f02e8a9369476df830a49151312a99527e7c32c9dfda71222693cb12",
+      "version": 4
+    },
+    "schemas/learning-v3.schema.json": {
+      "sha256": "81d40848c334b0bae537bea4eeaf89ca54157f4cf8d1f361fd4f6367bdabff8f",
+      "version": 4
+    },
+    "schemas/learning-v4.schema.json": {
+      "sha256": "1c1cca4749b3e17ec6f4aa38d997e14720a6c327973f738328a8cc5d4c069306",
+      "version": 4
+    },
+    "schemas/project-v3.schema.json": {
+      "sha256": "e2edc908b768affb4ce1dd964d73c8b419c4dbc2d45af3982baaf99949eb1668",
+      "version": 4
+    }
+  },
+  "format_version": 1,
+  "version": 4
+}
