@@ -1,0 +1,51 @@
+{
+  "format_version": 4,
+  "publication": "draft",
+  "id": "bfde2a70-1c6c-4528-be99-26839e56ca1c",
+  "project_ids": [
+    "8b9d9c39-b7af-48d4-a547-3b3f424ce46b"
+  ],
+  "title": "초안 생성 성공과 사실 검증 통과를 따로 표시하기",
+  "worked_on": null,
+  "source": {
+    "label": "Codex 코드 분석 · 2026-10-03",
+    "kind": "ai",
+    "reference": "b40370eb4fcf2cc3557241357bdf0410dc0bae70; domain/press-workflow/guardrails.ts; lib/services/press-workflow/runDraftWorkflow.ts; lib/services/press-workflow/runDraftWorkflow.test.ts; docs/ai/press-workflow/README.md"
+  },
+  "learning": {
+    "summary": "모델이 JSON을 반환했다고 보도자료를 바로 사용할 수는 없어요. 기존 headless workflow는 실행 상태, 좁은 규칙 검사, 의미적 품질을 나눠 기록해요. 허용하지 않은 fact ID는 BLOCK, 필수·금지 문구의 단순 일치는 PASS/WARN으로 표시하고 사실성과 문체 만족도는 미평가로 남겨요.",
+    "scope": "분석 대상은 등록한 interview-records 브랜치의 코드 스냅샷이에요. 로컬 기본 checkout HEAD da2ef112a320와는 달라요. 기본 checkout에는 이 headless workflow 파일들이 없어요. 따라서 이 설명과 테스트를 현재 운영 서비스에 같은 기능이 적용됐다는 증거로 사용하지 않아요. 기존 저장소의 구현을 Codex가 2026-10-03에 분석해 작성한 학습 초안이에요. 이번에 한 일은 선택 코드 검토와 아래 명시한 검사·기록 작성이며, 제품 기능을 새로 구현한 작업은 아니에요. 과거 작성자의 의도·사용자 개인 기여·실제 장애 이력·이해도는 확인하지 않았어요. 해결하지 않은 문제와 미실행 검사는 별도로 표시해요.",
+    "decision": "실제 서비스의 생성기를 재사용하되 정규화 전에 원본 응답 구조를 검사해요. 요청·원본 응답·입력과 설정 해시·평가기 revision을 기록해 무엇을 검사했는지 추적해요. 모의 결과는 synthetic, 실제 호출 결과는 measured로 구분하지만 두 경우 모두 qualityStatus는 NOT_EVALUATED예요. 실행 완료와 최종 사용 승인을 합치지 않아요.",
+    "verification": "2026-10-03 기존 test:press-workflow 13/13 통과. 모의 응답, 잘못된 JSON 구조, 근거 ID와 문구 검사 및 CLI 출력 보존 경계를 포함해요. 실제 모델·검색·사실 검증·출시 최종화를 실행하지 않았어요.",
+    "limitations": "허용 ID를 인용했다고 문장이 그 근거에서 도출된다는 뜻은 아니에요. 필수 문구가 있어도 숫자·시제·문맥이 틀릴 수 있어요. acceptedFacts의 실제 팀 권한과 검색 채택은 향후 서버 연결에서 보장해야 하는 별도 경계예요. 분석 대상은 등록한 interview-records 브랜치의 코드 스냅샷이에요. 로컬 기본 checkout HEAD da2ef112a320와는 달라요. 기본 checkout에는 이 headless workflow 파일들이 없어요. 따라서 이 설명과 테스트를 현재 운영 서비스에 같은 기능이 적용됐다는 증거로 사용하지 않아요.",
+    "questions": [
+      {
+        "id": "pass-denominator",
+        "prompt": "COMPLETED/PASS이면 문서 품질도 통과한 건가요?",
+        "guide": "어느 검사에서 PASS인지 분모를 밝혀야 해요. 실행과 좁은 구문 규칙은 통과했어도 factual-support와 requested-style은 NOT_EVALUABLE이고 전체 품질은 미평가예요."
+      },
+      {
+        "id": "fact-id-limit",
+        "prompt": "허용된 fact ID만 쓰면 환각을 막았다고 할 수 있나요?",
+        "guide": "ID 집합의 포함 여부만 검사했어요. 문장과 원문 근거의 대응, 인용 누락, 스타일 예시에서의 숫자 유출까지 확인하려면 추가 검증이 필요해요."
+      }
+    ],
+    "concepts": [
+      {
+        "title": "검증 범위",
+        "definition": "검사가 판단하는 조건과 판단하지 못하는 조건을 명시한 경계예요.",
+        "body": "필수 문구의 문자 일치와 실제 사실성·문체 품질을 구분해요. 사용 허가는 이 검사만으로 나오지 않아요.",
+        "url": "",
+        "source": "분석 대상 저장소의 아래 evidence에 명시한 코드"
+      },
+      {
+        "title": "의존성 주입",
+        "definition": "외부 동작을 호출자에게 받아 실행 경계를 분리하는 방식이에요.",
+        "body": "completeJson과 now를 주입해 실제 생성기 흐름을 모의 응답·고정 시간으로 검사해요. 모의 검사는 모델 품질 실험이 아니에요.",
+        "url": "",
+        "source": "분석 대상 저장소의 아래 evidence에 명시한 코드"
+      }
+    ]
+  },
+  "evidence": "분석일: 2026-10-03 UTC. 과거 구현 작업일은 확인하지 않아 worked_on=null.\n분석 기준 Git 커밋: b40370eb4fcf2cc3557241357bdf0410dc0bae70\n이번 작업: 선택 코드 정적 검토, 아래 명시한 검사 실행, 학습 초안 작성. 제품 코드 변경·배포 없음.\n작성자 기여·이해도는 미확인. 질문 guide는 설명 초안이며 사용자의 실제 답변이 아님.\n기존 work-backlog/designs의 프로젝트 개요를 대조했으며, 기존 경험 record를 복제·이관하지 않음.\n선택 근거(수집기에 파일을 따라 읽으라는 지시가 아닌 provenance):\ndomain/press-workflow/guardrails.ts · sha256=9319ab2ef85e75f7168644bfbd4d0af4fcf56813430b830df5073fa1f38c3cd0\nlib/services/press-workflow/runDraftWorkflow.ts · sha256=3e6a1e8f2dec1be3a91317af7443c31ece2bba47026ec74d5cd77826f4215e35\nlib/services/press-workflow/runDraftWorkflow.test.ts · sha256=3b63de5b21290e4d3cd4c6b634be1792d74a993693d40d609d254da5c612e90d\ndocs/ai/press-workflow/README.md · sha256=6629d8c5e5678e34420938a329d48723a3c3213aa7f82d48e0577cab02e5e957\n이번 실행 명령: npm run test:press-workflow\n작업 디렉터리: /home/nyxxir/.local/share/interview-lab/authoring/presstuner\n종료 코드: 0; 소요 1.26초.\n기존 PC의 설치 의존성을 재사용했으며 lockfile 재설치 검증은 아님. Node v20.9.0 또는 Interview Lab Python venv 사용.\n검증 로그: /home/nyxxir/.local/state/interview-lab/reviews/20261003-project-analysis/presstuner.tests.log\n기본 checkout 대조: {\"source\": \"presstuner\", \"canonical_head\": \"da2ef112a320e920078f824951f1012f3c042c54\", \"analysis_head\": \"b40370eb4fcf2cc3557241357bdf0410dc0bae70\", \"canonical_head_is_ancestor\": true}\n분석 대상은 등록한 interview-records 브랜치의 코드 스냅샷이에요. 로컬 기본 checkout HEAD da2ef112a320와는 달라요. 기본 checkout에는 이 headless workflow 파일들이 없어요. 따라서 이 설명과 테스트를 현재 운영 서비스에 같은 기능이 적용됐다는 증거로 사용하지 않아요."
+}

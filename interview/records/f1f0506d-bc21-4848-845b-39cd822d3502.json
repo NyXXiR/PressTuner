@@ -1,0 +1,51 @@
+{
+  "format_version": 4,
+  "publication": "draft",
+  "id": "f1f0506d-bc21-4848-845b-39cd822d3502",
+  "project_ids": [
+    "8b9d9c39-b7af-48d4-a547-3b3f424ce46b"
+  ],
+  "title": "요청별 문체 변경을 기본 설정과 구분해 재현하기",
+  "worked_on": null,
+  "source": {
+    "label": "Codex 코드 분석 · 2026-10-03",
+    "kind": "ai",
+    "reference": "b40370eb4fcf2cc3557241357bdf0410dc0bae70; domain/press-workflow/configuration.ts; domain/press-workflow/configuration.test.ts; lib/services/press-workflow/runDraftWorkflow.ts"
+  },
+  "learning": {
+    "summary": "팀 기본 문체가 공식적이어도 이번 요청은 친근하게 쓸 수 있어요. 설정을 누적 병합하면 지우고 싶은 규칙이 남고, 실행 후 입력이 바뀌면 당시 설정을 설명하기 어려워요. 기존 초안 workflow는 지정한 필드를 대체하고 기본값·요청 변경·유효 설정을 함께 보관해요.",
+    "scope": "분석 대상은 등록한 interview-records 브랜치의 코드 스냅샷이에요. 로컬 기본 checkout HEAD da2ef112a320와는 달라요. 기본 checkout에는 이 headless workflow 파일들이 없어요. 따라서 이 설명과 테스트를 현재 운영 서비스에 같은 기능이 적용됐다는 증거로 사용하지 않아요. 기존 저장소의 구현을 Codex가 2026-10-03에 분석해 작성한 학습 초안이에요. 이번에 한 일은 선택 코드 검토와 아래 명시한 검사·기록 작성이며, 제품 기능을 새로 구현한 작업은 아니에요. 과거 작성자의 의도·사용자 개인 기여·실제 장애 이력·이해도는 확인하지 않았어요. 해결하지 않은 문제와 미실행 검사는 별도로 표시해요.",
+    "decision": "빈 문자열과 빈 배열도 명시적 제거로 취급해요. tone과 stylePolicy는 별도 필드라 톤만 바꾸면 기존 문체 정책은 남아요. 파싱된 설정을 재귀적으로 freeze하고 내용 해시를 만들어 같은 revision 이름으로 내용이 바뀌어도 구별해요. 이 선택은 실행 근거를 보존하며 DB 수준의 불변 revision 저장을 대신하지는 않아요.",
+    "verification": "2026-10-03 npm run test:press-workflow의 13/13 통과. 설정 대체·명시적 제거·외부 입력 변경으로부터의 분리·동일 revision의 내용 변경·잘못된 키 거절을 포함해요. API 키·DB·Next 서버 없이 기존 설치 의존성으로 실행했어요.",
+    "limitations": "설정 해시가 같아도 실제 모델 출력은 달라질 수 있어요. 문자열 안의 상충하는 의미를 자동 해소하지 않으며, 이 headless 경로의 설정 화면·DB 저장·웹 서비스 연결까지 구현됐다는 뜻도 아니에요. 분석 대상은 등록한 interview-records 브랜치의 코드 스냅샷이에요. 로컬 기본 checkout HEAD da2ef112a320와는 달라요. 기본 checkout에는 이 headless workflow 파일들이 없어요. 따라서 이 설명과 테스트를 현재 운영 서비스에 같은 기능이 적용됐다는 증거로 사용하지 않아요.",
+    "questions": [
+      {
+        "id": "empty-vs-absent",
+        "prompt": "빈 배열과 필드 생략은 왜 다르게 처리하나요?",
+        "guide": "생략은 기본값 유지, 빈 배열은 해당 지침 제거라는 사용자 의도가 달라요. 배열을 이어 붙이면 제거 요청이 반영되지 않아요. tone과 stylePolicy의 독립성도 함께 설명해요."
+      },
+      {
+        "id": "hash-vs-version",
+        "prompt": "revision이 있는데 내용 해시가 왜 필요한가요?",
+        "guide": "현재는 같은 revision 문자열 아래 내용이 바뀔 수 있어요. 해시는 실제 설정 내용을 구별해 실행 비교 근거를 남겨요. 저장소에서 revision 불변성을 강제한 것과는 구분해요."
+      }
+    ],
+    "concepts": [
+      {
+        "title": "불변 스냅샷",
+        "definition": "특정 시점의 값을 이후 변경과 분리해 보관한 사본이에요.",
+        "body": "중첩 배열까지 재귀 freeze하고 입력 객체 변경이 이미 만든 실행 설정을 바꾸지 않는지 검사해요.",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze",
+        "source": "MDN · Object.freeze"
+      },
+      {
+        "title": "내용 기반 식별",
+        "definition": "이름뿐 아니라 내용에서 계산한 값으로 자료를 구별하는 방식이에요.",
+        "body": "기본값·요청 변경·최종 설정을 묶어 해시를 계산해 같은 revision 표기의 다른 내용을 구별해요.",
+        "url": "",
+        "source": "분석 대상 저장소의 아래 evidence에 명시한 코드"
+      }
+    ]
+  },
+  "evidence": "분석일: 2026-10-03 UTC. 과거 구현 작업일은 확인하지 않아 worked_on=null.\n분석 기준 Git 커밋: b40370eb4fcf2cc3557241357bdf0410dc0bae70\n이번 작업: 선택 코드 정적 검토, 아래 명시한 검사 실행, 학습 초안 작성. 제품 코드 변경·배포 없음.\n작성자 기여·이해도는 미확인. 질문 guide는 설명 초안이며 사용자의 실제 답변이 아님.\n기존 work-backlog/designs의 프로젝트 개요를 대조했으며, 기존 경험 record를 복제·이관하지 않음.\n선택 근거(수집기에 파일을 따라 읽으라는 지시가 아닌 provenance):\ndomain/press-workflow/configuration.ts · sha256=3a5fcb5a82c7d6614577d653d566dab04391dcaf2b3e66ba8b4f0f822dcecedf\ndomain/press-workflow/configuration.test.ts · sha256=25724953a944feff61e994f02a2ad1f7c490fdb84c08d8aec0b8a1c280e0d15b\nlib/services/press-workflow/runDraftWorkflow.ts · sha256=3e6a1e8f2dec1be3a91317af7443c31ece2bba47026ec74d5cd77826f4215e35\n이번 실행 명령: npm run test:press-workflow\n작업 디렉터리: /home/nyxxir/.local/share/interview-lab/authoring/presstuner\n종료 코드: 0; 소요 1.26초.\n기존 PC의 설치 의존성을 재사용했으며 lockfile 재설치 검증은 아님. Node v20.9.0 또는 Interview Lab Python venv 사용.\n검증 로그: /home/nyxxir/.local/state/interview-lab/reviews/20261003-project-analysis/presstuner.tests.log\n기본 checkout 대조: {\"source\": \"presstuner\", \"canonical_head\": \"da2ef112a320e920078f824951f1012f3c042c54\", \"analysis_head\": \"b40370eb4fcf2cc3557241357bdf0410dc0bae70\", \"canonical_head_is_ancestor\": true}\n분석 대상은 등록한 interview-records 브랜치의 코드 스냅샷이에요. 로컬 기본 checkout HEAD da2ef112a320와는 달라요. 기본 checkout에는 이 headless workflow 파일들이 없어요. 따라서 이 설명과 테스트를 현재 운영 서비스에 같은 기능이 적용됐다는 증거로 사용하지 않아요."
+}
