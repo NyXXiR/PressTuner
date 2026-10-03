@@ -22,6 +22,8 @@
 /home/nyxxir/interview-lab/.venv/bin/python /home/nyxxir/interview-lab/archive_cli.py --repo /home/nyxxir/.local/share/interview-lab/authoring/presstuner validate
 ```
 
+2026-10-03 질문 보완: 질문 ID를 유지하고 답변을 주장 → 근거 → 사례로 나눴습니다. 중복 질문은 꼬리질문, 폰트 사례는 보조로 표시했습니다. 평가 실험·동시성 해결책은 현재 구현과 구분한 제안이며 실행 증거를 새로 주장하지 않습니다.
+
 `publish <UUID> --reviewed`는 작성자의 내용 검토 뒤 실행합니다. Git 게시 브랜치는 `interview-records`이며 앱 main/master 변경은 필요하지 않습니다.
 
 공통 읽기 화면과 검증 로그: `/home/nyxxir/.local/state/interview-lab/reviews/20261003-project-analysis/`.
