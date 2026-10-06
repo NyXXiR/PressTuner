@@ -13,6 +13,7 @@
 # testing
 /coverage
 /evals/press-workflow/runs/
+/scripts/press-workflow/ragas/__pycache__/
 
 # next.js
 /.next/
@@ -65,3 +66,5 @@ next-env.d.ts
 /ai-service/.ruff_cache/
 /ai-service/.langgraph_api/
 /ai-service/**/__pycache__/
+/scripts/press-workflow/ragas/__pycache__/
+/.venv-press-eval/

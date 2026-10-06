@@ -1,0 +1,2496 @@
+{
+  "version": "press-dual-dataset/v1",
+  "provenance": "SYNTHETIC_AI_AUTHORED",
+  "cases": [
+    {
+      "caseId": "C01",
+      "groupId": "launch-01",
+      "partition": "DEVELOPMENT",
+      "request": "모리노트 1 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "모리노트 1의 출시일은 2026년 11월 1일이다."
+        },
+        {
+          "id": "price",
+          "content": "모리노트 1의 월 이용료는 2000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "모리노트 1는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "모리노트 1, 11월 1일 출시\n모리노트 1를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 2000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "모리노트 1를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "모리노트 1, 11월 1일 출시\n모리노트 1를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 2999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "모리노트 1는 2026년 11월 1일 출시된다. 월 이용료는 2000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "모리노트 1, 11월 1일 출시\n모리노트 1를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 2000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "모리노트 1, 11월 1일 출시\n모리노트 1를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 2000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "모리노트 1는 2026년 11월 1일부터 만날 수 있어요. 한 달에 2000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C02",
+      "groupId": "launch-02",
+      "partition": "DEVELOPMENT",
+      "request": "하루지도 2 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "하루지도 2의 출시일은 2026년 11월 2일이다."
+        },
+        {
+          "id": "price",
+          "content": "하루지도 2의 월 이용료는 3000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "하루지도 2는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "하루지도 2, 11월 2일 출시\n하루지도 2를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 3000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "하루지도 2를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "하루지도 2, 11월 2일 출시\n하루지도 2를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 3999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "하루지도 2는 2026년 11월 2일 출시된다. 월 이용료는 3000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "하루지도 2, 11월 2일 출시\n하루지도 2를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 3000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "하루지도 2, 11월 2일 출시\n하루지도 2를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 3000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "하루지도 2는 2026년 11월 2일부터 만날 수 있어요. 한 달에 3000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C03",
+      "groupId": "launch-03",
+      "partition": "HOLDOUT",
+      "request": "작은서재 3 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "작은서재 3의 출시일은 2026년 11월 3일이다."
+        },
+        {
+          "id": "price",
+          "content": "작은서재 3의 월 이용료는 4000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "작은서재 3는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "작은서재 3, 11월 3일 출시\n작은서재 3를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 4000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "작은서재 3를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "작은서재 3, 11월 3일 출시\n작은서재 3를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 4999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "작은서재 3는 2026년 11월 3일 출시된다. 월 이용료는 4000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "작은서재 3, 11월 3일 출시\n작은서재 3를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 4000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "작은서재 3, 11월 3일 출시\n작은서재 3를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 4000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "작은서재 3는 2026년 11월 3일부터 만날 수 있어요. 한 달에 4000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C04",
+      "groupId": "launch-04",
+      "partition": "DEVELOPMENT",
+      "request": "푸른일정 4 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "푸른일정 4의 출시일은 2026년 11월 4일이다."
+        },
+        {
+          "id": "price",
+          "content": "푸른일정 4의 월 이용료는 5000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "푸른일정 4는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "푸른일정 4, 11월 4일 출시\n푸른일정 4를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 5000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "푸른일정 4를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "푸른일정 4, 11월 4일 출시\n푸른일정 4를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 5999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "푸른일정 4는 2026년 11월 4일 출시된다. 월 이용료는 5000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "푸른일정 4, 11월 4일 출시\n푸른일정 4를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 5000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "푸른일정 4, 11월 4일 출시\n푸른일정 4를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 5000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "푸른일정 4는 2026년 11월 4일부터 만날 수 있어요. 한 달에 5000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C05",
+      "groupId": "launch-05",
+      "partition": "DEVELOPMENT",
+      "request": "이음메모 5 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "이음메모 5의 출시일은 2026년 11월 5일이다."
+        },
+        {
+          "id": "price",
+          "content": "이음메모 5의 월 이용료는 6000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "이음메모 5는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "이음메모 5, 11월 5일 출시\n이음메모 5를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 6000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "이음메모 5를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "이음메모 5, 11월 5일 출시\n이음메모 5를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 6999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "이음메모 5는 2026년 11월 5일 출시된다. 월 이용료는 6000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "이음메모 5, 11월 5일 출시\n이음메모 5를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 6000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "이음메모 5, 11월 5일 출시\n이음메모 5를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 6000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "이음메모 5는 2026년 11월 5일부터 만날 수 있어요. 한 달에 6000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C06",
+      "groupId": "launch-06",
+      "partition": "HOLDOUT",
+      "request": "달빛작업 6 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "달빛작업 6의 출시일은 2026년 11월 6일이다."
+        },
+        {
+          "id": "price",
+          "content": "달빛작업 6의 월 이용료는 7000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "달빛작업 6는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "달빛작업 6, 11월 6일 출시\n달빛작업 6를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 7000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "달빛작업 6를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "달빛작업 6, 11월 6일 출시\n달빛작업 6를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 7999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "달빛작업 6는 2026년 11월 6일 출시된다. 월 이용료는 7000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "달빛작업 6, 11월 6일 출시\n달빛작업 6를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 7000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "달빛작업 6, 11월 6일 출시\n달빛작업 6를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 7000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "달빛작업 6는 2026년 11월 6일부터 만날 수 있어요. 한 달에 7000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C07",
+      "groupId": "launch-07",
+      "partition": "DEVELOPMENT",
+      "request": "모리노트 7 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "모리노트 7의 출시일은 2026년 11월 7일이다."
+        },
+        {
+          "id": "price",
+          "content": "모리노트 7의 월 이용료는 8000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "모리노트 7는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "모리노트 7, 11월 7일 출시\n모리노트 7를 만나보세요. 11월 7일부터 이용할 수 있어요. 월 이용료는 8000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "모리노트 7를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "모리노트 7, 11월 7일 출시\n모리노트 7를 만나보세요. 11월 7일부터 이용할 수 있어요. 월 이용료는 8999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "모리노트 7는 2026년 11월 7일 출시된다. 월 이용료는 8000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "모리노트 7, 11월 7일 출시\n모리노트 7를 만나보세요. 11월 7일부터 이용할 수 있어요. 월 이용료는 8000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "모리노트 7, 11월 7일 출시\n모리노트 7를 만나보세요. 11월 7일부터 이용할 수 있어요. 월 이용료는 8000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "모리노트 7는 2026년 11월 7일부터 만날 수 있어요. 한 달에 8000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C08",
+      "groupId": "launch-08",
+      "partition": "DEVELOPMENT",
+      "request": "하루지도 8 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "하루지도 8의 출시일은 2026년 11월 8일이다."
+        },
+        {
+          "id": "price",
+          "content": "하루지도 8의 월 이용료는 9000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "하루지도 8는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "하루지도 8, 11월 8일 출시\n하루지도 8를 만나보세요. 11월 8일부터 이용할 수 있어요. 월 이용료는 9000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "하루지도 8를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "하루지도 8, 11월 8일 출시\n하루지도 8를 만나보세요. 11월 8일부터 이용할 수 있어요. 월 이용료는 9999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "하루지도 8는 2026년 11월 8일 출시된다. 월 이용료는 9000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "하루지도 8, 11월 8일 출시\n하루지도 8를 만나보세요. 11월 8일부터 이용할 수 있어요. 월 이용료는 9000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "하루지도 8, 11월 8일 출시\n하루지도 8를 만나보세요. 11월 8일부터 이용할 수 있어요. 월 이용료는 9000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "하루지도 8는 2026년 11월 8일부터 만날 수 있어요. 한 달에 9000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C09",
+      "groupId": "launch-09",
+      "partition": "HOLDOUT",
+      "request": "작은서재 9 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "작은서재 9의 출시일은 2026년 11월 9일이다."
+        },
+        {
+          "id": "price",
+          "content": "작은서재 9의 월 이용료는 10000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "작은서재 9는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "작은서재 9, 11월 9일 출시\n작은서재 9를 만나보세요. 11월 9일부터 이용할 수 있어요. 월 이용료는 10000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "작은서재 9를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "작은서재 9, 11월 9일 출시\n작은서재 9를 만나보세요. 11월 9일부터 이용할 수 있어요. 월 이용료는 10999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "작은서재 9는 2026년 11월 9일 출시된다. 월 이용료는 10000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "작은서재 9, 11월 9일 출시\n작은서재 9를 만나보세요. 11월 9일부터 이용할 수 있어요. 월 이용료는 10000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "작은서재 9, 11월 9일 출시\n작은서재 9를 만나보세요. 11월 9일부터 이용할 수 있어요. 월 이용료는 10000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "작은서재 9는 2026년 11월 9일부터 만날 수 있어요. 한 달에 10000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C10",
+      "groupId": "launch-10",
+      "partition": "DEVELOPMENT",
+      "request": "푸른일정 10 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "푸른일정 10의 출시일은 2026년 11월 10일이다."
+        },
+        {
+          "id": "price",
+          "content": "푸른일정 10의 월 이용료는 11000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "푸른일정 10는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "푸른일정 10, 11월 10일 출시\n푸른일정 10를 만나보세요. 11월 10일부터 이용할 수 있어요. 월 이용료는 11000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "푸른일정 10를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "푸른일정 10, 11월 10일 출시\n푸른일정 10를 만나보세요. 11월 10일부터 이용할 수 있어요. 월 이용료는 11999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "푸른일정 10는 2026년 11월 10일 출시된다. 월 이용료는 11000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "푸른일정 10, 11월 10일 출시\n푸른일정 10를 만나보세요. 11월 10일부터 이용할 수 있어요. 월 이용료는 11000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "푸른일정 10, 11월 10일 출시\n푸른일정 10를 만나보세요. 11월 10일부터 이용할 수 있어요. 월 이용료는 11000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "푸른일정 10는 2026년 11월 10일부터 만날 수 있어요. 한 달에 11000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C11",
+      "groupId": "launch-11",
+      "partition": "DEVELOPMENT",
+      "request": "이음메모 11 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "이음메모 11의 출시일은 2026년 11월 11일이다."
+        },
+        {
+          "id": "price",
+          "content": "이음메모 11의 월 이용료는 12000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "이음메모 11는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "이음메모 11, 11월 11일 출시\n이음메모 11를 만나보세요. 11월 11일부터 이용할 수 있어요. 월 이용료는 12000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "이음메모 11를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "이음메모 11, 11월 11일 출시\n이음메모 11를 만나보세요. 11월 11일부터 이용할 수 있어요. 월 이용료는 12999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "이음메모 11는 2026년 11월 11일 출시된다. 월 이용료는 12000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "이음메모 11, 11월 11일 출시\n이음메모 11를 만나보세요. 11월 11일부터 이용할 수 있어요. 월 이용료는 12000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "이음메모 11, 11월 11일 출시\n이음메모 11를 만나보세요. 11월 11일부터 이용할 수 있어요. 월 이용료는 12000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "이음메모 11는 2026년 11월 11일부터 만날 수 있어요. 한 달에 12000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C12",
+      "groupId": "launch-12",
+      "partition": "HOLDOUT",
+      "request": "달빛작업 12 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "달빛작업 12의 출시일은 2026년 11월 12일이다."
+        },
+        {
+          "id": "price",
+          "content": "달빛작업 12의 월 이용료는 13000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "달빛작업 12는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "달빛작업 12, 11월 12일 출시\n달빛작업 12를 만나보세요. 11월 12일부터 이용할 수 있어요. 월 이용료는 13000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "달빛작업 12를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "달빛작업 12, 11월 12일 출시\n달빛작업 12를 만나보세요. 11월 12일부터 이용할 수 있어요. 월 이용료는 13999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "달빛작업 12는 2026년 11월 12일 출시된다. 월 이용료는 13000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "달빛작업 12, 11월 12일 출시\n달빛작업 12를 만나보세요. 11월 12일부터 이용할 수 있어요. 월 이용료는 13000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "달빛작업 12, 11월 12일 출시\n달빛작업 12를 만나보세요. 11월 12일부터 이용할 수 있어요. 월 이용료는 13000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "달빛작업 12는 2026년 11월 12일부터 만날 수 있어요. 한 달에 13000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C13",
+      "groupId": "launch-13",
+      "partition": "DEVELOPMENT",
+      "request": "모리노트 13 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "모리노트 13의 출시일은 2026년 11월 13일이다."
+        },
+        {
+          "id": "price",
+          "content": "모리노트 13의 월 이용료는 14000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "모리노트 13는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "모리노트 13, 11월 13일 출시\n모리노트 13를 만나보세요. 11월 13일부터 이용할 수 있어요. 월 이용료는 14000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "모리노트 13를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "모리노트 13, 11월 13일 출시\n모리노트 13를 만나보세요. 11월 13일부터 이용할 수 있어요. 월 이용료는 14999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "모리노트 13는 2026년 11월 13일 출시된다. 월 이용료는 14000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "모리노트 13, 11월 13일 출시\n모리노트 13를 만나보세요. 11월 13일부터 이용할 수 있어요. 월 이용료는 14000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "모리노트 13, 11월 13일 출시\n모리노트 13를 만나보세요. 11월 13일부터 이용할 수 있어요. 월 이용료는 14000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "모리노트 13는 2026년 11월 13일부터 만날 수 있어요. 한 달에 14000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C14",
+      "groupId": "launch-14",
+      "partition": "DEVELOPMENT",
+      "request": "하루지도 14 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "하루지도 14의 출시일은 2026년 11월 14일이다."
+        },
+        {
+          "id": "price",
+          "content": "하루지도 14의 월 이용료는 15000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "하루지도 14는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "하루지도 14, 11월 14일 출시\n하루지도 14를 만나보세요. 11월 14일부터 이용할 수 있어요. 월 이용료는 15000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "하루지도 14를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "하루지도 14, 11월 14일 출시\n하루지도 14를 만나보세요. 11월 14일부터 이용할 수 있어요. 월 이용료는 15999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "하루지도 14는 2026년 11월 14일 출시된다. 월 이용료는 15000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "하루지도 14, 11월 14일 출시\n하루지도 14를 만나보세요. 11월 14일부터 이용할 수 있어요. 월 이용료는 15000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "하루지도 14, 11월 14일 출시\n하루지도 14를 만나보세요. 11월 14일부터 이용할 수 있어요. 월 이용료는 15000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "하루지도 14는 2026년 11월 14일부터 만날 수 있어요. 한 달에 15000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C15",
+      "groupId": "launch-15",
+      "partition": "HOLDOUT",
+      "request": "작은서재 15 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "작은서재 15의 출시일은 2026년 11월 15일이다."
+        },
+        {
+          "id": "price",
+          "content": "작은서재 15의 월 이용료는 16000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "작은서재 15는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "작은서재 15, 11월 15일 출시\n작은서재 15를 만나보세요. 11월 15일부터 이용할 수 있어요. 월 이용료는 16000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "작은서재 15를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "작은서재 15, 11월 15일 출시\n작은서재 15를 만나보세요. 11월 15일부터 이용할 수 있어요. 월 이용료는 16999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "작은서재 15는 2026년 11월 15일 출시된다. 월 이용료는 16000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "작은서재 15, 11월 15일 출시\n작은서재 15를 만나보세요. 11월 15일부터 이용할 수 있어요. 월 이용료는 16000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "작은서재 15, 11월 15일 출시\n작은서재 15를 만나보세요. 11월 15일부터 이용할 수 있어요. 월 이용료는 16000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "작은서재 15는 2026년 11월 15일부터 만날 수 있어요. 한 달에 16000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C16",
+      "groupId": "launch-16",
+      "partition": "DEVELOPMENT",
+      "request": "푸른일정 16 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "푸른일정 16의 출시일은 2026년 11월 16일이다."
+        },
+        {
+          "id": "price",
+          "content": "푸른일정 16의 월 이용료는 17000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "푸른일정 16는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "푸른일정 16, 11월 16일 출시\n푸른일정 16를 만나보세요. 11월 16일부터 이용할 수 있어요. 월 이용료는 17000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "푸른일정 16를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "푸른일정 16, 11월 16일 출시\n푸른일정 16를 만나보세요. 11월 16일부터 이용할 수 있어요. 월 이용료는 17999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "푸른일정 16는 2026년 11월 16일 출시된다. 월 이용료는 17000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "푸른일정 16, 11월 16일 출시\n푸른일정 16를 만나보세요. 11월 16일부터 이용할 수 있어요. 월 이용료는 17000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "푸른일정 16, 11월 16일 출시\n푸른일정 16를 만나보세요. 11월 16일부터 이용할 수 있어요. 월 이용료는 17000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "푸른일정 16는 2026년 11월 16일부터 만날 수 있어요. 한 달에 17000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C17",
+      "groupId": "launch-17",
+      "partition": "DEVELOPMENT",
+      "request": "이음메모 17 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "이음메모 17의 출시일은 2026년 11월 17일이다."
+        },
+        {
+          "id": "price",
+          "content": "이음메모 17의 월 이용료는 18000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "이음메모 17는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "이음메모 17, 11월 17일 출시\n이음메모 17를 만나보세요. 11월 17일부터 이용할 수 있어요. 월 이용료는 18000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "이음메모 17를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "이음메모 17, 11월 17일 출시\n이음메모 17를 만나보세요. 11월 17일부터 이용할 수 있어요. 월 이용료는 18999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "이음메모 17는 2026년 11월 17일 출시된다. 월 이용료는 18000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "이음메모 17, 11월 17일 출시\n이음메모 17를 만나보세요. 11월 17일부터 이용할 수 있어요. 월 이용료는 18000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "이음메모 17, 11월 17일 출시\n이음메모 17를 만나보세요. 11월 17일부터 이용할 수 있어요. 월 이용료는 18000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "이음메모 17는 2026년 11월 17일부터 만날 수 있어요. 한 달에 18000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C18",
+      "groupId": "launch-18",
+      "partition": "HOLDOUT",
+      "request": "달빛작업 18 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "달빛작업 18의 출시일은 2026년 11월 18일이다."
+        },
+        {
+          "id": "price",
+          "content": "달빛작업 18의 월 이용료는 19000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "달빛작업 18는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "달빛작업 18, 11월 18일 출시\n달빛작업 18를 만나보세요. 11월 18일부터 이용할 수 있어요. 월 이용료는 19000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "달빛작업 18를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "달빛작업 18, 11월 18일 출시\n달빛작업 18를 만나보세요. 11월 18일부터 이용할 수 있어요. 월 이용료는 19999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "달빛작업 18는 2026년 11월 18일 출시된다. 월 이용료는 19000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "달빛작업 18, 11월 18일 출시\n달빛작업 18를 만나보세요. 11월 18일부터 이용할 수 있어요. 월 이용료는 19000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "달빛작업 18, 11월 18일 출시\n달빛작업 18를 만나보세요. 11월 18일부터 이용할 수 있어요. 월 이용료는 19000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "달빛작업 18는 2026년 11월 18일부터 만날 수 있어요. 한 달에 19000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C19",
+      "groupId": "launch-19",
+      "partition": "DEVELOPMENT",
+      "request": "모리노트 19 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "모리노트 19의 출시일은 2026년 11월 19일이다."
+        },
+        {
+          "id": "price",
+          "content": "모리노트 19의 월 이용료는 20000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "모리노트 19는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "모리노트 19, 11월 19일 출시\n모리노트 19를 만나보세요. 11월 19일부터 이용할 수 있어요. 월 이용료는 20000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "모리노트 19를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "모리노트 19, 11월 19일 출시\n모리노트 19를 만나보세요. 11월 19일부터 이용할 수 있어요. 월 이용료는 20999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "모리노트 19는 2026년 11월 19일 출시된다. 월 이용료는 20000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "모리노트 19, 11월 19일 출시\n모리노트 19를 만나보세요. 11월 19일부터 이용할 수 있어요. 월 이용료는 20000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "모리노트 19, 11월 19일 출시\n모리노트 19를 만나보세요. 11월 19일부터 이용할 수 있어요. 월 이용료는 20000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "모리노트 19는 2026년 11월 19일부터 만날 수 있어요. 한 달에 20000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C20",
+      "groupId": "launch-20",
+      "partition": "DEVELOPMENT",
+      "request": "하루지도 20 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "하루지도 20의 출시일은 2026년 11월 20일이다."
+        },
+        {
+          "id": "price",
+          "content": "하루지도 20의 월 이용료는 21000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "하루지도 20는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "하루지도 20, 11월 20일 출시\n하루지도 20를 만나보세요. 11월 20일부터 이용할 수 있어요. 월 이용료는 21000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "하루지도 20를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "하루지도 20, 11월 20일 출시\n하루지도 20를 만나보세요. 11월 20일부터 이용할 수 있어요. 월 이용료는 21999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "하루지도 20는 2026년 11월 20일 출시된다. 월 이용료는 21000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "하루지도 20, 11월 20일 출시\n하루지도 20를 만나보세요. 11월 20일부터 이용할 수 있어요. 월 이용료는 21000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "하루지도 20, 11월 20일 출시\n하루지도 20를 만나보세요. 11월 20일부터 이용할 수 있어요. 월 이용료는 21000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "하루지도 20는 2026년 11월 20일부터 만날 수 있어요. 한 달에 21000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C21",
+      "groupId": "launch-21",
+      "partition": "HOLDOUT",
+      "request": "작은서재 21 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "작은서재 21의 출시일은 2026년 11월 21일이다."
+        },
+        {
+          "id": "price",
+          "content": "작은서재 21의 월 이용료는 22000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "작은서재 21는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "작은서재 21, 11월 21일 출시\n작은서재 21를 만나보세요. 11월 21일부터 이용할 수 있어요. 월 이용료는 22000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "작은서재 21를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "작은서재 21, 11월 21일 출시\n작은서재 21를 만나보세요. 11월 21일부터 이용할 수 있어요. 월 이용료는 22999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "작은서재 21는 2026년 11월 21일 출시된다. 월 이용료는 22000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "작은서재 21, 11월 21일 출시\n작은서재 21를 만나보세요. 11월 21일부터 이용할 수 있어요. 월 이용료는 22000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "작은서재 21, 11월 21일 출시\n작은서재 21를 만나보세요. 11월 21일부터 이용할 수 있어요. 월 이용료는 22000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "작은서재 21는 2026년 11월 21일부터 만날 수 있어요. 한 달에 22000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C22",
+      "groupId": "launch-22",
+      "partition": "DEVELOPMENT",
+      "request": "푸른일정 22 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "푸른일정 22의 출시일은 2026년 11월 22일이다."
+        },
+        {
+          "id": "price",
+          "content": "푸른일정 22의 월 이용료는 23000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "푸른일정 22는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "푸른일정 22, 11월 22일 출시\n푸른일정 22를 만나보세요. 11월 22일부터 이용할 수 있어요. 월 이용료는 23000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "푸른일정 22를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "푸른일정 22, 11월 22일 출시\n푸른일정 22를 만나보세요. 11월 22일부터 이용할 수 있어요. 월 이용료는 23999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "푸른일정 22는 2026년 11월 22일 출시된다. 월 이용료는 23000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "푸른일정 22, 11월 22일 출시\n푸른일정 22를 만나보세요. 11월 22일부터 이용할 수 있어요. 월 이용료는 23000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "푸른일정 22, 11월 22일 출시\n푸른일정 22를 만나보세요. 11월 22일부터 이용할 수 있어요. 월 이용료는 23000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "푸른일정 22는 2026년 11월 22일부터 만날 수 있어요. 한 달에 23000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C23",
+      "groupId": "launch-23",
+      "partition": "DEVELOPMENT",
+      "request": "이음메모 23 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "이음메모 23의 출시일은 2026년 11월 23일이다."
+        },
+        {
+          "id": "price",
+          "content": "이음메모 23의 월 이용료는 24000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "이음메모 23는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "이음메모 23, 11월 23일 출시\n이음메모 23를 만나보세요. 11월 23일부터 이용할 수 있어요. 월 이용료는 24000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "이음메모 23를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "이음메모 23, 11월 23일 출시\n이음메모 23를 만나보세요. 11월 23일부터 이용할 수 있어요. 월 이용료는 24999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "이음메모 23는 2026년 11월 23일 출시된다. 월 이용료는 24000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "이음메모 23, 11월 23일 출시\n이음메모 23를 만나보세요. 11월 23일부터 이용할 수 있어요. 월 이용료는 24000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "이음메모 23, 11월 23일 출시\n이음메모 23를 만나보세요. 11월 23일부터 이용할 수 있어요. 월 이용료는 24000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "이음메모 23는 2026년 11월 23일부터 만날 수 있어요. 한 달에 24000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C24",
+      "groupId": "launch-24",
+      "partition": "HOLDOUT",
+      "request": "달빛작업 24 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "달빛작업 24의 출시일은 2026년 11월 24일이다."
+        },
+        {
+          "id": "price",
+          "content": "달빛작업 24의 월 이용료는 25000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "달빛작업 24는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "달빛작업 24, 11월 24일 출시\n달빛작업 24를 만나보세요. 11월 24일부터 이용할 수 있어요. 월 이용료는 25000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "달빛작업 24를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "달빛작업 24, 11월 24일 출시\n달빛작업 24를 만나보세요. 11월 24일부터 이용할 수 있어요. 월 이용료는 25999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "달빛작업 24는 2026년 11월 24일 출시된다. 월 이용료는 25000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "달빛작업 24, 11월 24일 출시\n달빛작업 24를 만나보세요. 11월 24일부터 이용할 수 있어요. 월 이용료는 25000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "달빛작업 24, 11월 24일 출시\n달빛작업 24를 만나보세요. 11월 24일부터 이용할 수 있어요. 월 이용료는 25000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "달빛작업 24는 2026년 11월 24일부터 만날 수 있어요. 한 달에 25000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C25",
+      "groupId": "launch-25",
+      "partition": "DEVELOPMENT",
+      "request": "모리노트 25 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "모리노트 25의 출시일은 2026년 11월 1일이다."
+        },
+        {
+          "id": "price",
+          "content": "모리노트 25의 월 이용료는 26000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "모리노트 25는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "모리노트 25, 11월 1일 출시\n모리노트 25를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 26000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "모리노트 25를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "모리노트 25, 11월 1일 출시\n모리노트 25를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 26999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "모리노트 25는 2026년 11월 1일 출시된다. 월 이용료는 26000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "모리노트 25, 11월 1일 출시\n모리노트 25를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 26000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "모리노트 25, 11월 1일 출시\n모리노트 25를 만나보세요. 11월 1일부터 이용할 수 있어요. 월 이용료는 26000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "모리노트 25는 2026년 11월 1일부터 만날 수 있어요. 한 달에 26000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C26",
+      "groupId": "launch-26",
+      "partition": "DEVELOPMENT",
+      "request": "하루지도 26 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "하루지도 26의 출시일은 2026년 11월 2일이다."
+        },
+        {
+          "id": "price",
+          "content": "하루지도 26의 월 이용료는 27000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "하루지도 26는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "하루지도 26, 11월 2일 출시\n하루지도 26를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 27000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "하루지도 26를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "하루지도 26, 11월 2일 출시\n하루지도 26를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 27999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "하루지도 26는 2026년 11월 2일 출시된다. 월 이용료는 27000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "하루지도 26, 11월 2일 출시\n하루지도 26를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 27000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "하루지도 26, 11월 2일 출시\n하루지도 26를 만나보세요. 11월 2일부터 이용할 수 있어요. 월 이용료는 27000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "하루지도 26는 2026년 11월 2일부터 만날 수 있어요. 한 달에 27000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C27",
+      "groupId": "launch-27",
+      "partition": "HOLDOUT",
+      "request": "작은서재 27 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "작은서재 27의 출시일은 2026년 11월 3일이다."
+        },
+        {
+          "id": "price",
+          "content": "작은서재 27의 월 이용료는 28000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "작은서재 27는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "작은서재 27, 11월 3일 출시\n작은서재 27를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 28000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "작은서재 27를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "작은서재 27, 11월 3일 출시\n작은서재 27를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 28999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "작은서재 27는 2026년 11월 3일 출시된다. 월 이용료는 28000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "작은서재 27, 11월 3일 출시\n작은서재 27를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 28000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "작은서재 27, 11월 3일 출시\n작은서재 27를 만나보세요. 11월 3일부터 이용할 수 있어요. 월 이용료는 28000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "작은서재 27는 2026년 11월 3일부터 만날 수 있어요. 한 달에 28000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C28",
+      "groupId": "launch-28",
+      "partition": "DEVELOPMENT",
+      "request": "푸른일정 28 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "푸른일정 28의 출시일은 2026년 11월 4일이다."
+        },
+        {
+          "id": "price",
+          "content": "푸른일정 28의 월 이용료는 29000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "푸른일정 28는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "푸른일정 28, 11월 4일 출시\n푸른일정 28를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 29000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "푸른일정 28를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "푸른일정 28, 11월 4일 출시\n푸른일정 28를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 29999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "푸른일정 28는 2026년 11월 4일 출시된다. 월 이용료는 29000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "푸른일정 28, 11월 4일 출시\n푸른일정 28를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 29000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "푸른일정 28, 11월 4일 출시\n푸른일정 28를 만나보세요. 11월 4일부터 이용할 수 있어요. 월 이용료는 29000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "푸른일정 28는 2026년 11월 4일부터 만날 수 있어요. 한 달에 29000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C29",
+      "groupId": "launch-29",
+      "partition": "DEVELOPMENT",
+      "request": "이음메모 29 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "이음메모 29의 출시일은 2026년 11월 5일이다."
+        },
+        {
+          "id": "price",
+          "content": "이음메모 29의 월 이용료는 30000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "이음메모 29는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "이음메모 29, 11월 5일 출시\n이음메모 29를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 30000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "이음메모 29를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "이음메모 29, 11월 5일 출시\n이음메모 29를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 30999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "이음메모 29는 2026년 11월 5일 출시된다. 월 이용료는 30000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "이음메모 29, 11월 5일 출시\n이음메모 29를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 30000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "이음메모 29, 11월 5일 출시\n이음메모 29를 만나보세요. 11월 5일부터 이용할 수 있어요. 월 이용료는 30000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "이음메모 29는 2026년 11월 5일부터 만날 수 있어요. 한 달에 30000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    },
+    {
+      "caseId": "C30",
+      "groupId": "launch-30",
+      "partition": "HOLDOUT",
+      "request": "달빛작업 30 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+      "facts": [
+        {
+          "id": "launch",
+          "content": "달빛작업 30의 출시일은 2026년 11월 6일이다."
+        },
+        {
+          "id": "price",
+          "content": "달빛작업 30의 월 이용료는 31000원이다."
+        },
+        {
+          "id": "feature",
+          "content": "달빛작업 30는 메모를 주제별로 정리한다."
+        }
+      ],
+      "requiredFactIds": [
+        "launch",
+        "price"
+      ],
+      "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+      "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+      "challenges": [
+        {
+          "kind": "VALID",
+          "text": "달빛작업 30, 11월 6일 출시\n달빛작업 30를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 31000원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        },
+        {
+          "kind": "OMISSION",
+          "text": "달빛작업 30를 만나보세요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "CONTRADICTION",
+          "text": "달빛작업 30, 11월 6일 출시\n달빛작업 30를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 31999원이에요. 메모를 주제별로 정리할 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "REQUIRED_FACTS"
+          ]
+        },
+        {
+          "kind": "STYLE",
+          "text": "달빛작업 30는 2026년 11월 6일 출시된다. 월 이용료는 31000원이다. 메모를 주제별로 정리한다.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "REQUESTED_STYLE"
+          ]
+        },
+        {
+          "kind": "LEAKAGE",
+          "text": "달빛작업 30, 11월 6일 출시\n달빛작업 30를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 31000원이에요. 메모를 주제별로 정리할 수 있어요.\n이미 100만 명이 이용하고 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "STYLE_LEAKAGE"
+          ]
+        },
+        {
+          "kind": "PROMOTION",
+          "text": "달빛작업 30, 11월 6일 출시\n달빛작업 30를 만나보세요. 11월 6일부터 이용할 수 있어요. 월 이용료는 31000원이에요. 메모를 주제별로 정리할 수 있어요.\n업계 최고의 성능을 입증했어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": [
+            "FACTUAL_SUPPORT",
+            "PROMOTIONAL_CLAIMS"
+          ]
+        },
+        {
+          "kind": "PARAPHRASE",
+          "text": "달빛작업 30는 2026년 11월 6일부터 만날 수 있어요. 한 달에 31000원을 내면 메모를 주제에 따라 묶을 수 있어요.",
+          "expectationSource": "AI_AUTHORED",
+          "expectedFailures": []
+        }
+      ]
+    }
+  ]
+}

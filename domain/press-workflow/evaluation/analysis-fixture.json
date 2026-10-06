@@ -1,0 +1,359 @@
+{
+  "review": {
+    "version": "press-eval-human-review/v1",
+    "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+    "artifactHash": "c96dde60939f984aacb5946b675c0895a86145c8ab192852bf31c44ac210d1f9",
+    "reviewer": {
+      "type": "HUMAN",
+      "id": "test-only-historical-review",
+      "reviewedAt": "2026-10-06T08:19:40.671Z",
+      "attestation": "I reviewed the blinded outputs myself"
+    },
+    "entries": [
+      {
+        "reviewId": "728df234618d6d6fde34db5573e8d34123e0ffa7c3e89d97a54d39876554c51d",
+        "outputHash": "fac56fe9808cdda299db7fc85648b0e706061bfb0574ffdaf075bc6a15d0173c",
+        "request": "모리노트 1 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+        "facts": [
+          {
+            "id": "launch",
+            "content": "모리노트 1의 출시일은 2026년 11월 1일이다."
+          },
+          {
+            "id": "price",
+            "content": "모리노트 1의 월 이용료는 2000원이다."
+          },
+          {
+            "id": "feature",
+            "content": "모리노트 1는 메모를 주제별로 정리한다."
+          }
+        ],
+        "requiredFactIds": [
+          "launch",
+          "price"
+        ],
+        "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+        "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+        "draft": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 지원\n\n새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시를 앞두고 있습니다. 월 2000원의 이용료로 주제별 메모 정리를 간편하게 도와드립니다.\n\n모리노트 1은 2026년 11월 1일 정식 출시되며, 월 이용료는 2000원입니다. 이 서비스는 사용자가 작성한 메모를 주제별로 체계적으로 정리할 수 있도록 설계되었습니다.\n\n모리노트 1은 단순한 메모 앱을 넘어, 메모를 주제별로 분류해 사용자가 필요한 정보를 쉽게 찾고 관리할 수 있도록 돕습니다. 이를 통해 일상이나 업무에서 메모 활용도를 높일 수 있습니다.\n\n월 2000원의 합리적인 이용료로 제공되는 모리노트 1은 부담 없이 시작할 수 있어, 메모 정리에 어려움을 겪는 분들에게 적합한 선택지가 될 것으로 기대됩니다.\n\n출시일인 11월 1일부터 이용 가능하며, 사용자 친화적인 인터페이스로 누구나 쉽게 사용할 수 있도록 준비 중입니다.\n\n모리노트 1은 앞으로도 사용자 편의성을 높이는 다양한 기능을 추가할 계획입니다. 자세한 정보와 출시 소식은 공식 홈페이지를 통해 확인하실 수 있습니다.",
+        "labels": [
+          {
+            "criterion": "FACTUAL_SUPPORT",
+            "judgment": "FAIL",
+            "reason": "사용자 친화적인 인터페이스, 기능 추가 계획은 근거에 없었음"
+          },
+          {
+            "criterion": "REQUIRED_FACTS",
+            "judgment": "PASS",
+            "reason": "근거를 모두 사용했음"
+          },
+          {
+            "criterion": "STYLE_LEAKAGE",
+            "judgment": "PASS",
+            "reason": "근거 없는 수치나 사실을 가져오지 않았음"
+          },
+          {
+            "criterion": "PROMOTIONAL_CLAIMS",
+            "judgment": "FAIL",
+            "reason": "사용자 친화적인 인터페이스, 기능 추가 계획은 근거에 없었음"
+          },
+          {
+            "criterion": "REQUESTED_STYLE",
+            "judgment": "PASS",
+            "reason": "친근한 문체를 사용했음"
+          }
+        ]
+      },
+      {
+        "reviewId": "8a90a682247256edf238a9970a6f780a4e338f39d256cdb36eb8e342ed6fed06",
+        "outputHash": "dbe9733869da112d6a97a54027dc3da4946d572582f59516e5fc264a4bbe4739",
+        "request": "모리노트 1 출시 보도자료를 처음 읽는 독자에게 친근하게 써 주세요. 출시일과 월 이용료를 반드시 넣고, 근거 없는 성과나 과장은 추가하지 마세요.",
+        "facts": [
+          {
+            "id": "launch",
+            "content": "모리노트 1의 출시일은 2026년 11월 1일이다."
+          },
+          {
+            "id": "price",
+            "content": "모리노트 1의 월 이용료는 2000원이다."
+          },
+          {
+            "id": "feature",
+            "content": "모리노트 1는 메모를 주제별로 정리한다."
+          }
+        ],
+        "requiredFactIds": [
+          "launch",
+          "price"
+        ],
+        "requestedStyle": "처음 접하는 독자가 이해할 수 있는 쉽고 친근한 존댓말. 사실과 수치는 유지한다.",
+        "styleExamples": "표현 참고 전용: 별빛앱은 100만 명의 사랑을 받는 업계 최고의 서비스예요. 별빛앱의 성과와 수치는 이 제품의 사실이 아닙니다.",
+        "draft": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 서비스 제공\n\n새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시되며, 월 2000원의 이용료로 주제별 메모 정리를 지원합니다.\n\n모리노트 1은 2026년 11월 1일 정식 출시되며, 사용자는 월 2000원의 비용으로 메모를 주제별로 체계적으로 정리할 수 있는 기능을 이용할 수 있습니다.\n\n모리노트 1은 메모를 단순히 저장하는 것을 넘어, 사용자가 작성한 메모를 주제별로 분류해 쉽게 관리할 수 있도록 돕는 서비스입니다. 이를 통해 메모를 찾거나 정리하는 데 드는 시간을 줄이고, 효율적인 정보 관리를 가능하게 합니다.\n\n월 이용료는 2000원으로 책정되어 부담 없이 이용할 수 있으며, 출시일인 11월 1일부터 바로 서비스를 경험할 수 있습니다. 합리적인 가격으로 일상과 업무에서 메모 활용도를 높이는 데 초점을 맞췄습니다.\n\n이번 서비스 출시는 메모 관리의 새로운 방식을 제안하며, 디지털 노트 시장에서 사용자 편의성을 강화하는 시도로 평가받고 있습니다. 앞으로도 사용자 피드백을 반영해 기능을 지속적으로 개선할 계획입니다.\n\n모리노트 1은 2026년 11월 1일부터 이용할 수 있으며, 자세한 정보와 가입 방법은 공식 웹사이트에서 확인하실 수 있습니다. 앞으로도 사용자 중심의 기능 확장과 서비스 개선에 힘쓸 예정입니다.",
+        "labels": [
+          {
+            "criterion": "FACTUAL_SUPPORT",
+            "judgment": "PASS",
+            "reason": "근거를 적절하게 사용하였음"
+          },
+          {
+            "criterion": "REQUIRED_FACTS",
+            "judgment": "PASS",
+            "reason": "근거를 적절하게 사용하였음"
+          },
+          {
+            "criterion": "STYLE_LEAKAGE",
+            "judgment": "PASS",
+            "reason": "근거 없는 수치를 가져오지 않음"
+          },
+          {
+            "criterion": "PROMOTIONAL_CLAIMS",
+            "judgment": "FAIL",
+            "reason": "가격의 합리성과 시장 평가 등은 근거가 충분하지 않음"
+          },
+          {
+            "criterion": "REQUESTED_STYLE",
+            "judgment": "PASS",
+            "reason": "친근하다고 볼수있음"
+          }
+        ]
+      }
+    ]
+  },
+  "batch": {
+    "version": "press-eval-batch/v1",
+    "generation": {
+      "version": "press-eval-generation/v1",
+      "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+      "kind": "GENERATION",
+      "createdAt": "2026-10-06T07:50:50.927Z",
+      "attempts": [
+        {
+          "caseId": "C01",
+          "variant": "BASELINE",
+          "trial": 1,
+          "draft": {
+            "version": "press-eval-draft/v1",
+            "caseId": "C01",
+            "groupId": "launch-01",
+            "partition": "DEVELOPMENT",
+            "variant": "BASELINE",
+            "trial": 1,
+            "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+            "inputHash": "c79a2e4419bfedaae1311f6c8128542edb72c92d666cbdcfa60620d1aefc485f",
+            "configurationHash": "a21247a9beb12879acdd014ccfdefb6158dfeb2b6d50ad268b936d72e3dfb24b",
+            "model": "gpt-4.1-mini",
+            "evidenceClass": "MEASURED_TEST",
+            "createdAt": "2026-10-06T07:50:39.486Z",
+            "text": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 지원\n\n새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시를 앞두고 있습니다. 월 2000원의 이용료로 주제별 메모 정리를 간편하게 도와드립니다.\n\n모리노트 1은 2026년 11월 1일 정식 출시되며, 월 이용료는 2000원입니다. 이 서비스는 사용자가 작성한 메모를 주제별로 체계적으로 정리할 수 있도록 설계되었습니다.\n\n모리노트 1은 단순한 메모 앱을 넘어, 메모를 주제별로 분류해 사용자가 필요한 정보를 쉽게 찾고 관리할 수 있도록 돕습니다. 이를 통해 일상이나 업무에서 메모 활용도를 높일 수 있습니다.\n\n월 2000원의 합리적인 이용료로 제공되는 모리노트 1은 부담 없이 시작할 수 있어, 메모 정리에 어려움을 겪는 분들에게 적합한 선택지가 될 것으로 기대됩니다.\n\n출시일인 11월 1일부터 이용 가능하며, 사용자 친화적인 인터페이스로 누구나 쉽게 사용할 수 있도록 준비 중입니다.\n\n모리노트 1은 앞으로도 사용자 편의성을 높이는 다양한 기능을 추가할 계획입니다. 자세한 정보와 출시 소식은 공식 홈페이지를 통해 확인하실 수 있습니다.",
+            "outputHash": "fac56fe9808cdda299db7fc85648b0e706061bfb0574ffdaf075bc6a15d0173c",
+            "generationMs": 10321.5037,
+            "usage": {
+              "inputTokens": 1299,
+              "outputTokens": 885
+            }
+          },
+          "errorCode": null
+        },
+        {
+          "caseId": "C01",
+          "variant": "CANDIDATE",
+          "trial": 1,
+          "draft": {
+            "version": "press-eval-draft/v1",
+            "caseId": "C01",
+            "groupId": "launch-01",
+            "partition": "DEVELOPMENT",
+            "variant": "CANDIDATE",
+            "trial": 1,
+            "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+            "inputHash": "c79a2e4419bfedaae1311f6c8128542edb72c92d666cbdcfa60620d1aefc485f",
+            "configurationHash": "54db52313556fc7ca07df8b31828ca5dc166159a4fe3133af0cabccd60c6b37c",
+            "model": "gpt-4.1-mini",
+            "evidenceClass": "MEASURED_TEST",
+            "createdAt": "2026-10-06T07:50:50.927Z",
+            "text": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 서비스 제공\n\n새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시되며, 월 2000원의 이용료로 주제별 메모 정리를 지원합니다.\n\n모리노트 1은 2026년 11월 1일 정식 출시되며, 사용자는 월 2000원의 비용으로 메모를 주제별로 체계적으로 정리할 수 있는 기능을 이용할 수 있습니다.\n\n모리노트 1은 메모를 단순히 저장하는 것을 넘어, 사용자가 작성한 메모를 주제별로 분류해 쉽게 관리할 수 있도록 돕는 서비스입니다. 이를 통해 메모를 찾거나 정리하는 데 드는 시간을 줄이고, 효율적인 정보 관리를 가능하게 합니다.\n\n월 이용료는 2000원으로 책정되어 부담 없이 이용할 수 있으며, 출시일인 11월 1일부터 바로 서비스를 경험할 수 있습니다. 합리적인 가격으로 일상과 업무에서 메모 활용도를 높이는 데 초점을 맞췄습니다.\n\n이번 서비스 출시는 메모 관리의 새로운 방식을 제안하며, 디지털 노트 시장에서 사용자 편의성을 강화하는 시도로 평가받고 있습니다. 앞으로도 사용자 피드백을 반영해 기능을 지속적으로 개선할 계획입니다.\n\n모리노트 1은 2026년 11월 1일부터 이용할 수 있으며, 자세한 정보와 가입 방법은 공식 웹사이트에서 확인하실 수 있습니다. 앞으로도 사용자 중심의 기능 확장과 서비스 개선에 힘쓸 예정입니다.",
+            "outputHash": "dbe9733869da112d6a97a54027dc3da4946d572582f59516e5fc264a4bbe4739",
+            "generationMs": 11439.9866,
+            "usage": {
+              "inputTokens": 1385,
+              "outputTokens": 999
+            }
+          },
+          "errorCode": null
+        }
+      ]
+    },
+    "evaluations": [
+      {
+        "version": "press-dual-evaluation/v1",
+        "draft": {
+          "version": "press-eval-draft/v1",
+          "caseId": "C01",
+          "groupId": "launch-01",
+          "partition": "DEVELOPMENT",
+          "variant": "BASELINE",
+          "trial": 1,
+          "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+          "inputHash": "c79a2e4419bfedaae1311f6c8128542edb72c92d666cbdcfa60620d1aefc485f",
+          "configurationHash": "a21247a9beb12879acdd014ccfdefb6158dfeb2b6d50ad268b936d72e3dfb24b",
+          "model": "gpt-4.1-mini",
+          "evidenceClass": "MEASURED_TEST",
+          "createdAt": "2026-10-06T07:50:39.486Z",
+          "text": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 지원\n\n새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시를 앞두고 있습니다. 월 2000원의 이용료로 주제별 메모 정리를 간편하게 도와드립니다.\n\n모리노트 1은 2026년 11월 1일 정식 출시되며, 월 이용료는 2000원입니다. 이 서비스는 사용자가 작성한 메모를 주제별로 체계적으로 정리할 수 있도록 설계되었습니다.\n\n모리노트 1은 단순한 메모 앱을 넘어, 메모를 주제별로 분류해 사용자가 필요한 정보를 쉽게 찾고 관리할 수 있도록 돕습니다. 이를 통해 일상이나 업무에서 메모 활용도를 높일 수 있습니다.\n\n월 2000원의 합리적인 이용료로 제공되는 모리노트 1은 부담 없이 시작할 수 있어, 메모 정리에 어려움을 겪는 분들에게 적합한 선택지가 될 것으로 기대됩니다.\n\n출시일인 11월 1일부터 이용 가능하며, 사용자 친화적인 인터페이스로 누구나 쉽게 사용할 수 있도록 준비 중입니다.\n\n모리노트 1은 앞으로도 사용자 편의성을 높이는 다양한 기능을 추가할 계획입니다. 자세한 정보와 출시 소식은 공식 홈페이지를 통해 확인하실 수 있습니다.",
+          "outputHash": "fac56fe9808cdda299db7fc85648b0e706061bfb0574ffdaf075bc6a15d0173c",
+          "generationMs": 10321.5037,
+          "usage": {
+            "inputTokens": 1299,
+            "outputTokens": 885
+          }
+        },
+        "evaluationMode": "LIVE",
+        "contextHash": "fe12a8a0cf2ae189913092016a5f5952b365b4d6a271a41b7d751a12bbcf48f0",
+        "evaluatedAt": "2026-10-06T07:53:25.033Z",
+        "evaluator": {
+          "ragasVersion": "0.4.3",
+          "metric": "faithfulness",
+          "domainPolicy": "press-requirements/v1",
+          "judgeModel": "gpt-4.1-mini",
+          "promptHash": "89c8ee08ad3e46820b5ce25e0d25d3948dd7c2848248709c7a58bd8aeb514ea0"
+        },
+        "ragas": {
+          "state": "EVALUATED",
+          "score": 0.21428571428571427,
+          "reasonCode": null,
+          "elapsedMs": 17274.9657,
+          "usage": {
+            "inputTokens": 2296,
+            "outputTokens": 1259
+          }
+        },
+        "domain": {
+          "state": "EVALUATED",
+          "verdict": "PASS",
+          "checks": [
+            {
+              "criterion": "FACTUAL_SUPPORT",
+              "judgment": "PASS",
+              "reason": "출시일과 월 이용료, 메모 주제별 정리 기능에 대해 모두 사실에 부합하는 내용을 포함하고 있습니다.",
+              "evidence": [
+                {
+                  "quote": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 지원",
+                  "factIds": [
+                    "launch",
+                    "price",
+                    "feature"
+                  ]
+                }
+              ]
+            },
+            {
+              "criterion": "REQUIRED_FACTS",
+              "judgment": "PASS",
+              "reason": "출시일(2026년 11월 1일)과 월 이용료(2000원)가 명확히 포함되어 있습니다.",
+              "evidence": [
+                {
+                  "quote": "모리노트 1은 2026년 11월 1일 정식 출시되며, 월 이용료는 2000원입니다.",
+                  "factIds": [
+                    "launch",
+                    "price"
+                  ]
+                }
+              ]
+            },
+            {
+              "criterion": "STYLE_LEAKAGE",
+              "judgment": "PASS",
+              "reason": "스타일 예시에서 제시된 다른 제품명이나 수치가 본문에 포함되어 있지 않습니다.",
+              "evidence": []
+            },
+            {
+              "criterion": "PROMOTIONAL_CLAIMS",
+              "judgment": "PASS",
+              "reason": "근거 없는 성과나 과장된 표현 없이 사실에 기반한 설명만 포함되어 있습니다.",
+              "evidence": [
+                {
+                  "quote": "모리노트 1은 단순한 메모 앱을 넘어, 메모를 주제별로 분류해 사용자가 필요한 정보를 쉽게 찾고 관리할 수 있도록 돕습니다.",
+                  "factIds": [
+                    "feature"
+                  ]
+                }
+              ]
+            },
+            {
+              "criterion": "REQUESTED_STYLE",
+              "judgment": "PASS",
+              "reason": "친근하고 쉽게 이해할 수 있는 존댓말로 작성되어 있으며, 과장 없이 사실과 수치를 유지하고 있습니다.",
+              "evidence": [
+                {
+                  "quote": "새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시를 앞두고 있습니다. 월 2000원의 이용료로 주제별 메모 정리를 간편하게 도와드립니다.",
+                  "factIds": [
+                    "launch",
+                    "price",
+                    "feature"
+                  ]
+                }
+              ]
+            }
+          ],
+          "reasonCode": null,
+          "elapsedMs": 4672.4247,
+          "usage": {
+            "inputTokens": 873,
+            "outputTokens": 433
+          }
+        }
+      },
+      {
+        "version": "press-dual-evaluation/v1",
+        "draft": {
+          "version": "press-eval-draft/v1",
+          "caseId": "C01",
+          "groupId": "launch-01",
+          "partition": "DEVELOPMENT",
+          "variant": "CANDIDATE",
+          "trial": 1,
+          "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+          "inputHash": "c79a2e4419bfedaae1311f6c8128542edb72c92d666cbdcfa60620d1aefc485f",
+          "configurationHash": "54db52313556fc7ca07df8b31828ca5dc166159a4fe3133af0cabccd60c6b37c",
+          "model": "gpt-4.1-mini",
+          "evidenceClass": "MEASURED_TEST",
+          "createdAt": "2026-10-06T07:50:50.927Z",
+          "text": "모리노트 1, 2026년 11월 1일 출시…월 2000원으로 주제별 메모 정리 서비스 제공\n\n새로운 메모 정리 서비스 모리노트 1이 2026년 11월 1일 출시되며, 월 2000원의 이용료로 주제별 메모 정리를 지원합니다.\n\n모리노트 1은 2026년 11월 1일 정식 출시되며, 사용자는 월 2000원의 비용으로 메모를 주제별로 체계적으로 정리할 수 있는 기능을 이용할 수 있습니다.\n\n모리노트 1은 메모를 단순히 저장하는 것을 넘어, 사용자가 작성한 메모를 주제별로 분류해 쉽게 관리할 수 있도록 돕는 서비스입니다. 이를 통해 메모를 찾거나 정리하는 데 드는 시간을 줄이고, 효율적인 정보 관리를 가능하게 합니다.\n\n월 이용료는 2000원으로 책정되어 부담 없이 이용할 수 있으며, 출시일인 11월 1일부터 바로 서비스를 경험할 수 있습니다. 합리적인 가격으로 일상과 업무에서 메모 활용도를 높이는 데 초점을 맞췄습니다.\n\n이번 서비스 출시는 메모 관리의 새로운 방식을 제안하며, 디지털 노트 시장에서 사용자 편의성을 강화하는 시도로 평가받고 있습니다. 앞으로도 사용자 피드백을 반영해 기능을 지속적으로 개선할 계획입니다.\n\n모리노트 1은 2026년 11월 1일부터 이용할 수 있으며, 자세한 정보와 가입 방법은 공식 웹사이트에서 확인하실 수 있습니다. 앞으로도 사용자 중심의 기능 확장과 서비스 개선에 힘쓸 예정입니다.",
+          "outputHash": "dbe9733869da112d6a97a54027dc3da4946d572582f59516e5fc264a4bbe4739",
+          "generationMs": 11439.9866,
+          "usage": {
+            "inputTokens": 1385,
+            "outputTokens": 999
+          }
+        },
+        "evaluationMode": "LIVE",
+        "contextHash": "fe12a8a0cf2ae189913092016a5f5952b365b4d6a271a41b7d751a12bbcf48f0",
+        "evaluatedAt": "2026-10-06T07:53:49.097Z",
+        "evaluator": {
+          "ragasVersion": "0.4.3",
+          "metric": "faithfulness",
+          "domainPolicy": "press-requirements/v1",
+          "judgeModel": "gpt-4.1-mini",
+          "promptHash": "89c8ee08ad3e46820b5ce25e0d25d3948dd7c2848248709c7a58bd8aeb514ea0"
+        },
+        "ragas": {
+          "state": "EVALUATED",
+          "score": 0.23529411764705882,
+          "reasonCode": null,
+          "elapsedMs": 18958.6868,
+          "usage": {
+            "inputTokens": 2445,
+            "outputTokens": 1671
+          }
+        },
+        "domain": {
+          "state": "NOT_EVALUABLE",
+          "verdict": null,
+          "checks": [],
+          "reasonCode": "INVALID_RESULT",
+          "elapsedMs": 5097.7889,
+          "usage": null
+        }
+      }
+    ]
+  }
+}
