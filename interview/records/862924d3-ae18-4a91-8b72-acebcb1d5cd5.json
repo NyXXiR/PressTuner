@@ -1,0 +1,56 @@
+{
+  "format_version": 4,
+  "publication": "published",
+  "id": "862924d3-ae18-4a91-8b72-acebcb1d5cd5",
+  "project_ids": [
+    "8b9d9c39-b7af-48d4-a547-3b3f424ce46b"
+  ],
+  "title": "수정 의견과 독립 정답을 구분해 Judge를 검증하기",
+  "worked_on": "2026-10-13",
+  "source": {
+    "label": "Codex · 푸시된 구현 분석과 오프라인 재검증 (2026-10-13)",
+    "kind": "ai",
+    "reference": "PressTuner master@b332ba8e68aae602b96d846b9e324464ded93bbc; AI-007; 선별 코드·커밋 내 결과 문서"
+  },
+  "learning": {
+    "summary": "작성자가 수정안을 골랐다는 사실을 평가기의 정답으로 쓰면, 점수를 먼저 보고 고른 의견으로 같은 평가기를 검증하게 돼요. 새 연구 기능은 PRODUCT 수정 의견, 블라인드 기준 판정, A/B 선호를 분리해요. 같은 원문에서 나온 변형은 한 그룹으로 묶고 보정·감사·holdout 사이에 섞이지 않도록 해요.",
+    "decision": "연구 데이터셋을 고정하고 원문 관계를 기준으로 partition을 유지해요. PRODUCT는 수정 의견만 기록하며 정답 후보에 넣지 않아요. 점수 노출 이력이 없고 블라인드로 제출한 PASS/FAIL만 기준 후보로 보고, 불확실·건너뜀·의견 불일치는 제외해요. CALIBRATION으로 정한 정책을 고정한 뒤 AUDIT를 별도 보고하고, 개선 후보는 holdout·독립 감사·A/B·회귀 근거가 부족하면 HOLD로 남겨요.",
+    "verification": "이번 test:press-study 14/14, test:press-study-ui 8/8, test:press-system 12/12가 통과했어요. 합성 표본·모의 서비스에서 원문 그룹 분리, PRODUCT/노출 의견의 정답 제외, 보정 고정, 부족한 분모와 회귀의 판정을 확인했어요. 전체 선별 검사는 93/93이에요. Node v20.9.0/Linux에서 기존 설치 의존성을 임시 연결해 검사했으며 lockfile 재설치 검증은 아니에요. 외부 모델·운영 DB·Python SDK·브라우저·전체 lint/build·원격 CI는 이번에 실행하지 않았어요.",
+    "limitations": "실제 독립 사람 판정으로 현재 Judge의 신뢰도를 입증한 결과는 아니에요. 코드의 최소 원문 10그룹·오탐/미탐 조건은 탐색 정책이며 통계적 보증이 아니에요. 2026-10-12 커밋 내 findings에는 근거 없는 향후 계획에 사실 근거 점수 1.0이 나온 검토 후보가 있지만 사람 확인 전이므로 확정 오탐률·미탐률이나 golden label로 쓰지 않아요. READY_FOR_OPERATOR도 운영 자동 반영을 허가하지 않아요.",
+    "questions": [
+      {
+        "id": "review-versus-reference",
+        "prompt": "사람이 반영을 눌렀으면 정답으로 써도 되나요?",
+        "guide": "일반 원고 반영은 편집 행동이고 연구 PRODUCT 선택은 수정 의견 기록이에요. 품질 기준의 정답과 의미가 달라요. 점수를 본 의견은 독립 검증에도 편향을 줄 수 있어요. 구현은 PRODUCT·노출 의견을 references에서 제외하고 블라인드 PASS/FAIL 및 불일치 여부를 따로 처리해요. A/B는 선호로 별도 집계해요."
+      },
+      {
+        "id": "source-group-split",
+        "prompt": "같은 원문에서 만든 초안 100개를 독립 표본 100개로 세면 왜 문제인가요?",
+        "guide": "같은 기사·문서·사실 집합에서 나온 출력은 오류와 표현을 공유할 수 있어요. 코드가 연결된 source family를 같은 groupId로 묶고 서로 다른 partition에 넣으면 거절하는 이유예요. 보정과 감사가 원문을 공유하면 일반화 성능을 과대평가할 수 있어요. 여러 변형은 독립 원문의 수를 늘리지 않아요."
+      },
+      {
+        "id": "judge-adoption-gate",
+        "prompt": "평균 점수가 오르면 개선 후보를 바로 채택하나요?",
+        "guide": "평가기가 결함을 놓치거나 일부 표본이 빠진 상태일 수 있어요. 구현은 비교 가능한 지표·독립 감사·holdout 효과·블라인드 선호·회귀를 함께 봐요. 부족하면 HOLD, 회귀면 REGRESSION, 조건을 충족해도 READY_FOR_OPERATOR로 사람 판단을 남겨요. 이런 판정 코드의 테스트 통과와 실제 모델 개선 실증은 구분해야 해요."
+      }
+    ],
+    "concepts": [
+      {
+        "title": "LLM-as-a-Judge",
+        "definition": "언어 모델이 명시한 기준에 따라 다른 출력을 평가하는 방식이에요.",
+        "body": "G-Eval의 기준·모델·실행 설정을 버전으로 묶어요. 점수 임계값은 서비스가 정한 정책이므로 실제 사람 기준과의 독립 비교가 필요해요. 이 기록은 신뢰도 실증 완료를 주장하지 않아요.",
+        "url": "https://deepeval.com/docs/metrics-llm-evals",
+        "source": "DeepEval 공식 문서 · G-Eval"
+      },
+      {
+        "title": "평가 기준과 입력의 범위",
+        "definition": "평가기마다 요구하는 입력과 판단하는 성질이 다르다는 경계예요.",
+        "body": "Faithfulness, 업무별 사실·과장 기준, A/B 선호를 한 정답 점수로 합치지 않아요. 입력이 없는 업무 기준은 NOT_APPLICABLE로 남겨요. 실제 검색 precision/recall·도구 정확도는 별도 입력과 검증이 필요해요.",
+        "url": "https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/",
+        "source": "Ragas 공식 문서 · Faithfulness"
+      }
+    ],
+    "scope": "사용자가 푸시한 b332ba8의 기존 구현을 2026-10-13에 Codex가 읽고 선별 테스트와 학습 자료 작성을 수행했어요. 제품 기능을 이번에 새로 구현한 것은 아니에요. worked_on은 이 분석·검증일이며 원래 개발 기간 전체를 뜻하지 않아요. 개인의 과거 구현 기여와 설명 능력은 확인하지 않았고 답변·이력서 문구는 초안이에요."
+  },
+  "evidence": "분석 기준: https://github.com/NyXXiR/PressTuner/commit/b332ba8e68aae602b96d846b9e324464ded93bbc\n원본 구현은 2026-10-13 fetch한 origin/master. 기본 checkout의 미커밋 수정은 분석 기준에서 제외했다.\n이 학습 원본은 등록된 interview-records 브랜치에만 추가하며 앱 코드 전체를 그 브랜치로 합치지 않는다.\n중복 검토: 기존 2건은 설정 대체와 headless 생성/검증 분리. 새 3건은 영속 평가 재시도, Judge 연구의 독립성, 비동기 편집 보호라는 별도 결정이다.\n직접 실행: Node v20.9.0/Linux, 기존 PressTuner node_modules 재사용; 임시 연결은 검사 후 제거.\ntest:press-system 12, test:press-evaluation 18, test:press-quality 10, test:press-workflow 13, test:press-standard 11, test:press-study 14, test:press-study-ui 8, quality-edit adapter/editor 7 = 93 통과; 실패/skip 0.\n마지막 명령: node --import tsx --test components/press/quality-edit/adapter.test.ts components/press/quality-edit/editor.test.ts; 나머지는 npm run <script>.\n로컬 실행 요약: /home/nyxxir/.local/state/interview-lab/reviews/20261013-presstuner/tests.json (수집 지시가 아닌 표시용 근거)\n과거 기록: 커밋 내 RELEASE_READINESS.md는 Node 96개(브라우저 3 포함)+Python SDK 8개, lint 경고 76, 일반 build의 Windows Prisma EPERM과 직접 Next build 성공을 별도로 보고한다. 이번 재실행 결과와 합산하지 않는다.\n새 모델 호출·사람 판정·운영 DB·배포·원격 CI 검증 없음. 공식 학습 링크는 2026-10-13 확인. 테스트 통과는 개인 기여·이해도·Judge 신뢰도의 증거가 아니다.\n선택 파일 SHA-256 (수집기는 경로를 따라 소스를 읽지 않음):\ndomain/press-workflow/evaluation/study.ts · 14cf1e0c29515727c76597fa9f68bb106a21ad74d1e707edb083aa5e1e4eeed4\ndomain/press-workflow/evaluation/study-analysis.ts · 98fed34fe9d76d26d16d1dce0ff698525cb63b0887815d4cb81b87836128cf99\ndomain/press-workflow/evaluation/study-experiment.ts · 2306d2c7a981372426881408d51bc67811108f686fb4dd05069ee87fe603ac12\ndomain/press-workflow/evaluation/study.test.ts · 6cffac1e6c47a20cdaa1d0c82750d721d61c4d50c23e838b2f61f3b2ccbe439e\nlib/services/press-workflow/evaluation/studyService.test.ts · 63309f0d456d4392f8381eee2317d8cdf3e15d1dc259bdd7f32e423447b66f78\nevals/press-workflow/evidence/2026-10-12-study-live-findings.json · 6bd1dffe130317c0d77b46252a3fa370d315bea3761365e7c9c028719fea5bc5"
+}
