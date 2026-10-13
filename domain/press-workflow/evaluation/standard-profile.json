@@ -1,0 +1,35 @@
+{
+  "id": "press-standard-evaluation/v2",
+  "contextSource": "ACCEPTED_ARTICLE_FACTS",
+  "inference": {
+    "defaultModel": "gpt-6-luna",
+    "modelOverrides": {
+      "gpt-6-luna": { "reasoning_effort": "none", "max_completion_tokens": 3000, "temperature": 0 }
+    }
+  },
+  "metrics": [
+    {
+      "framework": "RAGAS",
+      "version": "0.4.3",
+      "metric": "Faithfulness",
+      "threshold": null,
+      "parameters": { "prompt": "PACKAGE_DEFAULT", "temperature": 0 }
+    },
+    {
+      "framework": "DEEPEVAL",
+      "version": "4.2.8",
+      "metric": "FaithfulnessMetric",
+      "threshold": 0.5,
+      "parameters": {
+        "evaluation_template": "PACKAGE_DEFAULT",
+        "eval_mode": "llm",
+        "include_reason": true,
+        "strict_mode": false,
+        "penalize_ambiguous_claims": false,
+        "truths_extraction_limit": null,
+        "async_mode": false,
+        "temperature": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "version": "press-study-review-candidates/v1",
+  "studyId": "64a0f8457f2ed5ae043f8087f273d5f1eab8bb49277bd4f9d3ebc42598ac315b",
+  "sourceClass": "SYNTHETIC_DEVELOPMENT_ONLY",
+  "author": "AI_INSPECTION",
+  "humanValidation": "NOT_PERFORMED",
+  "eligibleAsGoldenLabels": false,
+  "eligibleAsRegressionRequirements": false,
+  "candidates": [
+    {
+      "id": "threshold-price",
+      "classification": "THRESHOLD_POLICY_REVIEW",
+      "state": "PENDING_HUMAN_REVIEW",
+      "metric": "DEEPEVAL",
+      "score": 0.6666666666666666,
+      "threshold": 0.5,
+      "passed": true,
+      "judgeReason": "The score is 0.67 because the actual output incorrectly states that 종이별 costs 73,000 won per month, while the context says the monthly fee is 7,300 won.",
+      "question": "초안의 요금 오류를 지적했는데도 현재 통과 기준을 충족한다. 이 업무에서 통과로 받아들일 수 있는가?",
+      "note": "The judge detected the contradiction; this is a threshold/decision-policy concern, not proof that the judge missed the claim."
+    },
+    {
+      "id": "unsupported-future-plan",
+      "classification": "JUDGE_MISS_CANDIDATE",
+      "state": "PENDING_HUMAN_REVIEW",
+      "variant": "BASELINE",
+      "outputHash": "cae7da88dbe8f46fe1ad2fabbeaf96aec31b6691e7ac40b628f153ed21ff3797",
+      "metric": "FACTUAL_SUPPORT",
+      "score": 1,
+      "judgeReason": "모든 사실 진술이 기대 출력과 일치하며, '2026년 10월 12일 출시', '팀 회의 메모 정리 기능', '월 7,300원 이용 요금'이 정확히 반영되었다. 과장이나 허위 정보가 없고, 추가 계획 언급도 미래 계획으로 허용된다.",
+      "criterion": "Check each factual assertion in ACTUAL_OUTPUT against the accepted facts in EXPECTED_OUTPUT. Unsupported dates, numbers, capabilities, attribution and future plans are violations. Stylistic invitations are not factual claims. Omissions alone are outside this criterion.",
+      "facts": [
+        "가상의 누리문서는 2026년 10월 12일 협업 도구 종이별을 출시했다.",
+        "종이별은 팀 회의 메모를 정리하는 기능을 제공한다.",
+        "종이별의 이용 요금은 월 7,300원이다."
+      ],
+      "outputQuote": "가상의 누리문서는 앞으로도 사용자 편의성을 강화한 다양한 기능을 추가할 계획이다. 자세한 내용은 공식 홈페이지에서 확인할 수 있다.",
+      "question": "제공된 사실에는 없는 향후 기능 추가 계획을 근거 없는 주장으로 판정하는가?",
+      "note": "AI-identified review candidate only; no human agreement, false-negative rate or golden label inferred."
+    }
+  ]
+}

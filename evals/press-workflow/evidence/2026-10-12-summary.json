@@ -1,0 +1,1035 @@
+{
+  "version": "press-quality-evidence/v1",
+  "measuredDate": "2026-10-12",
+  "scope": "SYNTHETIC_SOURCE_LIVE_MODEL_TESTS",
+  "independentHumanAudit": "NOT_PERFORMED",
+  "deploymentAuthorized": false,
+  "implementationHashAtSummary": "906b8b857fbec9a867c15bcb179f6323fd7e53bac2cea637d06409d5554c1327",
+  "note": "Aggregated local evidence; raw drafts and human identities are excluded. Historical results retain their original implementation identities. Post-run CLI recipe validation and dependency-lock hashing were hardened without rerunning model calls.",
+  "sources": {
+    "judge-comparison-20261012.json": {
+      "hash": "ae65085ecae1f6ddfa9a7af9568f2e624709eac5151c38ee5c2dc73e3bab49aa",
+      "result": {
+        "version": "press-judge-comparison/v1",
+        "sourceReviewHash": "275e7161445c1393ae95a24778e56a1e7d6722a2022fbf6371f84b7f72b5fd02",
+        "scope": "SAME_OUTPUT_REVIEWED_SAMPLE_ONLY",
+        "judges": [
+          {
+            "artifactHash": "c96dde60939f984aacb5946b675c0895a86145c8ab192852bf31c44ac210d1f9",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "89c8ee08ad3e46820b5ce25e0d25d3948dd7c2848248709c7a58bd8aeb514ea0"
+            },
+            "audit": [
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "FACTUAL_SUPPORT",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 1,
+                "trueNegative": 0,
+                "unavailable": 1,
+                "humanUncertain": 0,
+                "humanDefects": 1,
+                "unreviewed": 0,
+                "compared": 1,
+                "coverage": 0.5,
+                "agreement": 0,
+                "conditionalDefectRecall": 0,
+                "endToEndDefectRecall": 0,
+                "falsePositiveRate": null
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "REQUIRED_FACTS",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 0,
+                "trueNegative": 1,
+                "unavailable": 1,
+                "humanUncertain": 0,
+                "humanDefects": 0,
+                "unreviewed": 0,
+                "compared": 1,
+                "coverage": 0.5,
+                "agreement": 1,
+                "conditionalDefectRecall": null,
+                "endToEndDefectRecall": null,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "STYLE_LEAKAGE",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 0,
+                "trueNegative": 1,
+                "unavailable": 1,
+                "humanUncertain": 0,
+                "humanDefects": 0,
+                "unreviewed": 0,
+                "compared": 1,
+                "coverage": 0.5,
+                "agreement": 1,
+                "conditionalDefectRecall": null,
+                "endToEndDefectRecall": null,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 1,
+                "trueNegative": 0,
+                "unavailable": 1,
+                "humanUncertain": 0,
+                "humanDefects": 2,
+                "unreviewed": 0,
+                "compared": 1,
+                "coverage": 0.5,
+                "agreement": 0,
+                "conditionalDefectRecall": 0,
+                "endToEndDefectRecall": 0,
+                "falsePositiveRate": null
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "REQUESTED_STYLE",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 0,
+                "trueNegative": 1,
+                "unavailable": 1,
+                "humanUncertain": 0,
+                "humanDefects": 0,
+                "unreviewed": 0,
+                "compared": 1,
+                "coverage": 0.5,
+                "agreement": 1,
+                "conditionalDefectRecall": null,
+                "endToEndDefectRecall": null,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "RAGAS",
+                "criterion": "FACTUAL_SUPPORT",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "STRICT_SUPPORT_SCORE_EQUALS_ONE",
+                "truePositive": 1,
+                "falsePositive": 1,
+                "falseNegative": 0,
+                "trueNegative": 0,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 1,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 0.5,
+                "conditionalDefectRecall": 1,
+                "endToEndDefectRecall": 1,
+                "falsePositiveRate": 1
+              }
+            ],
+            "elapsedMs": 9770.2136,
+            "usage": [
+              {
+                "inputTokens": 873,
+                "outputTokens": 433
+              },
+              null
+            ]
+          },
+          {
+            "artifactHash": "730b68c97b89863af79a7ff054283f54fbd3f5e9432bd000207d8815294783e4",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "audit": [
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "FACTUAL_SUPPORT",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 1,
+                "trueNegative": 1,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 1,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 0.5,
+                "conditionalDefectRecall": 0,
+                "endToEndDefectRecall": 0,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "REQUIRED_FACTS",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 0,
+                "trueNegative": 2,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 0,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 1,
+                "conditionalDefectRecall": null,
+                "endToEndDefectRecall": null,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "STYLE_LEAKAGE",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 0,
+                "trueNegative": 2,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 0,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 1,
+                "conditionalDefectRecall": null,
+                "endToEndDefectRecall": null,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 1,
+                "falsePositive": 0,
+                "falseNegative": 1,
+                "trueNegative": 0,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 2,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 0.5,
+                "conditionalDefectRecall": 0.5,
+                "endToEndDefectRecall": 0.5,
+                "falsePositiveRate": null
+              },
+              {
+                "evaluator": "DOMAIN",
+                "criterion": "REQUESTED_STYLE",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "CRITERION_JUDGMENT",
+                "truePositive": 0,
+                "falsePositive": 0,
+                "falseNegative": 0,
+                "trueNegative": 2,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 0,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 1,
+                "conditionalDefectRecall": null,
+                "endToEndDefectRecall": null,
+                "falsePositiveRate": 0
+              },
+              {
+                "evaluator": "RAGAS",
+                "criterion": "FACTUAL_SUPPORT",
+                "scope": "REVIEWED_SAMPLE_ONLY",
+                "interpretation": "STRICT_SUPPORT_SCORE_EQUALS_ONE",
+                "truePositive": 1,
+                "falsePositive": 1,
+                "falseNegative": 0,
+                "trueNegative": 0,
+                "unavailable": 0,
+                "humanUncertain": 0,
+                "humanDefects": 1,
+                "unreviewed": 0,
+                "compared": 2,
+                "coverage": 1,
+                "agreement": 0.5,
+                "conditionalDefectRecall": 1,
+                "endToEndDefectRecall": 1,
+                "falsePositiveRate": 1
+              }
+            ],
+            "elapsedMs": 29367.475000000006,
+            "usage": [
+              {
+                "inputTokens": 4777,
+                "outputTokens": 420
+              },
+              {
+                "inputTokens": 5032,
+                "outputTokens": 424
+              }
+            ]
+          }
+        ],
+        "independentValidation": false
+      }
+    },
+    "geval-pilot-20261012.json": {
+      "hash": "730b68c97b89863af79a7ff054283f54fbd3f5e9432bd000207d8815294783e4",
+      "result": {
+        "generationKind": "GENERATION",
+        "recipeHash": null,
+        "rows": [
+          {
+            "caseId": "C01",
+            "groupId": "launch-01",
+            "variant": "BASELINE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "fac56fe9808cdda299db7fc85648b0e706061bfb0574ffdaf075bc6a15d0173c",
+            "configurationHash": "a21247a9beb12879acdd014ccfdefb6158dfeb2b6d50ad268b936d72e3dfb24b",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.14285714285714285,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.9880797085800512
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.9059272611528904
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 1
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4777,
+              "outputTokens": 420
+            },
+            "generationUsage": {
+              "inputTokens": 1299,
+              "outputTokens": 885
+            },
+            "generationMs": 10321.5037
+          },
+          {
+            "caseId": "C01",
+            "groupId": "launch-01",
+            "variant": "CANDIDATE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "dbe9733869da112d6a97a54027dc3da4946d572582f59516e5fc264a4bbe4739",
+            "configurationHash": "54db52313556fc7ca07df8b31828ca5dc166159a4fe3133af0cabccd60c6b37c",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.29411764705882354,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.9670701338662153
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 0.9984093604614444
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "FAIL",
+                "score": 0.7444466411142044
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.9731058590348989
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 5032,
+              "outputTokens": 424
+            },
+            "generationUsage": {
+              "inputTokens": 1385,
+              "outputTokens": 999
+            },
+            "generationMs": 11439.9866
+          }
+        ]
+      }
+    },
+    "geval-holdout-evaluation-20261012.json": {
+      "hash": "eb7abb74cffa13e97345cdca9585bdbb5287167c2ad1901e5ded5abd743317aa",
+      "result": {
+        "generationKind": "GENERATION",
+        "recipeHash": "5491060903d22336acd053b6255739e3922e9dd1711dc8cd94ebfe2f324745d0",
+        "rows": [
+          {
+            "caseId": "C03",
+            "groupId": "launch-03",
+            "variant": "BASELINE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "ec7d1245821f146cdc2801eceea7a83568ed8b1d47d1f3b4356fe217bb1781d9",
+            "implementationHash": "d4251ad80a5e1ad8f6c39287fcea836efb98dfccb4c4c8e2b8efe75f900f90f9",
+            "configurationHash": "a21247a9beb12879acdd014ccfdefb6158dfeb2b6d50ad268b936d72e3dfb24b",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.25,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.9880797065461671
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.9377540668798143
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4937,
+              "outputTokens": 477
+            },
+            "generationUsage": {
+              "inputTokens": 1302,
+              "outputTokens": 891
+            },
+            "generationMs": 10331.763700000001
+          },
+          {
+            "caseId": "C03",
+            "groupId": "launch-03",
+            "variant": "CANDIDATE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "ad1ee03d7a2e44026c6d4e40f30b014e22bffb2cb219bcc645c0190170be36bc",
+            "implementationHash": "d4251ad80a5e1ad8f6c39287fcea836efb98dfccb4c4c8e2b8efe75f900f90f9",
+            "configurationHash": "7a64f526dfa9e23f59cc73d17c53283bcee01689f23706351bd045ca2bacc62c",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.3333333333333333,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.9999999999999998
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 0.9985936371135941
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.9939913355927313
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.9562176500885797
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4692,
+              "outputTokens": 405
+            },
+            "generationUsage": {
+              "inputTokens": 1442,
+              "outputTokens": 861
+            },
+            "generationMs": 7124.256200000002
+          },
+          {
+            "caseId": "C06",
+            "groupId": "launch-06",
+            "variant": "BASELINE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "081e50e4471d8ebf4abce09bfc5527df2850d12158258a3b4469399ea069e974",
+            "implementationHash": "d4251ad80a5e1ad8f6c39287fcea836efb98dfccb4c4c8e2b8efe75f900f90f9",
+            "configurationHash": "a21247a9beb12879acdd014ccfdefb6158dfeb2b6d50ad268b936d72e3dfb24b",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.2631578947368421,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.998756835162798
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.995257412867369
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.9119202915764012
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4842,
+              "outputTokens": 476
+            },
+            "generationUsage": {
+              "inputTokens": 1308,
+              "outputTokens": 849
+            },
+            "generationMs": 6292.274099999999
+          },
+          {
+            "caseId": "C06",
+            "groupId": "launch-06",
+            "variant": "CANDIDATE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "e88bd31c1739d897ea79069a34bc2085b74869f92e9ad6212fb37ddec2e94e17",
+            "implementationHash": "d4251ad80a5e1ad8f6c39287fcea836efb98dfccb4c4c8e2b8efe75f900f90f9",
+            "configurationHash": "7a64f526dfa9e23f59cc73d17c53283bcee01689f23706351bd045ca2bacc62c",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.5,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.8805837537213979
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 0.95621765008858
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 0.9075858184722065
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.9047425870989718
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.8978566776571404
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4532,
+              "outputTokens": 513
+            },
+            "generationUsage": {
+              "inputTokens": 1448,
+              "outputTokens": 827
+            },
+            "generationMs": 6652.970899999997
+          }
+        ]
+      }
+    },
+    "geval-holdout-comparison-20261012.json": {
+      "hash": "f9d19495b21d4dbe480bb0a78b70afd46d9e9c0897736cb6db30f204ac6ce5dc",
+      "result": {
+        "version": "press-quality-experiment/v1",
+        "artifactHash": "eb7abb74cffa13e97345cdca9585bdbb5287167c2ad1901e5ded5abd743317aa",
+        "recipeHash": "5491060903d22336acd053b6255739e3922e9dd1711dc8cd94ebfe2f324745d0",
+        "state": "HOLD",
+        "reasons": [
+          "INSUFFICIENT_EFFECT_EVIDENCE",
+          "INDEPENDENT_JUDGE_AUDIT_REQUIRED"
+        ],
+        "comparisons": [
+          {
+            "criterion": "FACTUAL_SUPPORT",
+            "groupCount": 2,
+            "measuredGroups": 2,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "improvements": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          },
+          {
+            "criterion": "REQUIRED_FACTS",
+            "groupCount": 2,
+            "measuredGroups": 2,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "improvements": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          },
+          {
+            "criterion": "STYLE_LEAKAGE",
+            "groupCount": 2,
+            "measuredGroups": 2,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "improvements": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          },
+          {
+            "criterion": "PROMOTIONAL_CLAIMS",
+            "groupCount": 2,
+            "measuredGroups": 2,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "improvements": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          },
+          {
+            "criterion": "REQUESTED_STYLE",
+            "groupCount": 2,
+            "measuredGroups": 2,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "improvements": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          }
+        ],
+        "judgeAudit": {
+          "state": "MISSING",
+          "reasons": [
+            "INDEPENDENT_JUDGE_AUDIT_REQUIRED"
+          ],
+          "policy": "press-judge-audit/v1",
+          "artifactHash": null
+        },
+        "faithfulness": [
+          {
+            "partition": "DEVELOPMENT",
+            "groupCount": 0,
+            "completeGroups": 0,
+            "excludedGroups": 0,
+            "pairCount": 0,
+            "meanDelta": null,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          },
+          {
+            "partition": "HOLDOUT",
+            "groupCount": 2,
+            "completeGroups": 2,
+            "excludedGroups": 0,
+            "pairCount": 2,
+            "meanDelta": 0.1600877192982456,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          }
+        ],
+        "operational": [
+          {
+            "partition": "DEVELOPMENT",
+            "variant": "BASELINE",
+            "requested": 0,
+            "generated": 0,
+            "faithfulnessMeasured": 0,
+            "faithfulnessMean": null,
+            "domainEvaluated": 0,
+            "domainPassed": 0,
+            "domainBlocked": 0,
+            "domainPassRate": null,
+            "domainCoverage": null,
+            "generationP95Ms": null,
+            "generationTokenMean": null,
+            "usageCoverage": null,
+            "costMicros": null
+          },
+          {
+            "partition": "DEVELOPMENT",
+            "variant": "CANDIDATE",
+            "requested": 0,
+            "generated": 0,
+            "faithfulnessMeasured": 0,
+            "faithfulnessMean": null,
+            "domainEvaluated": 0,
+            "domainPassed": 0,
+            "domainBlocked": 0,
+            "domainPassRate": null,
+            "domainCoverage": null,
+            "generationP95Ms": null,
+            "generationTokenMean": null,
+            "usageCoverage": null,
+            "costMicros": null
+          },
+          {
+            "partition": "HOLDOUT",
+            "variant": "BASELINE",
+            "requested": 2,
+            "generated": 2,
+            "faithfulnessMeasured": 2,
+            "faithfulnessMean": 0.256578947368421,
+            "domainEvaluated": 2,
+            "domainPassed": 2,
+            "domainBlocked": 0,
+            "domainPassRate": 1,
+            "domainCoverage": 1,
+            "generationP95Ms": 10331.763700000001,
+            "generationTokenMean": 2175,
+            "usageCoverage": 1,
+            "costMicros": null
+          },
+          {
+            "partition": "HOLDOUT",
+            "variant": "CANDIDATE",
+            "requested": 2,
+            "generated": 2,
+            "faithfulnessMeasured": 2,
+            "faithfulnessMean": 0.41666666666666663,
+            "domainEvaluated": 2,
+            "domainPassed": 2,
+            "domainBlocked": 0,
+            "domainPassRate": 1,
+            "domainCoverage": 1,
+            "generationP95Ms": 7124.256200000002,
+            "generationTokenMean": 2289,
+            "usageCoverage": 1,
+            "costMicros": null
+          }
+        ],
+        "adoption": "OPERATOR_DECISION_REQUIRED",
+        "deploymentAuthorized": false
+      }
+    },
+    "geval-regression-reevaluation-20261012.json": {
+      "hash": "5330b6bfbcb2f5cba9280ac9f7ec7b2e43a2a8322a6bf7d5c275506680206aa9",
+      "result": {
+        "generationKind": "GENERATION",
+        "recipeHash": "5491060903d22336acd053b6255739e3922e9dd1711dc8cd94ebfe2f324745d0",
+        "rows": [
+          {
+            "caseId": "C01",
+            "groupId": "launch-01",
+            "variant": "BASELINE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "7ec0fba48d15f5e8ced077aac1233b8f707669a5338eb39b8bc1c9e0445d02ca",
+            "implementationHash": "d4251ad80a5e1ad8f6c39287fcea836efb98dfccb4c4c8e2b8efe75f900f90f9",
+            "configurationHash": "a21247a9beb12879acdd014ccfdefb6158dfeb2b6d50ad268b936d72e3dfb24b",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.4666666666666667,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.9851952803847783
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 0.9977022627957396
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 0.9377540661794488
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.8851952798209366
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.9055611601390325
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4787,
+              "outputTokens": 547
+            },
+            "generationUsage": {
+              "inputTokens": 1308,
+              "outputTokens": 885
+            },
+            "generationMs": 7369.571799999999
+          },
+          {
+            "caseId": "C01",
+            "groupId": "launch-01",
+            "variant": "CANDIDATE",
+            "evaluationMode": "LIVE",
+            "evidenceClass": "MEASURED_TEST",
+            "outputHash": "9a26f4a2ad3ee9474a707a0baaec34dae22e59d03553c9e124608ca82cde5682",
+            "implementationHash": "d4251ad80a5e1ad8f6c39287fcea836efb98dfccb4c4c8e2b8efe75f900f90f9",
+            "configurationHash": "7a64f526dfa9e23f59cc73d17c53283bcee01689f23706351bd045ca2bacc62c",
+            "evaluator": {
+              "ragasVersion": "0.4.3",
+              "metric": "faithfulness",
+              "domainPolicy": "press-requirements/v1",
+              "judgeModel": "gpt-4.1-mini",
+              "promptHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d",
+              "domainFramework": {
+                "framework": "DEEPEVAL",
+                "version": "4.2.8",
+                "rubricHash": "ac6e608c7d6c6e3586a47471f5584ca7aea627bba43ae37db353dcb30c86092d"
+              }
+            },
+            "ragasScore": 0.5,
+            "checks": [
+              {
+                "criterion": "FACTUAL_SUPPORT",
+                "judgment": "PASS",
+                "score": 0.991490095499298
+              },
+              {
+                "criterion": "REQUIRED_FACTS",
+                "judgment": "PASS",
+                "score": 0.9985936370089942
+              },
+              {
+                "criterion": "STYLE_LEAKAGE",
+                "judgment": "PASS",
+                "score": 1
+              },
+              {
+                "criterion": "PROMOTIONAL_CLAIMS",
+                "judgment": "PASS",
+                "score": 0.8867035751212787
+              },
+              {
+                "criterion": "REQUESTED_STYLE",
+                "judgment": "PASS",
+                "score": 0.9222700149143158
+              }
+            ],
+            "domainUsage": {
+              "inputTokens": 4637,
+              "outputTokens": 496
+            },
+            "generationUsage": {
+              "inputTokens": 1448,
+              "outputTokens": 837
+            },
+            "generationMs": 7507.645699999999
+          }
+        ]
+      }
+    },
+    "geval-regression-result-20261012.json": {
+      "hash": "a31f27793f85261f1734d84d0e224ede214e6e4dc92f40eaa4032d4d83923e7b",
+      "result": {
+        "version": "press-quality-regression-result/v1",
+        "manifestHash": "6baf6df5ae463addc22d783c7934015ebfc138db26702630af2e7431dcfe22fd",
+        "artifactHash": "730b68c97b89863af79a7ff054283f54fbd3f5e9432bd000207d8815294783e4",
+        "exitCode": 1,
+        "state": "REGRESSION",
+        "results": [
+          {
+            "caseId": "C01",
+            "criterion": "FACTUAL_SUPPORT",
+            "state": "PASS",
+            "observed": 1,
+            "requested": 1
+          },
+          {
+            "caseId": "C01",
+            "criterion": "PROMOTIONAL_CLAIMS",
+            "state": "REGRESSION",
+            "observed": 1,
+            "requested": 1
+          }
+        ],
+        "evidence": "MEASURED_TEST",
+        "deploymentAuthorized": false
+      }
+    },
+    "geval-regression-after-result-20261012.json": {
+      "hash": "0a8cca8eb235ae4f17ad5d00acea94acd96a818c987acac9b9fda8c8f9fd2365",
+      "result": {
+        "version": "press-quality-regression-result/v1",
+        "manifestHash": "6baf6df5ae463addc22d783c7934015ebfc138db26702630af2e7431dcfe22fd",
+        "artifactHash": "5330b6bfbcb2f5cba9280ac9f7ec7b2e43a2a8322a6bf7d5c275506680206aa9",
+        "exitCode": 0,
+        "state": "PASS",
+        "results": [
+          {
+            "caseId": "C01",
+            "criterion": "FACTUAL_SUPPORT",
+            "state": "PASS",
+            "observed": 1,
+            "requested": 1
+          },
+          {
+            "caseId": "C01",
+            "criterion": "PROMOTIONAL_CLAIMS",
+            "state": "PASS",
+            "observed": 1,
+            "requested": 1
+          }
+        ],
+        "evidence": "MEASURED_TEST",
+        "deploymentAuthorized": false
+      }
+    }
+  }
+}

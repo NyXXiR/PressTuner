@@ -1,0 +1,20 @@
+{
+  "kind": "authenticated-editor-execution",
+  "date": "2026-10-12",
+  "timezone": "Asia/Seoul",
+  "fixture": "standard-evaluation-demo",
+  "synthetic": true,
+  "databaseScope": "isolated-test-database",
+  "model": "gpt-4.1-mini",
+  "observedResultTime": "13:28:25",
+  "finalUiRun": { "observedResultTime": "13:34:28", "ragasScore": 1, "deepEvalScore": 1, "saveStatus": 200, "evaluationStatus": 200 },
+  "contextSource": "ACCEPTED_ARTICLE_FACTS",
+  "contextCount": 3,
+  "results": [
+    { "framework": "RAGAS", "version": "0.4.3", "metric": "Faithfulness", "score": 1, "elapsedSecondsRounded": 18.3, "inputTokens": 1787, "outputTokens": 354 },
+    { "framework": "DEEPEVAL", "version": "4.2.8", "metric": "FaithfulnessMetric", "score": 1, "elapsedSecondsRounded": 17, "inputTokens": 1664, "outputTokens": 214 }
+  ],
+  "http": { "save": 200, "evaluate": 200 },
+  "guardChecks": { "unauthenticated": 401, "availability": 200, "crossOrigin": 403, "invalidJson": 422, "browserContexts": 422, "oversized": 413, "staleDraft": 409 },
+  "interpretation": "Execution evidence from one synthetic draft only; not an evaluator reliability estimate or proof of quality improvement."
+}

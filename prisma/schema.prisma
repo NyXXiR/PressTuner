@@ -655,6 +655,8 @@ model Team {
   articleFinalCitations     ArticleFinalCitation[]
   pressAiDebugCases         PressAiDebugCase[]
   pressAiDebugAttempts      PressAiDebugAttempt[]
+  qualityStudies            PressQualityStudy[]
+  qualitySourceAssignments  PressQualitySourceAssignment[]
 
   // ✅ 자소서 관련 역참조
   experienceBricks ExperienceBrick[]
@@ -876,10 +878,70 @@ model Article {
   verifications        ArticleVerification[]
   finalCitations       ArticleFinalCitation[]
   pressAiDebugAttempts PressAiDebugAttempt[]
+  qualityEvaluations   ArticleQualityEvaluation[]
 
   @@index([teamId, status, createdAt])
   @@index([styleGuideId])
   @@map("article")
+}
+
+// Append-only evaluation attempts; metric results accumulate only while RUNNING.
+// This is a quality observation, never an authoritative ArticleVerification.
+model ArticleQualityEvaluation {
+  id             String   @id @default(cuid())
+  articleId      String   @map("article_id")
+  teamId         String?  @map("team_id")
+  createdById    String   @map("created_by_id")
+  idempotencyKey String   @map("idempotency_key")
+  requestHash    String   @map("request_hash")
+  fingerprint    String
+  profileHash    String   @map("profile_hash")
+  kind           String
+  status         String   @default("RUNNING")
+  snapshot       Json
+  profile        Json
+  results        Json
+  retryOfId      String?  @map("retry_of_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  deadlineAt     DateTime @map("deadline_at")
+  finishedAt     DateTime? @map("finished_at")
+  article        Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, idempotencyKey])
+  @@index([articleId, createdAt])
+  @@index([status, deadlineAt])
+  @@map("article_quality_evaluation")
+}
+
+// Bounded, versioned research aggregate. Not publication or billing authority.
+model PressQualityStudy {
+  id          String   @id
+  teamId      String   @map("team_id")
+  createdById String   @map("created_by_id")
+  createHash  String   @map("create_hash")
+  revision    Int      @default(0)
+  name        String
+  data        Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
+  @@map("press_quality_study")
+}
+
+// Source use survives study deletion; an observed group cannot be recycled as
+// an independent audit/holdout in another study of the same team.
+model PressQualitySourceAssignment {
+  teamId       String @map("team_id")
+  sourceHash   String @map("source_hash")
+  partition    String
+  firstStudyId String @map("first_study_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  team         Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, sourceHash])
+  @@map("press_quality_source_assignment")
 }
 
 model ExampleArticle {

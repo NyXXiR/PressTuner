@@ -4,10 +4,12 @@ import { link, mkdir, open, readFile, readdir, rename, unlink } from "node:fs/pr
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { datasetSchema, evaluationBundleSchema, hash, type Dataset, type EvaluationBundle } from "../../domain/press-workflow/evaluation/contracts";
-import { createReviewSession, selectAnswer, sessionSchema, type ReviewSession } from "../../domain/press-workflow/evaluation/quick-review";
+import { createReviewSession, selectAnswer, selectExperiment, sessionSchema, type ReviewSession } from "../../domain/press-workflow/evaluation/quick-review";
 import { buildReport } from "../../domain/press-workflow/evaluation/report";
 import { reportHtml } from "./evaluation-html";
 import { quickReviewHtml } from "./quick-review-html";
+import { decisionHtml } from "./decision-html";
+import { experimentHtml } from "./experiment-html";
 
 const readBounded = async (path: string) => { const bytes = await readFile(path); if (bytes.length > 32 * 1024 * 1024) throw new Error("ARTIFACT_TOO_LARGE"); return JSON.parse(bytes.toString("utf8")); };
 async function durableWrite(path: string, value: unknown, exclusive = false) {
@@ -16,7 +18,7 @@ async function durableWrite(path: string, value: unknown, exclusive = false) {
   try { await file.writeFile(JSON.stringify(value, null, 2)); await file.sync(); } finally { await file.close(); }
   try { if (exclusive) { await link(temporary, path); await unlink(temporary); } else await rename(temporary, path); } catch (error) { await unlink(temporary).catch(() => {}); throw error; }
 }
-export async function startReviewServer(options: { dataset: Dataset; batch: EvaluationBundle; imported?: unknown; dir: string; port?: number; budget?: number }) {
+export async function startReviewServer(options: { dataset: Dataset; batch: EvaluationBundle; imported?: unknown; dir: string; port?: number; budget?: number; questionBudget?: number }) {
   const dataset = datasetSchema.parse(options.dataset), batch = evaluationBundleSchema.parse(options.batch), dir = resolve(options.dir);
   await mkdir(dir, { recursive: true });
   const lockPath = join(dir, "server.lock");
@@ -42,7 +44,7 @@ export async function startReviewServer(options: { dataset: Dataset; batch: Eval
       if (session.packet.artifactHash !== hash(batch) || session.packet.datasetHash !== hash(dataset)) throw new Error("SESSION_ARTIFACT_MISMATCH");
       buildReport(dataset, batch, session.packet);
     } else {
-      session = createReviewSession(dataset, batch, options.imported, options.budget ?? 2, randomUUID());
+      session = createReviewSession(dataset, batch, options.imported, options.budget ?? 2, randomUUID(), options.questionBudget);
       await snapshot(session);
     }
   } catch (error) { await unlink(lockPath); throw error; }
@@ -58,12 +60,14 @@ export async function startReviewServer(options: { dataset: Dataset; batch: Eval
     if (req.headers.host !== new URL(origin).host) { send(403, "text/plain", "Invalid host"); return; }
     if (req.method === "GET") {
       if (req.url === "/") send(200, "text/html", quickReviewHtml(session, token));
+      else if (req.url === "/decisions") send(200, "text/html", decisionHtml(dataset, batch, session));
+      else if (req.url === "/experiment") send(200, "text/html", experimentHtml(dataset, batch, session, token));
       else if (req.url === "/report") send(200, "text/html", reportHtml(batch, buildReport(dataset, batch, session.packet)));
       else if (req.url === "/summary") send(200, "application/json", JSON.stringify(buildReport(dataset, batch, session.packet).summary));
       else send(404, "text/plain", "Not found");
       return;
     }
-    if (req.method !== "POST" || req.url !== "/selection") { send(404, "text/plain", "Not found"); return; }
+    if (req.method !== "POST" || !["/selection", "/experiment-choice"].includes(req.url ?? "")) { send(404, "text/plain", "Not found"); return; }
     if (req.headers.origin !== origin || req.headers["x-review-token"] !== token || !req.headers["content-type"]?.startsWith("application/json")) { send(403, "text/plain", "Invalid request origin"); return; }
     try {
       let body = "";
@@ -72,7 +76,7 @@ export async function startReviewServer(options: { dataset: Dataset; batch: Eval
       // One durable revision at a time. Failed writes never change the in-memory answers.
       pending = pending.then(async () => {
         try {
-          const next = selectAnswer(session, input), report = await snapshot(next);
+          const next = req.url === "/experiment-choice" ? selectExperiment(session, input, batch) : selectAnswer(session, input), report = await snapshot(next);
           session = next;
           let summaryUpdated = true;
           try { await durableWrite(join(dir, "console-summary.json"), report.summary); } catch { summaryUpdated = false; }
@@ -92,12 +96,12 @@ export async function startReviewServer(options: { dataset: Dataset; batch: Eval
 
 async function main() {
   const args = process.argv.slice(2), values: Record<string, string> = {};
-  for (let i = 0; i < args.length; i += 2) { if (!["--input", "--dataset", "--review", "--dir", "--port", "--budget"].includes(args[i]) || !args[i + 1]) throw new Error("INVALID_ARGUMENTS"); values[args[i]] = args[i + 1]; }
+  for (let i = 0; i < args.length; i += 2) { if (!["--input", "--dataset", "--review", "--dir", "--port", "--budget", "--questions"].includes(args[i]) || !args[i + 1]) throw new Error("INVALID_ARGUMENTS"); values[args[i]] = args[i + 1]; }
   if (!values["--input"] || !values["--dir"]) throw new Error("Usage: review-server --input EVALUATION --dir NEW_OR_EXISTING_SESSION [--review HUMAN_JSON] [--port 8765] [--budget 2]");
   const port = Number(values["--port"] ?? 8765); if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("INVALID_PORT");
   const running = await startReviewServer({ dataset: datasetSchema.parse(await readBounded(values["--dataset"] ?? "evals/press-workflow/dual/v1/dataset.json")),
     batch: evaluationBundleSchema.parse(await readBounded(values["--input"])), imported: values["--review"] ? await readBounded(values["--review"]) : undefined,
-    dir: values["--dir"], port, budget: Number(values["--budget"] ?? 2) });
+    dir: values["--dir"], port, budget: Number(values["--budget"] ?? 2), questionBudget: Number(values["--questions"] ?? 3) });
   console.log(`Selection review: ${running.url}\nAnalysis: ${running.url}/report\nDurable session: ${resolve(values["--dir"])}`);
   for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => { void running.close().then(() => process.exit(0)); });
 }

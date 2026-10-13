@@ -18,6 +18,7 @@ export type RagasInput = { user_input: string; response: string; retrieved_conte
 export type DomainInput = { request: string; draft: string; facts: Scenario["facts"]; requiredFactIds: string[]; requestedStyle: string; styleExamples: string };
 export type EvaluationPorts = {
   mode?: "MOCK" | "LIVE";
+  domainIdentity?: Evaluation["evaluator"]["domainFramework"];
   model: string;
   ragas(input: RagasInput): Promise<{ score: number; usage: unknown }>;
   judge(input: DomainInput): Promise<{ checks: unknown; usage: unknown }>;
@@ -52,12 +53,13 @@ export async function evaluateDraft(datasetInput: Dataset, draftInput: Draft, po
     measuredUsage = usageSchema.nullable().parse(raw.usage);
     const { checks } = validateJudgment(judgeSchema.parse({ checks: raw.checks }), draft.text, c.facts.map(f => f.id));
     const verdict = domainVerdict(checks), complete = !checks.some(c => c.judgment === "UNCERTAIN");
-    domain = { state: complete ? "EVALUATED" : "NOT_EVALUABLE", verdict, checks, reasonCode: complete ? null : "INVALID_RESULT", elapsedMs: performance.now() - started, usage: measuredUsage };
+    domain = { state: complete ? "EVALUATED" : "NOT_EVALUABLE", verdict, checks, reasonCode: complete ? null : checks.find(c => c.errorCode)?.errorCode ?? "UNCERTAIN_JUDGMENT", elapsedMs: performance.now() - started, usage: measuredUsage };
   } catch (error) {
     domain = { state: "NOT_EVALUABLE", verdict: null, checks: [], reasonCode: failureCode(error), elapsedMs: performance.now() - started, usage: measuredUsage ?? errorUsage(error) };
   }
   return evaluationSchema.parse({ version: "press-dual-evaluation/v1", draft, evaluationMode: ports.mode ?? "MOCK", contextHash: hash(c.facts), evaluatedAt: new Date().toISOString(),
-    evaluator: { ragasVersion: RAGAS_VERSION, metric: "faithfulness", domainPolicy: POLICY_VERSION, judgeModel: ports.model, promptHash: hash(DOMAIN_PROMPT) }, ragas, domain });
+    evaluator: { ragasVersion: RAGAS_VERSION, metric: "faithfulness", domainPolicy: POLICY_VERSION, judgeModel: ports.model,
+      promptHash: ports.domainIdentity?.rubricHash ?? hash(DOMAIN_PROMPT), ...(ports.domainIdentity ? { domainFramework: ports.domainIdentity } : {}) }, ragas, domain });
 }
 function errorUsage(error: unknown) {
   const parsed = usageSchema.safeParse(error && typeof error === "object" ? (error as { usage?: unknown }).usage : undefined);

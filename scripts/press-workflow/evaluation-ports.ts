@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import OpenAI from "openai";
+import { callDeepEval, deepEvalIdentity } from "./deepeval-port";
 import { DOMAIN_PROMPT, type EvaluationPorts, type RagasInput } from "../../lib/services/press-workflow/evaluation/evaluate";
 
 export function callRagas(input: RagasInput, model: string, python: string): ReturnType<EvaluationPorts["ragas"]> {
@@ -24,9 +25,10 @@ export function callRagas(input: RagasInput, model: string, python: string): Ret
   });
 }
 
-export function livePorts(model: string, python: string): EvaluationPorts {
+export function livePorts(model: string, python: string, judge: "custom" | "deepeval" = "custom", deepEvalPython = python): EvaluationPorts {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required");
   const client = new OpenAI({ maxRetries: 0, timeout: 60_000 });
+  if (judge === "deepeval") return { mode: "LIVE", model, domainIdentity: deepEvalIdentity, ragas: input => callRagas(input, model, python), judge: input => callDeepEval(input, model, deepEvalPython) };
   return { mode: "LIVE", model, ragas: input => callRagas(input, model, python), judge: async input => {
     const response = await client.chat.completions.create({ model, temperature: 0, max_tokens: 3500, response_format: { type: "json_object" },
       messages: [{ role: "system", content: DOMAIN_PROMPT }, { role: "user", content: JSON.stringify(input) }] });

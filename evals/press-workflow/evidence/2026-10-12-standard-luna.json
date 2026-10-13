@@ -1,0 +1,19 @@
+{
+  "kind": "authenticated-editor-execution",
+  "date": "2026-10-12",
+  "timezone": "Asia/Seoul",
+  "observedResultTime": "14:05:09",
+  "fixture": "standard-evaluation-demo",
+  "synthetic": true,
+  "databaseScope": "isolated-test-database",
+  "profileId": "press-standard-evaluation/v2",
+  "model": "gpt-6-luna",
+  "inference": { "reasoning_effort": "none", "temperature": 0, "max_completion_tokens": 3000 },
+  "contextSource": "ACCEPTED_ARTICLE_FACTS",
+  "contextCount": 3,
+  "results": [
+    { "framework": "RAGAS", "version": "0.4.3", "metric": "Faithfulness", "score": 1, "elapsedSecondsRounded": 13.2, "inputTokens": 1767, "outputTokens": 307 },
+    { "framework": "DEEPEVAL", "version": "4.2.8", "metric": "FaithfulnessMetric", "score": 1, "elapsedSecondsRounded": 15, "inputTokens": 1643, "outputTokens": 230 }
+  ],
+  "interpretation": "One synthetic draft verifies execution and visible model/usage only. Not evidence of evaluator accuracy equivalence or measured billed-cost savings."
+}

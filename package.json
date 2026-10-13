@@ -63,6 +63,15 @@
     "test:press-quality": "node --import tsx --test domain/press-workflow/evaluation/analysis.test.ts domain/press-workflow/evaluation/quick-review.test.ts scripts/press-workflow/review-server.test.ts scripts/press-workflow/quick-review-html.test.ts",
     "test:press-evaluation": "node --import tsx --test domain/press-workflow/evaluation/contracts.test.ts domain/press-workflow/evaluation/report.test.ts lib/services/press-workflow/evaluation/evaluate.test.ts scripts/press-workflow/dual-eval.test.ts scripts/press-workflow/evaluation-html.test.ts",
     "typecheck:press-workflow": "tsc --project scripts/press-workflow/tsconfig.json --pretty false",
+    "typecheck:press-standard": "tsc --project scripts/press-workflow/tsconfig.standard.json --pretty false",
+    "test:press-standard": "node --import tsx --test lib/services/press-workflow/evaluation/standard.test.ts lib/services/press-workflow/evaluation/articleEvaluation.test.ts",
+    "test:press-study": "node --import tsx --test domain/press-workflow/evaluation/study.test.ts lib/services/press-workflow/evaluation/studyService.test.ts",
+    "test:press-study-ui": "node --import tsx --test components/press/quality-study/adapter.test.ts components/press/quality-study/client.test.ts",
+    "test:press-study-browser": "node --import tsx --test scripts/press-workflow/study-ui-browser.test.ts",
+    "test:press-edit-ui": "node --import tsx --test components/press/quality-edit/adapter.test.ts components/press/quality-edit/editor.test.ts scripts/press-workflow/quality-edit-browser.test.ts",
+    "seed:press-standard": "node --import tsx scripts/press-workflow/standard-demo.mjs seed",
+    "demo:press-standard": "node --import tsx scripts/press-workflow/standard-demo.mjs serve",
+    "check:press-standard-api": "node scripts/press-workflow/standard-api-check.mjs",
     "test:press-workflow": "node --import tsx --test domain/press-workflow/configuration.test.ts lib/services/press-workflow/runDraftWorkflow.test.ts lib/llm/articleGenerator.test.ts scripts/press-workflow/run.test.ts",
     "generate:press-rag-improvement": "node --import tsx scripts/generatePressRagImprovementCycle.ts",
     "generate:press-rag-execution-evidence": "node --import tsx scripts/generatePressRagExecutionEvidence.ts",
@@ -73,7 +82,10 @@
     "report:press-agent": "tsx scripts/reportPressAgentObservability.ts",
     "qa-auth:configure": "tsx scripts/configureAiQaAuth.ts",
     "smoke:portone:billing": "tsx scripts/portoneBillingSmoke.ts",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "quality:press": "node --import tsx scripts/press-workflow/quality-system.ts",
+    "test:press-system": "node --import tsx --test domain/press-workflow/evaluation/decision.test.ts domain/press-workflow/evaluation/regression.test.ts domain/press-workflow/evaluation/experiment.test.ts scripts/press-workflow/quality-system.test.ts",
+    "test:press-quality-browser": "node --import tsx --test scripts/press-workflow/quality-browser.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

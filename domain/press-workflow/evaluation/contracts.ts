@@ -51,8 +51,12 @@ export const draftSchema = z.object({ version: z.literal("press-eval-draft/v1"),
     ctx.addIssue({ code: "custom", message: "Generation configuration mismatch" });
 });
 export const checkSchema = z.object({ criterion: criterionSchema, judgment: judgmentValueSchema,
+  score: z.number().finite().min(0).max(1).optional(),
+  errorCode: z.enum(["TIMEOUT", "INVALID_RESULT", "PROVIDER_ERROR"]).optional(),
   reason: bounded(800), evidence: z.array(z.object({ quote: bounded(2000), factIds: z.array(bounded(60)).max(20) }).strict()).max(12),
-}).strict();
+}).strict().superRefine((c, ctx) => {
+  if (c.errorCode && (c.judgment !== "UNCERTAIN" || c.score !== undefined)) ctx.addIssue({ code: "custom", message: "Failed criterion cannot carry a judgment score" });
+});
 export const judgeSchema = z.object({ checks: z.array(checkSchema).length(CRITERIA.length) }).strict().superRefine((r, ctx) => {
   if (new Set(r.checks.map(c => c.criterion)).size !== CRITERIA.length) ctx.addIssue({ code: "custom", message: "Each rubric criterion must occur exactly once" });
 });
@@ -62,7 +66,8 @@ export function validateJudgment(result: z.infer<typeof judgeSchema>, draft: str
   }
   return result;
 }
-export const EVAL_ERRORS = ["NO_FACTS", "NO_CLAIMS", "TIMEOUT", "INVALID_RESULT", "PROVIDER_ERROR", "NOT_RUN", "MISSING_REVIEW"] as const;
+export const EVAL_ERRORS = ["NO_FACTS", "NO_CLAIMS", "TIMEOUT", "INVALID_RESULT", "PROVIDER_ERROR", "NOT_RUN", "MISSING_REVIEW", "UNCERTAIN_JUDGMENT"] as const;
+export const domainIdentitySchema = z.object({ framework: z.literal("DEEPEVAL"), version: z.literal("4.2.8"), rubricHash: digest }).strict();
 export const scoreResultSchema = z.object({ state: z.enum(["EVALUATED", "NOT_EVALUABLE"]), score: z.number().finite().min(0).max(1).nullable(),
   reasonCode: z.enum(EVAL_ERRORS).nullable(), elapsedMs: z.number().finite().nonnegative(), usage: usageSchema.nullable(),
 }).strict().superRefine((r, ctx) => {
@@ -80,7 +85,8 @@ export const domainResultSchema = z.object({ state: z.enum(["EVALUATED", "NOT_EV
 export const evaluationSchema = z.object({ version: z.literal("press-dual-evaluation/v1"), draft: draftSchema,
   evaluationMode: z.enum(["MOCK", "LIVE"]),
   contextHash: digest, evaluatedAt: z.string().datetime(), evaluator: z.object({ ragasVersion: z.literal(RAGAS_VERSION),
-    metric: z.literal("faithfulness"), domainPolicy: z.literal(POLICY_VERSION), judgeModel: bounded(120), promptHash: digest }).strict(),
+    metric: z.literal("faithfulness"), domainPolicy: z.literal(POLICY_VERSION), judgeModel: bounded(120), promptHash: digest,
+    domainFramework: domainIdentitySchema.optional() }).strict(),
   ragas: scoreResultSchema, domain: domainResultSchema,
 }).strict();
 export type Scenario = z.infer<typeof scenarioSchema>;
@@ -93,14 +99,22 @@ export const policyFreezeSchema = z.object({ version: z.literal("press-eval-poli
   promptHash: digest, ragasVersion: z.literal(RAGAS_VERSION), domainPolicy: z.literal(POLICY_VERSION),
   developmentArtifactHash: digest, humanReviewHash: digest, reviewedOutputs: z.number().int().min(1),
 }).strict();
+export const experimentRecipeSchema = z.object({ version: z.literal("press-quality-recipe/v1"), datasetHash: digest, implementationHash: digest,
+  createdAt: z.string().datetime(), generatorModel: bounded(120), judgeModel: bounded(120), judge: z.enum(["custom", "deepeval"]), evaluatorPromptHash: digest,
+  sourceArtifactHash: digest, developmentGroups: z.array(bounded(80)).min(1).max(100),
+  instructions: z.array(z.object({ criterion: criterionSchema, text: bounded(2000) }).strict()).min(1).max(5),
+  reliability: z.literal("NOT_CERTIFIED"),
+}).strict();
 export const generationBundleSchema = z.object({ version: z.literal("press-eval-generation/v1"), datasetHash: digest,
   kind: z.enum(["GENERATION", "AUTHORED_CHALLENGES"]), createdAt: z.string().datetime(),
   policyFreeze: policyFreezeSchema.optional(),
+  experimentRecipe: experimentRecipeSchema.optional(),
   attempts: z.array(z.object({ caseId: z.string().regex(/^C\d{2}$/), variant: z.enum(["BASELINE", "CANDIDATE"]), trial: z.number().int().min(1).max(10),
     draft: draftSchema.nullable(), errorCode: z.enum(["GENERATION_FAILED"]).nullable(),
   }).strict()).min(1).max(600),
 }).strict().superRefine((r, ctx) => {
   if (r.policyFreeze && r.policyFreeze.datasetHash !== r.datasetHash) ctx.addIssue({ code: "custom", message: "Frozen policy dataset mismatch" });
+  if (r.experimentRecipe && r.experimentRecipe.datasetHash !== r.datasetHash) ctx.addIssue({ code: "custom", message: "Experiment dataset mismatch" });
   const keys = r.attempts.map(a => `${a.caseId}/${a.variant}/${a.trial}`);
   if (new Set(keys).size !== keys.length || r.attempts.some(a => (a.draft === null) !== (a.errorCode !== null)
     || (a.draft && (a.draft.caseId !== a.caseId || a.draft.variant !== a.variant || a.draft.trial !== a.trial || a.draft.datasetHash !== r.datasetHash))))

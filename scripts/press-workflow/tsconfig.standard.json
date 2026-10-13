@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "incremental": false, "plugins": [] },
+  "include": [
+    "../../next-env.d.ts",
+    "../../next.config.ts",
+    "../../lib/analytics/ga4.ts",
+    "../../domain/press-workflow/evaluation/standard.ts",
+    "../../lib/services/press-workflow/evaluation/standard*.ts",
+    "../../lib/services/press-workflow/evaluation/articleStandardEvaluation.server.ts",
+    "../../app/api/articles/[id]/quality-evaluation/route.ts",
+    "../../app/api/press/quality-studies/**/*.ts",
+    "../../components/press/PressStandardEvaluationPanel.tsx",
+    "../../components/press/SimplifiedPressReviewFlow.tsx"
+  ],
+  "exclude": ["../../node_modules"]
+}

@@ -5,6 +5,7 @@ import importlib.metadata
 import json
 import math
 import os
+from pathlib import Path
 import sys
 import time
 
@@ -30,6 +31,8 @@ async def evaluate(value):
     from ragas.metrics.collections import Faithfulness
     if importlib.metadata.version("ragas") != "0.4.3":
         raise ValueError("INVALID_RESULT")
+    profile = json.loads((Path(__file__).resolve().parents[3] / "domain/press-workflow/evaluation/standard-profile.json").read_text(encoding="utf-8"))
+    overrides = profile["inference"]["modelOverrides"].get(value["model"], {})
     usage = {"inputTokens": 0, "outputTokens": 0}
     measured_usage = False
     calls = 0
@@ -42,6 +45,10 @@ async def evaluate(value):
             if calls > 4:
                 raise ValueError("PROVIDER_ERROR")
             kwargs["max_tokens"] = 3000
+            # Apply after Ragas/Instructor's model-specific defaults.
+            if "max_completion_tokens" in overrides:
+                kwargs.pop("max_tokens", None)
+            kwargs.update(overrides)
             result = await original(*args, **kwargs)
             if result.usage:
                 measured_usage = True

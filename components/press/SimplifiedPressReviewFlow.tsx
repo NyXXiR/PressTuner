@@ -12,12 +12,15 @@ import {
   PenLine,
   RefreshCw,
   Sparkles,
-  X,
 } from "lucide-react";
 
 import LoadingButton from "@/components/ui/LoadingButton";
 import { RightPanel } from "@/components/layout/RightPanel";
 import { PressSimplifiedDevSwitcher } from "@/components/press/PressSimplifiedDevSwitcher";
+import { PressStandardEvaluationPanel } from "@/components/press/PressStandardEvaluationPanel";
+import { DraftRevisionChoices } from "@/components/press/quality-edit/DraftRevisionChoices";
+import { requestQualityRevision } from "@/components/press/quality-edit/revision";
+import type { QualityRunView } from "@/domain/press-workflow/evaluation/article-evaluation";
 import {
   PressVerificationPanel,
   type PressVerificationState,
@@ -98,7 +101,7 @@ export function SimplifiedPressReviewFlow() {
     toggleNoteSelection,
     runReview,
     runRePolish,
-    applyPendingResult,
+    applyDraftChange,
     setPendingResult,
     saveDraft,
     completeWriting,
@@ -109,6 +112,11 @@ export function SimplifiedPressReviewFlow() {
   const [article, setArticle] = useState<ArticlePayload | null>(null);
   const [instruction, setInstruction] = useState("");
   const [completing, setCompleting] = useState(false);
+  const [qualityBusy, setQualityBusy] = useState(false);
+  const qualityRequestActive = useRef(false);
+  const qualityScreenActive = useRef(true);
+  const [qualityMessage, setQualityMessage] = useState<string | null>(null);
+  useEffect(() => { qualityScreenActive.current = true; return () => { qualityScreenActive.current = false; }; }, [articleId]);
   const [verificationState, setVerificationState] =
     useState<PressVerificationState | null>(null);
   const [verificationRefreshKey, setVerificationRefreshKey] = useState(0);
@@ -185,7 +193,7 @@ export function SimplifiedPressReviewFlow() {
     hadPendingResultRef.current = true;
 
     toast.success(
-      "개선안이 준비되었습니다. 변경 비교를 확인해주세요.",
+      "수정안이 준비됐어요. 바뀐 부분만 선택해 주세요.",
       undefined,
       "top-center",
     );
@@ -199,10 +207,6 @@ export function SimplifiedPressReviewFlow() {
   }, [pendingResult]);
 
   const paragraphs = useMemo(() => splitParagraphs(plain), [plain]);
-  const pendingParagraphs = useMemo(
-    () => splitParagraphs(pendingResult?.plain ?? ""),
-    [pendingResult?.plain],
-  );
   const selectedCount = selectedNoteIds.length;
   const hasReview = notes.length > 0;
   const verificationFinalizable =
@@ -254,11 +258,22 @@ export function SimplifiedPressReviewFlow() {
     setInstruction("");
   };
 
-  const handleApply = async () => {
-    await applyPendingResult();
-    setVerificationRefreshKey((value) => value + 1);
-    setInstruction("");
-    toast.success("제안을 반영했습니다.", undefined, "top-center");
+  const handleQualityRevision = async (run: QualityRunView) => {
+    if (!articleId || qualityRequestActive.current) return;
+    qualityRequestActive.current = true; setQualityBusy(true); setQualityMessage(null);
+    try {
+      const result = await requestQualityRevision(articleId, run, {
+        current: () => usePressEditStore.getState(),
+        active: () => qualityScreenActive.current,
+        save: () => saveDraft({ force: true, silent: true }),
+        review: (userInstruction) => runReview({ quotaMode: "simplified", userInstruction }),
+        select: (ids) => usePressEditStore.getState().setSelectedNoteIds(ids),
+        rewrite: (userInstruction) => runRePolish(userInstruction, { quotaMode: "simplified" }),
+      });
+      if (result === "NO_CHANGES") setQualityMessage("평가에서 확인 신호가 있었지만, 첨삭이 구체적인 수정안을 찾지 못했어요. 자동 확인 내용과 자료를 함께 살펴봐 주세요.");
+    } catch (cause) {
+      setQualityMessage(usePressEditStore.getState().reviewError ?? (cause instanceof Error ? cause.message : "수정안을 준비하지 못했어요."));
+    } finally { qualityRequestActive.current = false; setQualityBusy(false); }
   };
 
   const handleComplete = async () => {
@@ -320,84 +335,40 @@ export function SimplifiedPressReviewFlow() {
           </p>
         </div>
 
+        <div className="mb-6 min-w-0">
+          {qualityMessage && <p role="status" className="mb-3 rounded-lg border border-border p-3 text-sm">{qualityMessage}</p>}
+          <PressStandardEvaluationPanel
+            articleId={articleId}
+            title={title}
+            plain={plain}
+            refreshKey={saveState}
+            disabled={reviewing || qualityBusy || completing || saveState === "saving" || !!pendingResult}
+            saveDraft={() => saveDraft({ silent: true, force: true })}
+            onRequestRevision={handleQualityRevision}
+            revisionBusy={qualityBusy}
+          />
+        </div>
+
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
           <div className="min-w-0 space-y-5">
             {pendingResult && (
-              <section
-                ref={comparisonRef}
-                className="scroll-mt-24 overflow-hidden border border-ai/40 bg-card ring-1 ring-ai/15"
-              >
-                <div className="flex flex-col gap-4 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-success" />
-                      <h2 className="text-lg font-bold">개선안 작성 완료</h2>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      현재 초안은 아직 바뀌지 않았습니다. 오른쪽 개선안을 확인한 뒤 적용하세요.
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <LoadingButton
-                      type="button"
-                      onClick={handleApply}
-                      loading={reviewing}
-                      loadingText="적용 중"
-                      className="h-10 bg-ai px-4 text-sm font-bold text-ai-foreground transition hover:bg-ai/90"
-                    >
-                      개선안 적용
-                      <ChevronRight className="h-4 w-4" />
-                    </LoadingButton>
-                    <button
-                      type="button"
-                      onClick={() => setPendingResult(null)}
-                      className="inline-flex h-10 items-center justify-center gap-2 border border-border px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                      취소
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 p-4 lg:grid-cols-2 sm:p-5">
-                  <div className="min-w-0 border border-border bg-background p-4">
-                    <p className="mb-3 text-xs font-bold text-muted-foreground">
-                      현재 초안
-                    </p>
-                    <h3 className="text-base font-bold leading-6">
-                      {title || "제목 없음"}
-                    </h3>
-                    <div className="mt-3 max-h-[340px] space-y-3 overflow-auto pr-1 text-sm leading-7 text-muted-foreground">
-                      {paragraphs.map((paragraph, index) => (
-                        <p key={`${paragraph.slice(0, 24)}-${index}`}>
-                          {paragraph}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 border border-ai/30 bg-ai/10 p-4">
-                    <p className="mb-3 text-xs font-bold text-ai">개선안</p>
-                    <h3 className="text-base font-bold leading-6">
-                      {pendingResult.title || "제목 없음"}
-                    </h3>
-                    <div className="mt-3 max-h-[340px] space-y-3 overflow-auto pr-1 text-sm leading-7">
-                      {pendingParagraphs.map((paragraph, index) => {
-                        const changed = paragraph !== paragraphs[index];
-                        return (
-                          <p
-                            key={`${paragraph.slice(0, 24)}-${index}`}
-                            className={cx(
-                              changed && "bg-background/70 px-2 py-1",
-                            )}
-                          >
-                            {paragraph}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+              <section ref={comparisonRef} className="scroll-mt-40">
+                <DraftRevisionChoices
+                  articleId={articleId}
+                  base={pendingResult.base ?? { title: "", plain: "" }}
+                  candidate={pendingResult}
+                  current={{ title, plain }}
+                  notes={pendingResult.notes}
+                  saveState={saveState}
+                  disabled={reviewing || completing || qualityBusy}
+                  onCommit={async (expected, next) => {
+                    const result = await applyDraftChange(articleId, expected, next);
+                    if (result !== "STALE") setVerificationRefreshKey(value => value + 1);
+                    return result;
+                  }}
+                  onRetrySave={() => saveDraft({ silent: true, force: true })}
+                  onClose={() => setPendingResult(null)}
+                />
               </section>
             )}
 
@@ -417,8 +388,10 @@ export function SimplifiedPressReviewFlow() {
                     제목
                   </span>
                   <input
+                    aria-label="제목"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
+                    disabled={qualityBusy || reviewing || completing}
                     className="h-11 w-full border border-input bg-background px-3 text-base font-bold outline-none transition focus:border-primary/60 focus:ring-4 focus:ring-primary/15"
                   />
                 </label>
@@ -428,8 +401,10 @@ export function SimplifiedPressReviewFlow() {
                     본문
                   </span>
                   <textarea
+                    aria-label="본문"
                     value={plain}
                     onChange={(event) => setPlain(event.target.value)}
+                    disabled={qualityBusy || reviewing || completing}
                     className="h-[52vh] min-h-[340px] max-h-[620px] w-full resize-y border border-input bg-background p-4 text-sm leading-7 outline-none transition focus:border-primary/60 focus:ring-4 focus:ring-primary/15"
                   />
                 </label>
@@ -438,7 +413,8 @@ export function SimplifiedPressReviewFlow() {
           </div>
 
           <aside className="space-y-5 xl:sticky xl:top-20">
-          <section className="overflow-hidden border border-border bg-card">
+          <details className="overflow-hidden rounded-xl border border-border bg-card">
+            <summary className="cursor-pointer px-4 py-4 text-sm font-semibold">문체·표현도 다듬기 (선택)</summary>
             <div className="border-b border-border px-4 py-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-ai" />
@@ -459,7 +435,7 @@ export function SimplifiedPressReviewFlow() {
                     개선안 작성 완료
                   </div>
                   <p className="mt-2 text-muted-foreground">
-                    왼쪽 변경 비교에서 내용을 확인하고 적용하세요.
+                    바뀐 부분에서 반영할 수정만 선택하세요.
                   </p>
                   <button
                     type="button"
@@ -471,12 +447,12 @@ export function SimplifiedPressReviewFlow() {
                     }
                     className="mt-3 inline-flex h-9 items-center justify-center border border-success/30 px-3 text-xs font-bold text-success transition-colors hover:bg-success/10"
                   >
-                    비교 보기
+                    바뀐 부분 보기
                   </button>
                 </div>
               )}
 
-              {!hasReview && (
+              {!hasReview && !pendingResult && (
                 <div className="border border-ai/25 bg-ai/5 p-3">
                   <label className="block space-y-2">
                     <span className="text-xs font-bold text-ai">
@@ -505,7 +481,7 @@ export function SimplifiedPressReviewFlow() {
                   <LoadingButton
                     type="button"
                     onClick={handleReview}
-                    loading={reviewing}
+                    loading={reviewing || qualityBusy}
                     loadingText="첨삭 중"
                     className="mt-4 h-10 w-full bg-ai px-4 text-sm font-bold text-ai-foreground transition hover:bg-ai/90"
                   >
@@ -515,7 +491,7 @@ export function SimplifiedPressReviewFlow() {
                 </div>
               )}
 
-              {notes.map((note) => {
+              {!pendingResult && notes.map((note) => {
                 const selected = selectedNoteIds.includes(note.id);
                 return (
                   <button
@@ -556,7 +532,7 @@ export function SimplifiedPressReviewFlow() {
                 );
               })}
 
-              {hasReview && (
+              {hasReview && !pendingResult && (
                 <label className="block space-y-2 pt-2">
                   <span className="text-xs font-bold text-muted-foreground">
                     추가 요청
@@ -571,7 +547,11 @@ export function SimplifiedPressReviewFlow() {
                 </label>
               )}
             </div>
-          </section>
+          </details>
+
+          <a href="#quality-evaluation-heading" className="flex min-h-11 items-center justify-center border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-bold text-primary">
+            원고에서 고칠 곳 찾기
+          </a>
 
           <section className="border border-border bg-card p-4">
             <PressVerificationPanel
@@ -615,11 +595,11 @@ export function SimplifiedPressReviewFlow() {
                 ? "개선안 작성이 완료되었습니다."
                 : hasReview
                   ? `${selectedCount}개 제안이 선택되었습니다.`
-                  : "첨삭 없이 완료하거나 AI 제안을 받아볼 수 있습니다."}
+                  : "원고에서 고칠 곳을 확인하고, 필요한 수정만 반영하세요."}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {pendingResult
-                ? "현재 초안은 아직 바뀌지 않았습니다. 비교 후 적용하세요."
+                ? "선택한 수정만 원고에 반영됩니다. 저장 상태는 수정안에서 확인하세요."
                 : saveState === "saving"
                 ? "수정 내용을 저장하는 중입니다."
                 : saveState === "saved"
@@ -632,7 +612,7 @@ export function SimplifiedPressReviewFlow() {
             <button
               type="button"
               onClick={handleComplete}
-              disabled={completing || reviewing || !verificationFinalizable}
+              disabled={completing || reviewing || qualityBusy || !verificationFinalizable}
               className="inline-flex h-11 items-center justify-center gap-2 bg-primary px-5 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {completing ? (
@@ -644,23 +624,17 @@ export function SimplifiedPressReviewFlow() {
             </button>
 
             {!hasReview && !pendingResult && (
-              <LoadingButton
-                type="button"
-                onClick={handleReview}
-                loading={reviewing}
-                loadingText="첨삭 중"
-                className="h-11 bg-ai px-5 text-sm font-bold text-ai-foreground transition hover:bg-ai/90"
-              >
-                AI 첨삭 시작
+              <a href="#quality-evaluation-heading" className="inline-flex h-11 items-center justify-center gap-2 border border-primary/40 px-5 text-sm font-bold text-primary">
+                고칠 곳 찾기
                 <Sparkles className="h-4 w-4" />
-              </LoadingButton>
+              </a>
             )}
 
             {hasReview && !pendingResult && (
               <LoadingButton
                 type="button"
                 onClick={handleRewrite}
-                loading={reviewing}
+                loading={reviewing || qualityBusy}
                 loadingText="개선안 작성 중"
                 disabled={selectedCount === 0}
                 className="h-11 bg-ai px-5 text-sm font-bold text-ai-foreground transition hover:bg-ai/90 disabled:bg-muted disabled:text-muted-foreground"
@@ -673,12 +647,12 @@ export function SimplifiedPressReviewFlow() {
             {pendingResult && (
               <LoadingButton
                 type="button"
-                onClick={handleApply}
-                loading={reviewing}
+                onClick={() => comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                loading={reviewing || qualityBusy}
                 loadingText="적용 중"
                 className="h-11 bg-ai px-5 text-sm font-bold text-ai-foreground transition hover:bg-ai/90"
               >
-                개선안 적용
+                바뀐 부분 선택
                 <ChevronRight className="h-4 w-4" />
               </LoadingButton>
             )}

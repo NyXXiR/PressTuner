@@ -1,0 +1,125 @@
+name: Press quality regression
+on:
+  pull_request:
+    paths:
+      - 'domain/press-workflow/**'
+      - 'lib/services/press-workflow/**'
+      - 'lib/services/press/**'
+      - 'lib/llm/**'
+      - 'app/api/articles/**'
+      - 'app/api/press/quality-studies/**'
+      - 'app/press/**'
+      - 'components/press/**'
+      - 'stores/usePressEditStore.ts'
+      - 'scripts/press-workflow/**'
+      - 'evals/press-workflow/**'
+      - 'prisma/schema.prisma'
+      - '.github/workflows/press-quality.yml'
+      - 'next.config.*'
+      - 'tsconfig*.json'
+      - 'package*.json'
+  push:
+    paths:
+      - 'domain/press-workflow/**'
+      - 'lib/services/press-workflow/**'
+      - 'lib/services/press/**'
+      - 'lib/llm/**'
+      - 'app/api/articles/**'
+      - 'app/api/press/quality-studies/**'
+      - 'app/press/**'
+      - 'components/press/**'
+      - 'stores/usePressEditStore.ts'
+      - 'scripts/press-workflow/**'
+      - 'evals/press-workflow/**'
+      - 'prisma/schema.prisma'
+      - '.github/workflows/press-quality.yml'
+      - 'next.config.*'
+      - 'tsconfig*.json'
+      - 'package*.json'
+  workflow_dispatch:
+    inputs:
+      run_model_regression:
+        description: 'Run 2 generated drafts and bounded Ragas/G-Eval calls using OPENAI_API_KEY'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  contracts-and-decisions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:press-system
+      - run: npm run test:press-evaluation
+      - run: npm run test:press-quality
+      - run: npm run test:press-workflow
+      - run: npm run test:press-standard
+      - run: npm run test:press-study
+      - run: npm run test:press-study-ui
+      - run: npm run typecheck:press-workflow
+      - run: npm run typecheck:press-standard
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:press-quality-browser
+      - run: npm run test:press-study-browser
+      - run: npm run test:press-edit-ui
+      # Offline contracts/fixtures do not establish model quality.
+  sdk-contracts:
+    name: SDK contracts (${{ matrix.framework }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [ragas, deepeval]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: scripts/press-workflow/${{ matrix.framework }}/requirements-lock.txt
+      # The pinned frameworks require different OpenAI SDK versions. Never install
+      # both lock files in one environment; each matrix entry has its own runner.
+      - run: python -m pip install -r scripts/press-workflow/${{ matrix.framework }}/requirements-lock.txt
+      - run: python -m unittest discover -s scripts/press-workflow/${{ matrix.framework }} -p 'test_*.py'
+      # SDK requests use offline transports. No API keys or paid calls on PRs.
+  model-regression:
+    needs: [contracts-and-decisions, sdk-contracts]
+    if: github.event_name == 'workflow_dispatch' && inputs.run_model_regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - run: |
+          python -m venv .venv-press-eval
+          .venv-press-eval/bin/pip install -r scripts/press-workflow/ragas/requirements-lock.txt
+          python -m venv .venv-press-deepeval
+          .venv-press-deepeval/bin/pip install -r scripts/press-workflow/deepeval/requirements-lock.txt
+      - name: Generate independently and evaluate the retained regression source
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          npm run eval:press-dual -- generate --mode live --allow-model-spend --limit 1 --out evals/press-workflow/runs/ci-generation.json
+          npm run eval:press-dual -- evaluate --mode live --allow-model-spend --judge deepeval --python .venv-press-eval/bin/python --deepeval-python .venv-press-deepeval/bin/python --input evals/press-workflow/runs/ci-generation.json --out evals/press-workflow/runs/ci-evaluation.json
+      - name: Fail on regression or incomplete evaluation
+        run: npm run quality:press -- regression --input evals/press-workflow/runs/ci-evaluation.json --manifest evals/press-workflow/regression/v1/manifest.json --out evals/press-workflow/runs/ci-gate.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-source-model-regression
+          path: evals/press-workflow/runs/ci-*.json
+          retention-days: 7

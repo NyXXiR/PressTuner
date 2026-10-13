@@ -67,10 +67,9 @@ export function PressVerificationPanel({
     <section className="border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold">최종 원고 검증</h2>
+          <h2 className="text-sm font-bold">발행 전 마지막 확인</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            현재 원고·채택 사실·팀 지식 버전이 모두 일치해야 최종 확정할 수
-            있습니다.
+            수정한 원고를 최신 작성 자료와 대조합니다. 확인을 마치면 원고를 완료할 수 있어요.
           </p>
         </div>
         <button
@@ -79,15 +78,15 @@ export function PressVerificationPanel({
           onClick={() => void verify()}
           className="border border-primary px-4 py-2 text-sm font-bold text-primary disabled:opacity-50"
         >
-          {busy ? "검증 중..." : current ? "다시 검증" : "원고 검증"}
+          {busy ? "확인 중…" : current ? "다시 확인" : "발행 전 확인"}
         </button>
       </div>
       <p className="mt-3 text-sm font-semibold">
         상태:{" "}
         {!state?.verification
-          ? "검증 전"
+          ? "확인 전"
           : !current
-            ? "변경되어 검증 만료"
+            ? "내용이 바뀌어 다시 확인해야 해요"
             : resultLabel}
       </p>
       {state?.verification?.findings.length ? (

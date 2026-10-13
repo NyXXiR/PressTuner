@@ -1,0 +1,109 @@
+{
+  "version": "press-quality-history-evidence/v1",
+  "evaluatedAt": "2026-10-12T06:18:27.583Z",
+  "source": "SYNTHETIC_DEMO",
+  "humanValidation": "NOT_PERFORMED",
+  "results": [
+    {
+      "kind": "STANDARD",
+      "id": "cmv4uz6gq0003vh2k2m1gbw3w",
+      "status": "COMPLETED",
+      "model": "gpt-6-luna",
+      "fingerprint": "bbc1e7f2c19e1f4867d431bdb8bfe7ca502865e635416a236fa6af208be0d4c8",
+      "profileHash": "b197f0432dc906de9aa5cb09593f91c71c870429fc42d3fe5d1af043c4fcf002",
+      "elapsedIncludingReplayMs": 87038,
+      "sameKeyReplayed": true,
+      "historyRestored": true,
+      "metrics": [
+        {
+          "id": "RAGAS",
+          "state": "COMPLETED",
+          "score": 1,
+          "threshold": null,
+          "reasonCode": null,
+          "elapsedMs": 9875.641299999988,
+          "usage": {
+            "inputTokens": 1767,
+            "outputTokens": 307
+          }
+        },
+        {
+          "id": "DEEPEVAL",
+          "state": "COMPLETED",
+          "score": 1,
+          "threshold": 0.5,
+          "reasonCode": null,
+          "elapsedMs": 11394.31270000001,
+          "usage": {
+            "inputTokens": 1643,
+            "outputTokens": 230
+          }
+        }
+      ]
+    },
+    {
+      "kind": "GEVAL",
+      "id": "cmv4v0zyq0005vh2k9cnbuna6",
+      "status": "COMPLETED",
+      "model": "gpt-4.1-mini",
+      "fingerprint": "bbc1e7f2c19e1f4867d431bdb8bfe7ca502865e635416a236fa6af208be0d4c8",
+      "profileHash": "61530bf444aa66f435c1d3bf3d848e54ab04b3caf71144f91726ef9f9df0da71",
+      "elapsedIncludingReplayMs": 77319,
+      "sameKeyReplayed": true,
+      "historyRestored": true,
+      "metrics": [
+        {
+          "id": "REQUIRED_FACTS",
+          "state": "NOT_APPLICABLE",
+          "score": null,
+          "threshold": 0.8,
+          "reasonCode": null,
+          "elapsedMs": 0,
+          "usage": null
+        },
+        {
+          "id": "STYLE_LEAKAGE",
+          "state": "NOT_APPLICABLE",
+          "score": null,
+          "threshold": 0.8,
+          "reasonCode": null,
+          "elapsedMs": 0,
+          "usage": null
+        },
+        {
+          "id": "REQUESTED_STYLE",
+          "state": "NOT_APPLICABLE",
+          "score": null,
+          "threshold": 0.8,
+          "reasonCode": null,
+          "elapsedMs": 0,
+          "usage": null
+        },
+        {
+          "id": "PROMOTIONAL_CLAIMS",
+          "state": "COMPLETED",
+          "score": 1,
+          "threshold": 0.8,
+          "reasonCode": null,
+          "elapsedMs": 3756.867200000008,
+          "usage": {
+            "inputTokens": 664,
+            "outputTokens": 72
+          }
+        },
+        {
+          "id": "FACTUAL_SUPPORT",
+          "state": "COMPLETED",
+          "score": 1,
+          "threshold": 0.8,
+          "reasonCode": null,
+          "elapsedMs": 4482.367299999984,
+          "usage": {
+            "inputTokens": 675,
+            "outputTokens": 101
+          }
+        }
+      ]
+    }
+  ]
+}

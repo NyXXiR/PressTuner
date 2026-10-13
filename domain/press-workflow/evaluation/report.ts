@@ -14,9 +14,9 @@ export const reviewSchema = z.object({ version: z.literal("press-eval-human-revi
 const reviewId = (e: Evaluation) => hash({ input: e.draft.inputHash, output: e.draft.outputHash, variant: e.draft.variant, trial: e.draft.trial });
 function validated(datasetInput: Dataset, batchInput: EvaluationBundle) {
   const dataset = datasetSchema.parse(datasetInput), batch = evaluationBundleSchema.parse(batchInput);
-  if (batch.generation.datasetHash !== hash(dataset) || batch.evaluations.some(e => {
+  if (batch.generation.datasetHash !== hash(dataset) || batch.generation.attempts.some(a => !dataset.cases.some(c => c.caseId === a.caseId)) || batch.evaluations.some(e => {
     const c = dataset.cases.find(c => c.caseId === e.draft.caseId);
-    return !c || e.draft.inputHash !== scenarioInputHash(c) || e.contextHash !== hash(c.facts);
+    return !c || e.draft.inputHash !== scenarioInputHash(c) || e.contextHash !== hash(c.facts) || e.draft.groupId !== c.groupId || e.draft.partition !== c.partition;
   })) throw new Error("REPORT_IDENTITY_MISMATCH");
   return { dataset, batch };
 }
@@ -113,7 +113,8 @@ export function buildReport(datasetInput: Dataset, batchInput: EvaluationBundle,
     requestedCount: batch.generation.attempts.length, generatedCount: batch.evaluations.length, review, decision, insights,
     rows: batch.evaluations.map(e => ({ caseKey: e.draft.caseId, variant: e.draft.variant, trial: e.draft.trial, partition: e.draft.partition,
       ragas: { state: e.ragas.state, score: e.ragas.score, reasonCode: e.ragas.reasonCode },
-      domain: { state: e.domain.state, verdict: e.domain.verdict, reasonCode: e.domain.reasonCode,
+      // Console v1 has no uncertainty-specific code. Checks retain UNCERTAIN; the local artifact retains the precise reason.
+      domain: { state: e.domain.state, verdict: e.domain.verdict, reasonCode: e.domain.reasonCode === "UNCERTAIN_JUDGMENT" ? "MISSING_REVIEW" : e.domain.reasonCode,
         checks: e.domain.checks.map(c => ({ criterion: c.criterion, judgment: c.judgment })) },
       generationMs: e.draft.generationMs, evaluationMs: e.ragas.elapsedMs + e.domain.elapsedMs,
     })) };

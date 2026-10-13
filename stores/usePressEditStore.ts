@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { logBrowserDevEvent, previewText } from "@/lib/debug/browserDevLogger";
+import { sameDraft, type Draft, type CommitResult } from "@/components/press/quality-edit/adapter";
 
 export type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type PressQuotaMode = "simplified";
@@ -14,6 +15,7 @@ export type Note = {
   note: string;
   type: string;
   quote: string;
+  sourceFactIds?: string[];
 };
 
 export type Span = {
@@ -82,7 +84,7 @@ type Store = {
   reviewing: boolean;
   reviewError: string | null;
   saveState: SaveState;
-  pendingResult: { title: string; plain: string } | null;
+  pendingResult: (Draft & { base?: Draft; notes?: Note[] }) | null;
   harnessAction: HarnessAction | null;
   usage: ArticleUsageSummary | null;
   teamMembers: TeamMemberSimple[];
@@ -107,6 +109,7 @@ type Store = {
     options?: PressAiActionOptions,
   ) => Promise<boolean>;
   applyPendingResult: () => Promise<void>;
+  applyDraftChange: (articleId: string, expected: Draft, next: Draft) => Promise<CommitResult>;
   setPendingResult: (res: any) => void;
   saveDraft: (opt?: { silent?: boolean; force?: boolean }) => Promise<boolean>;
   completeWriting: () => Promise<boolean>;
@@ -117,6 +120,9 @@ type Store = {
   ) => Promise<boolean>;
 };
 
+// Serialize writes from autosave and explicit passage decisions in this editor.
+// The existing save API has no cross-tab version contract.
+let draftSaveInFlight: Promise<boolean> | null = null;
 export const usePressEditStore = create<Store>()((set, get) => ({
   articleId: "",
   teamId: null,
@@ -149,6 +155,7 @@ export const usePressEditStore = create<Store>()((set, get) => ({
       spans: initialSpans,
       notes: initialNotes,
       saveState: "idle",
+      reviewing: false,
       reviewError: null,
       selectedNoteIds: [],
       pendingResult: null,
@@ -189,6 +196,7 @@ export const usePressEditStore = create<Store>()((set, get) => ({
 
   runReview: async (options) => {
     const { articleId, plain, title, fetchUsage } = get();
+    if (get().reviewing) return false;
     const userInstruction = options?.userInstruction?.trim() || undefined;
     set({ reviewing: true, reviewError: null });
     try {
@@ -211,6 +219,7 @@ export const usePressEditStore = create<Store>()((set, get) => ({
       });
       const data = await res.json();
       if (res.ok) {
+        if (get().articleId !== articleId || !sameDraft(get(), { title, plain })) return false;
         logBrowserDevEvent("press", "review_response", {
           articleId,
           notesCount: Array.isArray(data.notes) ? data.notes.length : 0,
@@ -241,15 +250,15 @@ export const usePressEditStore = create<Store>()((set, get) => ({
       }
     } catch (e: any) {
       console.error("Review failed:", e);
-      set({ reviewError: e?.message ?? "분석 중 오류가 발생했습니다." });
+      if (get().articleId === articleId) set({ reviewError: e?.message ?? "분석 중 오류가 발생했습니다." });
       return false;
     } finally {
-      set({ reviewing: false });
+      if (get().articleId === articleId) set({ reviewing: false });
     }
   },
 
   runRePolish: async (userInstruction, options) => {
-    const { articleId, selectedNoteIds, notes, reviewing, fetchUsage } = get();
+    const { articleId, selectedNoteIds, notes, reviewing, fetchUsage, title, plain } = get();
     if (reviewing || !selectedNoteIds.length) return false;
     set({ reviewing: true, reviewError: null });
 
@@ -288,7 +297,9 @@ export const usePressEditStore = create<Store>()((set, get) => ({
         );
       }
 
-      const newTitle = data.revisedTitle || data.title || "";
+      if (get().articleId !== articleId || !sameDraft(get(), { title, plain })) return false;
+      if (typeof data.title !== "string" || typeof data.plain !== "string") throw new Error("수정안의 원본을 확인하지 못했습니다. 현재 원고에서 다시 첨삭해 주세요.");
+      const newTitle = typeof data.revisedTitle === "string" ? data.revisedTitle : data.title || "";
       const newPlain = data.revisedPlain || data.plain || "";
 
       if (!newPlain) {
@@ -305,6 +316,8 @@ export const usePressEditStore = create<Store>()((set, get) => ({
         pendingResult: {
           title: newTitle,
           plain: newPlain,
+          base: { title: data.title, plain: data.plain },
+          notes: selectedNotes,
         },
       });
 
@@ -312,19 +325,30 @@ export const usePressEditStore = create<Store>()((set, get) => ({
       return true;
     } catch (e: any) {
       console.error("Re-polish failed:", e);
-      set({
+      if (get().articleId === articleId) set({
         pendingResult: null,
         reviewError: e?.message ?? "재작성 요청 중 오류가 발생했습니다.",
       });
       return false;
     } finally {
-      set({ reviewing: false });
+      if (get().articleId === articleId) set({ reviewing: false });
     }
+  },
+
+  applyDraftChange: async (articleId, expected, next) => {
+    const current = get();
+    if (current.articleId !== articleId || current.saveState === "saving" || current.reviewing || !sameDraft(current, expected)) return "STALE";
+    set({ ...next, saveState: "dirty", notes: [], spans: [], selectedNoteIds: [], harnessAction: null });
+    return await get().saveDraft({ force: true, silent: true }) ? "SAVED" : "UNSAVED";
   },
 
   applyPendingResult: async () => {
     const { pendingResult, saveDraft } = get();
     if (pendingResult) {
+      if (pendingResult.base && !sameDraft(get(), pendingResult.base)) {
+        set({ reviewError: "원고가 변경되어 전체 수정안을 적용하지 않았습니다. 현재 원고에서 다시 확인해 주세요." });
+        return;
+      }
       logBrowserDevEvent("press", "apply_pending_result", {
         titlePreview: previewText(pendingResult.title, 120),
         plainPreview: previewText(pendingResult.plain),
@@ -378,41 +402,52 @@ export const usePressEditStore = create<Store>()((set, get) => ({
 
     if (saveState !== "dirty" && !opt?.force) return false;
 
-    set({ saveState: "saving" });
-    try {
-      const requestBody = {
-        title,
-        plain,
-        ...(harnessAction ? { harnessAction } : {}),
-      };
-      logBrowserDevEvent("press", "save_request", {
-        articleId,
-        titlePreview: previewText(title, 120),
-        plainPreview: previewText(plain),
-        plainLength: plain.length,
-        harnessAction,
-        force: Boolean(opt?.force),
-        silent: Boolean(opt?.silent),
-      });
-      const res = await fetch(`/api/articles/${articleId}/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-      if (res.ok) {
-        logBrowserDevEvent("press", "save_response", {
+    const previousSave = draftSaveInFlight;
+    const saving = (async () => {
+      if (previousSave) await previousSave;
+      if (get().articleId !== articleId || !sameDraft(get(), { title, plain })) return false;
+      set({ saveState: "saving" });
+      try {
+        const requestBody = {
+          title,
+          plain,
+          ...(harnessAction ? { harnessAction } : {}),
+        };
+        logBrowserDevEvent("press", "save_request", {
           articleId,
-          ok: true,
+          titlePreview: previewText(title, 120),
+          plainPreview: previewText(plain),
+          plainLength: plain.length,
           harnessAction,
+          force: Boolean(opt?.force),
+          silent: Boolean(opt?.silent),
         });
-        set({ saveState: "saved", harnessAction: null });
-        return true;
+        const res = await fetch(`/api/articles/${articleId}/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        if (res.ok) {
+          logBrowserDevEvent("press", "save_response", {
+            articleId,
+            ok: true,
+            harnessAction,
+          });
+          if (get().articleId === articleId) {
+            const unchanged = sameDraft(get(), { title, plain });
+            set({ saveState: unchanged ? "saved" : "dirty", ...(unchanged ? { harnessAction: null } : {}) });
+          }
+          return true;
+        }
+        throw new Error();
+      } catch {
+        if (get().articleId === articleId && sameDraft(get(), { title, plain })) set({ saveState: "error" });
+        return false;
       }
-      throw new Error();
-    } catch {
-      set({ saveState: "error" });
-      return false;
-    }
+    })();
+    draftSaveInFlight = saving;
+    try { return await saving; }
+    finally { if (draftSaveInFlight === saving) draftSaveInFlight = null; }
   },
 
   completeWriting: async () => {

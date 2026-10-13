@@ -1,0 +1,786 @@
+{
+  "version": "press-study-live-evidence/v1",
+  "startedAt": "2026-10-12T08:20:52.980Z",
+  "finishedAt": "2026-10-12T08:30:49.236Z",
+  "sourceClass": "SYNTHETIC_DEVELOPMENT_ONLY",
+  "articleId": "study-live-cb088a0d-0e3a-4474-9053-ccbea7d492f9",
+  "studyId": "64a0f8457f2ed5ae043f8087f273d5f1eab8bb49277bd4f9d3ebc42598ac315b",
+  "experimentId": "c407bde768bf14ea299289a4deb4c1703b51e735c99b00291050153865f1cdba",
+  "paidApiOperations": 7,
+  "actualHumanLabels": 0,
+  "sourceRuns": [
+    {
+      "id": "cmv4zhjy30003vhbgnsnefsh5",
+      "kind": "STANDARD",
+      "status": "COMPLETED",
+      "profileHash": "bee03748a0a8b741fa18527ca3b0d17eb5dd77e2800c2beaff81b1cbe31aaca8",
+      "model": "gpt-6-luna",
+      "fingerprint": "1863c5f1807893607e5f22638bf2361e0556a862b8e68b7a161c0fa6cfc604ce",
+      "metrics": [
+        {
+          "id": "RAGAS",
+          "state": "COMPLETED",
+          "score": 0.25,
+          "threshold": null,
+          "thresholdPassed": null,
+          "reasonCode": null,
+          "usage": {
+            "inputTokens": 1758,
+            "outputTokens": 355
+          },
+          "elapsedMs": 10314.67400000012
+        },
+        {
+          "id": "DEEPEVAL",
+          "state": "COMPLETED",
+          "score": 0.6666666666666666,
+          "threshold": 0.5,
+          "thresholdPassed": true,
+          "reasonCode": null,
+          "usage": {
+            "inputTokens": 1662,
+            "outputTokens": 300
+          },
+          "elapsedMs": 13271.11230000015
+        }
+      ]
+    },
+    {
+      "id": "cmv4ziwox0005vhbgvfe85nns",
+      "kind": "GEVAL",
+      "status": "COMPLETED",
+      "profileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550",
+      "model": "gpt-4.1-mini",
+      "fingerprint": "1863c5f1807893607e5f22638bf2361e0556a862b8e68b7a161c0fa6cfc604ce",
+      "metrics": [
+        {
+          "id": "REQUIRED_FACTS",
+          "state": "NOT_APPLICABLE",
+          "score": null,
+          "threshold": 0.8,
+          "thresholdPassed": null,
+          "reasonCode": null,
+          "usage": null,
+          "elapsedMs": 0
+        },
+        {
+          "id": "STYLE_LEAKAGE",
+          "state": "NOT_APPLICABLE",
+          "score": null,
+          "threshold": 0.8,
+          "thresholdPassed": null,
+          "reasonCode": null,
+          "usage": null,
+          "elapsedMs": 0
+        },
+        {
+          "id": "REQUESTED_STYLE",
+          "state": "NOT_APPLICABLE",
+          "score": null,
+          "threshold": 0.8,
+          "thresholdPassed": null,
+          "reasonCode": null,
+          "usage": null,
+          "elapsedMs": 0
+        },
+        {
+          "id": "PROMOTIONAL_CLAIMS",
+          "state": "COMPLETED",
+          "score": 0.2,
+          "threshold": 0.8,
+          "thresholdPassed": false,
+          "reasonCode": null,
+          "usage": {
+            "inputTokens": 654,
+            "outputTokens": 93
+          },
+          "elapsedMs": 5359.767599999905
+        },
+        {
+          "id": "FACTUAL_SUPPORT",
+          "state": "COMPLETED",
+          "score": 0.2150246389830257,
+          "threshold": 0.8,
+          "thresholdPassed": false,
+          "reasonCode": null,
+          "usage": {
+            "inputTokens": 665,
+            "outputTokens": 118
+          },
+          "elapsedMs": 5373.581300000194
+        }
+      ]
+    }
+  ],
+  "report": {
+    "id": "64a0f8457f2ed5ae043f8087f273d5f1eab8bb49277bd4f9d3ebc42598ac315b",
+    "name": "[합성 실측] 생성·평가 API 왕복 — 사람 검증 전",
+    "revision": 14,
+    "frozenAt": "2026-10-12T08:24:29.582Z",
+    "datasetHash": "f51acfb0d7e33e2395566d9419e312a799c6a0e4e5e9ea53ed10326e6c519dc8",
+    "counts": {
+      "samples": 2,
+      "references": 0,
+      "reviewRevisions": 0
+    },
+    "batches": [],
+    "pairs": [
+      {
+        "id": "87f367294964310aaf98deb20fd9edcb95a0924b6292cf19fd0bfd19338ff934",
+        "request": "채택된 사실을 근거로 작성한 보도자료 초안의 사실 일치도를 평가합니다.",
+        "facts": [
+          "가상의 누리문서는 2026년 10월 12일 협업 도구 종이별을 출시했다.",
+          "종이별은 팀 회의 메모를 정리하는 기능을 제공한다.",
+          "종이별의 이용 요금은 월 7,300원이다."
+        ],
+        "A": "가상의 누리문서, 협업 도구 '종이별' 출시\n\n가상의 누리문서가 2026년 10월 12일 팀 회의 메모 정리 기능을 갖춘 협업 도구 '종이별'을 출시했다.\n\n종이별은 팀 회의 중 작성된 메모를 체계적으로 정리하는 기능을 제공하며, 이용 요금은 월 7,300원으로 책정됐다.\n\n종이별은 팀 내 회의 내용을 효율적으로 관리할 수 있도록 돕는 협업 도구다. 사용자는 회의 중 작성한 메모를 자동으로 정리해 업무의 연속성을 높일 수 있다.\n\n이용 요금은 월 7,300원으로 설정되어 있어 소규모 팀부터 대규모 조직까지 부담 없이 사용할 수 있도록 했다.\n\n가상의 누리문서는 이번 출시를 통해 협업 환경 개선에 기여하고, 업무 효율성을 높이는 데 중점을 두고 있다고 밝혔다.\n\n가상의 누리문서는 앞으로도 사용자 편의성을 강화한 다양한 기능을 추가할 계획이다. 자세한 내용은 공식 홈페이지에서 확인할 수 있다.",
+        "B": "가상의 누리문서, 협업 도구 ‘종이별’ 출시\n\n가상의 누리문서는 2026년 10월 12일 팀 회의 메모 정리 기능을 갖춘 협업 도구 ‘종이별’을 출시했다.\n\n종이별은 팀 회의 중 작성된 메모를 체계적으로 정리하는 기능을 제공하며, 이용 요금은 월 7,300원이다.\n\n종이별은 팀 내 회의 내용을 효율적으로 관리할 수 있도록 설계된 협업 도구다.\n\n이 서비스는 회의 중 작성된 메모를 자동으로 정리해 팀원 간 정보 공유를 돕는다.\n\n이용 요금은 월 7,300원으로 책정됐다.",
+        "choices": [
+          "A",
+          "B",
+          "TIE",
+          "UNCERTAIN",
+          "SKIP"
+        ],
+        "criterion": "사실을 유지하는 범위에서 문체·가독성·업무 유용성을 비교하세요.",
+        "revision": 0,
+        "choice": null
+      }
+    ],
+    "samples": [
+      {
+        "id": "cmv4zhjy30003vhbgnsnefsh5",
+        "groupId": "f88c13a41b6b4b07e38a24a29014af71e23110261d74d3b9d63d93fad9de1d7b",
+        "partition": "DEVELOPMENT",
+        "articleId": "study-live-cb088a0d-0e3a-4474-9053-ccbea7d492f9",
+        "profileHash": "bee03748a0a8b741fa18527ca3b0d17eb5dd77e2800c2beaff81b1cbe31aaca8"
+      },
+      {
+        "id": "cmv4ziwox0005vhbgvfe85nns",
+        "groupId": "f88c13a41b6b4b07e38a24a29014af71e23110261d74d3b9d63d93fad9de1d7b",
+        "partition": "DEVELOPMENT",
+        "articleId": "study-live-cb088a0d-0e3a-4474-9053-ccbea7d492f9",
+        "profileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550"
+      }
+    ],
+    "judgeReplays": [
+      {
+        "id": "0a30d983a5acb8f0c6656404e9b53ec51ba07d8fe5381ea741a27ba3da3c9038",
+        "sampleId": "cmv4zhjy30003vhbgnsnefsh5",
+        "status": "COMPLETED",
+        "runId": "cmv4zl1e60007vhbga06d8376"
+      }
+    ],
+    "experiments": [
+      {
+        "id": "c407bde768bf14ea299289a4deb4c1703b51e735c99b00291050153865f1cdba",
+        "recipeHash": "39dbd562e07b4d5fe54a5732a5513fb6a144c62900adc072f61bf2822b0b2ed0",
+        "screeningPolicy": "press-study-exploratory-screen/v1",
+        "state": "HOLD",
+        "reasons": [
+          "REGRESSION_EVIDENCE_NOT_PASSING",
+          "INDEPENDENT_AUDIT_INSUFFICIENT",
+          "INDEPENDENT_EFFECT_INSUFFICIENT",
+          "PAIRWISE_EVIDENCE_INSUFFICIENT"
+        ],
+        "pointwise": [
+          {
+            "metricId": "FACTUAL_SUPPORT",
+            "partition": "DEVELOPMENT",
+            "groups": 1,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          },
+          {
+            "metricId": "PROMOTIONAL_CLAIMS",
+            "partition": "DEVELOPMENT",
+            "groups": 1,
+            "unknownGroups": 0,
+            "regressions": 0,
+            "meanDelta": 0,
+            "interval": null,
+            "state": "INSUFFICIENT_GROUPS"
+          }
+        ],
+        "recipe": {
+          "frozenAt": "2026-10-12T08:26:00.923Z",
+          "generatorModel": "gpt-4.1-mini",
+          "generatorImplementationHash": "c14e1f780d094536260045f679400baed3247d5cbe28d92772994fa4e4bde2bd",
+          "evaluatorKind": "GEVAL",
+          "evaluatorModel": "gpt-4.1-mini",
+          "evaluatorProfileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550",
+          "sampleIds": [
+            "cmv4ziwox0005vhbgvfe85nns"
+          ],
+          "developmentGroups": [
+            "f88c13a41b6b4b07e38a24a29014af71e23110261d74d3b9d63d93fad9de1d7b"
+          ],
+          "instructions": [
+            {
+              "text": "생성 지침 후보: 제공된 사실에 없는 기능, 향후 계획, 시장 평가, 가격의 합리성, 성과는 쓰지 않는다. 뒷받침할 사실이 없으면 해당 문장을 생략한다.",
+              "metricId": "FACTUAL_SUPPORT",
+              "sampleIds": [
+                "cmv4ziwox0005vhbgvfe85nns"
+              ],
+              "confidence": "HYPOTHESIS"
+            },
+            {
+              "text": "생성 지침 후보: 제공된 사실에 없는 기능, 향후 계획, 시장 평가, 가격의 합리성, 성과는 쓰지 않는다. 뒷받침할 사실이 없으면 해당 문장을 생략한다.",
+              "metricId": "PROMOTIONAL_CLAIMS",
+              "sampleIds": [
+                "cmv4ziwox0005vhbgvfe85nns"
+              ],
+              "confidence": "HYPOTHESIS"
+            }
+          ]
+        },
+        "pairwise": {
+          "source": "BLIND_HUMAN_PREFERENCE",
+          "candidate": 0,
+          "baseline": 0,
+          "tie": 0,
+          "uncertain": 0,
+          "skipped": 0,
+          "uniqueGroups": 0,
+          "meanGroupPreference": null
+        },
+        "operational": [
+          {
+            "sampleId": "cmv4ziwox0005vhbgvfe85nns",
+            "variant": "BASELINE",
+            "outputHash": "cae7da88dbe8f46fe1ad2fabbeaf96aec31b6691e7ac40b628f153ed21ff3797",
+            "generation": {
+              "model": "gpt-4.1-mini",
+              "usage": {
+                "inputTokens": 1204,
+                "outputTokens": 927
+              },
+              "evidence": "MEASURED",
+              "elapsedMs": 8363.275600000285,
+              "recipeHash": "39dbd562e07b4d5fe54a5732a5513fb6a144c62900adc072f61bf2822b0b2ed0",
+              "requestHash": "16f20f99b5a9eb88668091151a7f547fd5c253e72be438219ed2b1dc8c8d708e"
+            },
+            "evaluation": {
+              "id": "cmv4znsgp0009vhbg8n3wnk4y",
+              "status": "COMPLETED",
+              "fingerprint": "e0d378aa45342f0f4f95192ea7ea30607d23bb9f358872b40e9a0f5a95fb4849",
+              "profileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550",
+              "metrics": [
+                {
+                  "id": "REQUIRED_FACTS",
+                  "score": null,
+                  "state": "NOT_APPLICABLE",
+                  "usage": null,
+                  "metric": "GEval",
+                  "reason": "반드시 포함할 사실이 별도 지정되지 않았습니다. 채택한 사실 전체를 필수 항목으로 간주하지 않습니다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 0,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": false,
+                  "reasonCode": null,
+                  "thresholdPassed": null
+                },
+                {
+                  "id": "REQUESTED_STYLE",
+                  "score": null,
+                  "state": "NOT_APPLICABLE",
+                  "usage": null,
+                  "metric": "GEval",
+                  "reason": "이 초안에 적용한 문체 요구사항 기록이 없습니다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 0,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": false,
+                  "reasonCode": null,
+                  "thresholdPassed": null
+                },
+                {
+                  "id": "PROMOTIONAL_CLAIMS",
+                  "score": 1,
+                  "state": "COMPLETED",
+                  "usage": {
+                    "inputTokens": 827,
+                    "outputTokens": 76
+                  },
+                  "metric": "GEval",
+                  "reason": "출시일(2026년 10월 12일), 기능(팀 회의 메모 정리), 이용 요금(월 7,300원) 모두 기대 출력의 사실과 일치하며, 과장이나 근거 없는 주장 없이 사실에 기반한 내용만 포함됨.",
+                  "version": "4.2.8",
+                  "elapsedMs": 4500.174999999814,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": true,
+                  "reasonCode": null,
+                  "thresholdPassed": true
+                },
+                {
+                  "id": "STYLE_LEAKAGE",
+                  "score": null,
+                  "state": "NOT_APPLICABLE",
+                  "usage": null,
+                  "metric": "GEval",
+                  "reason": "이 초안의 생성에 사용한 문체 예시 기록이 없습니다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 0,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": false,
+                  "reasonCode": null,
+                  "thresholdPassed": null
+                },
+                {
+                  "id": "FACTUAL_SUPPORT",
+                  "score": 1,
+                  "state": "COMPLETED",
+                  "usage": {
+                    "inputTokens": 838,
+                    "outputTokens": 90
+                  },
+                  "metric": "GEval",
+                  "reason": "모든 사실 진술이 기대 출력과 일치하며, '2026년 10월 12일 출시', '팀 회의 메모 정리 기능', '월 7,300원 이용 요금'이 정확히 반영되었다. 과장이나 허위 정보가 없고, 추가 계획 언급도 미래 계획으로 허용된다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 5393.840200000443,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": true,
+                  "reasonCode": null,
+                  "thresholdPassed": true
+                }
+              ]
+            },
+            "evaluationUsage": [
+              {
+                "metricId": "REQUIRED_FACTS",
+                "usage": null,
+                "elapsedMs": 0
+              },
+              {
+                "metricId": "REQUESTED_STYLE",
+                "usage": null,
+                "elapsedMs": 0
+              },
+              {
+                "metricId": "PROMOTIONAL_CLAIMS",
+                "usage": {
+                  "inputTokens": 827,
+                  "outputTokens": 76
+                },
+                "elapsedMs": 4500.174999999814
+              },
+              {
+                "metricId": "STYLE_LEAKAGE",
+                "usage": null,
+                "elapsedMs": 0
+              },
+              {
+                "metricId": "FACTUAL_SUPPORT",
+                "usage": {
+                  "inputTokens": 838,
+                  "outputTokens": 90
+                },
+                "elapsedMs": 5393.840200000443
+              }
+            ]
+          },
+          {
+            "sampleId": "cmv4ziwox0005vhbgvfe85nns",
+            "variant": "CANDIDATE",
+            "outputHash": "9638f44a39fa5d1ea08defc931b95e5d1bbc58f20734e3703ea0aa4210a5a272",
+            "generation": {
+              "model": "gpt-4.1-mini",
+              "usage": {
+                "inputTokens": 1398,
+                "outputTokens": 603
+              },
+              "evidence": "MEASURED",
+              "elapsedMs": 6108.100600000471,
+              "recipeHash": "39dbd562e07b4d5fe54a5732a5513fb6a144c62900adc072f61bf2822b0b2ed0",
+              "requestHash": "4f3e079d211bcbd345da29dd70088656a752cd33e51bcc017f28b8774bfa2fd7"
+            },
+            "evaluation": {
+              "id": "cmv4zq9an000bvhbg1cmyv7t7",
+              "status": "COMPLETED",
+              "fingerprint": "fd8cae0ca37d95e9415cecde7fd42fc556ec9ab9bea8552887d2943b6b0948fc",
+              "profileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550",
+              "metrics": [
+                {
+                  "id": "REQUIRED_FACTS",
+                  "score": null,
+                  "state": "NOT_APPLICABLE",
+                  "usage": null,
+                  "metric": "GEval",
+                  "reason": "반드시 포함할 사실이 별도 지정되지 않았습니다. 채택한 사실 전체를 필수 항목으로 간주하지 않습니다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 0,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": false,
+                  "reasonCode": null,
+                  "thresholdPassed": null
+                },
+                {
+                  "id": "STYLE_LEAKAGE",
+                  "score": null,
+                  "state": "NOT_APPLICABLE",
+                  "usage": null,
+                  "metric": "GEval",
+                  "reason": "이 초안의 생성에 사용한 문체 예시 기록이 없습니다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 0,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": false,
+                  "reasonCode": null,
+                  "thresholdPassed": null
+                },
+                {
+                  "id": "REQUESTED_STYLE",
+                  "score": null,
+                  "state": "NOT_APPLICABLE",
+                  "usage": null,
+                  "metric": "GEval",
+                  "reason": "이 초안에 적용한 문체 요구사항 기록이 없습니다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 0,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": false,
+                  "reasonCode": null,
+                  "thresholdPassed": null
+                },
+                {
+                  "id": "FACTUAL_SUPPORT",
+                  "score": 1,
+                  "state": "COMPLETED",
+                  "usage": {
+                    "inputTokens": 751,
+                    "outputTokens": 92
+                  },
+                  "metric": "GEval",
+                  "reason": "모든 사실 진술이 기대 출력과 일치하며, '2026년 10월 12일' 출시일, '팀 회의 메모 정리 기능', '월 7,300원 이용 요금'이 정확히 포함되어 있다. 과장 표현이나 허위 정보가 없고, 의미 보존적 표현으로 사실을 잘 전달했다.",
+                  "version": "4.2.8",
+                  "elapsedMs": 5095.365699999966,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": true,
+                  "reasonCode": null,
+                  "thresholdPassed": true
+                },
+                {
+                  "id": "PROMOTIONAL_CLAIMS",
+                  "score": 1,
+                  "state": "COMPLETED",
+                  "usage": {
+                    "inputTokens": 740,
+                    "outputTokens": 99
+                  },
+                  "metric": "GEval",
+                  "reason": "출시일, 기능, 이용 요금 등 모든 사실이 기대 출력과 일치하며 과장이나 미확인 주장이 없다. 예: '2026년 10월 12일 팀 회의 메모 정리 기능을 갖춘 협업 도구 ‘종이별’을 출시했다', '이용 요금은 월 7,300원이다'가 정확히 반영됨.",
+                  "version": "4.2.8",
+                  "elapsedMs": 5695.754800000228,
+                  "framework": "DEEPEVAL",
+                  "threshold": 0.8,
+                  "applicable": true,
+                  "reasonCode": null,
+                  "thresholdPassed": true
+                }
+              ]
+            },
+            "evaluationUsage": [
+              {
+                "metricId": "REQUIRED_FACTS",
+                "usage": null,
+                "elapsedMs": 0
+              },
+              {
+                "metricId": "STYLE_LEAKAGE",
+                "usage": null,
+                "elapsedMs": 0
+              },
+              {
+                "metricId": "REQUESTED_STYLE",
+                "usage": null,
+                "elapsedMs": 0
+              },
+              {
+                "metricId": "FACTUAL_SUPPORT",
+                "usage": {
+                  "inputTokens": 751,
+                  "outputTokens": 92
+                },
+                "elapsedMs": 5095.365699999966
+              },
+              {
+                "metricId": "PROMOTIONAL_CLAIMS",
+                "usage": {
+                  "inputTokens": 740,
+                  "outputTokens": 99
+                },
+                "elapsedMs": 5695.754800000228
+              }
+            ]
+          }
+        ],
+        "regression": {
+          "state": "UNKNOWN",
+          "exitCode": 2,
+          "manifestHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "results": [],
+          "deploymentAuthorized": false
+        },
+        "adoption": null,
+        "deploymentAuthorized": false
+      }
+    ],
+    "report": {
+      "version": "press-study-report/v1",
+      "datasetHash": "f51acfb0d7e33e2395566d9419e312a799c6a0e4e5e9ea53ed10326e6c519dc8",
+      "referenceScope": "HUMAN_VERIFIED_EXACT_OUTPUT_AND_CRITERION",
+      "references": [],
+      "metrics": [
+        {
+          "profileHash": "bee03748a0a8b741fa18527ca3b0d17eb5dd77e2800c2beaff81b1cbe31aaca8",
+          "metricId": "RAGAS",
+          "nativeThreshold": null,
+          "partition": "DEVELOPMENT",
+          "threshold": null,
+          "thresholdSource": "NO_BINARY_THRESHOLD",
+          "groups": 0,
+          "defectGroups": 0,
+          "cleanGroups": 0,
+          "samples": 1,
+          "truePositive": 0,
+          "falseNegative": 0,
+          "falsePositive": 0,
+          "trueNegative": 0,
+          "labeled": 0,
+          "compared": 0,
+          "unavailable": 0,
+          "unlabeledOrUncertain": 1,
+          "coverage": null,
+          "agreement": null,
+          "defectRecall": null,
+          "endToEndDefectRecall": null,
+          "falsePositiveRate": null,
+          "precision": null,
+          "method": "SOURCE_GROUP_PERCENTILE_BOOTSTRAP",
+          "state": "INSUFFICIENT_GROUPS",
+          "intervals": null,
+          "reliability": "INSUFFICIENT"
+        },
+        {
+          "profileHash": "bee03748a0a8b741fa18527ca3b0d17eb5dd77e2800c2beaff81b1cbe31aaca8",
+          "metricId": "DEEPEVAL",
+          "nativeThreshold": 0.5,
+          "partition": "DEVELOPMENT",
+          "threshold": 0.5,
+          "thresholdSource": "NATIVE_UNCALIBRATED",
+          "groups": 0,
+          "defectGroups": 0,
+          "cleanGroups": 0,
+          "samples": 1,
+          "truePositive": 0,
+          "falseNegative": 0,
+          "falsePositive": 0,
+          "trueNegative": 0,
+          "labeled": 0,
+          "compared": 0,
+          "unavailable": 0,
+          "unlabeledOrUncertain": 1,
+          "coverage": null,
+          "agreement": null,
+          "defectRecall": null,
+          "endToEndDefectRecall": null,
+          "falsePositiveRate": null,
+          "precision": null,
+          "method": "SOURCE_GROUP_PERCENTILE_BOOTSTRAP",
+          "state": "INSUFFICIENT_GROUPS",
+          "intervals": null,
+          "reliability": "INSUFFICIENT"
+        },
+        {
+          "profileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550",
+          "metricId": "FACTUAL_SUPPORT",
+          "nativeThreshold": 0.8,
+          "partition": "DEVELOPMENT",
+          "threshold": 0.8,
+          "thresholdSource": "NATIVE_UNCALIBRATED",
+          "groups": 0,
+          "defectGroups": 0,
+          "cleanGroups": 0,
+          "samples": 1,
+          "truePositive": 0,
+          "falseNegative": 0,
+          "falsePositive": 0,
+          "trueNegative": 0,
+          "labeled": 0,
+          "compared": 0,
+          "unavailable": 0,
+          "unlabeledOrUncertain": 1,
+          "coverage": null,
+          "agreement": null,
+          "defectRecall": null,
+          "endToEndDefectRecall": null,
+          "falsePositiveRate": null,
+          "precision": null,
+          "method": "SOURCE_GROUP_PERCENTILE_BOOTSTRAP",
+          "state": "INSUFFICIENT_GROUPS",
+          "intervals": null,
+          "reliability": "INSUFFICIENT"
+        },
+        {
+          "profileHash": "40aac892c9fddf4338b64d921475da97364d0fa999beef28a6c20971069a9550",
+          "metricId": "PROMOTIONAL_CLAIMS",
+          "nativeThreshold": 0.8,
+          "partition": "DEVELOPMENT",
+          "threshold": 0.8,
+          "thresholdSource": "NATIVE_UNCALIBRATED",
+          "groups": 0,
+          "defectGroups": 0,
+          "cleanGroups": 0,
+          "samples": 1,
+          "truePositive": 0,
+          "falseNegative": 0,
+          "falsePositive": 0,
+          "trueNegative": 0,
+          "labeled": 0,
+          "compared": 0,
+          "unavailable": 0,
+          "unlabeledOrUncertain": 1,
+          "coverage": null,
+          "agreement": null,
+          "defectRecall": null,
+          "endToEndDefectRecall": null,
+          "falsePositiveRate": null,
+          "precision": null,
+          "method": "SOURCE_GROUP_PERCENTILE_BOOTSTRAP",
+          "state": "INSUFFICIENT_GROUPS",
+          "intervals": null,
+          "reliability": "INSUFFICIENT"
+        }
+      ],
+      "interRater": [],
+      "policy": null,
+      "judgeComparisons": [
+        {
+          "id": "0a30d983a5acb8f0c6656404e9b53ec51ba07d8fe5381ea741a27ba3da3c9038",
+          "sampleId": "cmv4zhjy30003vhbgnsnefsh5",
+          "state": "COMPLETED",
+          "input": "SAME_FROZEN_OUTPUT",
+          "originalProfileHash": "bee03748a0a8b741fa18527ca3b0d17eb5dd77e2800c2beaff81b1cbe31aaca8",
+          "candidateProfileHash": "bee03748a0a8b741fa18527ca3b0d17eb5dd77e2800c2beaff81b1cbe31aaca8",
+          "metrics": [
+            {
+              "metricId": "RAGAS",
+              "comparableDefinition": true,
+              "original": {
+                "id": "RAGAS",
+                "score": 0.25,
+                "state": "COMPLETED",
+                "usage": {
+                  "inputTokens": 1758,
+                  "outputTokens": 355
+                },
+                "metric": "Faithfulness",
+                "reason": null,
+                "version": "0.4.3",
+                "elapsedMs": 10314.67400000012,
+                "framework": "RAGAS",
+                "threshold": null,
+                "applicable": true,
+                "reasonCode": null,
+                "thresholdPassed": null
+              },
+              "candidate": {
+                "id": "RAGAS",
+                "score": 0.25,
+                "state": "COMPLETED",
+                "usage": {
+                  "inputTokens": 1758,
+                  "outputTokens": 353
+                },
+                "metric": "Faithfulness",
+                "reason": null,
+                "version": "0.4.3",
+                "elapsedMs": 10442.58279999997,
+                "framework": "RAGAS",
+                "threshold": null,
+                "applicable": true,
+                "reasonCode": null,
+                "thresholdPassed": null
+              },
+              "reference": null
+            },
+            {
+              "metricId": "DEEPEVAL",
+              "comparableDefinition": true,
+              "original": {
+                "id": "DEEPEVAL",
+                "score": 0.6666666666666666,
+                "state": "COMPLETED",
+                "usage": {
+                  "inputTokens": 1662,
+                  "outputTokens": 300
+                },
+                "metric": "FaithfulnessMetric",
+                "reason": "The score is 0.67 because the actual output incorrectly states that 종이별 costs 73,000 won per month, while the context says the monthly fee is 7,300 won.",
+                "version": "4.2.8",
+                "elapsedMs": 13271.11230000015,
+                "framework": "DEEPEVAL",
+                "threshold": 0.5,
+                "applicable": true,
+                "reasonCode": null,
+                "thresholdPassed": true
+              },
+              "candidate": {
+                "id": "DEEPEVAL",
+                "score": 0.6666666666666666,
+                "state": "COMPLETED",
+                "usage": {
+                  "inputTokens": 1653,
+                  "outputTokens": 281
+                },
+                "metric": "FaithfulnessMetric",
+                "reason": "The score is 0.67 because the actual output gives the wrong price for 종이별; according to the context, its monthly fee is 7,300원.",
+                "version": "4.2.8",
+                "elapsedMs": 13666.61629999988,
+                "framework": "DEEPEVAL",
+                "threshold": 0.5,
+                "applicable": true,
+                "reasonCode": null,
+                "thresholdPassed": true
+              },
+              "reference": null
+            }
+          ],
+          "reliability": "REVIEWED_SAMPLE_ONLY_NOT_INDEPENDENT_CERTIFICATION"
+        }
+      ],
+      "scope": "OPERATOR_SELECTED_BENCHMARK_NOT_POPULATION",
+      "reviewCounts": {
+        "revisions": 0,
+        "latest": 0,
+        "uncertain": 0,
+        "skipped": 0,
+        "exposedOrUnknown": 0
+      },
+      "deploymentAuthorized": false,
+      "humanEffectivenessMeasured": false,
+      "minimumGroupsPolicy": "EXPLORATORY_10_NOT_STATISTICAL_GUARANTEE"
+    }
+  },
+  "reportHash": "9e745770908e6395cfd18f494739c2c4d68a318242de44c8d4afc7aece39e2fd",
+  "pairPacketHash": "186f74d389657f7df61e6aa18db10ea124f98e836bf4d76e25250f0df9a266e7",
+  "datasetHash": "f51acfb0d7e33e2395566d9419e312a799c6a0e4e5e9ea53ed10326e6c519dc8",
+  "checks": [
+    "official standard and G-Eval source results saved; automatic failure observed",
+    "same frozen output re-evaluated with official Ragas/DeepEval; same key creates no second job",
+    "baseline and candidate each generated once and evaluated through real study API",
+    "pairwise assigned but not voted; human, regression and independent effect evidence remain missing",
+    "independent report and frozen dataset reads restore persisted evidence"
+  ]
+}

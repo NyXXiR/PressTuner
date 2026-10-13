@@ -1,0 +1,37 @@
+{
+  "version": "press-quality-regression/v1",
+  "datasetHash": "277213e6e41ec32c642d774f5f927b10b9e36c26bef3bbf4efa161f8c545257c",
+  "evaluatorHash": "f1706d3123735774780738f82f7f4c3161ffee9feea7b9738cf626d1c0766c60",
+  "sourceArtifactHash": "730b68c97b89863af79a7ff054283f54fbd3f5e9432bd000207d8815294783e4",
+  "sourceReviewHash": "c16a17d6f6f8814e981b9cd6a2d780395021a01f6224ae6b679f4693db7fe918",
+  "requirements": [
+    {
+      "caseId": "C01",
+      "inputHash": "c79a2e4419bfedaae1311f6c8128542edb72c92d666cbdcfa60620d1aefc485f",
+      "criterion": "FACTUAL_SUPPORT",
+      "expected": "PASS",
+      "sources": [
+        {
+          "reviewId": "728df234618d6d6fde34db5573e8d34123e0ffa7c3e89d97a54d39876554c51d",
+          "outputHash": "fac56fe9808cdda299db7fc85648b0e706061bfb0574ffdaf075bc6a15d0173c"
+        }
+      ]
+    },
+    {
+      "caseId": "C01",
+      "inputHash": "c79a2e4419bfedaae1311f6c8128542edb72c92d666cbdcfa60620d1aefc485f",
+      "criterion": "PROMOTIONAL_CLAIMS",
+      "expected": "PASS",
+      "sources": [
+        {
+          "reviewId": "728df234618d6d6fde34db5573e8d34123e0ffa7c3e89d97a54d39876554c51d",
+          "outputHash": "fac56fe9808cdda299db7fc85648b0e706061bfb0574ffdaf075bc6a15d0173c"
+        },
+        {
+          "reviewId": "8a90a682247256edf238a9970a6f780a4e338f39d256cdb36eb8e342ed6fed06",
+          "outputHash": "dbe9733869da112d6a97a54027dc3da4946d572582f59516e5fc264a4bbe4739"
+        }
+      ]
+    }
+  ]
+}

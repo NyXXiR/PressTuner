@@ -36,6 +36,15 @@ test("uncertain content cannot be hidden by a passing style score", async () => 
   const result = await evaluateDraft(dataset, draft, { model: "test", ragas: async () => ({ score: 1, usage: null }),
     judge: async () => ({ checks: checks.map(c => c.criterion === "FACTUAL_SUPPORT" ? { ...c, judgment: "UNCERTAIN" as const } : c), usage: null }) });
   assert.equal(result.domain.state, "NOT_EVALUABLE"); assert.equal(result.domain.verdict, null);
+  assert.equal(result.domain.reasonCode, "UNCERTAIN_JUDGMENT");
+});
+
+test("framework identity and per-criterion G-Eval scores survive evaluation", async () => {
+  const result = await evaluateDraft(dataset, draft, { model: "test", domainIdentity: { framework: "DEEPEVAL", version: "4.2.8", rubricHash: hash("rubric") },
+    ragas: async () => ({ score: 1, usage: null }), judge: async () => ({ checks: checks.map(c => ({ ...c, score: .9 })), usage: null }) });
+  assert.equal(result.evaluator.domainFramework?.framework, "DEEPEVAL");
+  assert.equal(result.domain.checks[0].score, .9);
+  assert.notEqual(result.evaluator.promptHash, hash("other-rubric"));
 });
 
 test("invalid completed judgments retain measured token usage", async () => {

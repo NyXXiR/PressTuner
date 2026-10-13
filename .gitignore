@@ -68,3 +68,6 @@ next-env.d.ts
 /ai-service/**/__pycache__/
 /scripts/press-workflow/ragas/__pycache__/
 /.venv-press-eval/
+/.venv-press-deepeval/
+/scripts/press-workflow/deepeval/__pycache__/
+/.deepeval/

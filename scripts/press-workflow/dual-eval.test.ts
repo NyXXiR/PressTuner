@@ -3,10 +3,11 @@ import test from "node:test";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { main, parseArgs } from "./dual-eval";
+import { main, parseArgs, implementationHash } from "./dual-eval";
 import { datasetSchema, evaluationBundleSchema } from "../../domain/press-workflow/evaluation/contracts";
 import { reviewPacket } from "../../domain/press-workflow/evaluation/report";
 import { freezePolicy, validateFrozenPolicy } from "../../domain/press-workflow/evaluation/policy-freeze";
+import { freezeExperiment } from "../../domain/press-workflow/evaluation/experiment";
 
 test("live commands require explicit spend and all bounds are checked", () => {
   assert.throws(() => parseArgs(["generate", "--mode", "live", "--out", "unused"]), /allow-model-spend/);
@@ -32,6 +33,28 @@ test("holdout generation refuses unfrozen policy before reserving output", async
   const dir = await mkdtemp(join(tmpdir(), "dual-holdout-")), out = join(dir, "holdout.json");
   await assert.rejects(main(["generate", "--partition", "holdout", "--out", out]), /FROZEN_POLICY_REQUIRED/);
   await assert.rejects(readFile(out), /ENOENT/);
+});
+
+test("frozen recipe supports an offline holdout cycle and refuses a substituted recipe", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "dual-recipe-"));
+  const dataset = datasetSchema.parse(JSON.parse(await readFile("evals/press-workflow/dual/v1/dataset.json", "utf8")));
+  const fixture = JSON.parse(await readFile(new URL("../../domain/press-workflow/evaluation/analysis-fixture.json", import.meta.url), "utf8"));
+  const recipe = freezeExperiment(dataset, fixture.batch, fixture.review, await implementationHash(), "gpt-4.1-mini");
+  const recipeFile = join(dir, "recipe.json"), drafts = join(dir, "drafts.json");
+  await writeFile(recipeFile, JSON.stringify(recipe));
+  const judgeArgs = ["--judge", recipe.judge, "--judge-model", recipe.judgeModel];
+  await main(["generate", "--recipe", recipeFile, ...judgeArgs, "--partition", "holdout", "--limit", "1", "--out", drafts]);
+  const substituted = structuredClone(recipe);
+  substituted.instructions[0].text = "A different unexecuted instruction";
+  const substitutedFile = join(dir, "substituted.json"), badOut = join(dir, "bad.json");
+  await writeFile(substitutedFile, JSON.stringify(substituted));
+  await assert.rejects(main(["evaluate", "--input", drafts, ...judgeArgs, "--recipe", substitutedFile, "--out", badOut]), /RECIPE_IDENTITY_MISMATCH/);
+  await assert.rejects(readFile(badOut), /ENOENT/);
+  const out = join(dir, "evaluation.json");
+  await main(["evaluate", "--input", drafts, ...judgeArgs, "--out", out]);
+  const batch = evaluationBundleSchema.parse(JSON.parse(await readFile(out, "utf8")));
+  assert.ok(batch.evaluations.every(e => e.evaluationMode === "MOCK" && e.draft.evidenceClass === "SYNTHETIC"));
+  assert.deepEqual(batch.generation.experimentRecipe, recipe);
 });
 
 test("policy freezing requires human-reviewed development provenance and rejects recipe changes", async () => {
